@@ -31,7 +31,7 @@ POOP_GOES = 'We bag it and put it in your trash can.'
 LINKS = {
     'Booking.dc.html': '/book/',
     'Main.dc.html': '/',
-    'CityVerrado.dc.html': '/pooper-scooper/verrado-az/',
+    'CityVerrado.dc.html': '/pooper-scooper/buckeye-az/verrado/',
     'CityCitrusPark.dc.html': '/pooper-scooper/citrus-park-az/',
     'CityGoodyear.dc.html': '/pooper-scooper/goodyear-az/',
     'CityLitchfieldPark.dc.html': '/pooper-scooper/litchfield-park-az/',

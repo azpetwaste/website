@@ -115,14 +115,14 @@ with sync_playwright() as p:
     page.wait_for_timeout(300)
     assert page.locator('#yd-piles .ydp.gone').count() == 0, 'run it again did not reset the yard'
 
-    for route, name in [('/pooper-scooper/buckeye-az/', 'm_buckeye'), ('/pooper-scooper/', 'm_areas'), ('/pooper-scooper/verrado-az/', 'm_verrado'), ('/pooper-scooper/goodyear-az/', 'm_goodyear'), ('/privacy/', 'm_privacy'), ('/texts/', 'm_texts'), ('/book/', 'm_bookpage'), ('/account/', 'm_account'), ('/404.html', 'm_404')]:
+    for route, name in [('/pooper-scooper/buckeye-az/', 'm_buckeye'), ('/pooper-scooper/', 'm_areas'), ('/pooper-scooper/buckeye-az/verrado/', 'm_verrado'), ('/pooper-scooper/goodyear-az/', 'm_goodyear'), ('/privacy/', 'm_privacy'), ('/texts/', 'm_texts'), ('/book/', 'm_bookpage'), ('/account/', 'm_account'), ('/404.html', 'm_404')]:
         pg = phone.new_page()
         watch(pg, name)
         pg.route('https://fonts.googleapis.com/**', lambda r: r.abort())
         pg.goto(BASE + route, wait_until='networkidle')
         pg.wait_for_timeout(500)
         shot(pg, name)
-        if route == '/pooper-scooper/verrado-az/':
+        if route == '/pooper-scooper/buckeye-az/verrado/':
             shot(pg, 'm_verrado_full', full=True)
         if route in ('/pooper-scooper/buckeye-az/', '/pooper-scooper/'):
             shot(pg, name + '_full', full=True)
