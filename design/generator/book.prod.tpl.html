@@ -60,13 +60,19 @@
     </sc-if>
     <sc-if value="{{ zipNo }}" hint-placeholder-val="{{ false }}">
       <div aria-live="polite" style="margin-top: 12px; padding: 16px; border-radius: 16px; background: var(--bg2); border: 1px solid var(--line);">
-        <p style="margin: 0; font-size: 16px; line-height: 1.5;"><strong>We don’t come to {{ zip }} yet.</strong> Join the waitlist. We will tell you when we do.</p>
+        <p style="margin: 0; font-size: 16px; line-height: 1.5;"><strong>We don’t come to {{ zip }} yet.</strong> Join the waitlist and we will tell you when we do.</p>
+        <p style="margin: 8px 0 0; font-size: 15px; line-height: 1.5; font-weight: 700; color: var(--ok);">Join by November 30 and your first month is free when we start in your area.</p>
         <sc-if value="{{ waitOpen }}" hint-placeholder-val="{{ true }}">
-          <label for="b-wait" class="flab" style="margin-top: 12px;">Email</label>
-          <div style="display: flex; gap: 8px; margin-top: 6px;">
-            <input id="b-wait" type="email" autocomplete="email" placeholder="you@email.com" value="{{ wait }}" onChange="{{ onWait }}" style="flex: 1; min-width: 0; height: 52px; padding: 0 14px; border-radius: 14px; border: 1.6px solid var(--field); background: var(--card); color: var(--ink); font: inherit; font-size: 16px;">
-            <button type="button" class="btn btn-ink" style="min-height: 52px; padding: 0 18px; font-size: 16px;" onClick="{{ joinWait }}" disabled="{{ waitBusy }}">Join</button>
-          </div>
+          <label for="w-name" class="flab">Full name</label>
+          <input id="w-name" class="fin" type="text" autocomplete="name" value="{{ wName }}" onChange="{{ onWName }}">
+          <label for="w-phone" class="flab">Mobile phone</label>
+          <input id="w-phone" class="fin" type="tel" inputmode="tel" autocomplete="tel" value="{{ wPhone }}" onChange="{{ onWPhone }}">
+          <label for="w-addr" class="flab">Street address</label>
+          <input id="w-addr" class="fin" type="text" autocomplete="address-line1" value="{{ wAddr }}" onChange="{{ onWAddr }}">
+          <label for="b-wait" class="flab">Email <span style="font-weight: 500; color: var(--mute);">(if you want)</span></label>
+          <input id="b-wait" class="fin" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" value="{{ wait }}" onChange="{{ onWait }}">
+          <label class="cbx" for="w-tx"><input id="w-tx" type="checkbox" checked="{{ wTexts }}" onChange="{{ onWTexts }}"><span><b>Text me when you start in my area.</b><small>One text when we start. Message and data rates may apply. Reply STOP to stop.</small></span></label>
+          <button type="button" class="btn btn-ink" style="width: 100%; margin-top: 14px;" onClick="{{ joinWait }}" disabled="{{ waitBusy }}">{{ waitLabel }}</button>
           <sc-if value="{{ waitErr }}" hint-placeholder-val="{{ false }}"><p class="ferr" role="alert">{{ waitErr }}</p></sc-if>
         </sc-if>
         <sc-if value="{{ waitDone }}" hint-placeholder-val="{{ false }}">
@@ -146,8 +152,8 @@
     <div style="margin-top: 18px; border-radius: 20px; border: 1px solid var(--line); background: var(--card); overflow: hidden;">
       <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">Plan</span><span style="font-size: 15px; font-weight: 700; text-align: right;">{{ planName }} · {{ dogsLabel }}</span></div>
       <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">First visit</span><span style="font-size: 15px; font-weight: 700; text-align: right;">We reach out to set it</span></div>
-      <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">First month</span><span style="font-size: 15px; font-weight: 700; color: var(--ok);">Free</span></div>
-      <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">After that</span><span style="font-size: 15px; font-weight: 700;">{{ priceLabel }} a month</span></div>
+      <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">First month</span><span style="font-size: 15px; font-weight: 700; color: var(--ok);">Free until {{ freeShort }}</span></div>
+      <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">After that</span><span style="font-size: 15px; font-weight: 700;">{{ priceLabel }} a month, on the 1st</span></div>
       <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 16px; background: var(--bg2);"><span style="font-size: 17px; font-weight: 800;">Due today</span><span style="font-size: 30px; font-weight: 800; letter-spacing: -.04em;">$0.00</span></div>
     </div>
     <p style="margin: 10px 0 0; font-size: 14px; line-height: 1.5; color: var(--mute);">{{ billLine }}</p>
@@ -183,16 +189,19 @@
   <sc-if value="{{ s5 }}" hint-placeholder-val="{{ false }}">
     <div style="display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: 12px;">
       <span style="width: 88px; height: 88px; border-radius: 50%; background: var(--ok); color: #FFFFFF; display: grid; place-items: center;">@@ICON_CHECK44@@</span>
-      <h1 class="bh1" tabindex="-1" style="margin-top: 22px; font-size: 38px;">You are booked!</h1>
-      <p class="lead" style="font-size: 17px;">Next, we reach out to let you know your day and time.</p>
+      <h1 class="bh1" tabindex="-1" style="margin-top: 22px; font-size: 38px;">{{ doneTitle }}</h1>
+      <p class="lead" style="font-size: 17px;">{{ doneLead }}</p>
       <sc-if value="{{ isDemo }}" hint-placeholder-val="{{ false }}"><p class="demo">Demo mode: nothing was booked</p></sc-if>
     </div>
+    <sc-if value="{{ showYard }}" hint-placeholder-val="{{ true }}">
     <div style="margin-top: 22px; padding: 6px 16px; border-radius: 20px; background: var(--bg2);">
       <div style="display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--line);"><span class="mono" style="width: 28px; height: 28px; flex: 0 0 28px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 14px; font-weight: 600;">1</span><p style="margin: 0; font-size: 16px; line-height: 1.45;"><strong>Set up your yard.</strong> Add your dogs’ names, your gate code and any problem spots. It takes 2 minutes.</p></div>
       <div style="display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--line);"><span class="mono" style="width: 28px; height: 28px; flex: 0 0 28px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 14px; font-weight: 600;">2</span><p style="margin: 0; font-size: 16px; line-height: 1.45;"><strong>Look for our message</strong> with your day and time.</p></div>
       <div style="display: flex; gap: 14px; align-items: flex-start; padding: 12px 0;"><span class="mono" style="width: 28px; height: 28px; flex: 0 0 28px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 14px; font-weight: 600;">3</span><p style="margin: 0; font-size: 16px; line-height: 1.45;"><strong>Get your photo</strong> of the shut gate after each visit.</p></div>
     </div>
     <a href="/account/" class="btn btn-dot" style="margin-top: 18px;">Set up my yard</a>
+    </sc-if>
+    <sc-if value="{{ req }}" hint-placeholder-val="{{ false }}"><a href="tel:+16233096104" class="btn btn-dot" style="margin-top: 22px;">Call 623.309.6104</a></sc-if>
     <a href="/" onClick="{{ close }}" style="display: flex; align-items: center; justify-content: center; min-height: 48px; margin-top: 6px; font-size: 16px; font-weight: 700; color: var(--accent-text); text-decoration: none;">Back to home</a>
   </sc-if>
 
@@ -221,7 +230,7 @@ class Component extends DCLogic {
       name: '', phone: '', email: '', addr: '', txtVisit: false, txtDeals: false, tried: false,
       wait: '', waitDone: false, waitBusy: false, waitErr: '',
       code: '', codeErr: '', resent: false, busy: false, err: '',
-      payState: 'idle', payErr: ''
+      payState: 'idle', payErr: '', wName: '', wPhone: '', wAddr: '', wTexts: false, req: false
     }, this._initial());
   }
   componentDidMount() { this._themeInit(); }
@@ -272,10 +281,11 @@ class Component extends DCLogic {
     const h = this.__root.querySelector('.bh1');
     if (h && h.focus) { try { h.focus({ preventScroll: true }); } catch (e) { h.focus(); } }
   }
-  // First charge: one month and one week after the soonest start day. In that first week we reach out and set the first visit.
-  // The worker uses the same rule, so this date matches what Stripe charges.
-  _chargeDate() {
-    const cfg = this._cfg();
+  // Everyone pays on the 1st. The free month runs one month and one week from the soonest start day (that week is our
+  // window to set the first visit). The first charge is on the 1st of the month the free month ends in and only covers the
+  // days after it. The worker uses the same rule, so these numbers match what Stripe charges.
+  _bill(price) {
+    const cfg = this._cfg ? this._cfg() : {};
     const d = new Date();
     d.setHours(12, 0, 0, 0);
     d.setDate(d.getDate() + 1);
@@ -286,7 +296,18 @@ class Component extends DCLogic {
     d.setMonth(d.getMonth() + 1);
     d.setDate(Math.min(dd, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
     d.setDate(d.getDate() + (typeof cfg.scheduleDays === 'number' ? cfg.scheduleDays : 7));
-    return d;
+    const first = new Date(d.getFullYear(), d.getMonth(), 1, 12);
+    const next = new Date(d.getFullYear(), d.getMonth() + 1, 1, 12);
+    const monthDays = Math.round((next - first) / 864e5);
+    const paidDays = Math.round((next - d) / 864e5);
+    const cents = Math.round(price * 100 * paidDays / monthDays);
+    const day = (x) => x.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    const b = { freeEnd: day(d), first: day(first), next: day(next), full: paidDays === monthDays,
+      amount: '$' + (cents / 100).toFixed(cents % 100 ? 2 : 0), freeShort: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) };
+    b.line = (b.full ? 'Your free month runs until ' + b.freeEnd + '. Then we charge $' + price + ' on the 1st of each month, starting ' + b.first + '.'
+      : 'Your free month runs until ' + b.freeEnd + '. On ' + b.first + ', we charge ' + b.amount + ' for ' + b.freeEnd + ' to ' + b.next + '. Then $' + price + ' on the 1st of each month.')
+      + ' Cancel before ' + b.first + ' and you pay $0.';
+    return b;
   }
   _digits(v, n) { return String(v || '').replace(/\D/g, '').slice(0, n); }
   _phone10() { let p = String(this.state.phone || '').replace(/\D/g, ''); if (p.length === 11 && p[0] === '1') p = p.slice(1); return p; }
@@ -308,7 +329,7 @@ class Component extends DCLogic {
     if (s.step === 2) {
       const e = this._errs();
       if (e.name || e.phone || e.email || e.addr) { this.setState({ tried: true }); return; }
-      if (this._closed()) { this.setState({ err: 'Online sign up opens soon. Call or text 623.309.6104 and we will book you today.' }); return; }
+      if (this._closed()) return this._request();
       return this._signIn();
     }
     if (s.step === 3) return this._verify();
@@ -349,12 +370,33 @@ class Component extends DCLogic {
   }
   async _joinWait() {
     const s = this.state;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s.wait.trim())) { this.setState({ waitErr: 'Type your email, like you@email.com.' }); return; }
-    if (this._closed()) { this.setState({ waitErr: 'Text 623.309.6104 with your ZIP and we will add you to the list.' }); return; }
-    if (this._demo()) { this.setState({ waitDone: true, waitErr: '' }); return; }
+    const ph = String(s.wPhone || '').replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '');
+    const em = s.wait.trim();
+    if (s.wName.trim().length < 2) { this.setState({ waitErr: 'Type your full name.' }); return; }
+    if (ph.length !== 10) { this.setState({ waitErr: 'Type your 10 digit mobile number.' }); return; }
+    if (s.wAddr.trim().length < 5) { this.setState({ waitErr: 'Type your street address.' }); return; }
+    if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) { this.setState({ waitErr: 'Type your email, like you@email.com.' }); return; }
+    if (this._demo() && !this._closed()) { this.setState({ waitDone: true, waitErr: '' }); return; }
     this.setState({ waitBusy: true, waitErr: '' });
-    try { await this._apw().post('/api/waitlist', { email: s.wait.trim(), zip: s.zip, website: '' }); this.setState({ waitBusy: false, waitDone: true }); }
-    catch (e) { this.setState({ waitBusy: false, waitErr: this._apw().msg(e) }); }
+    try {
+      await this._apw().post('/api/waitlist', { name: s.wName.trim(), phone: ph, address: s.wAddr.trim(), email: em, zip: s.zip, texts: !!s.wTexts, website: '' });
+      this.setState({ waitBusy: false, waitDone: true });
+    } catch (e) { this.setState({ waitBusy: false, waitErr: this._apw().msg(e) }); }
+  }
+  // Online checkout is not on yet: send the sign up to us by email and we call to finish.
+  async _request() {
+    const s = this.state;
+    this.setState({ busy: true, err: '' });
+    try {
+      await this._apw().post('/api/request', {
+        zip: s.zip, plan: s.plan, dogs: s.dogs, name: s.name.trim(), phone: this._phone10(), email: s.email.trim(), address: s.addr.trim(),
+        textsVisit: !!s.txtVisit, textsDeals: !!s.txtDeals, page: location.pathname, website: ''
+      });
+      this._clearDraft();
+      const a = this._apw();
+      if (a && a.track) a.track('request');
+      this.setState({ busy: false, req: true, step: 5 });
+    } catch (e) { this.setState({ busy: false, err: this._apw().msg(e) }); }
   }
   async _startPay() {
     if (this._demo()) return;
@@ -402,7 +444,7 @@ class Component extends DCLogic {
       if (o.dogs) next.dogs = o.dogs;
       if (o.zip && this._zips()[o.zip]) next.zip = o.zip;
       const zip = next.zip || s.zip;
-      if (s.step === 5) next.step = 0;
+      if (s.step === 5) { next.step = 0; next.req = false; }
       if ((s.step === 0 || s.step === 5) && this._zips()[zip]) next.step = 1;
     }
     this.setState(next);
@@ -415,7 +457,7 @@ class Component extends DCLogic {
     const zipOk = !!zips[s.zip];
     const price = this._price(s.plan, s.dogs);
     const dogsLabel = s.dogs === 1 ? '1 dog' : s.dogs + ' dogs';
-    const chargeDay = this._chargeDate().toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    const bill = this._bill(price);
     const inFlow = s.step > 0 && s.step < 5;
     const demo = this._demo();
     const errs = s.tried ? this._errs() : { name: '', phone: '', email: '', addr: '' };
@@ -454,6 +496,12 @@ class Component extends DCLogic {
       waitBusy: s.waitBusy,
       waitErr: s.waitErr,
       joinWait: () => this._joinWait(),
+      waitLabel: s.waitBusy ? 'One moment…' : 'Join the waitlist',
+      wName: s.wName, onWName: field('wName'), wPhone: s.wPhone, onWPhone: field('wPhone'), wAddr: s.wAddr, onWAddr: field('wAddr'),
+      wTexts: !!s.wTexts, onWTexts: (e) => this.setState({ wTexts: !!e.target.checked }),
+      doneTitle: s.req ? 'We got it!' : 'You are booked!',
+      doneLead: s.req ? 'We will call you soon to finish your sign up and set your day and time. Your first month is free.' : 'Next, we reach out to let you know your day and time.',
+      showYard: !s.req, req: !!s.req,
       dogOpts: [1, 2, 3, 4, 5, 6].map((n) => Object.assign({
         label: String(n),
         aria: n === 1 ? '1 dog' : n + ' dogs',
@@ -479,7 +527,8 @@ class Component extends DCLogic {
       planName: names[s.plan],
       dogsLabel: dogsLabel,
       priceLabel: '$' + price,
-      billLine: 'Your first month is free. Your card is charged $' + price + ' on ' + chargeDay + ', then once a month. Cancel before then and you pay $0.',
+      billLine: bill.line,
+      freeShort: bill.freeShort,
       payDemo: demo,
       payLive: !demo && s.payState !== 'already',
       payLoading: !demo && s.payState === 'loading',

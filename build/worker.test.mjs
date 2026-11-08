@@ -12,6 +12,7 @@ const ctx = { waitUntil: (p) => p };
 const calls = [];
 let stored = null, session = null;
 const mails = [];
+const credits = [];
 const reply = (data, status = 200) => new Response(data === '' ? '' : JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
 globalThis.fetch = async (url, init = {}) => {
   const m = init.method || 'GET';
@@ -28,7 +29,8 @@ globalThis.fetch = async (url, init = {}) => {
   if (url === 'https://api.stripe.com/v1/prices') return reply({ id: 'price_' + new URLSearchParams(init.body).get('lookup_key') });
   if (url === 'https://api.stripe.com/v1/checkout/sessions') { session = new URLSearchParams(init.body); return reply({ client_secret: 'cs_test_secret' }); }
   if (url === 'https://api.resend.com/emails') { mails.push(JSON.parse(init.body)); return reply({ id: 'm1' }); }
-  if (url.startsWith('https://api.stripe.com/v1/subscriptions/')) return reply({ status: 'trialing', trial_end: Math.floor(Date.UTC(2026, 11, 27, 19) / 1000) });
+  if (url === 'https://api.stripe.com/v1/invoiceitems') { credits.push({ body: new URLSearchParams(init.body), idem: init.headers['idempotency-key'] }); return reply({ id: 'ii_1' }); }
+  if (url.startsWith('https://api.stripe.com/v1/subscriptions/')) return reply({ status: 'trialing', trial_end: Number(session.get('subscription_data[trial_end]')), metadata: Object.fromEntries([...session.entries()].filter(([k]) => k.startsWith('subscription_data[metadata]')).map(([k, v]) => [k.slice(28, -1), v])) });
   return reply({ error: 'unmocked ' + url }, 500);
 };
 const call = (path, method = 'GET', body, auth) => worker.fetch(new Request('https://arizonapetwaste.com' + path, {
@@ -43,6 +45,7 @@ await show('checkout bad zip', await call('/api/checkout', 'POST', Object.assign
 await show('checkout ok', await call('/api/checkout', 'POST', good, 'good'));
 console.log('first charge:', new Date(Number(session.get('subscription_data[trial_end]')) * 1000).toISOString());
 console.log('stripe note:', session.get('subscription_data[description]'));
+console.log('credit meta:', session.get('subscription_data[metadata][credit]'), 'first charge cents:', session.get('subscription_data[metadata][first_charge]'));
 console.log('pay button note:', session.get('custom_text[submit][message]'));
 console.log('\nrequests made:\n  ' + calls.join('\n  '));
 
@@ -53,6 +56,15 @@ const hook = (s) => worker.fetch(new Request('https://arizonapetwaste.com/api/st
 await show('\nwebhook bad signature', await hook('t=' + t + ',v1=deadbeef'));
 await show('webhook good signature', await hook('t=' + t + ',v1=' + sig));
 console.log('stored row status after webhook:', stored.status, stored.stripe_subscription_id);
-await show('waitlist bad email', await call('/api/waitlist', 'POST', { email: 'nope', zip: '85001' }));
+await show('waitlist old form (no name)', await call('/api/waitlist', 'POST', { email: 'nope', zip: '85001' }));
 await show('static page passes through', { status: (await call('/')).status, json: async () => 'served by ASSETS' });
 for (const m of mails) console.log('\nEMAIL to ' + m.to + ': ' + m.subject + '\n' + m.text);
+for (const c of credits) console.log('\nCREDIT', c.body.get('amount'), c.body.get('description'), 'idem:', c.idem);
+mails.length = 0;
+await show('\nwaitlist missing phone', await call('/api/waitlist', 'POST', { name: 'Wendy Wait', phone: '623', address: '1 W Main St', zip: '85301' }));
+await show('waitlist ok', await call('/api/waitlist', 'POST', { name: 'Wendy Wait', phone: '(623) 555-0111', address: '1 W Main St', zip: '85301', texts: true }));
+await show('sign up request ok', await call('/api/request', 'POST', Object.assign({}, good, { email: 'req@example.com', textsDeals: true })));
+for (const m of mails) console.log('\nEMAIL to ' + m.to + ': ' + m.subject + '\n' + m.text);
+const noMail = Object.assign({}, env); delete noMail.RESEND_API_KEY; delete noMail.SUPABASE_URL;
+const r = await worker.fetch(new Request('https://arizonapetwaste.com/api/waitlist', { method: 'POST', body: JSON.stringify({ name: 'No Mail', phone: '6235550199', address: '2 W Main St', zip: '85301' }), headers: { 'content-type': 'application/json' } }), noMail, ctx);
+console.log('\nwaitlist with no email set up', r.status, JSON.stringify(await r.json()));

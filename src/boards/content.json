@@ -34,8 +34,16 @@
     "a": "Yes. We clean our boots and tools before every yard. That keeps germs from going from yard to yard."
    },
    {
-    "q": "How do I get my day and time?",
-    "a": "After you sign up, we reach out to let you know your day and time. We set your day by route. Then you get a text the night before each visit with a 30 minute window."
+    "q": "Can I pick my day?",
+    "a": "No. We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window."
+   },
+   {
+    "q": "Can you come today? We have a party.",
+    "a": "Yes. Text us and we can come the same day for $49. It goes on your next bill on the 1st."
+   },
+   {
+    "q": "When do you charge my card?",
+    "a": "On the 1st of each month. Your first month is free. Your first charge only covers the days after your free month, so it is smaller. Then you pay the full price on the 1st of each month."
    },
    {
     "q": "Who sees my gate code?",
@@ -107,6 +115,10 @@
      "a": "Yes. A one time cleanup is $95. It is a good pick before a party, after a move, or when the yard got away from you."
     },
     {
+     "q": "Can you come the same day?",
+     "a": "Yes. If you have a party or guests coming, text us and we can come the same day for $49. It goes on your next bill on the 1st."
+    },
+    {
      "q": "Do I need to be home?",
      "a": "No. Most of our customers are at work. Add your gate code in My Yard, and we send a photo of your latched gate when we leave."
     },
@@ -124,7 +136,7 @@
     },
     {
      "q": "What day do you come to Buckeye?",
-     "a": "We set your day by route. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window."
+     "a": "We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window."
     }
    ],
    "zips": [
@@ -212,6 +224,10 @@
      "a": "Yes. A one time cleanup is $95. It is a good pick before a party, after a move, or when the yard got away from you."
     },
     {
+     "q": "Can you come the same day?",
+     "a": "Yes. If you have a party or guests coming, text us and we can come the same day for $49. It goes on your next bill on the 1st."
+    },
+    {
      "q": "Do I need to be home?",
      "a": "No. Most of our customers are at work. Add your gate code in My Yard, and we send a photo of your latched gate when we leave."
     },
@@ -229,7 +245,7 @@
     },
     {
      "q": "What day do you come to Goodyear?",
-     "a": "We set your day by route. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window."
+     "a": "We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window."
     }
    ],
    "zips": [
@@ -317,6 +333,10 @@
      "a": "Yes. A one time cleanup is $95. It is a good pick before a party, after a move, or when the yard got away from you."
     },
     {
+     "q": "Can you come the same day?",
+     "a": "Yes. If you have a party or guests coming, text us and we can come the same day for $49. It goes on your next bill on the 1st."
+    },
+    {
      "q": "Do I need to be home?",
      "a": "No. Most of our customers are at work. Add your gate code in My Yard, and we send a photo of your latched gate when we leave."
     },
@@ -334,7 +354,7 @@
     },
     {
      "q": "What day do you come to Litchfield Park?",
-     "a": "We set your day by route. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window."
+     "a": "We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window."
     }
    ],
    "zips": [
@@ -407,6 +427,10 @@
      "a": "Yes. A one time cleanup is $95. It is a good pick before a party, after a move, or when the yard got away from you."
     },
     {
+     "q": "Can you come the same day?",
+     "a": "Yes. If you have a party or guests coming, text us and we can come the same day for $49. It goes on your next bill on the 1st."
+    },
+    {
      "q": "Do I need to be home?",
      "a": "No. Most of our customers are at work. Add your gate code in My Yard, and we send a photo of your latched gate when we leave."
     },
@@ -424,7 +448,7 @@
     },
     {
      "q": "What day do you come to Citrus Park?",
-     "a": "We set your day by route. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window."
+     "a": "We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window."
     }
    ],
    "zips": [
@@ -496,6 +520,10 @@
      "a": "Yes. A one time cleanup is $95. It is a good pick before a party, after a move, or when the yard got away from you."
     },
     {
+     "q": "Can you come the same day?",
+     "a": "Yes. If you have a party or guests coming, text us and we can come the same day for $49. It goes on your next bill on the 1st."
+    },
+    {
      "q": "Do I need to be home?",
      "a": "No. Most of our customers are at work. Add your gate code in My Yard, and we send a photo of your latched gate when we leave."
     },
@@ -513,7 +541,7 @@
     },
     {
      "q": "What day do you come to Verrado?",
-     "a": "We set your day by route. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window."
+     "a": "We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window."
     }
    ],
    "zips": [

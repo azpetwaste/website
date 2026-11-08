@@ -49,12 +49,18 @@
     <sc-if value="{{ zipNo }}" hint-placeholder-val="{{ false }}">
       <div aria-live="polite" style="margin-top: 12px; padding: 16px; border-radius: 16px; background: var(--bg2); border: 1px solid var(--line);">
         <p style="margin: 0; font-size: 16px; line-height: 1.5;"><strong>We don’t come to {{ zip }} yet.</strong> Join the waitlist. We will tell you when we do.</p>
+        <p style="margin: 8px 0 0; font-size: 15px; line-height: 1.5; font-weight: 700; color: var(--ok);">Join by November 30 and your first month is free when we start in your area.</p>
         <sc-if value="{{ waitOpen }}" hint-placeholder-val="{{ true }}">
-          <label for="b-wait" class="flab" style="margin-top: 12px;">Email</label>
-          <div style="display: flex; gap: 8px; margin-top: 6px;">
-            <input id="b-wait" type="email" autocomplete="email" placeholder="you@email.com" value="{{ wait }}" onChange="{{ onWait }}" style="flex: 1; min-width: 0; height: 52px; padding: 0 14px; border-radius: 14px; border: 1.6px solid var(--field); background: var(--card); color: var(--ink); font: inherit; font-size: 16px;">
-            <button type="button" class="btn btn-ink" style="min-height: 52px; padding: 0 18px; font-size: 16px;" onClick="{{ joinWait }}">Join</button>
-          </div>
+          <label for="w-name" class="flab">Full name</label>
+          <input id="w-name" class="fin" type="text" autocomplete="name" value="{{ wName }}" onChange="{{ onWName }}">
+          <label for="w-phone" class="flab">Mobile phone</label>
+          <input id="w-phone" class="fin" type="tel" inputmode="tel" autocomplete="tel" value="{{ wPhone }}" onChange="{{ onWPhone }}">
+          <label for="w-addr" class="flab">Street address</label>
+          <input id="w-addr" class="fin" type="text" autocomplete="address-line1" value="{{ wAddr }}" onChange="{{ onWAddr }}">
+          <label for="b-wait" class="flab">Email <span style="font-weight: 500; color: var(--mute);">(if you want)</span></label>
+          <input id="b-wait" class="fin" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" value="{{ wait }}" onChange="{{ onWait }}">
+          <label class="cbx" for="w-tx"><input id="w-tx" type="checkbox" checked="{{ wTexts }}" onChange="{{ onWTexts }}"><span><b>Text me when you start in my area.</b><small>One text when we start. Message and data rates may apply. Reply STOP to stop.</small></span></label>
+          <button type="button" class="btn btn-ink" style="width: 100%; margin-top: 14px;" onClick="{{ joinWait }}" disabled="{{ waitBusy }}">{{ waitLabel }}</button>
         </sc-if>
         <sc-if value="{{ waitDone }}" hint-placeholder-val="{{ false }}">
           <p style="margin: 12px 0 0; display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 700; color: var(--ok);"><span style="width: 24px; height: 24px; flex: 0 0 24px; border-radius: 50%; background: var(--ok); color: #FFFFFF; display: grid; place-items: center;">@@ICON_CHECK@@</span>You are on the list!</p>
@@ -111,8 +117,8 @@
     <div style="margin-top: 18px; border-radius: 20px; border: 1px solid var(--line); background: var(--card); overflow: hidden;">
       <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">Plan</span><span style="font-size: 15px; font-weight: 700; text-align: right;">{{ planName }} · {{ dogsLabel }}</span></div>
       <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">First visit</span><span style="font-size: 15px; font-weight: 700; text-align: right;">We reach out to set it</span></div>
-      <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">First month</span><span style="font-size: 15px; font-weight: 700; color: var(--ok);">Free</span></div>
-      <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">After that</span><span style="font-size: 15px; font-weight: 700;">{{ priceLabel }} a month</span></div>
+      <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">First month</span><span style="font-size: 15px; font-weight: 700; color: var(--ok);">Free until {{ freeShort }}</span></div>
+      <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">After that</span><span style="font-size: 15px; font-weight: 700;">{{ priceLabel }} a month, on the 1st</span></div>
       <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 16px; background: var(--bg2);"><span style="font-size: 17px; font-weight: 800;">Due today</span><span style="font-size: 30px; font-weight: 800; letter-spacing: -.04em;">$0.00</span></div>
     </div>
     <p style="margin: 10px 0 0; font-size: 14px; line-height: 1.5; color: var(--mute);">{{ billLine }}</p>
@@ -164,24 +170,39 @@
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.state = { dark: this._themeFromProps(), step: 0, zip: '', dogs: 2, plan: 'week', name: '', phone: '', email: '', addr: '', wait: '', waitDone: false };
+    this.state = { dark: this._themeFromProps(), step: 0, zip: '', dogs: 2, plan: 'week', name: '', phone: '', email: '', addr: '', wait: '', waitDone: false, wName: '', wPhone: '', wAddr: '', wTexts: false };
   }
   componentDidMount() { this._themeInit(); }
   componentWillUnmount() { this._themeStop(); }
 @@THEME_METHODS@@
 @@PRICE_METHODS@@
-  _chargeDate() {
+  // Everyone pays on the 1st. The free month runs one month and one week from the soonest start day (that week is our
+  // window to set the first visit). The first charge is on the 1st of the month the free month ends in and only covers the
+  // days after it. The worker uses the same rule, so these numbers match what Stripe charges.
+  _bill(price) {
+    const cfg = this._cfg ? this._cfg() : {};
     const d = new Date();
     d.setHours(12, 0, 0, 0);
     d.setDate(d.getDate() + 1);
-    const f = new Date('2026-11-20T12:00:00');
+    const f = new Date((cfg.firstVisitFrom || '2026-11-20') + 'T12:00:00');
     if (f > d) d.setTime(f.getTime());
     const dd = d.getDate();
     d.setDate(1);
     d.setMonth(d.getMonth() + 1);
     d.setDate(Math.min(dd, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
-    d.setDate(d.getDate() + 7);
-    return d;
+    d.setDate(d.getDate() + (typeof cfg.scheduleDays === 'number' ? cfg.scheduleDays : 7));
+    const first = new Date(d.getFullYear(), d.getMonth(), 1, 12);
+    const next = new Date(d.getFullYear(), d.getMonth() + 1, 1, 12);
+    const monthDays = Math.round((next - first) / 864e5);
+    const paidDays = Math.round((next - d) / 864e5);
+    const cents = Math.round(price * 100 * paidDays / monthDays);
+    const day = (x) => x.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    const b = { freeEnd: day(d), first: day(first), next: day(next), full: paidDays === monthDays,
+      amount: '$' + (cents / 100).toFixed(cents % 100 ? 2 : 0), freeShort: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) };
+    b.line = (b.full ? 'Your free month runs until ' + b.freeEnd + '. Then we charge $' + price + ' on the 1st of each month, starting ' + b.first + '.'
+      : 'Your free month runs until ' + b.freeEnd + '. On ' + b.first + ', we charge ' + b.amount + ' for ' + b.freeEnd + ' to ' + b.next + '. Then $' + price + ' on the 1st of each month.')
+      + ' Cancel before ' + b.first + ' and you pay $0.';
+    return b;
   }
   renderVals() {
     const s = this.state;
@@ -191,7 +212,7 @@ class Component extends DCLogic {
     const zipOk = !!zips[s.zip];
     const price = this._price(s.plan, s.dogs);
     const dogsLabel = s.dogs === 1 ? '1 dog' : s.dogs + ' dogs';
-    const chargeDay = this._chargeDate().toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    const bill = this._bill(price);
     const inFlow = s.step > 0 && s.step < 4;
     const tone = (on) => ({ border: on ? 'var(--ink)' : 'var(--field)', bg: on ? 'var(--ink)' : 'var(--card)', fg: on ? 'var(--bg)' : 'var(--ink)' });
     const field = (k) => (e) => { const o = {}; o[k] = e.target.value; this.setState(o); };
@@ -221,13 +242,17 @@ class Component extends DCLogic {
       waitOpen: !s.waitDone,
       waitDone: s.waitDone,
       joinWait: () => this.setState({ waitDone: true }),
+      waitLabel: 'Join the waitlist', waitBusy: false,
+      wName: s.wName, onWName: field('wName'), wPhone: s.wPhone, onWPhone: field('wPhone'), wAddr: s.wAddr, onWAddr: field('wAddr'),
+      wTexts: !!s.wTexts, onWTexts: (e) => this.setState({ wTexts: !!e.target.checked }),
       dogOpts: [1, 2, 3, 4, 5, 6].map((n) => Object.assign({
         label: String(n),
         aria: n === 1 ? '1 dog' : n + ' dogs',
         on: s.dogs === n,
         pick: () => this.setState({ dogs: n })
       }, tone(s.dogs === n))),
-      billLine: 'Your first month is free. Your card is charged $' + price + ' on ' + chargeDay + ', then once a month. Cancel before then and you pay $0.',
+      billLine: bill.line,
+      freeShort: bill.freeShort,
       plans: this._plans(false),
       name: s.name, onName: field('name'),
       phone: s.phone, onPhone: field('phone'),

@@ -132,7 +132,7 @@ GATE_PHOTO = ('<svg viewBox="0 0 120 90" aria-hidden="true" style="display: bloc
 SECTION = '''<section id="yard" class="sec" style="background: var(--bg);">
   <div class="in yd">
   <div class="yd-h">
-    <p class="eb">Try it</p>
+    <p class="eb nx">Try it</p>
     <h2 class="h2" style="color: var(--ink);">Watch us scoop your yard<span style="color: var(--accent);">.</span></h2>
     <p class="lead">Pick your dogs and how long it has been. Then tap Scoop it.</p>
   </div>

@@ -40,14 +40,20 @@
     <span class="sticker" style="right: -2px; top: -18px;">First<br>month<br>free</span>
   </div>
   <p class="mono hsm">Free sanitizer spray · No contract</p>
+  <dl class="hspec">
+    <div><dt>30<small>MIN</small></dt><dd>Time window, texted the night before</dd></div>
+    <div><dt>1<small>PHOTO</small></dt><dd>Of your latched gate, every visit</dd></div>
+    <div><dt>$0<small>TODAY</small></dt><dd>Your first month is free</dd></div>
+  </dl>
   <p class="hp">We pick up dog poop in your yard every week. On your day, you can watch us on a map. When we leave, we send you a photo of your shut gate.</p>
   </div>
 </section>
+@@TICKER@@
 
 <section id="prices" class="sec" style="background: var(--band); color: #FFFFFF;">
   <div class="in">
   <div class="shd">
-    <p class="eb" style="color: #FF8A66;">Prices</p>
+    <p class="eb nx" style="color: #FF8A66;">Prices</p>
     <h2 class="h2" style="color: #FFFFFF;">Your price in two taps<span style="color: #FF4A1C;">.</span></h2>
     <p class="subn">Add your dogs. Then pick how often we come.</p>
   </div>
@@ -97,7 +103,8 @@
 <section id="how" class="sec" style="background: var(--bg2);">
   <div class="in g2 hw">
   <div class="stk">
-    <h2 class="h2" style="margin-top: 0; color: var(--ink);">One visit, minute by minute<span style="color: var(--accent);">.</span></h2>
+    <p class="eb nx">How it works</p>
+    <h2 class="h2" style="color: var(--ink);">One visit, minute by minute<span style="color: var(--accent);">.</span></h2>
     <p class="lead">This is what happens every time we come.</p>
   </div>
   <div class="routew">
@@ -167,10 +174,12 @@
   </div>
 </section>
 
+@@SPECS@@
+
 <section id="proof" class="sec" style="background: var(--bg);">
   <div class="in pf">
   <div class="pf-h">
-    <p class="eb">Proof of Scoop</p>
+    <p class="eb nx">Proof of Scoop</p>
     <h2 class="h2" style="color: var(--ink);">You get a photo every time<span style="color: var(--accent);">.</span></h2>
     <p class="lead">When we leave, we send a report like this. It shows the piles, the time, and your shut gate.</p>
   </div>
@@ -217,18 +226,18 @@
 </section>
 
 <section id="where" class="sec" style="background: var(--bg3); color: var(--ink);">
-  <div class="in wh">
+  <div class="in wh whv">
   <div class="wh-h">
-    <p class="eb">Areas we serve</p>
+    <p class="eb nx">Areas we serve</p>
     <h2 class="h2" style="color: var(--ink);">Do we come to you<span style="color: var(--accent);">?</span></h2>
     <p class="lead">Tap a town to see it on the map. Or type your ZIP code.</p>
   </div>
-  <div class="map">
-@@MAP@@
+  <div class="vmap">
+@@VALLEY_MAP@@
   </div>
   <div class="wh-c">
 @@MAP_CHIPS@@
-  @@MAP_KEY@@
+  @@VALLEY_KEY@@
   <label for="apw-zip" style="display: block; margin-top: 20px; font-size: 17px; font-weight: 700;">Or type your ZIP code</label>
   <div style="display: flex; gap: 10px; margin-top: 8px;">
     <input id="apw-zip" class="mono" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="5" placeholder="Your ZIP" value="{{ zip }}" onChange="{{ onZip }}" onKeyDown="{{ zipKey }}" style="flex: 1; min-width: 0; height: 56px; padding: 0 16px; border-radius: 14px; border: 1.6px solid var(--field); background: var(--card); color: var(--ink); font-size: 20px; letter-spacing: .08em;">
@@ -246,7 +255,7 @@
   </sc-if>
   <sc-if value="{{ zipNo }}" hint-placeholder-val="{{ false }}">
     <div aria-live="polite" style="margin-top: 12px; padding: 16px; border-radius: 18px; background: var(--card); border: 1.6px solid var(--line);">
-      <p style="margin: 0; font-size: 16px; line-height: 1.5;"><strong>Not in {{ zip }} yet.</strong> Tap Book now and add your ZIP. We will put you on the waitlist and text you when we come to your area.</p>
+      <p style="margin: 0; font-size: 16px; line-height: 1.5;"><strong>Not in {{ zip }} yet.</strong> Join the waitlist: tap Book now and type your ZIP. Join by November 30 and your first month is free when we start in your area.</p>
     </div>
   </sc-if>
   <sc-if value="{{ zipShort }}" hint-placeholder-val="{{ false }}">
@@ -260,7 +269,7 @@
 <section id="questions" class="sec" style="background: var(--bg2); color: var(--ink);">
   <div class="in qs">
   <div class="qs-h">
-    <p class="eb">Questions</p>
+    <p class="eb nx">Questions</p>
     <h2 class="h2" style="color: var(--ink);">Ask us anything<span style="color: var(--accent);">.</span></h2>
     <p class="lead">These are the questions neighbors text us most. Tap one to see our answer.</p>
   </div>
@@ -291,7 +300,7 @@
 
 <section id="reviews" class="sec" style="background: var(--band); color: #FFFFFF;">
   <div class="in">
-  <p class="eb" style="color: #FF8A66;">Reviews</p>
+  <p class="eb nx" style="color: #FF8A66;">Reviews</p>
   <h2 class="h2" style="color: #FFFFFF;">What neighbors say<span style="color: #FF4A1C;">.</span></h2>
   <div style="display: flex; align-items: center; gap: 16px; margin-top: 22px; padding: 18px 20px; border-radius: 20px; background: var(--band2); border: 1px solid rgba(255,255,255,.10);">
     <p style="margin: 0; font-size: 54px; font-weight: 800; letter-spacing: -.05em; line-height: 1;">[5.0]</p>
@@ -316,7 +325,8 @@
 
 <section id="promise" class="sec" style="background: var(--band); color: #FFFFFF;">
   <div class="in pr">
-  <h2 class="h2" style="margin-top: 0; color: #FFFFFF;">Our promise to you<span style="color: #FF4A1C;">.</span></h2>
+  <p class="eb nx" style="color: #FF8A66;">Our promise</p>
+  <h2 class="h2" style="color: #FFFFFF;">Our promise to you<span style="color: #FF4A1C;">.</span></h2>
   <div class="rcpt">
     <p class="mono" style="margin: 0; text-align: center; font-size: 13px; font-weight: 600; letter-spacing: .12em;">ARIZONA PET WASTE</p>
     <p class="mono" style="margin: 4px 0 12px; text-align: center; font-size: 13px; color: #4A5272;">West Valley, AZ</p>

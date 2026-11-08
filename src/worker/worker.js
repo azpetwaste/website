@@ -4,7 +4,9 @@
 // Settings (Cloudflare Pages > Settings > Variables and Secrets):
 //   SUPABASE_URL, SUPABASE_ANON_KEY (or the new publishable key), SUPABASE_SERVICE_ROLE_KEY (or the new secret key)
 //   STRIPE_PUBLISHABLE_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET
-//   Optional: RESEND_API_KEY, NOTIFY_EMAIL (default info@arizonapetwaste.com), MAIL_FROM, SITE_URL, FIRST_VISIT_FROM (default 2026-11-20)
+//   RESEND_API_KEY: every sign up, sign up request and waitlist form is emailed to NOTIFY_EMAIL (default info@arizonapetwaste.com).
+//     Without it, forms tell people to call or text, so no lead is lost silently.
+//   Optional: NOTIFY_EMAIL, MAIL_FROM (needs a domain verified in Resend), SITE_URL, FIRST_VISIT_FROM (default 2026-11-20), SCHEDULE_DAYS (default 7)
 // With the keys missing, /api/config says live: false and the site runs its demo sign up.
 
 const STRIPE_VERSION = '2026-10-28.endive';
@@ -52,6 +54,7 @@ async function route(path, request, env, ctx) {
   if (path === '/api/checkout' && m === 'POST') return checkout(request, env, ctx);
   if (path === '/api/stripe-webhook' && m === 'POST') return webhook(request, env, ctx);
   if (path === '/api/waitlist' && m === 'POST') return waitlist(request, env, ctx);
+  if (path === '/api/request' && m === 'POST') return signupRequest(request, env, ctx);
   if (path === '/api/me' && m === 'GET') return meGet(request, env);
   if (path === '/api/me' && m === 'POST') return meSave(request, env);
   if (path === '/api/portal' && m === 'POST') return portal(request, env);
@@ -107,11 +110,12 @@ function form(obj, prefix, out) {
   }
   return out.join('&');
 }
-async function stripe(env, method, path, params) {
+async function stripe(env, method, path, params, idem) {
   const q = params ? form(params) : '';
   const url = 'https://api.stripe.com/v1/' + path + (method === 'GET' && q ? '?' + q : '');
   const headers = { authorization: 'Bearer ' + env.STRIPE_SECRET_KEY, 'stripe-version': STRIPE_VERSION };
   if (method !== 'GET') headers['content-type'] = 'application/x-www-form-urlencoded';
+  if (idem) headers['idempotency-key'] = idem;
   const r = await fetch(url, { method, headers, body: method !== 'GET' ? q : undefined });
   const data = await r.json();
   if (!r.ok) {
@@ -138,19 +142,34 @@ function plusMonth(d) {
   return c;
 }
 // Customers do not pick a day. We set it by route and reach out to them.
-// The free month starts on the soonest start day and runs one month plus one week, which is our window to set the first visit.
-// The sign up page uses the same rule to show the charge date.
-function firstCharge(env) {
+// Everyone pays on the 1st. The free month runs one month and one week from the soonest start day (that week is our
+// window to set the first visit). The first charge is on the 1st of the month the free month ends in, and it only covers
+// the days after the free month (Stripe bills the full month and a one time credit takes off the free days).
+// Then the full price on every 1st. The sign up page uses the same rule to show these numbers.
+function firstCharge(env, totalCents) {
   const from = noonAZ(env.FIRST_VISIT_FROM || '2026-11-20');
   const start = new Date(Math.max(noonAZ(azToday()).getTime() + 86400e3, from.getTime()));
-  const charge = plusMonth(start);
-  charge.setUTCDate(charge.getUTCDate() + (Number(env.SCHEDULE_DAYS) || 7));
-  return { charge: Math.floor(charge.getTime() / 1000), chargeLabel: dateLabel(charge) };
+  const freeEnd = plusMonth(start);
+  freeEnd.setUTCDate(freeEnd.getUTCDate() + (Number(env.SCHEDULE_DAYS) || 7));
+  const first = new Date(Date.UTC(freeEnd.getUTCFullYear(), freeEnd.getUTCMonth(), 1, 19));
+  const next = new Date(Date.UTC(freeEnd.getUTCFullYear(), freeEnd.getUTCMonth() + 1, 1, 19));
+  const monthDays = Math.round((next - first) / 86400e3);
+  const paidDays = Math.round((next - freeEnd) / 86400e3);
+  const firstCents = Math.round(totalCents * paidDays / monthDays);
+  return {
+    charge: Math.floor(first.getTime() / 1000), firstCents, creditCents: totalCents - firstCents, full: paidDays === monthDays,
+    firstLabel: dateLabel(first), freeLabel: dateLabel(freeEnd), nextLabel: dateLabel(next)
+  };
 }
 function dateLabel(d) { return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'America/Phoenix' }); }
+function billText(b, totalCents) {
+  if (b.full) return 'Your free month runs until ' + b.freeLabel + '. Then we charge ' + money(totalCents) + ' on the 1st of each month, starting ' + b.firstLabel + '.';
+  return 'Your free month runs until ' + b.freeLabel + '. On ' + b.firstLabel + ', we charge ' + money(b.firstCents) + ' for ' + b.freeLabel + ' to ' + b.nextLabel +
+    '. Then ' + money(totalCents) + ' on the 1st of each month.';
+}
 
 async function mail(env, to, subject, text) {
-  if (!env.RESEND_API_KEY || !to) return;
+  if (!env.RESEND_API_KEY || !to) return false;
   const from = env.MAIL_FROM || 'Arizona Pet Waste <info@arizonapetwaste.com>';
   try {
     const r = await fetch('https://api.resend.com/emails', {
@@ -158,8 +177,9 @@ async function mail(env, to, subject, text) {
       headers: { authorization: 'Bearer ' + env.RESEND_API_KEY, 'content-type': 'application/json' },
       body: JSON.stringify({ from, to: Array.isArray(to) ? to : [to], subject, text, reply_to: env.NOTIFY_EMAIL || 'info@arizonapetwaste.com' })
     });
-    if (!r.ok) console.error('mail failed', r.status, await r.text());
-  } catch (e) { console.error('mail failed', e); }
+    if (!r.ok) { console.error('mail failed', r.status, await r.text()); return false; }
+    return true;
+  } catch (e) { console.error('mail failed', e); return false; }
 }
 const owner = (env) => env.NOTIFY_EMAIL || 'info@arizonapetwaste.com';
 
@@ -209,7 +229,8 @@ function config(env) {
     supabaseUrl: live(env) ? base(env) : null,
     supabaseAnonKey: live(env) ? env.SUPABASE_ANON_KEY : null,
     stripeKey: live(env) ? env.STRIPE_PUBLISHABLE_KEY : null,
-    firstVisitFrom: env.FIRST_VISIT_FROM || '2026-11-20'
+    firstVisitFrom: env.FIRST_VISIT_FROM || '2026-11-20',
+    mail: !!env.RESEND_API_KEY
   });
 }
 
@@ -225,7 +246,6 @@ async function checkout(request, env, ctx) {
   if (!PLANS[b.plan]) return fail(400, 'Please pick how often we come.');
   const dogs = Math.round(Number(b.dogs));
   if (!(dogs >= 1 && dogs <= 6)) return fail(400, 'Please pick 1 to 6 dogs.');
-  const bill = firstCharge(env);
   const name = clean(b.name, 120), phone = digits(b.phone), address = clean(b.address, 200);
   if (name.length < 2 || phone.length !== 10 || address.length < 5) return fail(400, 'Please fill in your name, mobile number and street address.');
 
@@ -259,6 +279,7 @@ async function checkout(request, env, ctx) {
   const items = [{ price: ids['apw_' + b.plan + '_base'], quantity: 1 }];
   if (dogs > 2) items.push({ price: ids['apw_' + b.plan + '_extra'], quantity: dogs - 2 });
   const total = monthly(b.plan, dogs);
+  const bill = firstCharge(env, total);
   const session = await stripe(env, 'POST', 'checkout/sessions', {
     mode: 'subscription',
     ui_mode: 'embedded_page',
@@ -271,10 +292,11 @@ async function checkout(request, env, ctx) {
     subscription_data: {
       trial_end: bill.charge,
       description: PLANS[b.plan].name + ', ' + dogs + (dogs === 1 ? ' dog' : ' dogs') + ', ' + z.name + '. We reach out to set the first visit.',
-      metadata: { user_id: u.id, plan: b.plan, dogs: String(dogs), zip }
+      metadata: { user_id: u.id, plan: b.plan, dogs: String(dogs), zip, credit: String(bill.creditCents), first_charge: String(bill.firstCents),
+        free_label: bill.freeLabel, first_label: bill.firstLabel, next_label: bill.nextLabel }
     },
     metadata: { user_id: u.id, plan: b.plan, dogs: String(dogs), zip },
-    custom_text: { submit: { message: 'You pay $0 today. Your first charge of ' + money(total) + ' is on ' + bill.chargeLabel + '. Cancel in My Yard before then and you pay nothing.' } }
+    custom_text: { submit: { message: 'You pay $0 today. ' + billText(bill, total) + ' Cancel in My Yard before ' + bill.firstLabel + ' and you pay nothing.' } }
   });
   return ok({ clientSecret: session.client_secret });
 }
@@ -310,25 +332,38 @@ async function webhook(request, env, ctx) {
   const now = new Date().toISOString();
   if (evt.type === 'checkout.session.completed' && o.mode === 'subscription') {
     const uid = o.client_reference_id || (o.metadata || {}).user_id;
-    let status = 'trialing', trialEnd = 0;
-    if (o.subscription) { try { const sub = await stripe(env, 'GET', 'subscriptions/' + o.subscription); status = sub.status; trialEnd = sub.trial_end || 0; } catch (e) { } }
+    let status = 'trialing', meta = {};
+    if (o.subscription) { try { const sub = await stripe(env, 'GET', 'subscriptions/' + o.subscription); status = sub.status; meta = sub.metadata || {}; } catch (e) { } }
+    // The first bill on the 1st is a full month; this one time credit takes off the days still inside the free month.
+    const credit = Math.max(0, parseInt(meta.credit || '0', 10) || 0);
+    if (o.subscription && credit > 0) {
+      try {
+        await stripe(env, 'POST', 'invoiceitems', { customer: o.customer, subscription: o.subscription, amount: -credit, currency: 'usd',
+          description: 'Free month days (' + (meta.first_label || 'the 1st') + ' to ' + (meta.free_label || 'the end of your free month') + ')' }, 'apw-free-' + o.subscription);
+      } catch (e) {
+        console.error('free month credit failed', e);
+        ctx.waitUntil(mail(env, owner(env), 'Check billing: free month credit failed', 'Add a credit of ' + money(credit) + ' to the first bill of subscription ' + o.subscription + ' in Stripe.'));
+      }
+    }
     if (uid) {
       const rows = await db(env, 'PATCH', 'customers?id=eq.' + uid, { status, stripe_subscription_id: o.subscription, stripe_customer_id: o.customer, updated_at: now }, 'return=representation');
       const c = rows && rows[0];
       if (c) {
-        const chargeLabel = trialEnd ? dateLabel(new Date(trialEnd * 1000)) : 'the date shown at checkout';
         const total = monthly(c.plan, c.dogs);
+        const firstCents = parseInt(meta.first_charge || String(total), 10) || total;
+        const billLine = meta.free_label ? billText({ full: firstCents === total, firstCents, freeLabel: meta.free_label, firstLabel: meta.first_label, nextLabel: meta.next_label }, total)
+          : 'Your first month is free. Then we charge ' + money(total) + ' on the 1st of each month.';
         ctx.waitUntil(mail(env, owner(env), 'New booking: ' + c.name + ', ' + (ZIPS[c.zip] || {}).name, [
           'New customer booked online.', '',
           'Name: ' + c.name, 'Email: ' + c.email, 'Mobile: ' + c.phone, 'Address: ' + c.address + ', ' + c.zip,
           'Plan: ' + PLANS[c.plan].name + ', ' + c.dogs + ' dogs, ' + money(total) + ' a month',
-          'To do: reach out to set their day and time.', 'Visit texts: ' + (c.texts_visit ? 'yes' : 'no') + '. Deals texts: ' + (c.texts_deals ? 'yes' : 'no'),
+          'To do: reach out to set their day and time.', 'Billing: ' + billLine, 'Visit texts: ' + (c.texts_visit ? 'yes' : 'no') + '. Deals texts: ' + (c.texts_deals ? 'yes' : 'no'),
           'Stripe customer: ' + o.customer
         ].join('\n')));
         ctx.waitUntil(mail(env, c.email, 'You are booked with Arizona Pet Waste', [
           'Hi ' + String(c.name).split(' ')[0] + ',', '',
           'You are booked. We will reach out to let you know your day and time.',
-          'Your first month is free. Your card is charged ' + money(total) + ' on ' + chargeLabel + ', then once a month. Cancel before then and you pay $0.', '',
+          billLine + ' Cancel in My Yard before ' + (meta.first_label || 'your first charge') + ' and you pay $0.', '',
           'Next, set up your yard: add your gate code, your dogs’ names and any problem spots.',
           (env.SITE_URL || 'https://arizonapetwaste.com') + '/account/', '',
           'Questions? Call or text 623.309.6104.', '', 'Arizona Pet Waste'
@@ -350,16 +385,55 @@ async function webhook(request, env, ctx) {
   return ok({ received: true });
 }
 
+const WAIT_OFFER = 'Join by November 30, 2026 and your first month is free when we start in your area.';
 async function waitlist(request, env, ctx) {
   const b = await body(request);
   if (!b) return fail(400, 'Something was missing. Please try again.');
   if (b.website) return ok({ ok: true }); // bots fill the hidden field
-  const email = clean(b.email, 200).toLowerCase();
   const zip = String(b.zip || '').replace(/\D/g, '').slice(0, 5);
-  if (!emailOk(email)) return fail(400, 'Type your email, like you@email.com.');
-  if (!live(env)) return ok({ ok: true, demo: true });
-  await db(env, 'POST', 'waitlist', [{ email, zip, ip: request.headers.get('cf-connecting-ip') || '' }], 'return=minimal');
-  ctx.waitUntil(mail(env, owner(env), 'Waitlist: ' + zip, email + ' wants service in ZIP ' + zip + '.'));
+  const name = clean(b.name, 120), phone = digits(b.phone), address = clean(b.address, 200);
+  const email = clean(b.email, 200).toLowerCase();
+  if (name.length < 2) return fail(400, 'Type your full name.');
+  if (phone.length !== 10) return fail(400, 'Type your 10 digit mobile number.');
+  if (address.length < 5) return fail(400, 'Type your street address.');
+  if (email && !emailOk(email)) return fail(400, 'Type your email, like you@email.com.');
+  const texts = !!b.texts;
+  const stored = live(env) ? await db(env, 'POST', 'waitlist', [{ email: email || null, zip, name, phone, address, texts_ok: texts, ip: request.headers.get('cf-connecting-ip') || '' }], 'return=minimal').then(() => true, () => false) : false;
+  const sent = await mail(env, owner(env), 'Waitlist: ' + name + ', ZIP ' + zip, [
+    'Someone joined the waitlist.', '',
+    'Name: ' + name, 'Mobile: ' + phone, 'Address: ' + address + ', ' + zip, 'Email: ' + (email || 'none'),
+    'Text them when we start there: ' + (texts ? 'yes' : 'no'), '',
+    'Offer shown: ' + WAIT_OFFER
+  ].join('\n'));
+  if (!stored && !sent) return fail(503, 'Our waitlist is not taking sign ups online yet. Text 623.309.6104 with your name, address and ZIP, and we will add you.');
+  return ok({ ok: true });
+}
+
+// Before online checkout is live, the sign up form still works: it emails the details to us and we call to finish.
+async function signupRequest(request, env, ctx) {
+  const b = await body(request);
+  if (!b) return fail(400, 'Something was missing. Please try again.');
+  if (b.website) return ok({ ok: true });
+  const zip = String(b.zip || '');
+  const z = ZIPS[zip];
+  if (!z) return fail(400, 'We do not scoop in that ZIP code yet.');
+  if (!PLANS[b.plan]) return fail(400, 'Please pick how often we come.');
+  const dogs = Math.round(Number(b.dogs));
+  if (!(dogs >= 1 && dogs <= 6)) return fail(400, 'Please pick 1 to 6 dogs.');
+  const name = clean(b.name, 120), phone = digits(b.phone), address = clean(b.address, 200), email = clean(b.email, 200).toLowerCase();
+  if (name.length < 2 || phone.length !== 10 || address.length < 5 || !emailOk(email)) return fail(400, 'Please fill in your name, mobile number, email and street address.');
+  const total = monthly(b.plan, dogs);
+  const bill = firstCharge(env, total);
+  const sent = await mail(env, owner(env), 'New sign up request: ' + name + ', ' + z.name, [
+    'Someone signed up on the website. Online checkout is not on yet, so call them to finish and take their card.', '',
+    'Name: ' + name, 'Mobile: ' + phone, 'Email: ' + email, 'Address: ' + address + ', ' + z.city + ' ' + zip,
+    'Plan: ' + PLANS[b.plan].name + ', ' + dogs + (dogs === 1 ? ' dog, ' : ' dogs, ') + money(total) + ' a month',
+    'Billing they saw: ' + billText(bill, total),
+    'Visit texts: ' + (b.textsVisit ? 'yes' : 'no') + '. Deals texts: ' + (b.textsDeals ? 'yes' : 'no'),
+    'Text consent shown: ' + CONSENT.visit + ' ' + CONSENT.fine,
+    'Page: ' + clean(b.page, 120)
+  ].join('\n'));
+  if (!sent) return fail(503, 'Online sign up opens soon. Call or text 623.309.6104 and we will book you today.');
   return ok({ ok: true });
 }
 

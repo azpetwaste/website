@@ -6,10 +6,10 @@ from html.parser import HTMLParser
 import parts
 
 OUT = '/mnt/user-data/outputs/artifacts/8dafc584-80d3-4012-9f0b-08999c8b7441/project/'
-BOARDS = [('main.tpl.html', 'Main.dc.html', 'm', {'MAIN_H': '11400', 'PREVIEW_W': '390'}),
+BOARDS = [('main.tpl.html', 'Main.dc.html', 'm', {'MAIN_H': '13200', 'PREVIEW_W': '390'}),
           ('main.tpl.html', 'MainDesktop.dc.html', 'w', {'MAIN_H': '@@DESK_H@@', 'PREVIEW_W': '1440'}),
           ('duo.tpl.html', 'DuoOpen.dc.html', 'd', {}), ('booking.tpl.html', 'Booking.dc.html', 'b', {}), ('myyard.tpl.html', 'MyYard.dc.html', 'y', {})]
-DESK_H = '10100'
+DESK_H = '12000'
 
 VOID = {'meta', 'link', 'img', 'input', 'br', 'hr', 'source', 'col', 'area', 'base', 'wbr', 'embed', 'param', 'track'}
 SVG_SELF = {'path', 'rect', 'circle', 'ellipse', 'line', 'stop', 'polyline', 'polygon'}

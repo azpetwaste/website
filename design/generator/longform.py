@@ -66,6 +66,8 @@ def faq_common(town):
          'Every visit comes with a free sanitizer and deodorizer spray. For a deeper clean, add a turf odor treatment for $35. It helps when pee smell builds up in hot turf.'),
         ('Do you do one time cleanups?',
          'Yes. A one time cleanup is $95. It is a good pick before a party, after a move, or when the yard got away from you.'),
+        ('Can you come the same day?',
+         'Yes. If you have a party or guests coming, text us and we can come the same day for $49. It goes on your next bill on the 1st.'),
         ('Do I need to be home?',
          'No. Most of our customers are at work. Add your gate code in My Yard, and we send a photo of your latched gate when we leave.'),
         ('What if my dog is in the yard?',

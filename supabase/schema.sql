@@ -51,12 +51,22 @@ alter table public.consent_log enable row level security;
 
 create table if not exists public.waitlist (
   id bigint generated always as identity primary key,
-  email text not null,
+  email text,
   zip text,
+  name text,
+  phone text,
+  address text,
+  texts_ok boolean not null default false,
   ip text,
   created_at timestamptz not null default now()
 );
 alter table public.waitlist enable row level security;
+-- Safe to run again on an older table: adds the waitlist fields the site now sends.
+alter table public.waitlist alter column email drop not null;
+alter table public.waitlist add column if not exists name text;
+alter table public.waitlist add column if not exists phone text;
+alter table public.waitlist add column if not exists address text;
+alter table public.waitlist add column if not exists texts_ok boolean not null default false;
 
 -- Handy view for the owner: who is booked and when they start.
 create or replace view public.route_sheet with (security_invoker = true) as

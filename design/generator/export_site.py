@@ -165,7 +165,7 @@ def prod_faq(items):
 
 
 # ---------- boards ----------
-main = common(main_prod(fill(open('main.tpl.html').read(), 'm', {'MAIN_H': '11400', 'PREVIEW_W': '390'})))
+main = common(main_prod(fill(open('main.tpl.html').read(), 'm', {'MAIN_H': '13200', 'PREVIEW_W': '390'})))
 if '#reviews' in main or 'id="reviews"' in main:
     sys.exit('a reviews link is left on the home page')
 write('main', main)

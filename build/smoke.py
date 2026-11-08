@@ -76,7 +76,7 @@ with sync_playwright() as p:
     page.fill('#b-code', '123456')
     page.wait_for_timeout(400)
     pay = dock.inner_text()
-    assert 'We reach out to set it' in pay and 'Your card is charged' in pay, 'pay step should say we reach out and show the charge date'
+    assert 'We reach out to set it' in pay and 'Your free month runs until' in pay and 'on the 1st' in pay, 'pay step should say we reach out and show billing on the 1st'
     shot(page, 'm_book_5')
     dock.get_by_role('button', name='Finish demo booking').click()
     page.wait_for_timeout(300)

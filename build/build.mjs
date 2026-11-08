@@ -342,9 +342,10 @@ for (const t of TOWNS) {
     '<div class="towns">' + cards + '</div>' +
     '<h2 id="zip-codes">Every ZIP code we serve<span style="color: var(--accent);">.</span></h2>' +
     '<table class="ziplist"><thead><tr><th scope="col">ZIP</th><th scope="col">TOWN</th><th scope="col">PAGE</th></tr></thead><tbody>' + rows + '</tbody></table>' +
-    '<h2 id="not-listed">Not on the list?</h2>' +
-    '<p>Type your ZIP when you book. If we do not come to you yet, you can join the waitlist, and we will text you when we do.</p>' +
-    '<a class="btn btn-dot hubcta" href="/book/">Start your free month</a>';
+    '<h2 id="not-listed">Not on the list? Join the waitlist<span style="color: var(--accent);">.</span></h2>' +
+    '<p>We are coming to the rest of the Valley next. Tap the button, type your ZIP, and add your name, phone and address. We will tell you when we start in your area.</p>' +
+    '<p><strong>Join by November 30 and your first month is free when we start in your area.</strong></p>' +
+    '<a class="btn btn-dot hubcta" href="/book/">Join the waitlist</a>';
   const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc docw"').replace('@@DOC@@', inner));
   built.push(page({
     route, board: 'doc', index: true, title: 'Areas We Serve in the West Valley AZ | Arizona Pet Waste',
@@ -432,8 +433,8 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - Every week: $108 for 1 or 2 dogs (about $25 a visit). Each dog after two adds $13.
 - Twice a week: $189 for 1 or 2 dogs. Each dog after two adds $13.
 - Every other week: $75 for 1 or 2 dogs. Each dog after two adds $9.
-- Turf odor treatment: $35. One time cleanup: $95.
-- First month free on any plan. A card is saved at sign up. The sign up page shows the date of the first charge, and you pay $0 if you cancel before it.
+- Turf odor treatment: $35. One time cleanup: $95. Same day pickup for a party or guests: $49, added to the next bill.
+- Billing: everyone is billed on the 1st of each month. First month free on any plan. The first charge only covers the days after the free month, so it is smaller. Then the full price on the 1st. A card is saved at sign up and nothing is charged that day.
 
 ## Service area (every home in these ZIP codes)
 - [Buckeye, AZ 85326 and 85396](${ORIGIN}/buckeye/). Neighborhoods: ${hoodNames('buckeye').join(', ')}.
@@ -442,10 +443,10 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - [Citrus Park and Waddell, AZ 85355](${ORIGIN}/citrus-park/), plus Citrus Park homes with Litchfield Park 85340 addresses. Neighborhoods: ${hoodNames('citrus').join(', ')}.
 - [Verrado, Buckeye AZ 85396](${ORIGIN}/verrado/). Districts: ${hoodNames('verrado').join(', ')}.
 - Full list: [Areas we serve](${ORIGIN}/areas-we-serve/).
-- Not served yet: Avondale, Surprise, Glendale and Phoenix. People there can join the waitlist when they book.
+- Not served yet: the rest of the Phoenix area, including Avondale, Surprise, Glendale, Peoria and Phoenix. Coming soon. Anyone outside our ZIP codes can join the waitlist. Join by November 30, 2026 and the first month is free when we start in that area.
 
 ## How a visit works
-- Customers do not pick a day. We set each yard's day by route. After sign up, we reach out to let the customer know their day and time.
+- Customers do not pick a day. We set each yard's day for them. We run set routes, and that keeps prices down. After sign up, we reach out to let the customer know their day and time.
 - We text the night before with a 30 minute window.
 - We shut the gate, pick up every pile front to back, and spray sanitizer where dogs go most.
 - We latch the gate, pull on it, and send a photo.

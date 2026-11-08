@@ -21,7 +21,7 @@ def faqs(town, local, disposal=None):
     common = longform.faq_common(town)
     if disposal:
         common = [(q, disposal if q.startswith('Where should I throw away') else a) for q, a in common]
-    return faq(local + common + [('What day do you come to %s?' % town, 'We set your day by route. After you sign up, we reach out to let you know your day and time. '
+    return faq(local + common + [('What day do you come to %s?' % town, 'We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. '
                                                          'Then you get a text the night before each visit with a 30 minute window.')])
 
 
@@ -40,7 +40,7 @@ ALL = ('AreasWeServe.dc.html', 'Every area we serve')
 
 CITIES = [
     dict(
-        file=B[0], id='k', area='buckeye', name='Buckeye', eyebrow='Buckeye, AZ · ZIP 85326 and 85396', h='12800',
+        file=B[0], id='k', area='buckeye', name='Buckeye', eyebrow='Buckeye, AZ · ZIP 85326 and 85396', h='13000',
         intro=INTRO % 'Buckeye',
         map_h2='Buckeye ZIP codes we serve',
         where='Buckeye has two ZIP codes, and we scoop every home in both. 85396 is north Buckeye, near the White Tank Mountains, with Verrado, Tartesso and Festival Ranch. 85326 is the rest of Buckeye, from Sundance and Westpark to historic downtown.',
@@ -61,7 +61,7 @@ CITIES = [
         nearby=nearby([V, G, L, C, ALL], 'Not sure about your street? Type your ZIP when you book, and we will tell you right away.'),
     ),
     dict(
-        file=G[0], id='g', area='goodyear', name='Goodyear', eyebrow='Goodyear, AZ · ZIP 85338 and 85395', h='13200',
+        file=G[0], id='g', area='goodyear', name='Goodyear', eyebrow='Goodyear, AZ · ZIP 85338 and 85395', h='13400',
         intro=INTRO % 'Goodyear',
         map_h2='Goodyear ZIP codes we serve',
         where='Goodyear has two ZIP codes, and we scoop every home in both. 85395 is north of Interstate 10, with Palm Valley, PebbleCreek and Sedella. 85338 runs south of the freeway to Estrella, with Canyon Trails, Centerra and Cottonflower on the way. A few Goodyear homes, like Palm Valley North, use Litchfield Park 85340, and we scoop those too.',
@@ -84,7 +84,7 @@ CITIES = [
         nearby=nearby([L, B, C, V, ALL], 'Live in Avondale? Join the waitlist when you book.'),
     ),
     dict(
-        file=L[0], id='l', area='litchfield', name='Litchfield Park', eyebrow='Litchfield Park, AZ · ZIP 85340', h='12000',
+        file=L[0], id='l', area='litchfield', name='Litchfield Park', eyebrow='Litchfield Park, AZ · ZIP 85340', h='12200',
         intro=INTRO % 'Litchfield Park',
         map_h2='Litchfield Park ZIP code we serve',
         where='Litchfield Park is north of Interstate 10 at the Litchfield Road exit, with Goodyear to the west and south and Luke Air Force Base to the north. It has one ZIP code, 85340, and we scoop every home in it.',
@@ -105,7 +105,7 @@ CITIES = [
         nearby=nearby([G, B, C, V, ALL], 'Live in Avondale? Join the waitlist when you book.'),
     ),
     dict(
-        file=C[0], id='c', area='citrus', name='Citrus Park', eyebrow='Citrus Park · Waddell, AZ · ZIP 85355', h='11600',
+        file=C[0], id='c', area='citrus', name='Citrus Park', eyebrow='Citrus Park · Waddell, AZ · ZIP 85355', h='11800',
         intro=INTRO % 'Citrus Park',
         map_h2='Citrus Park ZIP code we serve',
         where='Citrus Park is east of Perryville Road and south of Northern Avenue, between Goodyear and Glendale. It is not part of any city. Most homes get their mail through the Waddell post office, ZIP 85355, and some use Litchfield Park 85340. We scoop all of it.',
@@ -127,7 +127,7 @@ CITIES = [
         nearby=nearby([L, G, B, V, ALL], 'Live in Surprise? Join the waitlist when you book.'),
     ),
     dict(
-        file=V[0], id='v', area='verrado', name='Verrado', eyebrow='Verrado · Buckeye, AZ · ZIP 85396', h='11400',
+        file=V[0], id='v', area='verrado', name='Verrado', eyebrow='Verrado · Buckeye, AZ · ZIP 85396', h='11600',
         intro=INTRO % 'Verrado',
         map_h2='Verrado ZIP code we serve',
         where='Verrado sits north of Interstate 10 at the Verrado Way exit, right at the base of the White Tank Mountains. It is in Buckeye ZIP 85396, and we scoop every home in it. We also scoop the rest of Buckeye, ZIP 85326.',
