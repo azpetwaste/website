@@ -35,6 +35,8 @@ LINKS = {
     'CityGoodyear.dc.html': '/goodyear/',
     'CityLitchfieldPark.dc.html': '/litchfield-park/',
     'MyYard.dc.html': '/account/',
+    'CityBuckeye.dc.html': '/buckeye/',
+    'AreasWeServe.dc.html': '/areas-we-serve/',
 }
 BLOBS = {
     'd40859938aad2cb6ad7648561b9a1a69': '/assets/img/logo-horizontal.svg',
@@ -112,7 +114,6 @@ def main_prod(html):
 
 
 def city_prod(html):
-    html = must(html, '<a href="Main.dc.html" style="text-decoration: none;">Where we scoop</a>', '<a href="Main.dc.html#where" style="text-decoration: none;">Where we scoop</a>', label='breadcrumb')
     html, n = re.subn(r'([A-Z][A-Z ]+) SCOOP DAY: \[ROUTE DAY\]</p>', r'\1: YOU PICK YOUR DAY WHEN YOU BOOK</p>\n<!--HOODS-->', html)
     if not n:
         sys.exit('city route day line not found')

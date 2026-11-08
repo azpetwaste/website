@@ -76,10 +76,10 @@
     </sc-if>
     <p class="mono" style="margin: 26px 0 8px; font-size: 13px; font-weight: 600; letter-spacing: .09em; color: var(--mute);">WE SCOOP IN</p>
     <div style="display: flex; flex-direction: column; gap: 6px;">
-      <a href="/verrado/" style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2); color: var(--ink); text-decoration: none;"><span style="font-size: 16px; font-weight: 700;">Verrado</span><span style="font-size: 14px; color: var(--mute);">Buckeye</span><span class="mono" style="margin-left: auto; font-size: 16px; font-weight: 600; color: var(--accent-text);">85396</span></a>
-      <a href="/litchfield-park/" style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2); color: var(--ink); text-decoration: none;"><span style="font-size: 16px; font-weight: 700;">Litchfield Park</span><span class="mono" style="margin-left: auto; font-size: 16px; font-weight: 600; color: var(--accent-text);">85340</span></a>
-      <a href="/citrus-park/" style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2); color: var(--ink); text-decoration: none;"><span style="font-size: 16px; font-weight: 700;">Citrus Park</span><span style="font-size: 14px; color: var(--mute);">Waddell</span><span class="mono" style="margin-left: auto; font-size: 16px; font-weight: 600; color: var(--accent-text);">85355</span></a>
-      <a href="/goodyear/" style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2); color: var(--ink); text-decoration: none;"><span style="font-size: 16px; font-weight: 700;">Goodyear</span><span style="font-size: 14px; color: var(--mute);">North of Interstate 10</span><span class="mono" style="margin-left: auto; font-size: 16px; font-weight: 600; color: var(--accent-text);">85395</span></a>
+      <a href="/buckeye/" style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2); color: var(--ink); text-decoration: none;"><span style="font-size: 16px; font-weight: 700;">Buckeye</span><span style="font-size: 14px; color: var(--mute);">with Verrado</span><span class="mono" style="margin-left: auto; font-size: 15px; font-weight: 600; color: var(--accent-text);">85326 · 85396</span></a>
+      <a href="/goodyear/" style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2); color: var(--ink); text-decoration: none;"><span style="font-size: 16px; font-weight: 700;">Goodyear</span><span class="mono" style="margin-left: auto; font-size: 15px; font-weight: 600; color: var(--accent-text);">85338 · 85395</span></a>
+      <a href="/litchfield-park/" style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2); color: var(--ink); text-decoration: none;"><span style="font-size: 16px; font-weight: 700;">Litchfield Park</span><span class="mono" style="margin-left: auto; font-size: 15px; font-weight: 600; color: var(--accent-text);">85340</span></a>
+      <a href="/citrus-park/" style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2); color: var(--ink); text-decoration: none;"><span style="font-size: 16px; font-weight: 700;">Citrus Park</span><span style="font-size: 14px; color: var(--mute);">Waddell</span><span class="mono" style="margin-left: auto; font-size: 15px; font-weight: 600; color: var(--accent-text);">85355</span></a>
     </div>
   </sc-if>
 
@@ -259,7 +259,7 @@ class Component extends DCLogic {
   _cfg() { const a = this._apw(); return (a && a.cfg) || {}; }
   _demo() { const a = this._apw(); return !a || !a.live; }
   _closed() { const a = this._apw(); return !!(a && a.closed); }
-  _zips() { return { '85396': 'Verrado', '85355': 'Citrus Park', '85395': 'Goodyear', '85340': 'Litchfield Park' }; }
+  _zips() { return { '85326': 'Buckeye', '85396': 'Buckeye', '85338': 'Goodyear', '85395': 'Goodyear', '85340': 'Litchfield Park', '85355': 'Citrus Park' }; }
   _initial() {
     if (typeof window === 'undefined') return {};
     const out = {};
@@ -465,7 +465,7 @@ class Component extends DCLogic {
   renderVals() {
     const s = this.state;
     const zips = this._zips();
-    const cities = { '85396': 'Buckeye, AZ 85396', '85355': 'Waddell, AZ 85355', '85395': 'Goodyear, AZ 85395', '85340': 'Litchfield Park, AZ 85340' };
+    const cities = { '85326': 'Buckeye, AZ 85326', '85396': 'Buckeye, AZ 85396', '85338': 'Goodyear, AZ 85338', '85395': 'Goodyear, AZ 85395', '85340': 'Litchfield Park, AZ 85340', '85355': 'Waddell, AZ 85355' };
     const names = { week: 'Every week', twice: 'Twice a week', eow: 'Every other week' };
     const zipOk = !!zips[s.zip];
     const days = this._days();

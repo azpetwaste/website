@@ -87,34 +87,42 @@ function socialHtml() {
   return '<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px;">' + cfg.social.map((x) =>
     '<a href="' + esc(x.url) + '" rel="noopener" target="_blank" class="btn btn-line-n" style="min-height: 44px; padding: 0 16px; font-size: 15px;">' + esc(x.name) + '</a>').join('') + '</div>';
 }
-// Neighborhood lists come from research/neighborhoods.json (each one checked against the service map).
-const HOOD_EXTRA = { verrado: ['Village District'] };
-const HOOD_GROUPS = {
+// Every ZIP code in each town we serve, with neighborhoods in it (checked against research/neighborhoods.json and listings).
+const TOWN_ZIPS = {
+  buckeye: [
+    { zip: '85396', label: 'North Buckeye', names: ['Verrado', 'Tartesso', 'Festival Ranch', 'Sun City Festival', 'Teravalis', 'Anderson Parc'] },
+    { zip: '85326', label: 'Buckeye town and south', names: ['Sundance', 'Westpark', 'Historic downtown Buckeye', 'Apache Farms', 'Montana Vista', 'Arroyo Seco'] }
+  ],
+  goodyear: [
+    { zip: '85395', label: 'North Goodyear', names: ['PebbleCreek', 'Palm Valley', 'Palm Valley North', 'Sedella', 'Rio Paseo', 'Abel Ranch', 'Sunrise at Wigwam', 'Canada Village'] },
+    { zip: '85338', label: 'Central and south Goodyear', names: ['Estrella Mountain Ranch', 'CantaMia at Estrella', 'Canyon Trails', 'Centerra', 'Cottonflower', 'Estrella Vista', 'Wildflower Ranch', 'Historic Goodyear'] }
+  ],
+  litchfield: [
+    { zip: '85340', label: 'Litchfield Park', names: null }
+  ],
   citrus: [
-    { label: 'Waddell 85355', names: ['Citrus Park', 'Clearwater Farms', 'Montana Farms', 'Tara Estates'] },
-    { label: 'Litchfield Park 85340 homes between Verrado and Citrus Road', names: ['Russell Ranch', 'Savannah', 'Windrose', 'Zanjero Trails (85340 homes)', 'Canyon Views'] }
+    { zip: '85355', label: 'Waddell', names: ['Citrus Park', 'Clearwater Farms', 'Montana Farms', 'Tara Estates'] },
+    { zip: '85340', label: 'Litchfield Park homes between Verrado and Citrus Road', names: ['Russell Ranch', 'Savannah', 'Windrose', 'Zanjero Trails', 'Canyon Views'] }
+  ],
+  verrado: [
+    { zip: '85396', label: 'Verrado districts', names: null, extra: ['Village District'] }
   ]
 };
-const HOOD_NOTE = {
-  citrus: 'Looking for the Citrus Park homes in Goodyear, south of Interstate 10? We do not scoop there yet. Type your ZIP when you book to join the waitlist.'
-};
-function hoodsHtml(area, name) {
-  const found = ((hoods.areas || {})[area] || []).filter((x) => x.inside !== false).map((x) => x.name);
-  const names = found.concat(HOOD_EXTRA[area] || []);
-  if (!names.length) return '';
-  const chips = (list) => '<ul class="hoods">' + list.map((n) => '<li>' + esc(n) + '</li>').join('') + '</ul>';
-  const groups = HOOD_GROUPS[area];
-  const body = groups
-    ? groups.map((g) => '<p class="mono" style="margin: 16px 0 0; font-size: 13px; font-weight: 600; letter-spacing: .06em; color: var(--mute);">' + esc(g.label.toUpperCase()) + '</p>' + chips(g.names)).join('')
-    : chips(names);
-  const title = groups ? 'Neighborhoods we scoop around ' + name : 'Neighborhoods we scoop in ' + name;
-  return '<div style="margin-top: 26px;"><h3 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -.02em; line-height: 1.2; color: var(--ink);">' + esc(title) + '</h3>' + body +
-    '<p style="margin: 12px 0 0; font-size: 15px; line-height: 1.55; color: var(--ink2);">' + esc(HOOD_NOTE[area] || 'Not sure about your street? Type your ZIP when you book and we will tell you right away.') + '</p></div>';
+function townZips(area) {
+  return (TOWN_ZIPS[area] || []).map((g) => Object.assign({}, g, {
+    names: g.names || ((hoods.areas || {})[area] || []).filter((x) => x.inside !== false).map((x) => x.name).concat(g.extra || [])
+  }));
+}
+function zipsHtml(area, name) {
+  const groups = townZips(area);
+  if (!groups.length) return '';
+  return '<div class="zipgs">' + groups.map((g) =>
+    '<div class="zipg"><h3><span class="mono">ZIP ' + g.zip + '</span> ' + esc(g.label) + '</h3>' +
+    '<ul class="hoods">' + g.names.map((n) => '<li>' + esc(n) + '</li>').join('') + '</ul></div>').join('') +
+    '<p style="margin: 14px 0 0; font-size: 15px; line-height: 1.55; color: var(--ink2);">Not sure about your street? Type your ZIP when you book and we will tell you right away.</p></div>';
 }
 function hoodNames(area) {
-  const groups = HOOD_GROUPS[area];
-  if (groups) return groups.flatMap((g) => g.names);
-  return ((hoods.areas || {})[area] || []).filter((x) => x.inside !== false).map((x) => x.name).concat(HOOD_EXTRA[area] || []);
+  return townZips(area).flatMap((g) => g.names);
 }
 const slots = (m, extra) => {
   let out = m.replace('<!--BADGES-->', badgesHtml()).replace('<!--SOCIAL-->', socialHtml());
@@ -140,6 +148,23 @@ html.book-open #book-dock{display:flex;align-items:center;justify-content:center
 @keyframes dockIn{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
 .bookpage #app{height:100vh;height:100dvh}
 @media (min-width:600px){.bookpage #app{width:430px;height:min(900px,calc(100dvh - 48px));margin:24px auto;border-radius:26px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5)}}
+.apw .zipgs{margin-top:26px}
+.apw .zipg{margin-top:18px}
+.apw .zipg h3{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin:0;font-size:20px;font-weight:800;letter-spacing:-.02em;line-height:1.2;color:var(--ink)}
+.apw .zipg h3 .mono{font-size:14px;font-weight:600;letter-spacing:.04em;color:var(--accent-text)}
+.apw .doc.docw{max-width:1160px}
+.apw .towns{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-top:26px}
+.apw .town{display:flex;flex-direction:column;padding:22px 22px 20px;border-radius:22px;background:var(--card);border:1px solid var(--line)}
+.apw .doc .town h2{margin:0;font-size:28px}
+.apw .town .tzips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0;padding:0;list-style:none}
+.apw .town .tzips li{padding:5px 10px;border-radius:999px;background:var(--accent-soft);color:var(--accent-text);font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:14px;font-weight:600}
+.apw .doc .town p{font-size:16px}
+.apw .doc .town .tgo{display:inline-flex;align-items:center;gap:8px;min-height:44px;margin-top:auto;padding-top:12px;font-size:16px;text-decoration:none}
+.apw .doc table.ziplist{width:100%;margin-top:16px;border-collapse:collapse;font-size:16px}
+.apw .doc table.ziplist th,.apw .doc table.ziplist td{padding:12px 10px;border-bottom:1px solid var(--line);text-align:left;color:var(--ink)}
+.apw .doc table.ziplist th{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13px;letter-spacing:.06em;color:var(--mute)}
+.apw .doc table.ziplist td:first-child{font-family:"IBM Plex Mono",ui-monospace,monospace;font-weight:600;color:var(--accent-text)}
+.apw .doc .hubcta{display:inline-flex;margin-top:22px;min-width:260px}
 .apw .hoods{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0;padding:0;list-style:none}
 .apw .hoods li{padding:8px 12px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:15px;font-weight:600;color:var(--ink)}
 .apw .doc{max-width:800px;margin:0 auto;padding:30px 20px 60px;background:var(--bg);color:var(--ink)}
@@ -167,12 +192,17 @@ html.book-open #book-dock{display:flex;align-items:center;justify-content:center
 // ---------- structured data ----------
 const BIZ = ORIGIN + '/#business';
 const PLACES = {
-  verrado: { name: 'Verrado', locality: 'Buckeye', zip: '85396', url: '/verrado/' },
-  citrus: { name: 'Citrus Park', locality: 'Waddell', zip: '85355', url: '/citrus-park/' },
-  goodyear: { name: 'Goodyear (north of Interstate 10)', locality: 'Goodyear', zip: '85395', url: '/goodyear/' },
-  litchfield: { name: 'Litchfield Park', locality: 'Litchfield Park', zip: '85340', url: '/litchfield-park/' }
+  buckeye: { name: 'Buckeye', locality: 'Buckeye', zips: ['85326', '85396'], url: '/buckeye/' },
+  goodyear: { name: 'Goodyear', locality: 'Goodyear', zips: ['85338', '85395'], url: '/goodyear/' },
+  litchfield: { name: 'Litchfield Park', locality: 'Litchfield Park', zips: ['85340'], url: '/litchfield-park/' },
+  citrus: { name: 'Citrus Park', locality: 'Waddell', zips: ['85355'], url: '/citrus-park/' },
+  verrado: { name: 'Verrado', locality: 'Buckeye', zips: ['85396'], url: '/verrado/' }
 };
-const place = (p) => ({ '@type': 'Place', name: p.name + ', AZ ' + p.zip, address: { '@type': 'PostalAddress', addressLocality: p.locality, addressRegion: 'AZ', postalCode: p.zip, addressCountry: 'US' } });
+const ALL_ZIPS = [['85326', 'Buckeye', 'buckeye'], ['85396', 'Buckeye', 'buckeye'], ['85338', 'Goodyear', 'goodyear'], ['85395', 'Goodyear', 'goodyear'], ['85340', 'Litchfield Park', 'litchfield'], ['85355', 'Waddell', 'citrus']];
+const zipPlace = (zip, locality) => ({ '@type': 'Place', name: locality + ', AZ ' + zip, address: { '@type': 'PostalAddress', addressLocality: locality, addressRegion: 'AZ', postalCode: zip, addressCountry: 'US' } });
+const cityPlace = (p) => ({ '@type': 'City', name: p.name + ', AZ', containedInPlace: { '@type': 'State', name: 'Arizona' } });
+const place = (p) => [cityPlace(p)].concat(p.zips.map((z) => zipPlace(z, p.locality)));
+const SERVED = [cityPlace(PLACES.buckeye), cityPlace(PLACES.goodyear), cityPlace(PLACES.litchfield), { '@type': 'Place', name: 'Citrus Park, AZ' }].concat(ALL_ZIPS.map((z) => zipPlace(z[0], z[1])));
 const monthly = (name, price, desc) => ({
   '@type': 'Offer', name, description: desc, price: price.toFixed(2), priceCurrency: 'USD', availability: 'https://schema.org/InStock',
   priceSpecification: { '@type': 'UnitPriceSpecification', price: price.toFixed(2), priceCurrency: 'USD', unitText: 'MONTH', referenceQuantity: { '@type': 'QuantitativeValue', value: 1, unitCode: 'MON' } },
@@ -187,11 +217,11 @@ const OFFERS = [
 ];
 const business = {
   '@type': 'LocalBusiness', '@id': BIZ, name: cfg.name, url: ORIGIN + '/',
-  description: 'Dog poop pickup and pet waste removal for homes in Verrado (Buckeye), Citrus Park (Waddell), Goodyear north of Interstate 10, and Litchfield Park, Arizona. Weekly, twice a week, or every other week. First month free, free sanitizer spray at every visit, and a photo of your latched gate after each visit.',
+  description: 'Dog poop pickup and pet waste removal for every home in Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell and Citrus Park (85355), Arizona. Weekly, twice a week, or every other week. First month free, free sanitizer spray at every visit, and a photo of your latched gate after each visit.',
   telephone: '+1-623-309-6104', email: cfg.email,
   logo: ORIGIN + '/assets/img/icon-512.png', image: ORIGIN + '/assets/img/og.png',
   priceRange: '$75 to $189 a month', currenciesAccepted: 'USD', paymentAccepted: 'Credit card, debit card, Apple Pay, Google Pay',
-  areaServed: Object.values(PLACES).map(place),
+  areaServed: SERVED,
   knowsAbout: ['Dog poop pickup', 'Pet waste removal', 'Pooper scooper service', 'Artificial turf odor treatment', 'Yard sanitizing'],
   slogan: 'You always know. Or you don’t pay.',
   hasOfferCatalog: { '@type': 'OfferCatalog', name: 'Dog poop pickup plans', itemListElement: OFFERS }
@@ -268,39 +298,84 @@ const dockHtml = ssr(bookDock, { mode: 'dock' });
     route: '/', board: 'main', index: true,
     title: 'Dog Poop Pickup in the West Valley AZ | Arizona Pet Waste',
     ogTitle: 'Dog poop pickup you can watch | Arizona Pet Waste',
-    description: 'Weekly dog poop pickup in Verrado, Citrus Park, Goodyear and Litchfield Park. First month free, free sanitizer spray, and a gate photo after every visit.',
+    description: 'Weekly dog poop pickup in Buckeye, Goodyear, Litchfield Park and Citrus Park, AZ. First month free, free sanitizer spray, and a gate photo after every visit.',
     fonts: e.b.fonts, css: [e.b.css, bookDock.b.css.replace(content.base_css, '')], boards: [e, bookDock],
     body: ssr(e), dock: dockHtml,
     ld: [faqLd(url, content.faq.main), {
       '@type': 'Service', '@id': url + '#service', name: 'Dog poop pickup', serviceType: 'Pet waste removal', provider: { '@id': BIZ },
-      areaServed: Object.values(PLACES).map(place), offers: { '@type': 'AggregateOffer', lowPrice: '75.00', highPrice: '189.00', priceCurrency: 'USD', offerCount: 3 }
+      areaServed: SERVED, offers: { '@type': 'AggregateOffer', lowPrice: '75.00', highPrice: '189.00', priceCurrency: 'USD', offerCount: 3 }
     }]
   }));
 }
 
 // towns
 const TOWNS = [
-  { area: 'verrado', board: 'city-verrado', route: '/verrado/', title: 'Dog Poop Pickup in Verrado, Buckeye AZ | Arizona Pet Waste',
-    description: 'Weekly dog poop pickup for Verrado homes in Buckeye, AZ 85396. First month free, free sanitizer spray, a live truck map and a photo of your latched gate.' },
+  { area: 'buckeye', board: 'city-buckeye', route: '/buckeye/', title: 'Dog Poop Pickup in Buckeye, AZ | Arizona Pet Waste',
+    description: 'Weekly dog poop pickup for every home in Buckeye, AZ 85326 and 85396, Verrado to Sundance. First month free, free sanitizer spray and a gate photo.' },
+  { area: 'goodyear', board: 'city-goodyear', route: '/goodyear/', title: 'Dog Poop Pickup in Goodyear, AZ | Arizona Pet Waste',
+    description: 'Weekly dog poop pickup for every home in Goodyear, AZ 85338 and 85395, Estrella to PebbleCreek. First month free, free sanitizer spray and a gate photo.' },
+  { area: 'litchfield', board: 'city-litchfield', route: '/litchfield-park/', title: 'Dog Poop Pickup in Litchfield Park AZ | Arizona Pet Waste',
+    description: 'Weekly dog poop pickup for every home in Litchfield Park, AZ 85340. First month free, free sanitizer spray, a live truck map and a photo of your latched gate.' },
   { area: 'citrus', board: 'city-citrus', route: '/citrus-park/', title: 'Dog Poop Pickup in Citrus Park AZ | Arizona Pet Waste',
     description: 'Weekly dog poop pickup in Citrus Park and Waddell, AZ 85355, including Zanjero Trails. First month free, free sanitizer spray and a gate photo every visit.' },
-  { area: 'goodyear', board: 'city-goodyear', route: '/goodyear/', title: 'Dog Poop Pickup in Goodyear AZ | Arizona Pet Waste',
-    description: 'Weekly dog poop pickup in Goodyear north of Interstate 10, ZIP 85395. First month free, free sanitizer spray, a live truck map and a photo of your gate.' },
-  { area: 'litchfield', board: 'city-litchfield', route: '/litchfield-park/', title: 'Dog Poop Pickup in Litchfield Park AZ | Arizona Pet Waste',
-    description: 'Weekly dog poop pickup in Litchfield Park, AZ 85340. First month free, free sanitizer spray, a live truck map and a photo of your latched gate after each visit.' }
+  { area: 'verrado', board: 'city-verrado', route: '/verrado/', title: 'Dog Poop Pickup in Verrado, Buckeye AZ | Arizona Pet Waste',
+    description: 'Weekly dog poop pickup for Verrado homes in Buckeye, AZ 85396. First month free, free sanitizer spray, a live truck map and a photo of your latched gate.' }
 ];
 for (const t of TOWNS) {
   const c = content.cities[t.area];
-  const e = useBoard(t.board, (m) => slots(m, (x) => x.replace('<!--HOODS-->', hoodsHtml(t.area, c.name))));
+  const e = useBoard(t.board, (m) => slots(m, (x) => x.replace('<!--HOODS-->', zipsHtml(t.area, c.name))));
   const url = ORIGIN + t.route;
   built.push(page({
     route: t.route, board: t.board, index: true, title: t.title, description: t.description,
     fonts: e.b.fonts, css: [e.b.css, bookDock.b.css.replace(content.base_css, '')], boards: [e, bookDock],
     body: ssr(e), dock: dockHtml,
-    ld: [faqLd(url, c.faq), crumbs(url, [['Home', '/'], ['Where we scoop', '/#where'], [c.name, t.route]]), {
+    ld: [faqLd(url, c.faq), crumbs(url, [['Home', '/'], ['Areas we serve', '/areas-we-serve/'], [c.name, t.route]]), {
       '@type': 'Service', '@id': url + '#service', name: 'Dog poop pickup in ' + c.name, serviceType: 'Pet waste removal', provider: { '@id': BIZ },
-      areaServed: [place(PLACES[t.area])].concat(hoodNames(t.area).map((n) => ({ '@type': 'Place', name: n.replace(/ \(.*\)$/, '') + ', AZ' }))), description: c.intro, offers: { '@type': 'AggregateOffer', lowPrice: '75.00', highPrice: '189.00', priceCurrency: 'USD', offerCount: 3 }
+      areaServed: place(PLACES[t.area]).concat(hoodNames(t.area).map((n) => ({ '@type': 'Place', name: n + ', AZ' }))), description: c.intro, offers: { '@type': 'AggregateOffer', lowPrice: '75.00', highPrice: '189.00', priceCurrency: 'USD', offerCount: 3 }
     }]
+  }));
+}
+
+// areas we serve: one page that lists every town and every ZIP code
+{
+  const route = '/areas-we-serve/';
+  const url = ORIGIN + route;
+  const order = ['buckeye', 'goodyear', 'litchfield', 'citrus', 'verrado'];
+  const blurbs = {
+    buckeye: 'North Buckeye by the White Tank Mountains, and the rest of Buckeye from Sundance to downtown.',
+    goodyear: 'All of Goodyear, from PebbleCreek and Palm Valley down to Estrella Mountain Ranch.',
+    litchfield: 'Every home in Litchfield Park, including the streets around the Wigwam.',
+    citrus: 'Citrus Park and Waddell, plus the homes next door like Zanjero Trails.',
+    verrado: 'Every Verrado district, at the foot of the White Tank Mountains in Buckeye.'
+  };
+  const cards = order.map((a) => {
+    const p = PLACES[a];
+    const groups = townZips(a);
+    const names = groups.flatMap((g) => g.names).slice(0, 6);
+    return '<article class="town"><h2>' + esc(p.name) + '<span style="color: var(--accent);">.</span></h2>' +
+      '<ul class="tzips" aria-label="ZIP codes">' + p.zips.map((z) => '<li>' + z + '</li>').join('') + '</ul>' +
+      '<p>' + esc(blurbs[a]) + '</p>' +
+      '<p style="color: var(--mute); font-size: 15px;">' + esc(names.join(' · ')) + '</p>' +
+      '<a class="tgo" href="' + p.url + '">Dog poop pickup in ' + esc(p.name) + ' ›</a></article>';
+  }).join('');
+  const rows = ALL_ZIPS.map((z) => '<tr><td>' + z[0] + '</td><td>' + esc(z[1]) + '</td><td><a href="' + PLACES[z[2]].url + '">' + esc(PLACES[z[2]].name) + ' page</a></td></tr>').join('');
+  const inner = '<p class="eb">Arizona Pet Waste</p><h1 class="h1 dh1">Areas we serve<span style="color: var(--accent);">.</span></h1>' +
+    '<p class="lead">We pick up dog poop at every home in six West Valley ZIP codes: Buckeye, Goodyear, Litchfield Park, and Waddell with Citrus Park. Pick your town to see neighborhoods, prices and answers.</p>' +
+    '<div class="towns">' + cards + '</div>' +
+    '<h2 id="zip-codes">Every ZIP code we serve<span style="color: var(--accent);">.</span></h2>' +
+    '<table class="ziplist"><thead><tr><th scope="col">ZIP</th><th scope="col">TOWN</th><th scope="col">PAGE</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+    '<h2 id="not-listed">Not on the list?</h2>' +
+    '<p>Type your ZIP when you book. If we do not come to you yet, you can join the waitlist, and we will text you when we do.</p>' +
+    '<a class="btn btn-dot hubcta" href="/book/">Start your free month</a>';
+  const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc docw"').replace('@@DOC@@', inner));
+  built.push(page({
+    route, board: 'doc', index: true, title: 'Areas We Serve in the West Valley AZ | Arizona Pet Waste',
+    description: 'Dog poop pickup for every home in Buckeye, Goodyear, Litchfield Park and Waddell, AZ: ZIP 85326, 85338, 85340, 85355, 85395 and 85396.',
+    fonts: e.b.fonts, css: [e.b.css], boards: [e], body: ssr(e),
+    ld: [crumbs(url, [['Home', '/'], ['Areas we serve', route]]),
+      { '@type': 'ItemList', '@id': url + '#towns', name: 'Towns Arizona Pet Waste serves', itemListElement: order.map((a, i) => ({ '@type': 'ListItem', position: i + 1, name: PLACES[a].name, url: ORIGIN + PLACES[a].url })) },
+      { '@type': 'Service', '@id': url + '#service', name: 'Dog poop pickup in the West Valley', serviceType: 'Pet waste removal', provider: { '@id': BIZ }, areaServed: SERVED,
+        offers: { '@type': 'AggregateOffer', lowPrice: '75.00', highPrice: '189.00', priceCurrency: 'USD', offerCount: 3 } }]
   }));
 }
 
@@ -327,7 +402,7 @@ for (const [slug, fallbackH1] of POLICIES) {
   const e = useBoard('book');
   built.push(page({
     route: '/book/', board: 'book', index: false, bodyClass: 'bookpage', title: 'Start Your Free Month | Arizona Pet Waste',
-    description: 'Sign up for dog poop pickup in Verrado, Citrus Park, Goodyear and Litchfield Park. Your first month is free.',
+    description: 'Sign up for dog poop pickup in Buckeye, Goodyear, Litchfield Park and Citrus Park, AZ. Your first month is free.',
     fonts: e.b.fonts, css: [e.b.css], boards: [e], body: ssr(e, { mode: 'page' })
   }));
   const a = useBoard('account');
@@ -337,7 +412,7 @@ for (const [slug, fallbackH1] of POLICIES) {
     fonts: a.b.fonts, css: [a.b.css], boards: [a], body: ssr(a)
   }));
   const nf = useBoard('doc', (mk) => slots(mk).replace('@@DOC@@', '<p class="eb">Arizona Pet Waste</p><h1 class="h1 dh1">We could not find that page<span style="color: var(--accent);">.</span></h1>' +
-    '<p class="lead">The link may be old. These pages can help.</p><ul><li><a href="/">Home</a></li><li><a href="/book/">Start your free month</a></li><li><a href="/verrado/">Verrado</a></li><li><a href="/citrus-park/">Citrus Park</a></li><li><a href="/goodyear/">Goodyear</a></li><li><a href="/litchfield-park/">Litchfield Park</a></li></ul>'));
+    '<p class="lead">The link may be old. These pages can help.</p><ul><li><a href="/">Home</a></li><li><a href="/book/">Start your free month</a></li><li><a href="/areas-we-serve/">Areas we serve</a></li><li><a href="/buckeye/">Buckeye</a></li><li><a href="/goodyear/">Goodyear</a></li><li><a href="/litchfield-park/">Litchfield Park</a></li><li><a href="/citrus-park/">Citrus Park</a></li><li><a href="/verrado/">Verrado</a></li></ul>'));
   built.push(page({
     route: '/404.html', board: 'doc', index: false, title: 'Page Not Found | Arizona Pet Waste', description: 'We could not find that page.',
     fonts: nf.b.fonts, css: [nf.b.css], boards: [nf], body: ssr(nf)
@@ -346,7 +421,7 @@ for (const [slug, fallbackH1] of POLICIES) {
 
 // ---------- search and AI files ----------
 const indexed = built.filter((b) => b.index);
-const priority = (r) => (r === '/' ? '1.0' : r.length < 20 && !['/privacy/', '/terms/', '/texts/', '/accessibility/'].includes(r) ? '0.9' : '0.3');
+const priority = (r) => (r === '/' ? '1.0' : ['/privacy/', '/terms/', '/texts/', '/accessibility/'].includes(r) ? '0.3' : '0.9');
 fs.writeFileSync(path.join(DIST, 'sitemap.xml'), '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
   indexed.map((b) => `  <url><loc>${ORIGIN}${b.route}</loc><lastmod>${TODAY}</lastmod><priority>${priority(b.route)}</priority></url>`).join('\n') + '\n</urlset>\n');
 fs.writeFileSync(path.join(DIST, 'robots.txt'), `# Search engines and AI assistants are welcome to read this site.
@@ -373,7 +448,7 @@ Sitemap: ${ORIGIN}/sitemap.xml
 const faqText = content.faq.main.map((x) => `- ${x.q} ${x.a}`).join('\n');
 fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 
-> Dog poop pickup (pet waste removal) for homes in Arizona's West Valley: Verrado in Buckeye (85396), Citrus Park in Waddell (85355), Goodyear north of Interstate 10 (85395) and Litchfield Park (85340). Weekly, twice a week or every other week. First month free. Free sanitizer spray at every visit. A photo of your latched gate after every visit, and a live map of our truck on visit day. No contract.
+> Dog poop pickup (pet waste removal) for every home in six West Valley, Arizona ZIP codes: Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell with Citrus Park (85355). Weekly, twice a week or every other week. First month free. Free sanitizer spray at every visit. A photo of your latched gate after every visit, and a live map of our truck on visit day. No contract.
 
 ## Prices (per month)
 - Every week: $108 for 1 or 2 dogs (about $25 a visit). Each dog after two adds $13.
@@ -382,12 +457,14 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - Turf odor treatment: $35. One time cleanup: $95.
 - First month free on any plan. A card is saved at sign up and first charged one month after the first visit.
 
-## Service area
-- [Verrado, Buckeye AZ 85396](${ORIGIN}/verrado/). Neighborhoods: ${hoodNames('verrado').join(', ')}.
-- [Citrus Park, Waddell AZ 85355](${ORIGIN}/citrus-park/), plus Litchfield Park 85340 homes between Verrado and Citrus Road. Neighborhoods: ${hoodNames('citrus').join(', ')}.
-- [Goodyear AZ 85395, north of Interstate 10](${ORIGIN}/goodyear/). Neighborhoods: ${hoodNames('goodyear').join(', ')}.
-- [Litchfield Park AZ 85340](${ORIGIN}/litchfield-park/). Neighborhoods: ${hoodNames('litchfield').join(', ')}.
-- Not served yet: Goodyear south of Interstate 10 (for example Estrella, Canyon Trails and the Citrus Park homes in Goodyear).
+## Service area (every home in these ZIP codes)
+- [Buckeye, AZ 85326 and 85396](${ORIGIN}/buckeye/). Neighborhoods: ${hoodNames('buckeye').join(', ')}.
+- [Goodyear, AZ 85338 and 85395](${ORIGIN}/goodyear/). Neighborhoods: ${hoodNames('goodyear').join(', ')}.
+- [Litchfield Park, AZ 85340](${ORIGIN}/litchfield-park/). Neighborhoods: ${hoodNames('litchfield').join(', ')}.
+- [Citrus Park and Waddell, AZ 85355](${ORIGIN}/citrus-park/), plus Litchfield Park 85340 homes between Verrado and Citrus Road. Neighborhoods: ${hoodNames('citrus').join(', ')}.
+- [Verrado, Buckeye AZ 85396](${ORIGIN}/verrado/). Districts: ${hoodNames('verrado').join(', ')}.
+- Full list: [Areas we serve](${ORIGIN}/areas-we-serve/).
+- Not served yet: Avondale, Surprise, Glendale and Phoenix. People there can join the waitlist when they book.
 
 ## How a visit works
 - We text the night before with a 30 minute window.
@@ -401,6 +478,8 @@ ${faqText}
 ## Pages
 - [Home](${ORIGIN}/): plans, prices, how a visit works, service map
 - [Start your free month](${ORIGIN}/book/): sign up online in about 2 minutes
+- [Areas we serve](${ORIGIN}/areas-we-serve/): every town and ZIP code we scoop
+- [Buckeye](${ORIGIN}/buckeye/), [Goodyear](${ORIGIN}/goodyear/), [Litchfield Park](${ORIGIN}/litchfield-park/), [Citrus Park](${ORIGIN}/citrus-park/), [Verrado](${ORIGIN}/verrado/): town pages
 - [Privacy Policy](${ORIGIN}/privacy/)
 - [Terms of Service](${ORIGIN}/terms/)
 - [Text Message Terms](${ORIGIN}/texts/)
@@ -428,7 +507,11 @@ fs.writeFileSync(path.join(DIST, '_redirects'), `/login /account/ 301
 /my-yard /account/ 301
 /signup /book/ 301
 /start /book/ 301
-/buckeye /verrado/ 301
+/areas /areas-we-serve/ 301
+/service-areas /areas-we-serve/ 301
+/where-we-scoop /areas-we-serve/ 301
+/estrella /goodyear/ 301
+/sundance /buckeye/ 301
 /waddell /citrus-park/ 301
 /zanjero-trails /citrus-park/ 301
 `);

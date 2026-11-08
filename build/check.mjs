@@ -18,6 +18,7 @@ const routes = new Set(pages.map((p) => '/' + path.relative(DIST, p).replace(/in
 const DASH = /[-‐-―−]/;
 let problems = 0;
 const bad = (page, msg) => { problems++; console.log('  x', page, msg); };
+const indexable = new Set();
 
 for (const file of pages) {
   const rel = '/' + path.relative(DIST, file).replace(/index\.html$/, '');
@@ -33,6 +34,19 @@ for (const file of pages) {
   for (const s of doc.querySelectorAll('script[type="application/ld+json"]')) {
     try { JSON.parse(s.textContent); } catch (e) { bad(rel, 'structured data does not parse'); }
   }
+  // headings go in order: never skip a level going down (h2 then h4 is a skip)
+  let last = 0;
+  for (const h of doc.querySelectorAll('h1,h2,h3,h4,h5,h6')) {
+    const lv = +h.tagName[1];
+    if (last && lv > last + 1) bad(rel, 'heading skips from h' + last + ' to h' + lv + ': "' + h.textContent.trim().slice(0, 40) + '"');
+    if (!h.textContent.trim()) bad(rel, 'empty h' + lv);
+    last = lv;
+  }
+  // every image says what it is (alt="" is fine for pictures that are only decoration)
+  for (const img of doc.querySelectorAll('img')) {
+    if (!img.hasAttribute('alt')) bad(rel, 'image with no alt: ' + (img.getAttribute('src') || '').slice(0, 60));
+  }
+  if (!noindex) indexable.add(rel);
   doc.querySelectorAll('script,style,noscript,svg text').forEach((n) => n.remove());
   const words = doc.body.textContent.replace(/\s+/g, ' ');
   const hit = words.match(new RegExp('.{0,30}' + DASH.source + '.{0,30}'));
@@ -56,6 +70,17 @@ for (const file of pages) {
     if (id && !ids.has(id)) bad(rel, 'anchor #' + id + ' has no target');
   }
   console.log((noindex ? 'noindex ' : 'index   ') + rel.padEnd(18) + ' ' + title);
+}
+// the sitemap lists every page we want in Google, and nothing else
+{
+  const sm = fs.existsSync(path.join(DIST, 'sitemap.xml')) ? fs.readFileSync(path.join(DIST, 'sitemap.xml'), 'utf8') : '';
+  if (!sm) bad('/sitemap.xml', 'missing');
+  const locs = new Set([...sm.matchAll(/<loc>https?:\/\/[^/<]+([^<]*)<\/loc>/g)].map((m) => m[1]));
+  for (const r of indexable) if (!locs.has(r)) bad('/sitemap.xml', 'does not list ' + r);
+  for (const r of locs) if (!indexable.has(r)) bad('/sitemap.xml', 'lists ' + r + ' which is not an indexable page');
+  const robots = fs.existsSync(path.join(DIST, 'robots.txt')) ? fs.readFileSync(path.join(DIST, 'robots.txt'), 'utf8') : '';
+  if (!/^Sitemap: https:\/\/\S+\/sitemap\.xml$/m.test(robots)) bad('/robots.txt', 'no Sitemap line');
+  console.log('sitemap  ' + locs.size + ' pages');
 }
 console.log(problems ? '\n' + problems + ' problems' : '\nAll checks passed.');
 process.exit(problems ? 1 : 0);

@@ -13,11 +13,14 @@ const PLANS = {
   twice: { name: 'Twice a week', base: 18900, extra: 1300 },
   eow: { name: 'Every other week', base: 7500, extra: 900 }
 };
+// Every ZIP code in the towns we serve: Buckeye, Goodyear, Litchfield Park and Waddell (Citrus Park).
 const ZIPS = {
-  '85396': { area: 'verrado', name: 'Verrado', city: 'Buckeye' },
-  '85355': { area: 'citrus', name: 'Citrus Park', city: 'Waddell' },
+  '85326': { area: 'buckeye', name: 'Buckeye', city: 'Buckeye' },
+  '85396': { area: 'buckeye', name: 'Buckeye', city: 'Buckeye' },
+  '85338': { area: 'goodyear', name: 'Goodyear', city: 'Goodyear' },
   '85395': { area: 'goodyear', name: 'Goodyear', city: 'Goodyear' },
-  '85340': { area: 'litchfield', name: 'Litchfield Park', city: 'Litchfield Park' }
+  '85340': { area: 'litchfield', name: 'Litchfield Park', city: 'Litchfield Park' },
+  '85355': { area: 'citrus', name: 'Citrus Park', city: 'Waddell' }
 };
 const NO_VISIT = ['2026-11-26', '2026-11-27', '2026-12-24', '2026-12-25', '2026-12-31', '2027-01-01'];
 // The exact words shown next to the text boxes. Saved with every consent record.

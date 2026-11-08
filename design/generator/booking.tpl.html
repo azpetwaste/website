@@ -63,10 +63,10 @@
     </sc-if>
     <p class="mono" style="margin: 26px 0 8px; font-size: 13px; font-weight: 600; letter-spacing: .09em; color: var(--mute);">WE SCOOP IN</p>
     <div style="display: flex; flex-direction: column; gap: 6px;">
-      <div style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2);"><span style="font-size: 16px; font-weight: 700;">Verrado</span><span style="font-size: 14px; color: var(--mute);">Buckeye</span><span class="mono" style="margin-left: auto; font-size: 16px; font-weight: 600; color: var(--accent-text);">85396</span></div>
-      <div style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2);"><span style="font-size: 16px; font-weight: 700;">Litchfield Park</span><span class="mono" style="margin-left: auto; font-size: 16px; font-weight: 600; color: var(--accent-text);">85340</span></div>
-      <div style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2);"><span style="font-size: 16px; font-weight: 700;">Citrus Park</span><span class="mono" style="margin-left: auto; font-size: 16px; font-weight: 600; color: var(--accent-text);">85355</span></div>
-      <div style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2);"><span style="font-size: 16px; font-weight: 700;">Goodyear</span><span style="font-size: 14px; color: var(--mute);">North of Interstate 10</span><span class="mono" style="margin-left: auto; font-size: 16px; font-weight: 600; color: var(--accent-text);">85395</span></div>
+      <div style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2);"><span style="font-size: 16px; font-weight: 700;">Buckeye</span><span style="font-size: 14px; color: var(--mute);">with Verrado</span><span class="mono" style="margin-left: auto; font-size: 15px; font-weight: 600; color: var(--accent-text);">85326 · 85396</span></div>
+      <div style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2);"><span style="font-size: 16px; font-weight: 700;">Goodyear</span><span class="mono" style="margin-left: auto; font-size: 15px; font-weight: 600; color: var(--accent-text);">85338 · 85395</span></div>
+      <div style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2);"><span style="font-size: 16px; font-weight: 700;">Litchfield Park</span><span class="mono" style="margin-left: auto; font-size: 15px; font-weight: 600; color: var(--accent-text);">85340</span></div>
+      <div style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2);"><span style="font-size: 16px; font-weight: 700;">Citrus Park</span><span style="font-size: 14px; color: var(--mute);">Waddell</span><span class="mono" style="margin-left: auto; font-size: 15px; font-weight: 600; color: var(--accent-text);">85355</span></div>
     </div>
   </sc-if>
 
@@ -207,8 +207,8 @@ class Component extends DCLogic {
   }
   renderVals() {
     const s = this.state;
-    const zips = { '85396': 'Verrado', '85355': 'Citrus Park', '85395': 'Goodyear', '85340': 'Litchfield Park' };
-    const cities = { '85396': 'Buckeye, AZ 85396', '85355': 'Waddell, AZ 85355', '85395': 'Goodyear, AZ 85395', '85340': 'Litchfield Park, AZ 85340' };
+    const zips = { '85326': 'Buckeye', '85396': 'Buckeye', '85338': 'Goodyear', '85395': 'Goodyear', '85340': 'Litchfield Park', '85355': 'Citrus Park' };
+    const cities = { '85326': 'Buckeye, AZ 85326', '85396': 'Buckeye, AZ 85396', '85338': 'Goodyear, AZ 85338', '85395': 'Goodyear, AZ 85395', '85340': 'Litchfield Park, AZ 85340', '85355': 'Waddell, AZ 85355' };
     const names = { week: 'Every week', twice: 'Twice a week', eow: 'Every other week' };
     const zipOk = !!zips[s.zip];
     const days = this._days();

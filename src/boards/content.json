@@ -56,15 +56,15 @@
   ]
  },
  "cities": {
-  "verrado": {
-   "name": "Verrado",
-   "eyebrow": "Verrado · Buckeye, AZ 85396",
-   "intro": "Arizona Pet Waste picks up dog poop in Verrado every week. We text you the night before, let you watch our truck on a live map, and send you a photo of your latched gate when we leave.",
-   "where": "Verrado sits north of Interstate 10 at the Verrado Way exit, right at the base of the White Tank Mountains. We scoop Verrado homes in ZIP 85396.",
+  "buckeye": {
+   "name": "Buckeye",
+   "eyebrow": "Buckeye, AZ · ZIP 85326 and 85396",
+   "intro": "Arizona Pet Waste picks up dog poop in Buckeye every week. We text you the night before, let you watch our truck on a live map, and send you a photo of your latched gate when we leave.",
+   "where": "Buckeye has two ZIP codes, and we scoop every home in both. 85396 is north Buckeye, near the White Tank Mountains, with Verrado, Tartesso and Festival Ranch. 85326 is the rest of Buckeye, from Sundance and Westpark to historic downtown.",
    "faq": [
     {
-     "q": "Do you serve all of Verrado?",
-     "a": "Yes. We scoop Verrado homes in ZIP 85396, plus the homes east of Verrado up to Perryville Road. Not sure? Type your ZIP when you book, and we will tell you right away."
+     "q": "Do you serve all of Buckeye?",
+     "a": "Yes. We scoop every home in both Buckeye ZIP codes, 85326 and 85396. That includes Verrado, Sundance, Westpark, Tartesso, Festival Ranch and historic downtown."
     },
     {
      "q": "Do you clean turf and rock yards?",
@@ -75,44 +75,20 @@
      "a": "No. Most of our customers are at work. Add your gate code in My Yard, and we send a photo of your latched gate when we leave."
     },
     {
-     "q": "What day do you come to Verrado?",
-     "a": "You pick your day when you book. You get a text the night before with a 30 minute window."
-    }
-   ]
-  },
-  "citrus": {
-   "name": "Citrus Park",
-   "eyebrow": "Citrus Park · Waddell, AZ 85355",
-   "intro": "Arizona Pet Waste picks up dog poop in Citrus Park every week. We text you the night before, let you watch our truck on a live map, and send you a photo of your latched gate when we leave.",
-   "where": "Citrus Park sits between Perryville Road and Cotton Lane, from Northern Avenue south to about Camelback Road. About 5,200 people live there. It is not part of any city, and its mail comes through the Waddell post office. We scoop all of Citrus Park and the homes next to it, like Zanjero Trails.",
-   "faq": [
-    {
-     "q": "Do you serve all of Citrus Park?",
-     "a": "Yes. We scoop all of Citrus Park, from Perryville Road to Cotton Lane. We also scoop the homes next to it, like Zanjero Trails."
-    },
-    {
-     "q": "Do you clean big grass yards?",
-     "a": "Yes. We walk your yard in rows and pick up every pile. Then we spray sanitizer and deodorizer where your dogs go most. The spray is free."
-    },
-    {
-     "q": "Is there a contract?",
-     "a": "No. You pay month to month and can cancel any time in My Yard. Your first month is free on any plan."
-    },
-    {
-     "q": "What day do you come to Citrus Park?",
+     "q": "What day do you come to Buckeye?",
      "a": "You pick your day when you book. You get a text the night before with a 30 minute window."
     }
    ]
   },
   "goodyear": {
    "name": "Goodyear",
-   "eyebrow": "Goodyear, AZ 85395",
+   "eyebrow": "Goodyear, AZ · ZIP 85338 and 85395",
    "intro": "Arizona Pet Waste picks up dog poop in Goodyear every week. We text you the night before, let you watch our truck on a live map, and send you a photo of your latched gate when we leave.",
-   "where": "We scoop Goodyear north of Interstate 10, from Perryville Road east to Dysart Road. That includes Palm Valley and PebbleCreek, ZIP 85395.",
+   "where": "Goodyear has two ZIP codes, and we scoop every home in both. 85395 is north of Interstate 10, with Palm Valley, PebbleCreek and Sedella. 85338 runs south of the freeway to Estrella Mountain Ranch, with Canyon Trails, Centerra and Cottonflower on the way.",
    "faq": [
     {
      "q": "Do you serve all of Goodyear?",
-     "a": "We scoop Goodyear north of Interstate 10, ZIP 85395. Live south of the freeway? Join the waitlist when you book."
+     "a": "Yes. We scoop every home in both Goodyear ZIP codes, 85338 and 85395. That includes Estrella Mountain Ranch, Canyon Trails, Centerra, Palm Valley and PebbleCreek."
     },
     {
      "q": "Does Goodyear really require pickup twice a week?",
@@ -130,13 +106,13 @@
   },
   "litchfield": {
    "name": "Litchfield Park",
-   "eyebrow": "Litchfield Park, AZ 85340",
+   "eyebrow": "Litchfield Park, AZ · ZIP 85340",
    "intro": "Arizona Pet Waste picks up dog poop in Litchfield Park every week. We text you the night before, let you watch our truck on a live map, and send you a photo of your latched gate when we leave.",
-   "where": "Litchfield Park is north of Interstate 10 at the Litchfield Road exit, with Goodyear to the west and south and Luke Air Force Base to the north. We scoop homes in ZIP 85340.",
+   "where": "Litchfield Park is north of Interstate 10 at the Litchfield Road exit, with Goodyear to the west and south and Luke Air Force Base to the north. It has one ZIP code, 85340, and we scoop every home in it.",
    "faq": [
     {
      "q": "Do you serve all of Litchfield Park?",
-     "a": "Yes. We scoop homes all over Litchfield Park, ZIP 85340. We also scoop Goodyear north of Interstate 10, like Palm Valley and PebbleCreek."
+     "a": "Yes. We scoop every home in ZIP 85340, the ZIP code for Litchfield Park. We also scoop every ZIP code in Goodyear and Buckeye."
     },
     {
      "q": "Is there a contract?",
@@ -148,6 +124,54 @@
     },
     {
      "q": "What day do you come to Litchfield Park?",
+     "a": "You pick your day when you book. You get a text the night before with a 30 minute window."
+    }
+   ]
+  },
+  "citrus": {
+   "name": "Citrus Park",
+   "eyebrow": "Citrus Park · Waddell, AZ · ZIP 85355",
+   "intro": "Arizona Pet Waste picks up dog poop in Citrus Park every week. We text you the night before, let you watch our truck on a live map, and send you a photo of your latched gate when we leave.",
+   "where": "Citrus Park sits between Perryville Road and Cotton Lane, from Northern Avenue south to about Camelback Road. It is not part of any city, and its mail comes through the Waddell post office, ZIP 85355. We scoop every home in 85355 and the homes next to it, like Zanjero Trails.",
+   "faq": [
+    {
+     "q": "Do you serve all of Citrus Park?",
+     "a": "Yes. We scoop all of Citrus Park and every home in Waddell ZIP 85355. We also scoop the homes next to it, like Zanjero Trails."
+    },
+    {
+     "q": "Do you clean big grass yards?",
+     "a": "Yes. We walk your yard in rows and pick up every pile. Then we spray sanitizer and deodorizer where your dogs go most. The spray is free."
+    },
+    {
+     "q": "Is there a contract?",
+     "a": "No. You pay month to month and can cancel any time in My Yard. Your first month is free on any plan."
+    },
+    {
+     "q": "What day do you come to Citrus Park?",
+     "a": "You pick your day when you book. You get a text the night before with a 30 minute window."
+    }
+   ]
+  },
+  "verrado": {
+   "name": "Verrado",
+   "eyebrow": "Verrado · Buckeye, AZ · ZIP 85396",
+   "intro": "Arizona Pet Waste picks up dog poop in Verrado every week. We text you the night before, let you watch our truck on a live map, and send you a photo of your latched gate when we leave.",
+   "where": "Verrado sits north of Interstate 10 at the Verrado Way exit, right at the base of the White Tank Mountains. It is in Buckeye ZIP 85396, and we scoop every home in it. We also scoop the rest of Buckeye, ZIP 85326.",
+   "faq": [
+    {
+     "q": "Do you serve all of Verrado?",
+     "a": "Yes. We scoop every Verrado home, and all of Buckeye too, in ZIP codes 85396 and 85326. Not sure? Type your ZIP when you book, and we will tell you right away."
+    },
+    {
+     "q": "Do you clean turf and rock yards?",
+     "a": "Yes. We pick up every pile on turf, grass and rock. We rake rock and gravel with a wide metal rake, then spray sanitizer and deodorizer where your dogs go most. The spray is free."
+    },
+    {
+     "q": "Do I need to be home?",
+     "a": "No. Most of our customers are at work. Add your gate code in My Yard, and we send a photo of your latched gate when we leave."
+    },
+    {
+     "q": "What day do you come to Verrado?",
      "a": "You pick your day when you book. You get a text the night before with a 30 minute window."
     }
    ]

@@ -85,7 +85,7 @@ with sync_playwright() as p:
     page.wait_for_timeout(500)
     shot(page, 'm_home_full', full=True)
 
-    for route, name in [('/verrado/', 'm_verrado'), ('/goodyear/', 'm_goodyear'), ('/privacy/', 'm_privacy'), ('/texts/', 'm_texts'), ('/book/', 'm_bookpage'), ('/account/', 'm_account'), ('/404.html', 'm_404')]:
+    for route, name in [('/buckeye/', 'm_buckeye'), ('/areas-we-serve/', 'm_areas'), ('/verrado/', 'm_verrado'), ('/goodyear/', 'm_goodyear'), ('/privacy/', 'm_privacy'), ('/texts/', 'm_texts'), ('/book/', 'm_bookpage'), ('/account/', 'm_account'), ('/404.html', 'm_404')]:
         pg = phone.new_page()
         watch(pg, name)
         pg.route('https://fonts.googleapis.com/**', lambda r: r.abort())
@@ -94,6 +94,15 @@ with sync_playwright() as p:
         shot(pg, name)
         if route == '/verrado/':
             shot(pg, 'm_verrado_full', full=True)
+        if route in ('/buckeye/', '/areas-we-serve/'):
+            shot(pg, name + '_full', full=True)
+        if route == '/buckeye/':
+            q = pg.locator('#questions details.qa').first
+            q.locator('summary').click()
+            pg.wait_for_timeout(200)
+            assert q.evaluate('d => d.open'), 'FAQ question did not open'
+            q.scroll_into_view_if_needed()
+            shot(pg, 'm_buckeye_faq')
         if route == '/account/':
             pg.fill('#a-email', 'test@example.com')
             pg.get_by_role('button', name='Send my code').click()
@@ -129,6 +138,13 @@ with sync_playwright() as p:
     dp.wait_for_timeout(500)
     shot(dp, 'd_litchfield')
     shot(dp, 'd_litchfield_full', full=True)
+    dp.goto(BASE + '/buckeye/', wait_until='networkidle')
+    dp.wait_for_timeout(500)
+    shot(dp, 'd_buckeye_full', full=True)
+    dp.goto(BASE + '/areas-we-serve/', wait_until='networkidle')
+    dp.wait_for_timeout(400)
+    shot(dp, 'd_areas')
+    shot(dp, 'd_areas_full', full=True)
     dp.goto(BASE + '/terms/', wait_until='networkidle')
     dp.wait_for_timeout(300)
     shot(dp, 'd_terms')

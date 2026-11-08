@@ -178,7 +178,7 @@ SITE_CSS = r""".uline{position:relative;white-space:nowrap}
 .cal span{display:block;width:9px;height:9px;border-radius:3px}
 .qa{margin-top:10px}
 .qa summary{display:flex;justify-content:flex-end}
-.qb{max-width:86%;padding:12px 16px;border-radius:20px 20px 6px 20px;background:var(--ink);color:var(--bg);font-size:16px;font-weight:600;line-height:1.4}
+.qb{margin:0;font-family:inherit;letter-spacing:normal;max-width:86%;padding:12px 16px;border-radius:20px 20px 6px 20px;background:var(--ink);color:var(--bg);font-size:16px;font-weight:600;line-height:1.4}
 .qa[open] .qb{background:#FF4A1C;color:#0E1430}
 .ab{display:flex;gap:8px;align-items:flex-end;margin-top:8px}
 .ab img{width:28px;height:28px;flex:0 0 28px;display:block}
@@ -217,7 +217,7 @@ SITE_CSS += "\n.routew{position:relative;margin-top:26px}.route{margin:0}\n" + t
 LBS_PER_DOG = '274'
 
 AREA_METHODS = r"""  _zipArea(zip) {
-    return ({ '85396': 'verrado', '85355': 'citrus', '85395': 'goodyear', '85340': 'litchfield' })[zip] || '';
+    return ({ '85326': 'buckeye', '85396': 'buckeye', '85338': 'goodyear', '85395': 'goodyear', '85340': 'litchfield', '85355': 'citrus' })[zip] || '';
   }
   _checkZip() {
     this.setState({ zipChecked: true, area: this._zipArea(this.state.zip) });
@@ -225,10 +225,11 @@ AREA_METHODS = r"""  _zipArea(zip) {
   _areaVals() {
     const s = this.state;
     const areas = {
-      verrado: { name: 'Verrado', meta: 'VERRADO · BUCKEYE · 85396' },
-      citrus: { name: 'Citrus Park', meta: 'CITRUS PARK · 85355' },
-      goodyear: { name: 'Goodyear', meta: 'GOODYEAR · NORTH OF INTERSTATE 10 · 85395' },
-      litchfield: { name: 'Litchfield Park', meta: 'LITCHFIELD PARK · 85340' }
+      buckeye: { name: 'Buckeye', meta: 'BUCKEYE · ZIP 85326 AND 85396' },
+      verrado: { name: 'Verrado', meta: 'VERRADO · BUCKEYE · ZIP 85396' },
+      citrus: { name: 'Citrus Park', meta: 'CITRUS PARK · WADDELL · ZIP 85355' },
+      goodyear: { name: 'Goodyear', meta: 'GOODYEAR · ZIP 85338 AND 85395' },
+      litchfield: { name: 'Litchfield Park', meta: 'LITCHFIELD PARK · ZIP 85340' }
     };
     const pin = (id) => {
       const on = s.area === id;
@@ -238,8 +239,8 @@ AREA_METHODS = r"""  _zipArea(zip) {
     const a = areas[s.area];
     const byZip = s.zipChecked && !!this._zipArea(s.zip);
     return {
-      mV: pin('verrado'), mC: pin('citrus'), mG: pin('goodyear'), mL: pin('litchfield'),
-      bV: blob('verrado'), bC: blob('citrus'), bG: blob('goodyear'), bL: blob('litchfield'),
+      mB: pin('buckeye'), mV: pin('verrado'), mC: pin('citrus'), mG: pin('goodyear'), mL: pin('litchfield'),
+      bB: blob('buckeye'), bV: blob('verrado'), bC: blob('citrus'), bG: blob('goodyear'), bL: blob('litchfield'),
       areaOn: !!a,
       areaName: byZip ? 'ZIP ' + s.zip : (a ? a.name : ''),
       areaMeta: a ? a.meta : '',
@@ -252,13 +253,14 @@ AREA_METHODS = r"""  _zipArea(zip) {
     };
   }"""
 
-MAP = truemap.build('mV.pick', 'mC.pick', 'mG.pick', 'mL.pick')
+MAP = truemap.build('mV.pick', 'mC.pick', 'mG.pick', 'mL.pick', 'mB.pick')
 MAP_KEY = truemap.MAP_KEY
 MAP_CHIPS = '''  <div class="mchips" role="group" aria-label="Towns we scoop">
-    <button type="button" class="mchip" style="background: {{ mV.bg }}; color: {{ mV.fg }};" aria-pressed="{{ mV.on }}" onClick="{{ mV.pick }}"><i></i>Verrado</button>
-    <button type="button" class="mchip" style="background: {{ mC.bg }}; color: {{ mC.fg }};" aria-pressed="{{ mC.on }}" onClick="{{ mC.pick }}"><i></i>Citrus Park</button>
+    <button type="button" class="mchip" style="background: {{ mB.bg }}; color: {{ mB.fg }};" aria-pressed="{{ mB.on }}" onClick="{{ mB.pick }}"><i></i>Buckeye</button>
     <button type="button" class="mchip" style="background: {{ mG.bg }}; color: {{ mG.fg }};" aria-pressed="{{ mG.on }}" onClick="{{ mG.pick }}"><i></i>Goodyear</button>
     <button type="button" class="mchip" style="background: {{ mL.bg }}; color: {{ mL.fg }};" aria-pressed="{{ mL.on }}" onClick="{{ mL.pick }}"><i></i>Litchfield Park</button>
+    <button type="button" class="mchip" style="background: {{ mC.bg }}; color: {{ mC.fg }};" aria-pressed="{{ mC.on }}" onClick="{{ mC.pick }}"><i></i>Citrus Park</button>
+    <button type="button" class="mchip" style="background: {{ mV.bg }}; color: {{ mV.fg }};" aria-pressed="{{ mV.on }}" onClick="{{ mV.pick }}"><i></i>Verrado</button>
   </div>'''
 
 from scene import saguaro, agave, barrel  # noqa: E402
@@ -283,7 +285,7 @@ _seal28 = ('<sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}"><img 
 
 
 def faq(items):
-    return '\n    '.join('<details class="qa"><summary><span class="qb">%s</span></summary><div class="ab">%s<p>%s</p></div></details>' % (q, _seal28, a) for q, a in items)
+    return '\n    '.join('<details class="qa"><summary><h3 class="qb">%s</h3></summary><div class="ab">%s<p>%s</p></div></details>' % (q, _seal28, a) for q, a in items)
 
 
 FAQ = faq(FAQ_ITEMS)
@@ -522,12 +524,13 @@ def _footer(pre):
             '    </div>\n'
             '    <nav class="fnav" aria-label="Footer">\n'
             '      <div>\n'
-            '        <p ' + _flab + '>WHERE WE SCOOP</p>\n'
-            '        <a href="CityVerrado.dc.html" class="flink">Verrado</a>\n'
+            '        <p ' + _flab + '>AREAS WE SERVE</p>\n'
+            '        <a href="CityBuckeye.dc.html" class="flink">Buckeye</a>\n'
+            '        <a href="CityGoodyear.dc.html" class="flink">Goodyear</a>\n'
             '        <a href="CityLitchfieldPark.dc.html" class="flink">Litchfield Park</a>\n'
             '        <a href="CityCitrusPark.dc.html" class="flink">Citrus Park</a>\n'
-            '        <a href="CityVerrado.dc.html" class="flink">Buckeye</a>\n'
-            '        <a href="CityGoodyear.dc.html" class="flink">Goodyear</a>\n'
+            '        <a href="CityVerrado.dc.html" class="flink">Verrado</a>\n'
+            '        <a href="AreasWeServe.dc.html" class="flink">Every ZIP code</a>\n'
             '      </div>\n'
             '      <div>\n'
             '        <p ' + _flab + '>HELP</p>\n'
@@ -550,9 +553,9 @@ def _footer(pre):
             '</footer>')
 
 
-HEADER_MAIN = _header('#top', [('#how', 'How it works'), ('#prices', 'Prices'), ('#where', 'Where we scoop'), ('#questions', 'Questions'), ('https://arizonapetwaste.com/start/login', 'Sign in')])
-HEADER_CITY = _header('Main.dc.html', [('Main.dc.html#how', 'How it works'), ('#prices', 'Prices'), ('#where', 'Where we scoop'), ('#questions', 'Questions'), ('https://arizonapetwaste.com/start/login', 'Sign in')])
-MENU_MAIN = _menu([('#how', 'How a visit works'), ('#prices', 'Prices'), ('#proof', 'Proof of Scoop'), ('#where', 'Where we scoop'), ('#questions', 'Questions'), ('#promise', 'Our promise'), ('https://arizonapetwaste.com/start/login', 'Sign in to My Yard')])
-MENU_CITY = _menu([('Main.dc.html', 'Home'), ('CityVerrado.dc.html', 'Verrado'), ('CityLitchfieldPark.dc.html', 'Litchfield Park'), ('CityCitrusPark.dc.html', 'Citrus Park'), ('CityGoodyear.dc.html', 'Goodyear'), ('https://arizonapetwaste.com/start/login', 'Sign in to My Yard')])
+HEADER_MAIN = _header('#top', [('#how', 'How it works'), ('#prices', 'Prices'), ('AreasWeServe.dc.html', 'Areas we serve'), ('#questions', 'Questions'), ('https://arizonapetwaste.com/start/login', 'Sign in')])
+HEADER_CITY = _header('Main.dc.html', [('Main.dc.html#how', 'How it works'), ('#prices', 'Prices'), ('AreasWeServe.dc.html', 'Areas we serve'), ('#questions', 'Questions'), ('https://arizonapetwaste.com/start/login', 'Sign in')])
+MENU_MAIN = _menu([('#how', 'How a visit works'), ('#prices', 'Prices'), ('#proof', 'Proof of Scoop'), ('AreasWeServe.dc.html', 'Areas we serve'), ('#questions', 'Questions'), ('#promise', 'Our promise'), ('https://arizonapetwaste.com/start/login', 'Sign in to My Yard')])
+MENU_CITY = _menu([('Main.dc.html', 'Home'), ('AreasWeServe.dc.html', 'Areas we serve'), ('CityBuckeye.dc.html', 'Buckeye'), ('CityGoodyear.dc.html', 'Goodyear'), ('CityLitchfieldPark.dc.html', 'Litchfield Park'), ('CityCitrusPark.dc.html', 'Citrus Park'), ('CityVerrado.dc.html', 'Verrado'), ('https://arizonapetwaste.com/start/login', 'Sign in to My Yard')])
 FOOTER_MAIN = _footer('')
 FOOTER_CITY = _footer('Main.dc.html')

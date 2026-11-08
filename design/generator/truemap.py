@@ -1,7 +1,8 @@
 """A true map of the West Valley service area, drawn from OpenStreetMap data pulled Nov 6 2026.
 World units: 15 per km. x = (lon + 112.60) * 1392.4, y = (33.60 - lat) * 1658.55.
 Boundaries (Verrado, Citrus Park CDP, Goodyear, Litchfield Park, Luke AFB, White Tank and Skyline parks) come from
-Nominatim; roads, canals and the Agua Fria come from Overpass. Map data © OpenStreetMap contributors (ODbL)."""
+Nominatim; roads, canals and the Agua Fria come from Overpass. Map data © OpenStreetMap contributors (ODbL).
+ZIP code areas (Z_*) are US Census ZCTAs (via OpenDataDE), clipped to the view and simplified."""
 import json
 import os
 
@@ -40,37 +41,53 @@ RUNWAYS = 'M311 94L281 128M323 88L293 121M325 278L301 308'
 TRUCK_KEYS = '0%{transform:translate(133px,229px)}32%{transform:translate(193px,229px)}73%{transform:translate(193px,153px)}92%,100%{transform:translate(241px,153px)}'
 
 
+ZIPS = ['85326', '85338', '85340', '85355', '85395', '85396']
+# label spots inside each ZIP's visible part of the map
+ZIP_LABELS = {'85355': (222, 62), '85396': (112, 174), '85326': (96, 299), '85338': (262, 290), '85395': (266, 209), '85340': (346, 186)}
+
+
+def _shape(d, hole, pick):
+    return '<path class="mplc" d="%s" style="fill: {{ %s }};" onClick="{{ %s }}"></path>' % (d, hole, pick)
+
+
 def _place(key, hole, pick):
-    return '<path class="mplc" d="%s" style="fill: {{ %s }};" onClick="{{ %s }}"></path>' % (_D['P_' + key.upper()], hole, pick)
+    return _shape(_D['P_' + key.upper()], hole, pick)
+
+
+def _zips(*zips):
+    return ''.join(_D['Z_' + z] for z in zips)
 
 
 def _label(x, y, lines, cls='mplace'):
     return ''.join('<text class="%s" x="%d" y="%d" text-anchor="middle">%s</text>' % (cls, x, y + i * 13, t) for i, t in enumerate(lines))
 
 
-def build(pick_v, pick_c, pick_g, pick_l):
+def build(pick_v, pick_c, pick_g, pick_l, pick_b):
     return (
-        '<svg viewBox="%d %d %d %d" role="img" aria-label="Map of where Arizona Pet Waste scoops: Verrado, Citrus Park, '
-        'Goodyear north of Interstate 10, Litchfield Park, and the homes in between">' % VIEW +
+        '<svg viewBox="%d %d %d %d" role="img" aria-label="Map of the ZIP codes Arizona Pet Waste scoops: Buckeye 85326 and 85396, '
+        'Goodyear 85338 and 85395, Litchfield Park 85340, and Waddell and Citrus Park 85355">' % VIEW +
         '<rect class="mland" x="-20" y="-20" width="460" height="380"></rect>'
         '<path class="mmtn" d="' + _D['MTN'] + '"></path><path class="mridge" d="' + _D['RIDGES'] + '"></path>'
         '<path class="mbase" d="' + _D['LUKE'] + '"></path><path class="mrun" d="' + RUNWAYS + '"></path>'
         + ''.join('<path class="mcanal" d="%s"></path>' % c for c in CANALS)
         + ''.join('<path class="mriver" d="%s"></path>' % r for r in RIVERS)
         + '<path class="mart" d="' + ''.join(ART) + '"></path>'
-        '<path class="mareaf" d="' + _D['AREA'] + '"></path>'
-        + _place('verrado', 'bV', pick_v) + _place('citrus', 'bC', pick_c) + _place('goodyear', 'bG', pick_g) + _place('litchfield', 'bL', pick_l) +
+        + ''.join('<path class="mzipf" d="%s"></path>' % _D['Z_' + z] for z in ZIPS)
+        + _shape(_zips('85326', '85396'), 'bB', pick_b) + _shape(_zips('85338', '85395'), 'bG', pick_g)
+        + _shape(_zips('85340'), 'bL', pick_l) + _shape(_zips('85355'), 'bC', pick_c) + _place('verrado', 'bV', pick_v)
+        + ''.join('<path class="mzipl" d="%s"></path>' % _D['Z_' + z] for z in ZIPS) +
         '<path class="mfwy0" d="' + I10 + L303 + NPKWY + '"></path><path class="mfwy" d="' + I10 + L303 + NPKWY + '"></path>'
-        '<path class="marea" d="' + _D['AREA'] + '"></path>'
         '<g class="mnolook"><rect x="84" y="236" width="22" height="16" rx="4" fill="#2A5DB0"></rect><text x="95" y="248" text-anchor="middle" class="mshield" fill="#FFFFFF">10</text></g>'
         '<g class="mnolook"><rect x="319" y="227" width="22" height="16" rx="4" fill="#2A5DB0"></rect><text x="330" y="239" text-anchor="middle" class="mshield" fill="#FFFFFF">10</text></g>'
         '<g class="mnolook"><rect x="240" y="40" width="26" height="16" rx="8" fill="#FFFFFF" stroke="#0E1430" stroke-width="1.2"></rect><text x="253" y="52" text-anchor="middle" class="mshield" fill="#0E1430">303</text></g>'
         + _label(66, 42, ['WHITE TANK', 'MOUNTAINS'], 'mtxt mtxtm') + _label(318, 106, ['LUKE AFB'], 'mtxt')
-        + _label(48, 302, ['BUCKEYE'], 'mtxt') + _label(370, 266, ['PHOENIX →'], 'mtxt')
+        + _label(370, 266, ['PHOENIX →'], 'mtxt')
         + '<text class="mtxt" x="398" y="122" transform="rotate(-90 398 122)">AGUA FRIA</text>'
-        + _label(112, 160, ['VERRADO']) + _label(217, 98, ['CITRUS', 'PARK']) + _label(266, 196, ['GOODYEAR']) + _label(346, 160, ['LITCHFIELD', 'PARK']) +
+        + _label(112, 160, ['VERRADO']) + _label(217, 98, ['CITRUS', 'PARK']) + _label(266, 196, ['GOODYEAR']) + _label(346, 160, ['LITCHFIELD', 'PARK'])
+        + _label(96, 286, ['BUCKEYE']) + _label(262, 277, ['GOODYEAR'])
+        + ''.join('<text class="mzipt" x="%d" y="%d" text-anchor="middle">%s</text>' % (x, y, z) for z, (x, y) in ZIP_LABELS.items()) +
         '<g class="mtruck"><circle r="8" fill="#FF4A1C" opacity=".25"></circle><circle r="4.5" fill="#FF4A1C" stroke="#FFFFFF" stroke-width="1.8"></circle></g>'
-        '<text class="mattr" x="399" y="331" text-anchor="end">© OpenStreetMap</text>'
+        '<text class="mattr" x="399" y="331" text-anchor="end">© OpenStreetMap · ZIP areas: US Census</text>'
         '</svg>'
     )
 
@@ -86,9 +103,10 @@ MAP_CSS = (
 .mart{fill:none;stroke:#FFFFFF;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.dark .mart{stroke:#28346A}
 .mcanal{fill:none;stroke:#8CC4E6;stroke-width:1.4;stroke-linejoin:round}.dark .mcanal{stroke:#3D6E95}
 .mriver{fill:none;stroke:#8DBEE0;stroke-width:2.2;stroke-dasharray:1 4;stroke-linecap:round}
-.mareaf{fill:rgba(255,74,28,.10)}.dark .mareaf{fill:rgba(255,74,28,.14)}
+.mzipf{fill:rgba(255,74,28,.07);pointer-events:none}.dark .mzipf{fill:rgba(255,74,28,.10)}
+.mzipl{fill:none;stroke:#FF4A1C;stroke-width:1.4;stroke-dasharray:5 3;stroke-linejoin:round;opacity:.85;pointer-events:none}
+.mzipt{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:10px;font-weight:600;letter-spacing:.04em;fill:#B02A08;paint-order:stroke;stroke:#F3E7D2;stroke-width:3px;stroke-linejoin:round;pointer-events:none}.dark .mzipt{fill:#FF8A66;stroke:#141D3D}
 .mplc{cursor:pointer;transition:fill .25s ease}
-.marea{fill:none;stroke:#FF4A1C;stroke-width:2.2;stroke-dasharray:7 4;stroke-linejoin:round;pointer-events:none}
 .mfwy0{fill:none;stroke:#D99A3A;stroke-width:6;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 .mfwy{fill:none;stroke:#F7C66A;stroke-width:3.8;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 .dark .mfwy0{stroke:#7A5A26}.dark .mfwy{stroke:#B98B3E}
@@ -109,4 +127,4 @@ MAP_CSS = (
 @media (prefers-reduced-motion:reduce){.mtruck{animation:none;transform:translate(193px,190px)}.mplc{transition:none}}""")
 
 MAP_KEY = ('<p class="mkey"><svg width="28" height="10" viewBox="0 0 28 10" aria-hidden="true"><path d="M1 5H27" stroke="#FF4A1C" stroke-width="2.4" stroke-dasharray="6 3"></path></svg>'
-           '<span>We scoop inside the orange line. That includes the homes in between, like Zanjero Trails.</span></p>')
+           '<span>Each dashed line is a ZIP code. We scoop every home in all six: 85326, 85338, 85340, 85355, 85395 and 85396.</span></p>')
