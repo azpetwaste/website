@@ -69,7 +69,7 @@ CITIES = [
         why=why([
             ('Goodyear has a twice a week rule.', 'Goodyear city code says droppings must be cleaned out of yards at least twice a week. Our twice a week plan matches that rule.'),
             ('Storms carry it away.', 'Goodyear storm drains flow to the Gila and Agua Fria rivers, and that water is not cleaned first. A monsoon storm can wash yard poop right into them.'),
-            ('Turf gets hot.', 'Turf can get hotter than 150 degrees in the sun, so poop starts to smell fast. Our free sanitizer spray helps.'),
+            ('Turf gets hot.', 'Turf can get hotter than 150 degrees in the sun, so poop starts to smell fast. Our free deodorizer spray helps.'),
             ('A big, busy city.', 'More than 125,000 people live in Goodyear now, and it added more than 7,000 people in one year. That means a lot of new yards and a lot of dogs.'),
         ]),
         faq_h2='Goodyear questions',
@@ -119,7 +119,7 @@ CITIES = [
         faq_h2='Citrus Park questions',
         faq=faqs('Citrus Park', [
             ('Do you serve all of Citrus Park?', 'Yes. We scoop all of Citrus Park and every home in Waddell ZIP 85355. Some Citrus Park homes, like Russell Ranch and Savannah, have Litchfield Park 85340 addresses, and we scoop those too.'),
-            ('Do you clean big grass yards?', 'Yes. We walk your yard in rows and pick up every pile, even on an acre. Then we spray sanitizer and deodorizer where your dogs go most. The spray is free.'),
+            ('Do you clean big grass yards?', 'Yes. We walk your yard in rows and pick up every pile, even on an acre. Then we spray deodorizer where your dogs go most. The spray is free.'),
             ('Is the price higher for a big lot?', 'No. Your price depends on how often we come and how many dogs you have, not the size of your yard.'),
             ('Is it illegal to not pick up dog poop in Waddell?', 'Citrus Park and Waddell follow Maricopa County rules. The county health code treats animal waste as trash that must be handled so it does not breed insects, and dogs must be fenced in or leashed.'),
             ('Can I report a neighbor for dog poop in Waddell?', 'Yes. Waddell is county land, so you contact Maricopa County. If you have an HOA, you can tell them too. Talking to your neighbor first often works best.'),

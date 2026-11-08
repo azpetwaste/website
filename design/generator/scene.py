@@ -201,7 +201,7 @@ _check = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="cu
 _ticks = ''.join('<span class="vtick" style="left: calc(9px + (100%% - 18px) * %s);"></span>' % n(t / LOOP) for t in CHAPTERS)
 
 SCENE = (
-    '<svg viewBox="0 -45 360 270" preserveAspectRatio="xMidYMid slice" role="img" aria-label="A sample visit on an Arizona street: our truck pulls up, the scooper picks up every pile in the backyard, sprays free sanitizer, latches the gate and takes a photo, then drives off">'
+    '<svg viewBox="0 -45 360 270" preserveAspectRatio="xMidYMid slice" role="img" aria-label="A sample visit on an Arizona street: our truck pulls up, the scooper picks up every pile in the backyard, sprays free deodorizer, latches the gate and takes a photo, then drives off">'
     '<defs><linearGradient id="@@ID@@sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9FCDEE"></stop><stop offset=".62" stop-color="#E9EEE8"></stop><stop offset="1" stop-color="#F7E1C6"></stop></linearGradient></defs>'
     '<rect x="0" y="-45" width="360" height="270" fill="url(#@@ID@@sky)"></rect>'
     '<circle cx="318" cy="78" r="16" fill="#FF4A1C"></circle>'
@@ -349,7 +349,7 @@ VS_METHODS = r"""  _vsInit() {
       'We pull up. We texted you when we were close.',
       'Your scooper walks to your gate.',
       'We shut the gate. Then we pick up every pile, front to back.',
-      'We spray sanitizer where your dogs go most. It’s free!',
+      'We spray deodorizer where your dogs go most. It’s free!',
       'We latch the gate, pull on it, and take a photo.',
       'Your report goes to your phone. See you next week!'
     ];

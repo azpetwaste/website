@@ -24,7 +24,7 @@ def ask(town, zips):
         ('Are you licensed and insured?', 'Yes. Arizona Pet Waste is licensed and insured.'),
         ('Is there a sign up fee?', 'Not with us. You pay $0 today. Your first month is free on any plan.'),
         ('How much is each visit?', PRICES),
-        ('Is the spray extra?', 'No. At every visit, we spray sanitizer and deodorizer on the spots your dogs use most. It is free.'),
+        ('Is the spray extra?', 'No. At every visit, we spray deodorizer on the spots your dogs use most. It is free.'),
         ('How will I know you came?', 'You get a text the night before with a 30 minute window. On your day, you can watch our truck on a live map. '
                                       'When we leave, we send you a photo of your latched gate.'),
         ('What do you do with the poop?', 'We bag it and put it in your trash can.'),
@@ -61,9 +61,9 @@ def faq_common(town):
          'Bag it, tie the bag, and put it in your trash can. Do not put it in the recycle bin, and never hose it into the street or a storm drain. '
          'That is what we do at every visit.'),
         ('Do you clean turf and rock yards?',
-         'Yes. We pick up every pile on turf, grass and rock. We rake rock and gravel with a wide metal rake, then spray sanitizer and deodorizer where your dogs go most. The spray is free.'),
+         'Yes. We pick up every pile on turf, grass and rock. We rake rock and gravel with a wide metal rake, then spray deodorizer where your dogs go most. The spray is free.'),
         ('Can you get rid of turf smell?',
-         'Every visit comes with a free sanitizer and deodorizer spray. For a deeper clean, add a turf odor treatment for $35. It helps when pee smell builds up in hot turf.'),
+         'Every visit comes with a free deodorizer spray. For a deeper clean, add a turf odor treatment for $35. It helps when pee smell builds up in hot turf.'),
         ('Do you do one time cleanups?',
          'Yes. A one time cleanup is $95. It is a good pick before a party, after a move, or when the yard got away from you.'),
         ('Can you come the same day?',

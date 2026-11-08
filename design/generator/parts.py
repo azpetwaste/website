@@ -278,7 +278,7 @@ from scene import saguaro, agave, barrel  # noqa: E402
 
 FAQ_ITEMS = [
     ('How much does it cost?', 'Weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Your first month is free when you sign up for any plan.'),
-    ('Is the spray really free?', 'Yes. At every visit, we spray sanitizer and deodorizer on the spots your dogs use most. It costs you nothing.'),
+    ('Is the spray really free?', 'Yes. At every visit, we spray deodorizer on the spots your dogs use most. It costs you nothing.'),
     ('Do you come in the summer heat?', 'Yes. In summer we start early, so your yard is done before the worst heat of the day.'),
     ('What if it storms?', 'Light rain is fine. If there is lightning, we wait until it is safe. We text you if your time changes.'),
     ('Do you clean artificial turf?', 'Yes. We pick up every pile and spray the spots your dogs use most. Turf can smell in the heat. For a deep clean, add a turf odor treatment for $35.'),
@@ -345,7 +345,7 @@ PRICE_TABLE = (
     '<tr><th ' + _rh + '>Every other week</th><td ' + _td + '>$75</td><td ' + _td + '>$84</td></tr>'
     '</tbody></table>'
     '<p class="mono" style="margin: 22px 0 2px; font-size: 13px; font-weight: 600; letter-spacing: .06em; color: #AEB5D8;">EXTRAS</p>'
-    + _xrow('Sanitizer and deodorizer spray', 'FREE EVERY VISIT') + _xrow('Turf odor treatment', '$35') + _xrow('Same day pickup', '$49') + _xrow('One time cleanup', '$95', True) +
+    + _xrow('Deodorizer spray', 'FREE EVERY VISIT') + _xrow('Turf odor treatment', '$35') + _xrow('Same day pickup', '$49') + _xrow('One time cleanup', '$95', True) +
     '<p style="margin: 12px 0 18px; font-size: 14px; line-height: 1.5; color: #AEB5D8;">Each dog after two adds $13 a month ($9 every other week). Your first month is free on any plan.</p>'
 )
 
@@ -604,7 +604,7 @@ FOOTER_CITY = _footer('Main.dc.html')
 
 
 # ---------- Redesign layer (Nov 2026): dark stage heroes, spec ticker, numbered sections, specs grid, motion ----------
-TICK_ITEMS = ['Gate photo every visit', 'Free sanitizer spray', 'Live truck map', 'First month $0', 'No contract',
+TICK_ITEMS = ['Gate photo every visit', 'Free deodorizer spray', 'Live truck map', 'First month $0', 'No contract',
               '4 free skips a year', 'Free return in 24 hours', 'Licensed and insured']
 _tick_li = ''.join('<li>%s</li>' % x for x in TICK_ITEMS)
 TICKER = ('<div class="tick" role="region" aria-label="What every plan includes">\n'
@@ -617,7 +617,7 @@ TICKER = ('<div class="tick" role="region" aria-label="What every plan includes"
 
 SPEC_ITEMS = [('30', 'MIN', 'Your time window. We text it the night before.'),
               ('1', 'PHOTO', 'Of your latched gate after every visit.'),
-              ('$0', 'SPRAY', 'Sanitizer on the spots your dogs use most.'),
+              ('$0', 'SPRAY', 'Deodorizer on the spots your dogs use most.'),
               ('24', 'HOURS', 'We come back free if we miss a pile.'),
               ('4', 'SKIPS', 'Free skips a year. One tap in My Yard.'),
               ('120', 'DAYS', 'Pause while you are away. You pay $0.'),

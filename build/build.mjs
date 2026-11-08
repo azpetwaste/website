@@ -195,12 +195,12 @@ const OFFERS = [
 ];
 const business = {
   '@type': 'LocalBusiness', '@id': BIZ, name: cfg.name, url: ORIGIN + '/',
-  description: 'Dog poop pickup and pet waste removal for every home in Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell and Citrus Park (85355), Arizona. Weekly, twice a week, or every other week. First month free, free sanitizer spray at every visit, and a photo of your latched gate after each visit.',
+  description: 'Dog poop pickup and pet waste removal for every home in Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell and Citrus Park (85355), Arizona. Weekly, twice a week, or every other week. First month free, free deodorizer spray at every visit, and a photo of your latched gate after each visit.',
   telephone: '+1-623-309-6104', email: cfg.email,
   logo: ORIGIN + '/assets/img/icon-512.png', image: ORIGIN + '/assets/img/og.png',
   priceRange: '$75 to $189 a month', currenciesAccepted: 'USD', paymentAccepted: 'Credit card, debit card, Apple Pay, Google Pay',
   areaServed: SERVED,
-  knowsAbout: ['Dog poop pickup', 'Pet waste removal', 'Pooper scooper service', 'Artificial turf odor treatment', 'Yard sanitizing'],
+  knowsAbout: ['Dog poop pickup', 'Pet waste removal', 'Pooper scooper service', 'Artificial turf odor treatment', 'Yard deodorizing'],
   slogan: 'You always know. Or you don’t pay.',
   hasOfferCatalog: { '@type': 'OfferCatalog', name: 'Dog poop pickup plans', itemListElement: OFFERS }
 };
@@ -276,7 +276,7 @@ const dockHtml = ssr(bookDock, { mode: 'dock' });
     route: '/', board: 'main', index: true,
     title: 'Pooper Scooper in the West Valley, AZ | Arizona Pet Waste',
     ogTitle: 'Dog poop pickup you can watch | Arizona Pet Waste',
-    description: 'Pooper scooper service in Buckeye, Goodyear, Litchfield Park and Citrus Park, AZ. Weekly dog poop removal, free sanitizer spray, first month free.',
+    description: 'Pooper scooper service in Buckeye, Goodyear, Litchfield Park and Citrus Park, AZ. Weekly dog poop removal, free deodorizer spray, first month free.',
     fonts: e.b.fonts, css: [e.b.css, bookDock.b.css.replace(content.base_css, '')], boards: [e, bookDock],
     body: ssr(e), dock: dockHtml,
     ld: [faqLd(url, content.faq.main), {
@@ -289,15 +289,15 @@ const dockHtml = ssr(bookDock, { mode: 'dock' });
 // towns
 const TOWNS = [
   { area: 'buckeye', board: 'city-buckeye', route: '/pooper-scooper/buckeye-az/', title: 'Pooper Scooper in Buckeye, AZ | Arizona Pet Waste',
-    description: 'Pooper scooper and dog poop removal for every home in Buckeye, AZ 85326 and 85396, Verrado to Sundance. First month free, free sanitizer spray and a gate photo.' },
+    description: 'Pooper scooper and dog poop removal for every home in Buckeye, AZ 85326 and 85396, Verrado to Sundance. First month free, free deodorizer spray and a gate photo.' },
   { area: 'goodyear', board: 'city-goodyear', route: '/pooper-scooper/goodyear-az/', title: 'Pooper Scooper in Goodyear, AZ | Arizona Pet Waste',
-    description: 'Pooper scooper and dog poop removal for every home in Goodyear, AZ 85338 and 85395, Estrella to PebbleCreek. First month free, free sanitizer spray and a gate photo.' },
+    description: 'Pooper scooper and dog poop removal for every home in Goodyear, AZ 85338 and 85395, Estrella to PebbleCreek. First month free and free deodorizer spray.' },
   { area: 'litchfield', board: 'city-litchfield', route: '/pooper-scooper/litchfield-park-az/', title: 'Pooper Scooper in Litchfield Park, AZ | Arizona Pet Waste',
-    description: 'Pooper scooper and dog poop removal for every home in Litchfield Park, AZ 85340. First month free, free sanitizer spray and a photo of your latched gate.' },
+    description: 'Pooper scooper and dog poop removal for every home in Litchfield Park, AZ 85340. First month free, free deodorizer spray and a photo of your latched gate.' },
   { area: 'citrus', board: 'city-citrus', route: '/pooper-scooper/citrus-park-az/', title: 'Pooper Scooper in Citrus Park, AZ | Arizona Pet Waste',
-    description: 'Pooper scooper and dog poop removal for every home in Citrus Park and Waddell, AZ 85355. First month free, free sanitizer spray and a photo of your latched gate.' },
+    description: 'Pooper scooper and dog poop removal for every home in Citrus Park and Waddell, AZ 85355. First month free, free deodorizer spray and a photo of your latched gate.' },
   { area: 'verrado', board: 'city-verrado', route: '/pooper-scooper/buckeye-az/verrado/', title: 'Pooper Scooper in Verrado, Buckeye AZ | Arizona Pet Waste',
-    description: 'Pooper scooper and dog poop removal for Verrado homes in Buckeye, AZ 85396. First month free, free sanitizer spray and a photo of your latched gate.' }
+    description: 'Pooper scooper and dog poop removal for Verrado homes in Buckeye, AZ 85396. First month free, free deodorizer spray and a photo of your latched gate.' }
 ];
 for (const t of TOWNS) {
   const c = content.cities[t.area];
@@ -363,9 +363,9 @@ for (const t of TOWNS) {
 {
   const pages = [
     { slug: 'how-it-works', h1: 'How our pooper scooper service works', title: 'How Our Pooper Scooper Service Works | Arizona Pet Waste',
-      description: 'See every step of our pooper scooper visits: a text the night before, a live truck map, free sanitizer spray and a photo of your latched gate.' },
+      description: 'See every step of our pooper scooper visits: a text the night before, a live truck map, free deodorizer spray and a photo of your latched gate.' },
     { slug: 'pricing', h1: 'Pooper scooper prices', title: 'Pooper Scooper Prices, West Valley AZ | Arizona Pet Waste',
-      description: 'Pooper scooper prices: $108 a month for weekly visits with 1 or 2 dogs. No sign up fee, free sanitizer spray, billed on the 1st, first month free.' }
+      description: 'Pooper scooper prices: $108 a month for weekly visits with 1 or 2 dogs. No sign up fee, free deodorizer spray, billed on the 1st, first month free.' }
   ];
   for (const pg of pages) {
     const route = '/' + pg.slug + '/';
@@ -399,6 +399,53 @@ for (const t of TOWNS) {
     description: 'Pooper scooper questions answered: prices, billing on the 1st, set routes, same day pickup, gate codes, turf, rock yards, skips, pauses and canceling.',
     fonts: e.b.fonts, css: [e.b.css], boards: [e], body: ssr(e), ld: [crumbs(url, [['Home', '/'], ['FAQ', route]]), faqLd(url, all)] }));
 }
+
+// file pages: every HTML fragment under content/site/ becomes a page at the same path
+// (content/site/commercial-dog-waste-removal/index.html -> /commercial-dog-waste-removal/, content/site/blog/x.html -> /blog/x/).
+// Each file starts with a JSON header in a comment: <!--{"title","description","h1","type":"service|blog|page","date","crumbs":[[name,route]],"faq":[[q,a]],"area"}-->
+const FILE_PAGES = [];
+{
+  const base = path.join(ROOT, 'content/site');
+  const walk = (d) => (fs.existsSync(d) ? fs.readdirSync(d, { withFileTypes: true }).flatMap((x) => (x.isDirectory() ? walk(path.join(d, x.name)) : x.name.endsWith('.html') ? [path.join(d, x.name)] : [])) : []);
+  for (const f of walk(base).sort()) {
+    const rel = path.relative(base, f).split(path.sep).join('/');
+    const route = '/' + rel.replace(/(^|\/)index\.html$/, '$1').replace(/\.html$/, '/');
+    const raw = fs.readFileSync(f, 'utf8');
+    const m = raw.match(/^<!--([\s\S]*?)-->/);
+    if (!m) throw new Error('no JSON header in ' + rel);
+    const meta = JSON.parse(m[1]);
+    FILE_PAGES.push(Object.assign({ route, html: raw.slice(m[0].length).trim(), file: rel }, meta));
+  }
+  const posts = FILE_PAGES.filter((x) => x.type === 'blog').sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  if (posts.length && !FILE_PAGES.some((x) => x.route === '/blog/')) {
+    FILE_PAGES.push({ route: '/blog/', type: 'blogindex', h1: 'Dog care blog', title: 'Dog Care Blog for West Valley Dog Owners | Arizona Pet Waste',
+      description: 'Tips for West Valley dog owners: yard care, dog health and safety in the Arizona heat, turf odor, local poop laws and more from Arizona Pet Waste.',
+      html: '<p class="lead">Tips for dog owners in Buckeye, Goodyear, Litchfield Park and Citrus Park. Clean yards, healthy dogs, and life in the Arizona heat.</p>' +
+        '<div class="towns">' + posts.map((x) => '<article class="town"><h2><a href="' + x.route + '">' + esc(x.h1) + '</a></h2><p>' + esc(x.description) + '</p>' +
+          '<p style="color: var(--mute); font-size: 15px;">' + esc(fmtDate(x.date)) + '</p><a class="tgo" href="' + x.route + '">Read it ›</a></article>').join('') + '</div>',
+      posts });
+  }
+  for (const pg of FILE_PAGES) {
+    const url = ORIGIN + pg.route;
+    const trail = [['Home', '/']].concat(pg.crumbs || []).concat(pg.type === 'blog' ? [['Blog', '/blog/']] : []).concat([[pg.crumb || pg.h1, pg.route]]);
+    let inner = '<p class="eb">' + esc(pg.eyebrow || 'Arizona Pet Waste') + '</p><h1 class="h1 dh1">' + esc(pg.h1) + '<span style="color: var(--accent);">.</span></h1>';
+    if (pg.type === 'blog') inner += '<p class="mono" style="margin: 12px 0 0; font-size: 13px; color: var(--mute);">' + esc(fmtDate(pg.date).toUpperCase()) + ' · ' + Math.max(2, Math.round(pg.html.replace(/<[^>]+>/g, ' ').split(/\s+/).length / 200)) + ' MINUTE READ</p>';
+    inner += pg.html;
+    if (pg.faq && pg.faq.length) inner += '<h2 id="questions">Questions<span style="color: var(--accent);">.</span></h2>' + pg.faq.map(([q, a]) => '<h3>' + esc(q) + '</h3><p>' + esc(a) + '</p>').join('');
+    if (!/href="\/book\/"|href="tel:/.test(pg.html) && pg.type !== 'blogindex') inner += '<a class="btn btn-dot hubcta" href="/book/">Start your free month</a>';
+    const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc docw"').replace('@@DOC@@', inner));
+    const ld = [crumbs(url, trail)];
+    if (pg.faq && pg.faq.length) ld.push(faqLd(url, pg.faq.map(([q, a]) => ({ q, a }))));
+    if (pg.type === 'service') ld.push({ '@type': 'Service', '@id': url + '#service', name: pg.service || pg.h1, serviceType: pg.serviceType || 'Pet waste removal', provider: { '@id': BIZ },
+      areaServed: pg.area && PLACES[pg.area] ? place(PLACES[pg.area]) : SERVED, description: pg.description });
+    if (pg.type === 'blog') ld.push({ '@type': 'BlogPosting', '@id': url + '#post', headline: pg.h1, description: pg.description, datePublished: pg.date, dateModified: pg.updated || pg.date,
+      author: { '@type': 'Organization', name: 'Arizona Pet Waste', url: ORIGIN + '/' }, publisher: { '@id': BIZ }, mainEntityOfPage: url, image: ORIGIN + '/assets/img/og.png', inLanguage: 'en-US' });
+    if (pg.type === 'blogindex') ld.push({ '@type': 'Blog', '@id': url + '#blog', name: 'Arizona Pet Waste dog care blog', publisher: { '@id': BIZ },
+      blogPost: pg.posts.map((x) => ({ '@type': 'BlogPosting', headline: x.h1, url: ORIGIN + x.route, datePublished: x.date })) });
+    built.push(page({ route: pg.route, board: 'doc', index: true, title: pg.title, description: pg.description, fonts: e.b.fonts, css: [e.b.css], boards: [e], body: ssr(e), ld }));
+  }
+}
+function fmtDate(iso) { return iso ? new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) : ''; }
 
 // policies
 const POLICIES = [['privacy', 'Privacy Policy'], ['terms', 'Terms of Service'], ['texts', 'Text Message Terms'], ['accessibility', 'Accessibility']];
@@ -469,7 +516,7 @@ Sitemap: ${ORIGIN}/sitemap.xml
 const faqText = content.faq.main.map((x) => `- ${x.q} ${x.a}`).join('\n');
 fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 
-> Dog poop pickup (pet waste removal) for every home in six West Valley, Arizona ZIP codes: Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell with Citrus Park (85355). Weekly, twice a week or every other week. First month free. Free sanitizer spray at every visit. A photo of your latched gate after every visit, and a live map of our truck on visit day. No contract.
+> Dog poop pickup (pet waste removal) for every home in six West Valley, Arizona ZIP codes: Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell with Citrus Park (85355). Weekly, twice a week or every other week. First month free. Free deodorizer spray at every visit. A photo of your latched gate after every visit, and a live map of our truck on visit day. No contract.
 
 ## Prices (per month)
 - Every week: $108 for 1 or 2 dogs (about $25 a visit). Each dog after two adds $13.
@@ -490,7 +537,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 ## How a visit works
 - Customers do not pick a day. We set each yard's day for them. We run set routes, and that keeps prices down. After sign up, we reach out to let the customer know their day and time.
 - We text the night before with a 30 minute window.
-- We shut the gate, pick up every pile front to back, and spray sanitizer where dogs go most.
+- We shut the gate, pick up every pile front to back, and spray deodorizer where dogs go most.
 - We latch the gate, pull on it, and send a photo.
 - Something off? Tap "Something's off" in My Yard and we come back free within 24 hours.
 
@@ -505,7 +552,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - Licensed and insured: yes.
 - Sign up fee: none. You pay $0 today and the first month is free.
 - Price per visit: weekly service is $108 a month for 1 or 2 dogs, about $25 a visit.
-- Deodorizer or sanitizer: free at every visit.
+- Deodorizer spray: free at every visit.
 - Proof: a text the night before, a live truck map on visit day, and a photo of the latched gate after every visit. A visit with no gate photo costs $0.
 - Missed pile: free return within 24 hours.
 - Waste: bagged and put in your trash can.
@@ -516,7 +563,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 ${faqText}
 
 ## Pages
-- [Home](${ORIGIN}/): plans, prices, how a visit works, service map
+${FILE_PAGES.filter((x) => x.type !== 'blogindex').map((x) => '- [' + x.h1 + '](' + ORIGIN + x.route + '): ' + x.description).join('\n')}${FILE_PAGES.length ? '\n' : ''}- [Home](${ORIGIN}/): plans, prices, how a visit works, service map
 - [How it works](${ORIGIN}/how-it-works/): every step of a visit
 - [Pricing](${ORIGIN}/pricing/): plans, extras and billing on the 1st
 - [FAQ](${ORIGIN}/faq/): all of our answers
