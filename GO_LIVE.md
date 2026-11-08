@@ -42,7 +42,7 @@ Use info@arizonapetwaste.com for every account. Never paste a password, API key 
 ## 5. Stripe (payments, first month free)
 Stay in Test mode for now.
 1. Settings > Public details: business name Arizona Pet Waste, phone 623.309.6104, support email info@arizonapetwaste.com, website https://arizonapetwaste.com, Terms https://arizonapetwaste.com/terms/, Privacy https://arizonapetwaste.com/privacy/.
-2. Settings > Branding: upload the seal logo, accent color `#FF4A1C`, brand color `#0A0F24`.
+2. Settings > Branding: upload the state logo (`static/assets/img/icon-512.png`), accent color `#FF4A1C`, brand color `#0A0F24`.
 3. Settings > Billing > Customer portal: turn on. Allow update payment method, view invoices, cancel subscription (at end of billing period). Save.
 4. Settings > Billing > Subscriptions and emails: turn on the email reminder before a free trial ends.
 5. Settings > Payment methods: cards, Apple Pay, Google Pay and Link on. Payment method domains: add `arizonapetwaste.com`.

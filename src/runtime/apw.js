@@ -4,7 +4,6 @@
   var APW = window.APW = window.APW || {};
   var root = document.documentElement;
   var boards = APW.boards || (APW.boards = {});
-  var DESK = '(min-width: 1100px)';
 
   APW.live = false;
   APW.cfg = Object.assign({ firstVisitFrom: '2026-11-20', leadDays: 2 }, APW.cfg || {});
@@ -145,8 +144,7 @@
     });
   }
 
-  /* ---------- sign up sheet ---------- */
-  function desk() { return window.matchMedia && window.matchMedia(DESK).matches; }
+  /* ---------- sign up: a full screen sheet on phones, a centered window on computers ---------- */
   function intent() {
     var p = APW.page && APW.page.state;
     var o = {};
@@ -163,31 +161,36 @@
     b.open(o || {});
     if (!dock) return;
     if (APW.page && APW.page.state && APW.page.state.menu) APW.page.setState({ menu: false });
-    if (desk()) {
-      if (dock) {
-        dock.classList.remove('pulse');
-        void dock.offsetWidth;
-        dock.classList.add('pulse');
-      }
-    } else if (!root.classList.contains('book-open')) {
+    if (!root.classList.contains('book-open')) {
+      APW._back = document.activeElement;
       root.classList.add('book-open');
       try { history.pushState({ apwBook: 1 }, ''); APW._pushed = true; } catch (e) { APW._pushed = false; }
     }
     setTimeout(function () {
-      var h = dock && dock.querySelector('.bh1');
+      var h = dock.querySelector('.bh1');
       if (h) { try { h.focus({ preventScroll: true }); } catch (e) { h.focus(); } }
     }, 60);
   };
+  function closed() {
+    root.classList.remove('book-open');
+    var el = APW._back;
+    APW._back = null;
+    if (el && el.focus && document.contains(el)) { try { el.focus({ preventScroll: true }); } catch (e) { } }
+  }
   APW.closeBook = function () {
     if (!root.classList.contains('book-open')) return;
-    root.classList.remove('book-open');
+    closed();
     if (APW._pushed) { APW._pushed = false; history.back(); }
   };
   window.addEventListener('popstate', function () {
-    if (root.classList.contains('book-open')) { root.classList.remove('book-open'); APW._pushed = false; }
+    if (root.classList.contains('book-open')) { APW._pushed = false; closed(); }
   });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && root.classList.contains('book-open')) APW.closeBook();
+  });
+  // on a computer, a click on the dark area around the window closes it
+  document.addEventListener('click', function (e) {
+    if (e.target && e.target.id === 'book-dock' && root.classList.contains('book-open')) APW.closeBook();
   });
   // same page links (#prices) scroll here, even when a <base> tag points somewhere else
   document.addEventListener('click', function (e) {

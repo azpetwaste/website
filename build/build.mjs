@@ -132,22 +132,18 @@ html.dark .apw{${darkVars}}
 html.book-open{overflow:hidden}
 html.book-open #book-dock{display:block;position:fixed;inset:0;z-index:60;background:#070B1B}
 #book-dock>.apw{height:100%}
-@keyframes dockPulse{0%{box-shadow:0 0 0 0 rgba(255,74,28,.75)}100%{box-shadow:0 0 0 22px rgba(255,74,28,0)}}
-@media (min-width:1100px){
-.site{display:grid;grid-template-columns:minmax(0,440px) 400px;gap:40px;justify-content:center;align-items:start;padding:0 24px}
-#app{min-width:0}
-#book-dock{display:block;position:sticky;top:24px;height:min(880px,calc(100vh - 48px));margin:24px 0;border-radius:26px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5)}
-html.book-open{overflow:auto}
-html.book-open #book-dock{position:sticky;inset:auto;z-index:auto}
-#book-dock.pulse{animation:dockPulse .9s ease-out 2}
-#book-dock .bk-x{visibility:hidden}
-.sbar{display:none!important}
+@media (min-width:1024px){
+[id]{scroll-margin-top:96px}
+html.book-open #book-dock{display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(7,11,27,.72);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+#book-dock>.apw{width:440px!important;max-width:100%;height:min(860px,calc(100vh - 48px))!important;border-radius:26px;box-shadow:0 30px 80px rgba(0,0,0,.5);animation:dockIn .22s ease-out}
 }
+@keyframes dockIn{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
 .bookpage #app{height:100vh;height:100dvh}
 @media (min-width:600px){.bookpage #app{width:430px;height:min(900px,calc(100dvh - 48px));margin:24px auto;border-radius:26px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5)}}
 .apw .hoods{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0;padding:0;list-style:none}
 .apw .hoods li{padding:8px 12px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:15px;font-weight:600;color:var(--ink)}
-.apw .doc{padding:30px 20px 60px;background:var(--bg);color:var(--ink)}
+.apw .doc{max-width:800px;margin:0 auto;padding:30px 20px 60px;background:var(--bg);color:var(--ink)}
+@media (min-width:1024px){.apw .doc{padding:64px 32px 104px}.apw .doc .dh1{font-size:56px}}
 .apw .doc .dh1{margin:10px 0 0;font-size:40px}
 .apw .doc h2{margin:34px 0 0;font-size:24px;font-weight:800;letter-spacing:-.03em;line-height:1.15;color:var(--ink)}
 .apw .doc h3{margin:22px 0 0;font-size:19px;font-weight:800;letter-spacing:-.02em;color:var(--ink)}
@@ -157,6 +153,7 @@ html.book-open #book-dock{position:sticky;inset:auto;z-index:auto}
 .apw .doc li{margin-top:6px}
 .apw .doc a{color:var(--accent-text);font-weight:700}
 .apw .doc strong{color:var(--ink)}
+.apw .doc .eb{color:var(--accent-text)}
 .apw .doc .updated{margin-top:14px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13px;color:var(--mute)}
 .apw .doc .lead{font-size:19px;line-height:1.55;color:var(--ink)}
 .apw .doc .tocd{margin:18px 0 0;padding:4px 16px 14px;border-radius:16px;background:var(--bg2);border:1px solid var(--line)}
@@ -165,7 +162,7 @@ html.book-open #book-dock{position:sticky;inset:auto;z-index:auto}
 .apw .doc .toc a{display:inline-flex;align-items:center;min-height:40px;padding:0 12px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);font-size:14px;color:var(--ink);text-decoration:none}
 .skip{position:absolute;left:12px;top:-60px;z-index:100;padding:12px 16px;border-radius:12px;background:#FF4A1C;color:#0E1430;font:700 16px system-ui,sans-serif;text-decoration:none}
 .skip:focus{top:12px}
-@media (prefers-reduced-motion:reduce){#book-dock.pulse{animation:none}}`;
+@media (prefers-reduced-motion:reduce){#book-dock>.apw{animation:none}}`;
 
 // ---------- structured data ----------
 const BIZ = ORIGIN + '/#business';
@@ -246,10 +243,8 @@ ${graph ? `<script type="application/ld+json">${ldjson({ '@context': 'https://sc
 </head>
 <body${p.bodyClass ? ` class="${p.bodyClass}"` : ''}>
 <a class="skip" href="#app">Skip to content</a>
-<div class="site">
 <div id="app" data-board="${p.board}">${p.body}</div>
-${p.dock ? `<aside id="book-dock" aria-label="Start your free month">${p.dock}</aside>` : ''}
-</div>
+${p.dock ? `<div id="book-dock" role="dialog" aria-modal="true" aria-label="Start your free month">${p.dock}</div>` : ''}
 <noscript><style>#book-dock{display:none!important}</style></noscript>
 ${scripts.map((s) => `<script src="${s}" defer></script>`).join('\n')}
 </body>
