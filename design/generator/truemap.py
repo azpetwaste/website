@@ -62,6 +62,15 @@ def _label(x, y, lines, cls='mplace'):
     return ''.join('<text class="%s" x="%d" y="%d" text-anchor="middle">%s</text>' % (cls, x, y + i * 13, t) for i, t in enumerate(lines))
 
 
+# neighbors we do not serve yet: a label at the map edge that points toward each one
+SOON = [('SURPRISE ↑', 300, 32), ('PEORIA ↗', 370, 32), ('GLENDALE →', 350, 72), ('LAVEEN ↘', 366, 304)]
+
+
+def _soon():
+    return ''.join('<text class="msn" x="%d" y="%d" text-anchor="middle">%s</text><text class="mst" x="%d" y="%d" text-anchor="middle">COMING SOON</text>'
+                   % (x, y, n, x, y + 10) for n, x, y in SOON)
+
+
 def build(pick_v, pick_c, pick_g, pick_l, pick_b):
     return (
         '<svg viewBox="%d %d %d %d" role="img" aria-label="Map of the ZIP codes Arizona Pet Waste scoops: Buckeye 85326 and 85396, '
@@ -84,7 +93,7 @@ def build(pick_v, pick_c, pick_g, pick_l, pick_b):
         + _label(370, 266, ['PHOENIX →'], 'mtxt')
         + '<text class="mtxt" x="398" y="122" transform="rotate(-90 398 122)">AGUA FRIA</text>'
         + _label(112, 160, ['VERRADO']) + _label(217, 98, ['CITRUS', 'PARK']) + _label(266, 196, ['GOODYEAR']) + _label(346, 160, ['LITCHFIELD', 'PARK'])
-        + _label(96, 286, ['BUCKEYE']) + _label(262, 277, ['GOODYEAR'])
+        + _label(96, 286, ['BUCKEYE']) + _label(262, 277, ['GOODYEAR']) + _soon()
         + ''.join('<text class="mzipt" x="%d" y="%d" text-anchor="middle">%s</text>' % (x, y, z) for z, (x, y) in ZIP_LABELS.items()) +
         '<g class="mtruck"><circle r="8" fill="#FF4A1C" opacity=".25"></circle><circle r="4.5" fill="#FF4A1C" stroke="#FFFFFF" stroke-width="1.8"></circle></g>'
         '<text class="mattr" x="399" y="331" text-anchor="end">© OpenStreetMap · ZIP areas: US Census</text>'
@@ -124,6 +133,10 @@ MAP_CSS = (
 .mchip i{display:block;width:12px;height:12px;border-radius:4px;border:2px solid #FF4A1C}
 .mkey{display:flex;align-items:center;gap:10px;margin:12px 0 0;font-size:15px;line-height:1.45;color:var(--ink2)}
 .mkey svg{flex:0 0 28px;display:block}
+.msn{font-family:Archivo,"Arial Black",sans-serif;font-size:10px;font-weight:800;letter-spacing:.06em;fill:#4A5272;paint-order:stroke;stroke:#F3E7D2;stroke-width:3px;stroke-linejoin:round;pointer-events:none}
+.dark .msn{fill:#AEB5D8;stroke:#141D3D}
+.mst{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:7.5px;font-weight:600;letter-spacing:.1em;fill:#B02A08;paint-order:stroke;stroke:#F3E7D2;stroke-width:2.6px;stroke-linejoin:round;pointer-events:none}
+.dark .mst{fill:#FF8A66;stroke:#141D3D}
 @media (prefers-reduced-motion:reduce){.mtruck{animation:none;transform:translate(193px,190px)}.mplc{transition:none}}""")
 
 MAP_KEY = ('<p class="mkey"><svg width="28" height="10" viewBox="0 0 28 10" aria-hidden="true"><path d="M1 5H27" stroke="#FF4A1C" stroke-width="2.4" stroke-dasharray="6 3"></path></svg>'

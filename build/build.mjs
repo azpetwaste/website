@@ -343,7 +343,8 @@ for (const t of TOWNS) {
     '<h2 id="zip-codes">Every ZIP code we serve<span style="color: var(--accent);">.</span></h2>' +
     '<table class="ziplist"><thead><tr><th scope="col">ZIP</th><th scope="col">TOWN</th><th scope="col">PAGE</th></tr></thead><tbody>' + rows + '</tbody></table>' +
     '<h2 id="not-listed">Not on the list? Join the waitlist<span style="color: var(--accent);">.</span></h2>' +
-    '<p>We are coming to the rest of the Valley next. Tap the button, type your ZIP, and add your name, phone and address. We will tell you when we start in your area.</p>' +
+    '<p><strong>Coming soon:</strong> Surprise, Peoria, Glendale, Laveen, the Central and East Valley, Tucson, Flagstaff, Kingman and Lake Havasu City.</p>' +
+    '<p>We don’t come to you yet? Let us know. Tap the button, type your ZIP, and add your name, phone and address. We will tell you when we start in your area.</p>' +
     '<p><strong>Join by November 30 and your first month is free when we start in your area.</strong></p>' +
     '<a class="btn btn-dot hubcta" href="/book/">Join the waitlist</a>';
   const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc docw"').replace('@@DOC@@', inner));
@@ -443,7 +444,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - [Citrus Park and Waddell, AZ 85355](${ORIGIN}/citrus-park/), plus Citrus Park homes with Litchfield Park 85340 addresses. Neighborhoods: ${hoodNames('citrus').join(', ')}.
 - [Verrado, Buckeye AZ 85396](${ORIGIN}/verrado/). Districts: ${hoodNames('verrado').join(', ')}.
 - Full list: [Areas we serve](${ORIGIN}/areas-we-serve/).
-- Not served yet: the rest of the Phoenix area, including Avondale, Surprise, Glendale, Peoria and Phoenix. Coming soon. Anyone outside our ZIP codes can join the waitlist. Join by November 30, 2026 and the first month is free when we start in that area.
+- Coming soon: Surprise, Peoria, Glendale, Laveen, the Central and East Valley, Tucson, Flagstaff, Kingman and Lake Havasu City. Anyone outside our ZIP codes can join the waitlist. Join by November 30, 2026 and the first month is free when we start in that area.
 
 ## How a visit works
 - Customers do not pick a day. We set each yard's day for them. We run set routes, and that keeps prices down. After sign up, we reach out to let the customer know their day and time.

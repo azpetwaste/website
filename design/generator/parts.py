@@ -254,10 +254,17 @@ AREA_METHODS = r"""  _zipArea(zip) {
   }"""
 
 MAP = truemap.build('mV.pick', 'mC.pick', 'mG.pick', 'mL.pick', 'mB.pick')
-import valleymap
-VALLEY_MAP = valleymap.build('mV.pick', 'mC.pick', 'mG.pick', 'mL.pick', 'mB.pick')
-VALLEY_KEY = valleymap.VALLEY_KEY
-SITE_CSS += valleymap.VALLEY_CSS
+SOON_NOTE = ('<div class="soon">'
+             '<p class="soon-h mono">COMING SOON</p>'
+             '<p class="soon-l">Surprise, Peoria, Glendale, Laveen, the Central and East Valley, Tucson, Flagstaff, Kingman and Lake Havasu City.</p>'
+             '<p class="soon-p"><b>We don’t come to you yet?</b> Let us know. Join the waitlist by November 30 with your name, phone and address, and lock in your free month.</p>'
+             '<a href="Booking.dc.html" class="btn btn-line soon-b">Join the waitlist</a>'
+             '</div>')
+SITE_CSS += ('\n.soon{margin-top:18px;padding:16px;border-radius:18px;background:var(--card);border:1.6px dashed var(--field)}'
+             '.soon-h{margin:0;font-size:13px;font-weight:600;letter-spacing:.1em;color:var(--accent-text)}'
+             '.soon-l{margin:6px 0 0;font-size:16px;font-weight:700;line-height:1.45;color:var(--ink)}'
+             '.soon-p{margin:8px 0 0;font-size:15px;line-height:1.5;color:var(--ink2)}'
+             '.soon-b{margin-top:14px;width:100%}')
 MAP_KEY = truemap.MAP_KEY
 MAP_CHIPS = '''  <div class="mchips" role="group" aria-label="Towns we scoop">
     <button type="button" class="mchip" style="background: {{ mB.bg }}; color: {{ mB.fg }};" aria-pressed="{{ mB.on }}" onClick="{{ mB.pick }}"><i></i>Buckeye</button>
@@ -685,6 +692,7 @@ REVAMP_CSS = r"""
 .apw .hspec dt{font-size:42px}
 .apw .hspec dd{font-size:14px}
 .apw .tick-l li{padding:17px 0 17px 24px;gap:24px;font-size:15px}
+.apw .wh{grid-template-columns:minmax(0,.9fr) minmax(0,1.4fr)}
 .apw .sgrid{grid-template-columns:repeat(4,minmax(0,1fr));margin-top:44px}
 .apw .scell{padding:30px 24px 32px}
 .apw .scell b{font-size:66px}

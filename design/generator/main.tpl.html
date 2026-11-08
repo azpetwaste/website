@@ -226,18 +226,19 @@
 </section>
 
 <section id="where" class="sec" style="background: var(--bg3); color: var(--ink);">
-  <div class="in wh whv">
+  <div class="in wh">
   <div class="wh-h">
     <p class="eb nx">Areas we serve</p>
     <h2 class="h2" style="color: var(--ink);">Do we come to you<span style="color: var(--accent);">?</span></h2>
     <p class="lead">Tap a town to see it on the map. Or type your ZIP code.</p>
   </div>
-  <div class="vmap">
-@@VALLEY_MAP@@
+  <div class="map">
+@@MAP@@
   </div>
   <div class="wh-c">
 @@MAP_CHIPS@@
-  @@VALLEY_KEY@@
+  @@MAP_KEY@@
+  @@SOON_NOTE@@
   <label for="apw-zip" style="display: block; margin-top: 20px; font-size: 17px; font-weight: 700;">Or type your ZIP code</label>
   <div style="display: flex; gap: 10px; margin-top: 8px;">
     <input id="apw-zip" class="mono" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="5" placeholder="Your ZIP" value="{{ zip }}" onChange="{{ onZip }}" onKeyDown="{{ zipKey }}" style="flex: 1; min-width: 0; height: 56px; padding: 0 16px; border-radius: 14px; border: 1.6px solid var(--field); background: var(--card); color: var(--ink); font-size: 20px; letter-spacing: .08em;">
