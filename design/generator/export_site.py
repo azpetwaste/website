@@ -41,6 +41,8 @@ LINKS = {
     'HowItWorks.dc.html': '/how-it-works/',
     'Pricing.dc.html': '/pricing/',
     'Faq.dc.html': '/faq/',
+    'Commercial.dc.html': '/commercial-dog-waste-removal/',
+    'Blog.dc.html': '/blog/',
 }
 BLOBS = {
     'd40859938aad2cb6ad7648561b9a1a69': '/assets/img/logo-horizontal.svg',
