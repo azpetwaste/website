@@ -28,7 +28,7 @@ def ask(town, zips):
         ('How will I know you came?', 'You get a text the night before with a 30 minute window. On your day, you can watch our truck on a live map. '
                                       'When we leave, we send you a photo of your latched gate.'),
         ('What do you do with the poop?', 'We bag it and put it in your trash can.'),
-        ('Do you clean your tools?', 'Yes. We clean our boots and tools before every yard. That keeps germs from going from yard to yard.'),
+        ('Do you clean your tools?', 'Yes. We clean our boots and tools after every yard. That keeps germs from going from yard to yard.'),
         ('What if you miss a pile or forget the photo?', 'Tap “Something’s off” in My Yard, and we come back for free within 24 hours. '
                                                        'If a visit has no gate photo, you pay $0 for that visit.'),
         ('Do I have to sign a contract?', 'No. You pay month to month. You can pause or cancel any time in My Yard.'),

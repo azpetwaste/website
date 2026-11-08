@@ -284,7 +284,7 @@ FAQ_ITEMS = [
     ('Do you clean artificial turf?', 'Yes. We pick up every pile and spray the spots your dogs use most. Turf can smell in the heat. For a deep clean, add a turf odor treatment for $35.'),
     ('Where does the poop go?', '[Pick one: We bag it and take it with us. Or we bag it and put it in your trash can.]'),
     ('Are you licensed and insured?', 'Yes. Arizona Pet Waste is licensed and insured.'),
-    ('Do you clean your tools?', 'Yes. We clean our boots and tools before every yard. That keeps germs from going from yard to yard.'),
+    ('Do you clean your tools?', 'Yes. We clean our boots and tools after every yard. That keeps germs from going from yard to yard.'),
     ('Can I pick my day?', 'No. We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window.'),
     ('Can you come today? We have a party.', 'Yes. Text us and we can come the same day for $49. It goes on your next bill on the 1st.'),
     ('When do you charge my card?', 'On the 1st of each month. Your first month is free. Your first charge only covers the days after your free month, so it is smaller. Then you pay the full price on the 1st of each month.'),

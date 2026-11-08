@@ -556,7 +556,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - Proof: a text the night before, a live truck map on visit day, and a photo of the latched gate after every visit. A visit with no gate photo costs $0.
 - Missed pile: free return within 24 hours.
 - Waste: bagged and put in your trash can.
-- Tools: boots and tools cleaned before every yard.
+- Tools: boots and tools cleaned after every yard.
 - Contract: none. Pause up to 120 days, 4 free skips a year, cancel in My Yard.
 
 ## Common questions
