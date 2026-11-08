@@ -5,8 +5,7 @@
   "phoneDisplay": "623.309.6104",
   "email": "info@arizonapetwaste.com",
   "firstVisitFrom": "2026-11-20",
-  "leadDays": 2,
-  "noVisitDays": ["2026-11-26", "2026-11-27", "2026-12-24", "2026-12-25", "2026-12-31", "2027-01-01"],
+  "scheduleDays": 7,
   "sameAs": [],
   "social": [],
   "badges": []

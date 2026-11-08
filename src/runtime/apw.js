@@ -6,7 +6,7 @@
   var boards = APW.boards || (APW.boards = {});
 
   APW.live = false;
-  APW.cfg = Object.assign({ firstVisitFrom: '2026-11-20', leadDays: 2 }, APW.cfg || {});
+  APW.cfg = Object.assign({ firstVisitFrom: '2026-11-20', scheduleDays: 7 }, APW.cfg || {});
   APW.comps = [];
   APW.track = APW.track || function () { };
 

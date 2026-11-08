@@ -22,10 +22,9 @@ const ZIPS = {
   '85340': { area: 'litchfield', name: 'Litchfield Park', city: 'Litchfield Park' },
   '85355': { area: 'citrus', name: 'Citrus Park', city: 'Waddell' }
 };
-const NO_VISIT = ['2026-11-26', '2026-11-27', '2026-12-24', '2026-12-25', '2026-12-31', '2027-01-01'];
 // The exact words shown next to the text boxes. Saved with every consent record.
 const CONSENT = {
-  visit: 'Text me about my visits. Night before reminders, on the way, and your gate photo. About 2 to 4 texts a visit.',
+  visit: 'Text me about my visits. Setting your day, night before reminders, on the way, and your gate photo. About 2 to 4 texts a visit.',
   deals: 'Text me deals too. Up to 4 texts a month.',
   fine: 'By checking a box, you agree to get texts from Arizona Pet Waste at the number above. Message and data rates may apply. Reply STOP to stop or HELP for help. You do not have to agree to texts to book. See our Text Terms and Privacy Policy.'
 };
@@ -138,28 +137,17 @@ function plusMonth(d) {
   c.setUTCDate(Math.min(day, last));
   return c;
 }
-function firstVisit(env, iso) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || '')) return null;
-  const d = noonAZ(iso);
-  if (isNaN(d)) return null;
+// Customers do not pick a day. We set it by route and reach out to them.
+// The free month starts on the soonest start day and runs one month plus one week, which is our window to set the first visit.
+// The sign up page uses the same rule to show the charge date.
+function firstCharge(env) {
   const from = noonAZ(env.FIRST_VISIT_FROM || '2026-11-20');
-  const soonest = new Date(Math.max(noonAZ(azToday()).getTime() + 86400e3, from.getTime()));
-  if (d < soonest || d > new Date(soonest.getTime() + 75 * 86400e3)) return null;
-  const w = d.getUTCDay();
-  if (w === 0 || w === 6 || NO_VISIT.includes(iso)) return null;
-  return dayInfo(iso);
+  const start = new Date(Math.max(noonAZ(azToday()).getTime() + 86400e3, from.getTime()));
+  const charge = plusMonth(start);
+  charge.setUTCDate(charge.getUTCDate() + (Number(env.SCHEDULE_DAYS) || 7));
+  return { charge: Math.floor(charge.getTime() / 1000), chargeLabel: dateLabel(charge) };
 }
-function dayInfo(iso) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || '')) return null;
-  const d = noonAZ(iso);
-  const charge = plusMonth(d);
-  return {
-    iso,
-    label: d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/Phoenix' }),
-    charge: Math.floor(charge.getTime() / 1000),
-    chargeLabel: charge.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'America/Phoenix' })
-  };
-}
+function dateLabel(d) { return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'America/Phoenix' }); }
 
 async function mail(env, to, subject, text) {
   if (!env.RESEND_API_KEY || !to) return;
@@ -237,8 +225,7 @@ async function checkout(request, env, ctx) {
   if (!PLANS[b.plan]) return fail(400, 'Please pick how often we come.');
   const dogs = Math.round(Number(b.dogs));
   if (!(dogs >= 1 && dogs <= 6)) return fail(400, 'Please pick 1 to 6 dogs.');
-  const day = firstVisit(env, b.firstVisit);
-  if (!day) return fail(400, 'Please pick a first visit day from the list.');
+  const bill = firstCharge(env);
   const name = clean(b.name, 120), phone = digits(b.phone), address = clean(b.address, 200);
   if (name.length < 2 || phone.length !== 10 || address.length < 5) return fail(400, 'Please fill in your name, mobile number and street address.');
 
@@ -256,7 +243,7 @@ async function checkout(request, env, ctx) {
   else customer = (await stripe(env, 'POST', 'customers', cust)).id;
 
   await db(env, 'POST', 'customers?on_conflict=id', [{
-    id: u.id, email: u.email, name, phone, address, zip, area: z.area, plan: b.plan, dogs, first_visit: day.iso,
+    id: u.id, email: u.email, name, phone, address, zip, area: z.area, plan: b.plan, dogs, first_visit: null,
     texts_visit: !!b.textsVisit, texts_deals: !!b.textsDeals, status: 'checkout', stripe_customer_id: customer, updated_at: new Date().toISOString()
   }], 'resolution=merge-duplicates,return=minimal');
 
@@ -282,12 +269,12 @@ async function checkout(request, env, ctx) {
     line_items: items,
     payment_method_collection: 'always',
     subscription_data: {
-      trial_end: day.charge,
-      description: PLANS[b.plan].name + ', ' + dogs + (dogs === 1 ? ' dog' : ' dogs') + ', ' + z.name + '. First visit ' + day.label + '.',
-      metadata: { user_id: u.id, plan: b.plan, dogs: String(dogs), zip, first_visit: day.iso }
+      trial_end: bill.charge,
+      description: PLANS[b.plan].name + ', ' + dogs + (dogs === 1 ? ' dog' : ' dogs') + ', ' + z.name + '. We reach out to set the first visit.',
+      metadata: { user_id: u.id, plan: b.plan, dogs: String(dogs), zip }
     },
-    metadata: { user_id: u.id, plan: b.plan, dogs: String(dogs), zip, first_visit: day.iso },
-    custom_text: { submit: { message: 'You pay $0 today. Your first charge of ' + money(total) + ' is on ' + day.chargeLabel + '. Cancel in My Yard before then and you pay nothing.' } }
+    metadata: { user_id: u.id, plan: b.plan, dogs: String(dogs), zip },
+    custom_text: { submit: { message: 'You pay $0 today. Your first charge of ' + money(total) + ' is on ' + bill.chargeLabel + '. Cancel in My Yard before then and you pay nothing.' } }
   });
   return ok({ clientSecret: session.client_secret });
 }
@@ -323,25 +310,25 @@ async function webhook(request, env, ctx) {
   const now = new Date().toISOString();
   if (evt.type === 'checkout.session.completed' && o.mode === 'subscription') {
     const uid = o.client_reference_id || (o.metadata || {}).user_id;
-    let status = 'trialing';
-    if (o.subscription) { try { status = (await stripe(env, 'GET', 'subscriptions/' + o.subscription)).status; } catch (e) { } }
+    let status = 'trialing', trialEnd = 0;
+    if (o.subscription) { try { const sub = await stripe(env, 'GET', 'subscriptions/' + o.subscription); status = sub.status; trialEnd = sub.trial_end || 0; } catch (e) { } }
     if (uid) {
       const rows = await db(env, 'PATCH', 'customers?id=eq.' + uid, { status, stripe_subscription_id: o.subscription, stripe_customer_id: o.customer, updated_at: now }, 'return=representation');
       const c = rows && rows[0];
       if (c) {
-        const day = dayInfo(c.first_visit);
+        const chargeLabel = trialEnd ? dateLabel(new Date(trialEnd * 1000)) : 'the date shown at checkout';
         const total = monthly(c.plan, c.dogs);
         ctx.waitUntil(mail(env, owner(env), 'New booking: ' + c.name + ', ' + (ZIPS[c.zip] || {}).name, [
           'New customer booked online.', '',
           'Name: ' + c.name, 'Email: ' + c.email, 'Mobile: ' + c.phone, 'Address: ' + c.address + ', ' + c.zip,
           'Plan: ' + PLANS[c.plan].name + ', ' + c.dogs + ' dogs, ' + money(total) + ' a month',
-          'First visit: ' + (day ? day.label : c.first_visit), 'Visit texts: ' + (c.texts_visit ? 'yes' : 'no') + '. Deals texts: ' + (c.texts_deals ? 'yes' : 'no'),
+          'To do: reach out to set their day and time.', 'Visit texts: ' + (c.texts_visit ? 'yes' : 'no') + '. Deals texts: ' + (c.texts_deals ? 'yes' : 'no'),
           'Stripe customer: ' + o.customer
         ].join('\n')));
         ctx.waitUntil(mail(env, c.email, 'You are booked with Arizona Pet Waste', [
           'Hi ' + String(c.name).split(' ')[0] + ',', '',
-          'You are booked. Your first visit is ' + (day ? day.label : c.first_visit) + '.',
-          'Your first month is free. Your card is charged ' + money(total) + ' on ' + (day ? day.chargeLabel : 'one month after your first visit') + ', then once a month. Cancel before then and you pay $0.', '',
+          'You are booked. We will reach out to let you know your day and time.',
+          'Your first month is free. Your card is charged ' + money(total) + ' on ' + chargeLabel + ', then once a month. Cancel before then and you pay $0.', '',
           'Next, set up your yard: add your gate code, your dogs’ names and any problem spots.',
           (env.SITE_URL || 'https://arizonapetwaste.com') + '/account/', '',
           'Questions? Call or text 623.309.6104.', '', 'Arizona Pet Waste'

@@ -49,7 +49,7 @@ function emit(name, code) {
   return assets[name];
 }
 emit('dc.js', fs.readFileSync(path.join(SRC, 'runtime/dc.js'), 'utf8'));
-const cfgForClient = { firstVisitFrom: cfg.firstVisitFrom, leadDays: cfg.leadDays, noVisitDays: cfg.noVisitDays };
+const cfgForClient = { firstVisitFrom: cfg.firstVisitFrom, scheduleDays: cfg.scheduleDays };
 emit('apw.js', 'window.APW=window.APW||{};window.APW.cfg=' + JSON.stringify(cfgForClient) + ';\n' + fs.readFileSync(path.join(SRC, 'runtime/apw.js'), 'utf8'));
 
 // ---------- server side rendering ----------
@@ -433,7 +433,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - Twice a week: $189 for 1 or 2 dogs. Each dog after two adds $13.
 - Every other week: $75 for 1 or 2 dogs. Each dog after two adds $9.
 - Turf odor treatment: $35. One time cleanup: $95.
-- First month free on any plan. A card is saved at sign up and first charged one month after the first visit.
+- First month free on any plan. A card is saved at sign up. The sign up page shows the date of the first charge, and you pay $0 if you cancel before it.
 
 ## Service area (every home in these ZIP codes)
 - [Buckeye, AZ 85326 and 85396](${ORIGIN}/buckeye/). Neighborhoods: ${hoodNames('buckeye').join(', ')}.
@@ -445,6 +445,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - Not served yet: Avondale, Surprise, Glendale and Phoenix. People there can join the waitlist when they book.
 
 ## How a visit works
+- Customers do not pick a day. We set each yard's day by route. After sign up, we reach out to let the customer know their day and time.
 - We text the night before with a 30 minute window.
 - We shut the gate, pick up every pile front to back, and spray sanitizer where dogs go most.
 - We latch the gate, pull on it, and send a photo.
@@ -458,6 +459,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - Everywhere: bag dog poop, tie the bag, and put it in the trash cart. Never in the recycle cart or a storm drain. Storm drain water is not treated.
 
 ## Before you hire a pooper scooper (our answers)
+- Licensed and insured: yes.
 - Sign up fee: none. You pay $0 today and the first month is free.
 - Price per visit: weekly service is $108 a month for 1 or 2 dogs, about $25 a visit.
 - Deodorizer or sanitizer: free at every visit.

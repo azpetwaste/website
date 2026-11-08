@@ -233,7 +233,7 @@ class Component extends DCLogic {
     const f = s.form || {};
     const names = { week: 'Every week', twice: 'Twice a week', eow: 'Every other week' };
     const statuses = { trialing: 'Free month', active: 'Active', past_due: 'Card problem', canceled: 'Canceled', paused: 'Paused', checkout: 'Not finished', new: 'Not finished', unpaid: 'Card problem' };
-    const towns = { '85396': 'Buckeye, AZ 85396', '85355': 'Waddell, AZ 85355', '85395': 'Goodyear, AZ 85395', '85340': 'Litchfield Park, AZ 85340' };
+    const towns = { '85326': 'Buckeye, AZ 85326', '85396': 'Buckeye, AZ 85396', '85338': 'Goodyear, AZ 85338', '85395': 'Goodyear, AZ 85395', '85340': 'Litchfield Park, AZ 85340', '85355': 'Waddell, AZ 85355' };
     const day = me.first_visit ? new Date(me.first_visit + 'T12:00:00') : null;
     const set = (k, fromCheck) => (e) => { const nf = Object.assign({}, this.state.form); nf[k] = fromCheck ? !!e.target.checked : e.target.value; this.setState({ form: nf, saved: false }); };
     const ph = String(me.phone || '').replace(/\D/g, '');
@@ -260,7 +260,7 @@ class Component extends DCLogic {
       first: first,
       planLine: me.plan ? names[me.plan] + ' · ' + (me.dogs === 1 ? '1 dog' : (me.dogs || 2) + ' dogs') : 'No plan yet',
       priceLine: me.plan ? '$' + this._price(me.plan, me.dogs || 2) + ' a month' : 'Free first month',
-      firstLine: day ? day.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : 'Not picked yet',
+      firstLine: day ? day.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : 'We reach out to set it',
       statusLine: statuses[me.status] || 'Not finished',
       addrLine: me.address ? me.address + ', ' + (towns[me.zip] || 'AZ') : 'Not added yet',
       needsFinish: !me.status || me.status === 'new' || me.status === 'checkout',

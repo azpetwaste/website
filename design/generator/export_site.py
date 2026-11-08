@@ -1,7 +1,7 @@
 """Export the design boards as production templates for the website build (/home/claude/apw-site).
 
 Same parts and copy as the canvas boards, plus the launch changes:
-real URLs, real image files, no placeholder blocks (owner story, reviews, route days, licensed row),
+real URLs, real image files, no placeholder blocks (owner story, reviews),
 legal links in the footer, and slots the site build fills (badges, social links, neighborhoods)."""
 import json
 import os
@@ -107,20 +107,12 @@ def main_prod(html):
     # placeholders that wait for real content: the owner story and customer reviews
     html = cut_section_with(html, '[Owner<br>photo]')
     html = cut_section_with(html, '>[5.0]</p>')
-    html = must(html, '<div class="rrow"><span>[Licensed and insured]</span><i></i><b>[YES]</b></div>', '', label='licensed row')
-    html, n = re.subn(r'Your scoop day: \[Route day\]\.\s*', '', html)
-    if not n:
-        sys.exit('route day line not found')
     return html
 
 
 def city_prod(html):
-    html, n = re.subn(r'([A-Z][A-Z ]+) SCOOP DAY: \[ROUTE DAY\]</p>', r'\1: YOU PICK YOUR DAY WHEN YOU BOOK</p>\n<!--HOODS-->', html)
-    if not n:
-        sys.exit('city route day line not found')
-    html, n = re.subn(r'We scoop [A-Za-z ]+? on \[route day\]\.', 'You pick your day when you book.', html)
-    if not n:
-        sys.exit('city route day answer not found')
+    # the ZIP list for the town goes right under the map chip
+    html = must(html, ': WE SET YOUR DAY BY ROUTE</p>', ': WE SET YOUR DAY BY ROUTE</p>\n<!--HOODS-->', label='map chip')
     a = html.find('<p class="eb" style="color: #FF8A66;">Reviews</p>')
     b_tag = '<p style="margin: 26px 0 0; font-size: 16px; font-weight: 700;">We also scoop near you</p>'
     b = html.find(b_tag)
@@ -166,7 +158,6 @@ def prod_faq(items):
     out = []
     for q, a in items:
         a = a.replace(parts.FAQ_ITEMS[5][1], POOP_GOES)
-        a = re.sub(r'We scoop [A-Za-z ]+? on \[route day\]\.', 'You pick your day when you book.', a)
         if '[' in a:
             sys.exit('placeholder left in FAQ: %s' % a)
         out.append({'q': strip_tags(q), 'a': strip_tags(a)})
@@ -174,7 +165,7 @@ def prod_faq(items):
 
 
 # ---------- boards ----------
-main = common(main_prod(fill(open('main.tpl.html').read(), 'm', {'MAIN_H': '11200', 'PREVIEW_W': '390'})))
+main = common(main_prod(fill(open('main.tpl.html').read(), 'm', {'MAIN_H': '11400', 'PREVIEW_W': '390'})))
 if '#reviews' in main or 'id="reviews"' in main:
     sys.exit('a reviews link is left on the home page')
 write('main', main)

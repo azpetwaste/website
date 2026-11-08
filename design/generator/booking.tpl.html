@@ -26,8 +26,8 @@
 
 <sc-if value="{{ showProgress }}" hint-placeholder-val="{{ true }}">
   <div style="flex: 0 0 auto; padding: 0 20px;">
-    <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px;" aria-hidden="true">
-      <sc-for list="{{ segs }}" as="g" hint-placeholder-count="5"><span style="display: block; height: 4px; border-radius: 4px; background: {{ g.bg }};"></span></sc-for>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px;" aria-hidden="true">
+      <sc-for list="{{ segs }}" as="g" hint-placeholder-count="4"><span style="display: block; height: 4px; border-radius: 4px; background: {{ g.bg }};"></span></sc-for>
     </div>
     <p class="mono" style="margin: 8px 0 0; font-size: 13px; color: var(--mute);">{{ stepLabel }}</p>
   </div>
@@ -92,23 +92,6 @@
   </sc-if>
 
   <sc-if value="{{ s2 }}" hint-placeholder-val="{{ false }}">
-    <h1 class="bh1">Pick your first day.</h1>
-    <p class="lead" style="font-size: 16px;">We text you the night before with a 30 minute window.</p>
-    <div role="radiogroup" aria-label="First visit day" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 20px;">
-      <sc-for list="{{ days }}" as="d" hint-placeholder-count="6">
-        <button type="button" role="radio" aria-checked="{{ d.on }}" aria-label="{{ d.full }}" onClick="{{ d.pick }}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 78px; border-radius: 16px; border: 1.6px solid {{ d.border }}; background: {{ d.bg }}; color: {{ d.fg }}; font: inherit; cursor: pointer;">
-          <span class="mono" style="font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;">{{ d.wd }}</span>
-          <span style="font-size: 20px; font-weight: 800; letter-spacing: -.02em;">{{ d.md }}</span>
-        </button>
-      </sc-for>
-    </div>
-    <div style="display: flex; gap: 12px; align-items: flex-start; margin-top: 18px; padding: 14px 16px; border-radius: 16px; background: var(--bg2);">
-      <span style="color: var(--accent-text); display: flex; padding-top: 1px;">@@ICON_CHAT@@</span>
-      <p style="margin: 0; font-size: 15px; line-height: 1.5; color: var(--ink2);">After that, we come back on the same day. Your first month is free.</p>
-    </div>
-  </sc-if>
-
-  <sc-if value="{{ s3 }}" hint-placeholder-val="{{ false }}">
     <h1 class="bh1">Tell us about you.</h1>
     <p class="lead" style="font-size: 16px;">We use this to text you before each visit.</p>
     <label for="b-name" class="flab">Full name</label>
@@ -123,11 +106,11 @@
     <p style="margin: 18px 0 0; font-size: 15px; line-height: 1.5; color: var(--mute);">You add your gate code and your dogs’ names after you book.</p>
   </sc-if>
 
-  <sc-if value="{{ s4 }}" hint-placeholder-val="{{ false }}">
+  <sc-if value="{{ s3 }}" hint-placeholder-val="{{ false }}">
     <h1 class="bh1">Start your free month.</h1>
     <div style="margin-top: 18px; border-radius: 20px; border: 1px solid var(--line); background: var(--card); overflow: hidden;">
       <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">Plan</span><span style="font-size: 15px; font-weight: 700; text-align: right;">{{ planName }} · {{ dogsLabel }}</span></div>
-      <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">First visit</span><span style="font-size: 15px; font-weight: 700; text-align: right;">{{ dayFull }}</span></div>
+      <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">First visit</span><span style="font-size: 15px; font-weight: 700; text-align: right;">We reach out to set it</span></div>
       <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">First month</span><span style="font-size: 15px; font-weight: 700; color: var(--ok);">Free</span></div>
       <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">After that</span><span style="font-size: 15px; font-weight: 700;">{{ priceLabel }} a month</span></div>
       <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 16px; background: var(--bg2);"><span style="font-size: 17px; font-weight: 800;">Due today</span><span style="font-size: 30px; font-weight: 800; letter-spacing: -.04em;">$0.00</span></div>
@@ -146,11 +129,11 @@
     <p style="margin: 14px 0 0; display: flex; align-items: center; gap: 8px; font-size: 14px; line-height: 1.5; color: var(--mute);">@@ICON_LOCK@@Secure checkout with Stripe. Cancel anytime in My Yard.</p>
   </sc-if>
 
-  <sc-if value="{{ s5 }}" hint-placeholder-val="{{ false }}">
+  <sc-if value="{{ s4 }}" hint-placeholder-val="{{ false }}">
     <div style="display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: 12px;">
       <span style="width: 88px; height: 88px; border-radius: 50%; background: var(--ok); color: #FFFFFF; display: grid; place-items: center;">@@ICON_CHECK44@@</span>
       <h1 class="bh1" style="margin-top: 22px; font-size: 38px;">You are booked!</h1>
-      <p class="lead" style="font-size: 17px;">Your first visit is {{ dayFull }}. We will text you the night before.</p>
+      <p class="lead" style="font-size: 17px;">Next, we reach out to let you know your day and time.</p>
     </div>
     <div style="margin-top: 22px; padding: 6px 16px; border-radius: 20px; background: var(--bg2);">
       <div style="display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--line);"><span class="mono" style="width: 28px; height: 28px; flex: 0 0 28px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 14px; font-weight: 600;">1</span><p style="margin: 0; font-size: 16px; line-height: 1.45;"><strong>Set up your yard.</strong> Add your dogs’ names, your gate code and any problem spots. It takes 2 minutes.</p></div>
@@ -158,7 +141,6 @@
       <div style="display: flex; gap: 14px; align-items: flex-start; padding: 12px 0;"><span class="mono" style="width: 28px; height: 28px; flex: 0 0 28px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 14px; font-weight: 600;">3</span><p style="margin: 0; font-size: 16px; line-height: 1.45;"><strong>Get your photo</strong> of the shut gate after each visit.</p></div>
     </div>
     <a href="https://arizonapetwaste.com/start/login" class="btn btn-dot" style="margin-top: 18px;">Set up my yard</a>
-    <button type="button" class="btn btn-line" style="width: 100%; margin-top: 10px;" onClick="{{ addCal }}">{{ calLabel }}</button>
     <a href="Main.dc.html" style="display: flex; align-items: center; justify-content: center; min-height: 48px; margin-top: 6px; font-size: 16px; font-weight: 700; color: var(--accent-text); text-decoration: none;">Back to home</a>
   </sc-if>
 
@@ -182,28 +164,24 @@
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.state = { dark: this._themeFromProps(), step: 0, zip: '', dogs: 2, plan: 'week', day: 0, name: '', phone: '', email: '', addr: '', wait: '', waitDone: false, cal: false };
+    this.state = { dark: this._themeFromProps(), step: 0, zip: '', dogs: 2, plan: 'week', name: '', phone: '', email: '', addr: '', wait: '', waitDone: false };
   }
   componentDidMount() { this._themeInit(); }
   componentWillUnmount() { this._themeStop(); }
 @@THEME_METHODS@@
 @@PRICE_METHODS@@
-  _days() {
-    const out = [];
+  _chargeDate() {
     const d = new Date();
     d.setHours(12, 0, 0, 0);
-    while (out.length < 6) {
-      d.setDate(d.getDate() + 1);
-      const w = d.getDay();
-      if (w === 0 || w === 6) continue;
-      out.push({
-        wd: d.toLocaleDateString('en-US', { weekday: 'short' }),
-        md: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        full: d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
-        date: new Date(d.getTime())
-      });
-    }
-    return out;
+    d.setDate(d.getDate() + 1);
+    const f = new Date('2026-11-20T12:00:00');
+    if (f > d) d.setTime(f.getTime());
+    const dd = d.getDate();
+    d.setDate(1);
+    d.setMonth(d.getMonth() + 1);
+    d.setDate(Math.min(dd, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
+    d.setDate(d.getDate() + 7);
+    return d;
   }
   renderVals() {
     const s = this.state;
@@ -211,32 +189,28 @@ class Component extends DCLogic {
     const cities = { '85326': 'Buckeye, AZ 85326', '85396': 'Buckeye, AZ 85396', '85338': 'Goodyear, AZ 85338', '85395': 'Goodyear, AZ 85395', '85340': 'Litchfield Park, AZ 85340', '85355': 'Waddell, AZ 85355' };
     const names = { week: 'Every week', twice: 'Twice a week', eow: 'Every other week' };
     const zipOk = !!zips[s.zip];
-    const days = this._days();
-    const day = days[s.day] || days[0];
     const price = this._price(s.plan, s.dogs);
     const dogsLabel = s.dogs === 1 ? '1 dog' : s.dogs + ' dogs';
-    const charge = new Date(day.date.getTime());
-    charge.setMonth(charge.getMonth() + 1);
-    const chargeDay = charge.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    const inFlow = s.step > 0 && s.step < 5;
+    const chargeDay = this._chargeDate().toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    const inFlow = s.step > 0 && s.step < 4;
     const tone = (on) => ({ border: on ? 'var(--ink)' : 'var(--field)', bg: on ? 'var(--ink)' : 'var(--card)', fg: on ? 'var(--bg)' : 'var(--ink)' });
     const field = (k) => (e) => { const o = {}; o[k] = e.target.value; this.setState(o); };
     return Object.assign({}, this._themeVals(), {
-      s0: s.step === 0, s1: s.step === 1, s2: s.step === 2, s3: s.step === 3, s4: s.step === 4, s5: s.step === 5,
-      topTitle: s.step === 5 ? 'Arizona Pet Waste' : 'Start your free month',
+      s0: s.step === 0, s1: s.step === 1, s2: s.step === 2, s3: s.step === 3, s4: s.step === 4,
+      topTitle: s.step === 4 ? 'Arizona Pet Waste' : 'Start your free month',
       canBack: inFlow,
       noBack: !inFlow,
       back: () => this.setState({ step: Math.max(0, s.step - 1) }),
-      showProgress: s.step < 5,
-      segs: [0, 1, 2, 3, 4].map((i) => ({ bg: i <= s.step ? 'var(--accent)' : 'var(--line)' })),
-      stepLabel: 'Step ' + (s.step + 1) + ' of 5',
-      showBar: s.step < 5,
-      showSum: s.step >= 1 && s.step <= 3,
+      showProgress: s.step < 4,
+      segs: [0, 1, 2, 3].map((i) => ({ bg: i <= s.step ? 'var(--accent)' : 'var(--line)' })),
+      stepLabel: 'Step ' + (s.step + 1) + ' of 4',
+      showBar: s.step < 4,
+      showSum: s.step >= 1 && s.step <= 2,
       priceShort: '$' + price + '/mo',
       planShort: names[s.plan] + ' · ' + dogsLabel,
       nextOff: s.step === 0 && !zipOk,
-      nextLabel: s.step === 4 ? 'Start my free month' : 'Continue',
-      next: () => { if (s.step === 0 && !zipOk) return; this.setState({ step: Math.min(5, s.step + 1) }); },
+      nextLabel: s.step === 3 ? 'Start my free month' : 'Continue',
+      next: () => { if (s.step === 0 && !zipOk) return; this.setState({ step: Math.min(4, s.step + 1) }); },
       zip: s.zip,
       onZip: (e) => this.setState({ zip: String(e.target.value || '').replace(/\D/g, '').slice(0, 5), waitDone: false }),
       zipOk: zipOk,
@@ -255,7 +229,6 @@ class Component extends DCLogic {
       }, tone(s.dogs === n))),
       billLine: 'Your first month is free. Your card is charged $' + price + ' on ' + chargeDay + ', then once a month. Cancel before then and you pay $0.',
       plans: this._plans(false),
-      days: days.map((x, i) => Object.assign({}, x, { on: s.day === i, pick: () => this.setState({ day: i }) }, tone(s.day === i))),
       name: s.name, onName: field('name'),
       phone: s.phone, onPhone: field('phone'),
       email: s.email, onEmail: field('email'),
@@ -263,11 +236,8 @@ class Component extends DCLogic {
       cityLine: cities[s.zip] || 'Buckeye, AZ 85396',
       planName: names[s.plan],
       dogsLabel: dogsLabel,
-      dayFull: day.full,
       priceLabel: '$' + price,
-      book: () => this.setState({ step: 5 }),
-      calLabel: s.cal ? 'Added to your calendar' : 'Add to my calendar',
-      addCal: () => this.setState({ cal: true })
+      book: () => this.setState({ step: 4 })
     });
   }
 }

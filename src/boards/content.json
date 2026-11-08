@@ -26,8 +26,16 @@
     "a": "We bag it and put it in your trash can."
    },
    {
+    "q": "Are you licensed and insured?",
+    "a": "Yes. Arizona Pet Waste is licensed and insured."
+   },
+   {
     "q": "Do you clean your tools?",
     "a": "Yes. We clean our boots and tools before every yard. That keeps germs from going from yard to yard."
+   },
+   {
+    "q": "How do I get my day and time?",
+    "a": "After you sign up, we reach out to let you know your day and time. We set your day by route. Then you get a text the night before each visit with a 30 minute window."
    },
    {
     "q": "Who sees my gate code?",
@@ -116,7 +124,7 @@
     },
     {
      "q": "What day do you come to Buckeye?",
-     "a": "You pick your day when you book. You get a text the night before with a 30 minute window."
+     "a": "We set your day by route. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window."
     }
    ],
    "zips": [
@@ -221,7 +229,7 @@
     },
     {
      "q": "What day do you come to Goodyear?",
-     "a": "You pick your day when you book. You get a text the night before with a 30 minute window."
+     "a": "We set your day by route. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window."
     }
    ],
    "zips": [
@@ -326,7 +334,7 @@
     },
     {
      "q": "What day do you come to Litchfield Park?",
-     "a": "You pick your day when you book. You get a text the night before with a 30 minute window."
+     "a": "We set your day by route. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window."
     }
    ],
    "zips": [
@@ -416,7 +424,7 @@
     },
     {
      "q": "What day do you come to Citrus Park?",
-     "a": "You pick your day when you book. You get a text the night before with a 30 minute window."
+     "a": "We set your day by route. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window."
     }
    ],
    "zips": [
@@ -505,7 +513,7 @@
     },
     {
      "q": "What day do you come to Verrado?",
-     "a": "You pick your day when you book. You get a text the night before with a 30 minute window."
+     "a": "We set your day by route. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window."
     }
    ],
    "zips": [

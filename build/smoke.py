@@ -56,9 +56,11 @@ with sync_playwright() as p:
     dock.get_by_role('radio', name='3 dogs').click()
     dock.get_by_role('button', name='Continue').click()
     page.wait_for_timeout(200)
+    # no day picker: dogs and plan go straight to your info
+    assert dock.locator('.bh1').inner_text().strip() == 'Tell us about you.', 'day step is still there'
+    assert 'Step 3 of 5' in dock.inner_text(), 'progress should read Step 3 of 5'
+    assert dock.get_by_role('radiogroup', name='First visit day').count() == 0, 'day picker still on the page'
     shot(page, 'm_book_2')
-    dock.get_by_role('button', name='Continue').click()
-    page.wait_for_timeout(200)
     dock.get_by_role('button', name='Continue').click()
     page.wait_for_timeout(200)
     shot(page, 'm_book_3_errors')
@@ -73,9 +75,14 @@ with sync_playwright() as p:
     shot(page, 'm_book_4')
     page.fill('#b-code', '123456')
     page.wait_for_timeout(400)
+    pay = dock.inner_text()
+    assert 'We reach out to set it' in pay and 'Your card is charged' in pay, 'pay step should say we reach out and show the charge date'
     shot(page, 'm_book_5')
     dock.get_by_role('button', name='Finish demo booking').click()
     page.wait_for_timeout(300)
+    done = dock.inner_text()
+    assert 'we reach out to let you know your day and time' in done, 'done screen should say we reach out'
+    assert 'calendar' not in done.lower(), 'calendar button should be gone'
     shot(page, 'm_book_6')
     # close the sheet with the phone back button
     page.go_back()
