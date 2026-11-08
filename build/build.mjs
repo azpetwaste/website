@@ -127,13 +127,13 @@ const darkVars = (content.base_css.match(/\.apw\.dark\{([^}]*)\}/) || [])[1] || 
 const SITE_CSS = `html{background:#070B1B;-webkit-text-size-adjust:100%}
 body{margin:0;background:#070B1B}
 html.dark .apw{${darkVars}}
-[id]{scroll-margin-top:76px}
+[id]{scroll-margin-top:92px}
 #book-dock{display:none}
 html.book-open{overflow:hidden}
 html.book-open #book-dock{display:block;position:fixed;inset:0;z-index:60;background:#070B1B}
 #book-dock>.apw{height:100%}
 @media (min-width:1024px){
-[id]{scroll-margin-top:96px}
+[id]{scroll-margin-top:104px}
 html.book-open #book-dock{display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(7,11,27,.72);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 #book-dock>.apw{width:440px!important;max-width:100%;height:min(860px,calc(100vh - 48px))!important;border-radius:26px;box-shadow:0 30px 80px rgba(0,0,0,.5);animation:dockIn .22s ease-out}
 }
