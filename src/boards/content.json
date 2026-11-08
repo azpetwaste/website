@@ -69,6 +69,48 @@
     "q": "My yard is rock, not grass.",
     "a": "Rock can hide poop. So we rake rock yards with a wide metal rake."
    }
+  ],
+  "common": [
+   {
+    "q": "How much does a pooper scooper cost in the West Valley?",
+    "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and your first month is free. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
+   },
+   {
+    "q": "Where should I throw away dog poop?",
+    "a": "Bag it, tie the bag, and put it in your trash can. Do not put it in the recycle bin, and never hose it into the street or a storm drain. That is what we do at every visit."
+   },
+   {
+    "q": "Do you clean turf and rock yards?",
+    "a": "Yes. We pick up every pile on turf, grass and rock. We rake rock and gravel with a wide metal rake, then spray sanitizer and deodorizer where your dogs go most. The spray is free."
+   },
+   {
+    "q": "Can you get rid of turf smell?",
+    "a": "Every visit comes with a free sanitizer and deodorizer spray. For a deeper clean, add a turf odor treatment for $35. It helps when pee smell builds up in hot turf."
+   },
+   {
+    "q": "Do you do one time cleanups?",
+    "a": "Yes. A one time cleanup is $95. It is a good pick before a party, after a move, or when the yard got away from you."
+   },
+   {
+    "q": "Can you come the same day?",
+    "a": "Yes. If you have a party or guests coming, text us and we can come the same day for $49. It goes on your next bill on the 1st."
+   },
+   {
+    "q": "Do I need to be home?",
+    "a": "No. Most of our customers are at work. Add your gate code in My Yard, and we send a photo of your latched gate when we leave."
+   },
+   {
+    "q": "What if my dog is in the yard?",
+    "a": "Tell us in My Yard. If a dog in the yard is not safe to be near, we do not go in. We text you to bring the dog inside, and we can come back the same day."
+   },
+   {
+    "q": "Can I skip a week or pause?",
+    "a": "Yes. You get 4 free skips a year. Tell us 24 hours before. You can pause for up to 120 days while you are away, and you do not pay while you are paused."
+   },
+   {
+    "q": "Is there a contract?",
+    "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel."
+   }
   ]
  },
  "cities": {

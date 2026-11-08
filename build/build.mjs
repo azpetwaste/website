@@ -170,11 +170,11 @@ html.book-open #book-dock{display:flex;align-items:center;justify-content:center
 // ---------- structured data ----------
 const BIZ = ORIGIN + '/#business';
 const PLACES = {
-  buckeye: { name: 'Buckeye', locality: 'Buckeye', zips: ['85326', '85396'], url: '/buckeye/' },
-  goodyear: { name: 'Goodyear', locality: 'Goodyear', zips: ['85338', '85395'], url: '/goodyear/' },
-  litchfield: { name: 'Litchfield Park', locality: 'Litchfield Park', zips: ['85340'], url: '/litchfield-park/' },
-  citrus: { name: 'Citrus Park', locality: 'Waddell', zips: ['85355'], url: '/citrus-park/' },
-  verrado: { name: 'Verrado', locality: 'Buckeye', zips: ['85396'], url: '/verrado/' }
+  buckeye: { name: 'Buckeye', locality: 'Buckeye', zips: ['85326', '85396'], url: '/pooper-scooper/buckeye-az/' },
+  goodyear: { name: 'Goodyear', locality: 'Goodyear', zips: ['85338', '85395'], url: '/pooper-scooper/goodyear-az/' },
+  litchfield: { name: 'Litchfield Park', locality: 'Litchfield Park', zips: ['85340'], url: '/pooper-scooper/litchfield-park-az/' },
+  citrus: { name: 'Citrus Park', locality: 'Waddell', zips: ['85355'], url: '/pooper-scooper/citrus-park-az/' },
+  verrado: { name: 'Verrado', locality: 'Buckeye', zips: ['85396'], url: '/pooper-scooper/verrado-az/' }
 };
 const ALL_ZIPS = [['85326', 'Buckeye', 'buckeye'], ['85396', 'Buckeye', 'buckeye'], ['85338', 'Goodyear', 'goodyear'], ['85395', 'Goodyear', 'goodyear'], ['85340', 'Litchfield Park', 'litchfield'], ['85355', 'Waddell', 'citrus']];
 const zipPlace = (zip, locality) => ({ '@type': 'Place', name: locality + ', AZ ' + zip, address: { '@type': 'PostalAddress', addressLocality: locality, addressRegion: 'AZ', postalCode: zip, addressCountry: 'US' } });
@@ -274,9 +274,9 @@ const dockHtml = ssr(bookDock, { mode: 'dock' });
   const url = ORIGIN + '/';
   built.push(page({
     route: '/', board: 'main', index: true,
-    title: 'Dog Poop Pickup in the West Valley AZ | Arizona Pet Waste',
+    title: 'Pooper Scooper in the West Valley, AZ | Arizona Pet Waste',
     ogTitle: 'Dog poop pickup you can watch | Arizona Pet Waste',
-    description: 'Weekly dog poop pickup in Buckeye, Goodyear, Litchfield Park and Citrus Park, AZ. First month free, free sanitizer spray, and a gate photo after every visit.',
+    description: 'Pooper scooper service in Buckeye, Goodyear, Litchfield Park and Citrus Park, AZ. Weekly dog poop removal, free sanitizer spray, first month free.',
     fonts: e.b.fonts, css: [e.b.css, bookDock.b.css.replace(content.base_css, '')], boards: [e, bookDock],
     body: ssr(e), dock: dockHtml,
     ld: [faqLd(url, content.faq.main), {
@@ -288,16 +288,16 @@ const dockHtml = ssr(bookDock, { mode: 'dock' });
 
 // towns
 const TOWNS = [
-  { area: 'buckeye', board: 'city-buckeye', route: '/buckeye/', title: 'Dog Poop Pickup in Buckeye, AZ | Arizona Pet Waste',
-    description: 'Weekly dog poop pickup for every home in Buckeye, AZ 85326 and 85396, Verrado to Sundance. First month free, free sanitizer spray and a gate photo.' },
-  { area: 'goodyear', board: 'city-goodyear', route: '/goodyear/', title: 'Dog Poop Pickup in Goodyear, AZ | Arizona Pet Waste',
-    description: 'Weekly dog poop pickup for every home in Goodyear, AZ 85338 and 85395, Estrella to PebbleCreek. First month free, free sanitizer spray and a gate photo.' },
-  { area: 'litchfield', board: 'city-litchfield', route: '/litchfield-park/', title: 'Dog Poop Pickup in Litchfield Park AZ | Arizona Pet Waste',
-    description: 'Weekly dog poop pickup for every home in Litchfield Park, AZ 85340. First month free, free sanitizer spray, a live truck map and a photo of your latched gate.' },
-  { area: 'citrus', board: 'city-citrus', route: '/citrus-park/', title: 'Dog Poop Pickup in Citrus Park AZ | Arizona Pet Waste',
-    description: 'Weekly dog poop pickup for every home in Citrus Park and Waddell, AZ 85355. First month free, free sanitizer spray and a photo of your latched gate.' },
-  { area: 'verrado', board: 'city-verrado', route: '/verrado/', title: 'Dog Poop Pickup in Verrado, Buckeye AZ | Arizona Pet Waste',
-    description: 'Weekly dog poop pickup for Verrado homes in Buckeye, AZ 85396. First month free, free sanitizer spray, a live truck map and a photo of your latched gate.' }
+  { area: 'buckeye', board: 'city-buckeye', route: '/pooper-scooper/buckeye-az/', title: 'Pooper Scooper in Buckeye, AZ | Arizona Pet Waste',
+    description: 'Pooper scooper and dog poop removal for every home in Buckeye, AZ 85326 and 85396, Verrado to Sundance. First month free, free sanitizer spray and a gate photo.' },
+  { area: 'goodyear', board: 'city-goodyear', route: '/pooper-scooper/goodyear-az/', title: 'Pooper Scooper in Goodyear, AZ | Arizona Pet Waste',
+    description: 'Pooper scooper and dog poop removal for every home in Goodyear, AZ 85338 and 85395, Estrella to PebbleCreek. First month free, free sanitizer spray and a gate photo.' },
+  { area: 'litchfield', board: 'city-litchfield', route: '/pooper-scooper/litchfield-park-az/', title: 'Pooper Scooper in Litchfield Park, AZ | Arizona Pet Waste',
+    description: 'Pooper scooper and dog poop removal for every home in Litchfield Park, AZ 85340. First month free, free sanitizer spray and a photo of your latched gate.' },
+  { area: 'citrus', board: 'city-citrus', route: '/pooper-scooper/citrus-park-az/', title: 'Pooper Scooper in Citrus Park, AZ | Arizona Pet Waste',
+    description: 'Pooper scooper and dog poop removal for every home in Citrus Park and Waddell, AZ 85355. First month free, free sanitizer spray and a photo of your latched gate.' },
+  { area: 'verrado', board: 'city-verrado', route: '/pooper-scooper/verrado-az/', title: 'Pooper Scooper in Verrado, Buckeye AZ | Arizona Pet Waste',
+    description: 'Pooper scooper and dog poop removal for Verrado homes in Buckeye, AZ 85396. First month free, free sanitizer spray and a photo of your latched gate.' }
 ];
 for (const t of TOWNS) {
   const c = content.cities[t.area];
@@ -307,8 +307,8 @@ for (const t of TOWNS) {
     route: t.route, board: t.board, index: true, title: t.title, description: t.description,
     fonts: e.b.fonts, css: [e.b.css, bookDock.b.css.replace(content.base_css, '')], boards: [e, bookDock],
     body: ssr(e), dock: dockHtml,
-    ld: [faqLd(url, c.faq), crumbs(url, [['Home', '/'], ['Areas we serve', '/areas-we-serve/'], [c.name, t.route]]), {
-      '@type': 'Service', '@id': url + '#service', name: 'Dog poop pickup in ' + c.name, serviceType: 'Pet waste removal', provider: { '@id': BIZ },
+    ld: [faqLd(url, c.faq), crumbs(url, [['Home', '/'], ['Areas we serve', '/pooper-scooper/'], [c.name, t.route]]), {
+      '@type': 'Service', '@id': url + '#service', name: 'Pooper scooper service in ' + c.name, serviceType: 'Pet waste removal', provider: { '@id': BIZ },
       areaServed: place(PLACES[t.area]).concat(hoodNames(t.area).map((n) => ({ '@type': 'Place', name: n + ', AZ' }))), description: c.intro, offers: { '@type': 'AggregateOffer', lowPrice: '75.00', highPrice: '189.00', priceCurrency: 'USD', offerCount: 3 }
     }]
   }));
@@ -316,7 +316,7 @@ for (const t of TOWNS) {
 
 // areas we serve: one page that lists every town and every ZIP code
 {
-  const route = '/areas-we-serve/';
+  const route = '/pooper-scooper/';
   const url = ORIGIN + route;
   const order = ['buckeye', 'goodyear', 'litchfield', 'citrus', 'verrado'];
   const blurbs = {
@@ -334,10 +334,10 @@ for (const t of TOWNS) {
       '<ul class="tzips" aria-label="ZIP codes">' + p.zips.map((z) => '<li>' + z + '</li>').join('') + '</ul>' +
       '<p>' + esc(blurbs[a]) + '</p>' +
       '<p style="color: var(--mute); font-size: 15px;">' + esc(names.join(' · ')) + '</p>' +
-      '<a class="tgo" href="' + p.url + '">Dog poop pickup in ' + esc(p.name) + ' ›</a></article>';
+      '<a class="tgo" href="' + p.url + '">Pooper scooper in ' + esc(p.name) + ' ›</a></article>';
   }).join('');
   const rows = ALL_ZIPS.map((z) => '<tr><td>' + z[0] + '</td><td>' + esc(z[1]) + '</td><td><a href="' + PLACES[z[2]].url + '">' + esc(PLACES[z[2]].name) + ' page</a></td></tr>').join('');
-  const inner = '<p class="eb">Arizona Pet Waste</p><h1 class="h1 dh1">Areas we serve<span style="color: var(--accent);">.</span></h1>' +
+  const inner = '<p class="eb">Arizona Pet Waste</p><h1 class="h1 dh1">Pooper scooper service areas<span style="color: var(--accent);">.</span></h1>' +
     '<p class="lead">We pick up dog poop at every home in six West Valley ZIP codes: Buckeye, Goodyear, Litchfield Park, and Waddell with Citrus Park. Pick your town to see neighborhoods, prices and answers.</p>' +
     '<div class="towns">' + cards + '</div>' +
     '<h2 id="zip-codes">Every ZIP code we serve<span style="color: var(--accent);">.</span></h2>' +
@@ -349,14 +349,55 @@ for (const t of TOWNS) {
     '<a class="btn btn-dot hubcta" href="/book/">Join the waitlist</a>';
   const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc docw"').replace('@@DOC@@', inner));
   built.push(page({
-    route, board: 'doc', index: true, title: 'Areas We Serve in the West Valley AZ | Arizona Pet Waste',
-    description: 'Dog poop pickup for every home in Buckeye, Goodyear, Litchfield Park and Waddell, AZ: ZIP 85326, 85338, 85340, 85355, 85395 and 85396.',
+    route, board: 'doc', index: true, title: 'Pooper Scooper Areas in the West Valley AZ | Arizona Pet Waste',
+    description: 'Pooper scooper service for every home in Buckeye, Goodyear, Litchfield Park and Waddell, AZ: ZIP 85326, 85338, 85340, 85355, 85395 and 85396.',
     fonts: e.b.fonts, css: [e.b.css], boards: [e], body: ssr(e),
     ld: [crumbs(url, [['Home', '/'], ['Areas we serve', route]]),
       { '@type': 'ItemList', '@id': url + '#towns', name: 'Towns Arizona Pet Waste serves', itemListElement: order.map((a, i) => ({ '@type': 'ListItem', position: i + 1, name: PLACES[a].name, url: ORIGIN + PLACES[a].url })) },
       { '@type': 'Service', '@id': url + '#service', name: 'Dog poop pickup in the West Valley', serviceType: 'Pet waste removal', provider: { '@id': BIZ }, areaServed: SERVED,
         offers: { '@type': 'AggregateOffer', lowPrice: '75.00', highPrice: '189.00', priceCurrency: 'USD', offerCount: 3 } }]
   }));
+}
+
+// real pages for the header links: how it works, pricing, FAQ
+{
+  const pages = [
+    { slug: 'how-it-works', h1: 'How our pooper scooper service works', title: 'How Our Pooper Scooper Service Works | Arizona Pet Waste',
+      description: 'See every step of our pooper scooper visits: a text the night before, a live truck map, free sanitizer spray and a photo of your latched gate.' },
+    { slug: 'pricing', h1: 'Pooper scooper prices', title: 'Pooper Scooper Prices, West Valley AZ | Arizona Pet Waste',
+      description: 'Pooper scooper prices: $108 a month for weekly visits with 1 or 2 dogs. No sign up fee, free sanitizer spray, billed on the 1st, first month free.' }
+  ];
+  for (const pg of pages) {
+    const route = '/' + pg.slug + '/';
+    const url = ORIGIN + route;
+    const inner = '<p class="eb">Arizona Pet Waste</p><h1 class="h1 dh1">' + esc(pg.h1) + '<span style="color: var(--accent);">.</span></h1>' +
+      fs.readFileSync(path.join(ROOT, 'content/pages', pg.slug + '.html'), 'utf8');
+    const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc docw"').replace('@@DOC@@', inner));
+    const ld = [crumbs(url, [['Home', '/'], [pg.h1, route]])];
+    if (pg.slug === 'pricing') ld.push({ '@type': 'Service', '@id': url + '#service', name: 'Pooper scooper service', serviceType: 'Pet waste removal', provider: { '@id': BIZ }, areaServed: SERVED,
+      offers: [['Every week, 1 or 2 dogs', '108.00'], ['Twice a week, 1 or 2 dogs', '189.00'], ['Every other week, 1 or 2 dogs', '75.00']].map(([n, pr]) => ({ '@type': 'Offer', name: n, price: pr, priceCurrency: 'USD',
+        priceSpecification: { '@type': 'UnitPriceSpecification', price: pr, priceCurrency: 'USD', unitText: 'MONTH' } })) });
+    built.push(page({ route, board: 'doc', index: true, title: pg.title, description: pg.description, fonts: e.b.fonts, css: [e.b.css], boards: [e], body: ssr(e), ld }));
+  }
+  // FAQ: every question from the home page plus the questions every town page answers
+  const route = '/faq/';
+  const url = ORIGIN + route;
+  const groups = [['General questions', content.faq.main], ['More questions', content.faq.common]];
+  const seen = new Set();
+  const all = [];
+  let body = '';
+  for (const [h, list] of groups) {
+    const items = list.filter((x) => !seen.has(x.q) && seen.add(x.q));
+    all.push(...items);
+    body += '<h2>' + esc(h) + '<span style="color: var(--accent);">.</span></h2>' + items.map((x) => '<h3>' + esc(x.q) + '</h3><p>' + esc(x.a) + '</p>').join('');
+  }
+  const inner = '<p class="eb">Arizona Pet Waste</p><h1 class="h1 dh1">Pooper scooper FAQ<span style="color: var(--accent);">.</span></h1>' +
+    '<p class="lead">Answers to the questions people ask us most. Still wondering? Call or text <a href="tel:+16233096104">623.309.6104</a>.</p>' + body +
+    '<a class="btn btn-dot hubcta" href="/book/">Start your free month</a>';
+  const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc docw"').replace('@@DOC@@', inner));
+  built.push(page({ route, board: 'doc', index: true, title: 'Pooper Scooper FAQ | Arizona Pet Waste',
+    description: 'Pooper scooper questions answered: prices, billing on the 1st, set routes, same day pickup, gate codes, turf, rock yards, skips, pauses and canceling.',
+    fonts: e.b.fonts, css: [e.b.css], boards: [e], body: ssr(e), ld: [crumbs(url, [['Home', '/'], ['FAQ', route]]), faqLd(url, all)] }));
 }
 
 // policies
@@ -392,7 +433,7 @@ for (const [slug, fallbackH1] of POLICIES) {
     fonts: a.b.fonts, css: [a.b.css], boards: [a], body: ssr(a)
   }));
   const nf = useBoard('doc', (mk) => slots(mk).replace('@@DOC@@', '<p class="eb">Arizona Pet Waste</p><h1 class="h1 dh1">We could not find that page<span style="color: var(--accent);">.</span></h1>' +
-    '<p class="lead">The link may be old. These pages can help.</p><ul><li><a href="/">Home</a></li><li><a href="/book/">Start your free month</a></li><li><a href="/areas-we-serve/">Areas we serve</a></li><li><a href="/buckeye/">Buckeye</a></li><li><a href="/goodyear/">Goodyear</a></li><li><a href="/litchfield-park/">Litchfield Park</a></li><li><a href="/citrus-park/">Citrus Park</a></li><li><a href="/verrado/">Verrado</a></li></ul>'));
+    '<p class="lead">The link may be old. These pages can help.</p><ul><li><a href="/">Home</a></li><li><a href="/book/">Start your free month</a></li><li><a href="/pooper-scooper/">Areas we serve</a></li><li><a href="/pooper-scooper/buckeye-az/">Buckeye</a></li><li><a href="/pooper-scooper/goodyear-az/">Goodyear</a></li><li><a href="/pooper-scooper/litchfield-park-az/">Litchfield Park</a></li><li><a href="/pooper-scooper/citrus-park-az/">Citrus Park</a></li><li><a href="/pooper-scooper/verrado-az/">Verrado</a></li></ul>'));
   built.push(page({
     route: '/404.html', board: 'doc', index: false, title: 'Page Not Found | Arizona Pet Waste', description: 'We could not find that page.',
     fonts: nf.b.fonts, css: [nf.b.css], boards: [nf], body: ssr(nf)
@@ -438,12 +479,12 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - Billing: everyone is billed on the 1st of each month. First month free on any plan. The first charge only covers the days after the free month, so it is smaller. Then the full price on the 1st. A card is saved at sign up and nothing is charged that day.
 
 ## Service area (every home in these ZIP codes)
-- [Buckeye, AZ 85326 and 85396](${ORIGIN}/buckeye/). Neighborhoods: ${hoodNames('buckeye').join(', ')}.
-- [Goodyear, AZ 85338 and 85395](${ORIGIN}/goodyear/). Neighborhoods: ${hoodNames('goodyear').join(', ')}.
-- [Litchfield Park, AZ 85340](${ORIGIN}/litchfield-park/). Neighborhoods: ${hoodNames('litchfield').join(', ')}.
-- [Citrus Park and Waddell, AZ 85355](${ORIGIN}/citrus-park/), plus Citrus Park homes with Litchfield Park 85340 addresses. Neighborhoods: ${hoodNames('citrus').join(', ')}.
-- [Verrado, Buckeye AZ 85396](${ORIGIN}/verrado/). Districts: ${hoodNames('verrado').join(', ')}.
-- Full list: [Areas we serve](${ORIGIN}/areas-we-serve/).
+- [Buckeye, AZ 85326 and 85396](${ORIGIN}/pooper-scooper/buckeye-az/). Neighborhoods: ${hoodNames('buckeye').join(', ')}.
+- [Goodyear, AZ 85338 and 85395](${ORIGIN}/pooper-scooper/goodyear-az/). Neighborhoods: ${hoodNames('goodyear').join(', ')}.
+- [Litchfield Park, AZ 85340](${ORIGIN}/pooper-scooper/litchfield-park-az/). Neighborhoods: ${hoodNames('litchfield').join(', ')}.
+- [Citrus Park and Waddell, AZ 85355](${ORIGIN}/pooper-scooper/citrus-park-az/), plus Citrus Park homes with Litchfield Park 85340 addresses. Neighborhoods: ${hoodNames('citrus').join(', ')}.
+- [Verrado, Buckeye AZ 85396](${ORIGIN}/pooper-scooper/verrado-az/). Districts: ${hoodNames('verrado').join(', ')}.
+- Full list: [Areas we serve](${ORIGIN}/pooper-scooper/).
 - Coming soon: Surprise, Peoria, Glendale, Laveen, the Central and East Valley, Tucson, Flagstaff, Kingman and Lake Havasu City. Anyone outside our ZIP codes can join the waitlist. Join by November 30, 2026 and the first month is free when we start in that area.
 
 ## How a visit works
@@ -476,9 +517,12 @@ ${faqText}
 
 ## Pages
 - [Home](${ORIGIN}/): plans, prices, how a visit works, service map
+- [How it works](${ORIGIN}/how-it-works/): every step of a visit
+- [Pricing](${ORIGIN}/pricing/): plans, extras and billing on the 1st
+- [FAQ](${ORIGIN}/faq/): all of our answers
 - [Start your free month](${ORIGIN}/book/): sign up online in about 2 minutes
-- [Areas we serve](${ORIGIN}/areas-we-serve/): every town and ZIP code we scoop
-- [Buckeye](${ORIGIN}/buckeye/), [Goodyear](${ORIGIN}/goodyear/), [Litchfield Park](${ORIGIN}/litchfield-park/), [Citrus Park](${ORIGIN}/citrus-park/), [Verrado](${ORIGIN}/verrado/): town pages
+- [Areas we serve](${ORIGIN}/pooper-scooper/): every town and ZIP code we scoop
+- [Buckeye](${ORIGIN}/pooper-scooper/buckeye-az/), [Goodyear](${ORIGIN}/pooper-scooper/goodyear-az/), [Litchfield Park](${ORIGIN}/pooper-scooper/litchfield-park-az/), [Citrus Park](${ORIGIN}/pooper-scooper/citrus-park-az/), [Verrado](${ORIGIN}/pooper-scooper/verrado-az/): town pages
 - [Privacy Policy](${ORIGIN}/privacy/)
 - [Terms of Service](${ORIGIN}/terms/)
 - [Text Message Terms](${ORIGIN}/texts/)
@@ -506,12 +550,29 @@ fs.writeFileSync(path.join(DIST, '_redirects'), `/login /account/ 301
 /my-yard /account/ 301
 /signup /book/ 301
 /start /book/ 301
-/areas /areas-we-serve/ 301
-/service-areas /areas-we-serve/ 301
-/where-we-scoop /areas-we-serve/ 301
-/estrella /goodyear/ 301
-/sundance /buckeye/ 301
-/waddell /citrus-park/ 301
+/buckeye /pooper-scooper/buckeye-az/ 301
+/buckeye/ /pooper-scooper/buckeye-az/ 301
+/goodyear /pooper-scooper/goodyear-az/ 301
+/goodyear/ /pooper-scooper/goodyear-az/ 301
+/litchfield-park /pooper-scooper/litchfield-park-az/ 301
+/litchfield-park/ /pooper-scooper/litchfield-park-az/ 301
+/citrus-park /pooper-scooper/citrus-park-az/ 301
+/citrus-park/ /pooper-scooper/citrus-park-az/ 301
+/verrado /pooper-scooper/verrado-az/ 301
+/verrado/ /pooper-scooper/verrado-az/ 301
+/areas-we-serve /pooper-scooper/ 301
+/areas-we-serve/ /pooper-scooper/ 301
+/areas /pooper-scooper/ 301
+/service-areas /pooper-scooper/ 301
+/where-we-scoop /pooper-scooper/ 301
+/estrella /pooper-scooper/goodyear-az/ 301
+/sundance /pooper-scooper/buckeye-az/ 301
+/waddell /pooper-scooper/citrus-park-az/ 301
+/prices /pricing/ 301
+/price /pricing/ 301
+/how /how-it-works/ 301
+/faqs /faq/ 301
+/questions /faq/ 301
 `);
 fs.copyFileSync(path.join(SRC, 'worker/worker.js'), path.join(DIST, '_worker.js'));
 fs.writeFileSync(path.join(DIST, '_routes.json'), JSON.stringify({ version: 1, include: ['/api/*'], exclude: [] }));

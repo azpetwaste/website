@@ -577,10 +577,9 @@ def _footer(pre):
             '      </div>\n'
             '      <div>\n'
             '        <p ' + _flab + '>HELP</p>\n'
-            '        <a href="' + pre + '#prices" class="flink">Prices</a>\n'
-            '        <a href="' + pre + '#questions" class="flink">Questions</a>\n'
-            '        <a href="' + pre + '#promise" class="flink">Our promise</a>\n'
-            '        <a href="https://arizonapetwaste.com/start/login" class="flink">Sign in to My Yard</a>\n'
+            '        <a href="HowItWorks.dc.html" class="flink">How it works</a>\n'
+            '        <a href="Pricing.dc.html" class="flink">Pricing</a>\n'
+            '        <a href="Faq.dc.html" class="flink">FAQ</a>\n'
             '        <a href="Booking.dc.html" class="flink">Book now</a>\n'
             '      </div>\n'
             '    </nav>\n'
@@ -596,10 +595,10 @@ def _footer(pre):
             '</footer>')
 
 
-HEADER_MAIN = _header('#top', [('#how', 'How it works'), ('#prices', 'Prices'), ('AreasWeServe.dc.html', 'Areas we serve'), ('#questions', 'Questions'), ('https://arizonapetwaste.com/start/login', 'Sign in')])
-HEADER_CITY = _header('Main.dc.html', [('Main.dc.html#how', 'How it works'), ('#prices', 'Prices'), ('AreasWeServe.dc.html', 'Areas we serve'), ('#questions', 'Questions'), ('https://arizonapetwaste.com/start/login', 'Sign in')])
-MENU_MAIN = _menu([('#how', 'How a visit works'), ('#prices', 'Prices'), ('#proof', 'Proof of Scoop'), ('AreasWeServe.dc.html', 'Areas we serve'), ('#questions', 'Questions'), ('#promise', 'Our promise'), ('https://arizonapetwaste.com/start/login', 'Sign in to My Yard')])
-MENU_CITY = _menu([('Main.dc.html', 'Home'), ('AreasWeServe.dc.html', 'Areas we serve'), ('CityBuckeye.dc.html', 'Buckeye'), ('CityGoodyear.dc.html', 'Goodyear'), ('CityLitchfieldPark.dc.html', 'Litchfield Park'), ('CityCitrusPark.dc.html', 'Citrus Park'), ('CityVerrado.dc.html', 'Verrado'), ('https://arizonapetwaste.com/start/login', 'Sign in to My Yard')])
+HEADER_MAIN = _header('Main.dc.html', [('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Faq.dc.html', 'FAQ')])
+HEADER_CITY = _header('Main.dc.html', [('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Faq.dc.html', 'FAQ')])
+MENU_MAIN = _menu([('Main.dc.html', 'Home'), ('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Faq.dc.html', 'FAQ'), ('CityBuckeye.dc.html', 'Buckeye'), ('CityGoodyear.dc.html', 'Goodyear'), ('CityLitchfieldPark.dc.html', 'Litchfield Park'), ('CityCitrusPark.dc.html', 'Citrus Park'), ('CityVerrado.dc.html', 'Verrado')])
+MENU_CITY = _menu([('Main.dc.html', 'Home'), ('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Faq.dc.html', 'FAQ'), ('CityBuckeye.dc.html', 'Buckeye'), ('CityGoodyear.dc.html', 'Goodyear'), ('CityLitchfieldPark.dc.html', 'Litchfield Park'), ('CityCitrusPark.dc.html', 'Citrus Park'), ('CityVerrado.dc.html', 'Verrado')])
 FOOTER_MAIN = _footer('')
 FOOTER_CITY = _footer('Main.dc.html')
 

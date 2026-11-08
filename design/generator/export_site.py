@@ -31,13 +31,16 @@ POOP_GOES = 'We bag it and put it in your trash can.'
 LINKS = {
     'Booking.dc.html': '/book/',
     'Main.dc.html': '/',
-    'CityVerrado.dc.html': '/verrado/',
-    'CityCitrusPark.dc.html': '/citrus-park/',
-    'CityGoodyear.dc.html': '/goodyear/',
-    'CityLitchfieldPark.dc.html': '/litchfield-park/',
+    'CityVerrado.dc.html': '/pooper-scooper/verrado-az/',
+    'CityCitrusPark.dc.html': '/pooper-scooper/citrus-park-az/',
+    'CityGoodyear.dc.html': '/pooper-scooper/goodyear-az/',
+    'CityLitchfieldPark.dc.html': '/pooper-scooper/litchfield-park-az/',
     'MyYard.dc.html': '/account/',
-    'CityBuckeye.dc.html': '/buckeye/',
-    'AreasWeServe.dc.html': '/areas-we-serve/',
+    'CityBuckeye.dc.html': '/pooper-scooper/buckeye-az/',
+    'AreasWeServe.dc.html': '/pooper-scooper/',
+    'HowItWorks.dc.html': '/how-it-works/',
+    'Pricing.dc.html': '/pricing/',
+    'Faq.dc.html': '/faq/',
 }
 BLOBS = {
     'd40859938aad2cb6ad7648561b9a1a69': '/assets/img/logo-horizontal.svg',
@@ -172,7 +175,7 @@ write('main', main)
 write('book', common(fill(open('book.prod.tpl.html').read(), 'b')))
 write('account', common(fill(open('account.prod.tpl.html').read(), 'a')))
 
-content = {'faq': {'main': prod_faq(parts.FAQ_ITEMS)}, 'cities': {}, 'base_css': parts.BASE_CSS}
+content = {'faq': {'main': prod_faq(parts.FAQ_ITEMS), 'common': prod_faq(longform.faq_common('the West Valley'))}, 'cities': {}, 'base_css': parts.BASE_CSS}
 shell = None
 for i, cdef in enumerate(cities.CITIES):
     tpl = open('city.tpl.html').read()
