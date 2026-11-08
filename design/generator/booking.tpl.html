@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Arizona Pet Waste · Start your free month</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+@@FONTS@@
+<style>
+@@BASE_CSS@@
+.apw .bh1{margin:0;font-size:32px;font-weight:800;letter-spacing:-.045em;line-height:1;text-wrap:balance}
+.apw .flab{display:block;margin-top:16px;font-size:15px;font-weight:700}
+</style>
+</helmet>
+<div class="apw {{ themeClass }}" style="width: 390px; height: 844px; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); color: var(--ink);">
+
+<div style="display: flex; align-items: center; gap: 8px; height: 60px; flex: 0 0 60px; padding: 0 8px;">
+  <sc-if value="{{ canBack }}" hint-placeholder-val="{{ false }}"><button type="button" class="ibtn" style="border-color: transparent;" aria-label="Go back" onClick="{{ back }}">@@ICON_BACK@@</button></sc-if>
+  <sc-if value="{{ noBack }}" hint-placeholder-val="{{ true }}"><span style="width: 48px; height: 48px; flex: 0 0 48px;"></span></sc-if>
+  <p style="flex: 1; margin: 0; text-align: center; font-size: 17px; font-weight: 700;">{{ topTitle }}</p>
+  <a href="Main.dc.html" class="ibtn" style="border-color: transparent;" aria-label="Close and go to the home page">@@ICON_CLOSE@@</a>
+</div>
+
+<sc-if value="{{ showProgress }}" hint-placeholder-val="{{ true }}">
+  <div style="flex: 0 0 auto; padding: 0 20px;">
+    <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px;" aria-hidden="true">
+      <sc-for list="{{ segs }}" as="g" hint-placeholder-count="5"><span style="display: block; height: 4px; border-radius: 4px; background: {{ g.bg }};"></span></sc-for>
+    </div>
+    <p class="mono" style="margin: 8px 0 0; font-size: 13px; color: var(--mute);">{{ stepLabel }}</p>
+  </div>
+</sc-if>
+
+<div style="flex: 1; min-height: 0; overflow-y: auto; padding: 18px 20px 24px;">
+
+  <sc-if value="{{ s0 }}" hint-placeholder-val="{{ true }}">
+    <h1 class="bh1">Where is your yard?</h1>
+    <p class="lead" style="font-size: 16px;">Type your ZIP code. We will see if we come to you.</p>
+    <label for="b-zip" class="flab" style="margin-top: 22px;">ZIP code</label>
+    <input id="b-zip" class="mono" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="5" placeholder="85396" value="{{ zip }}" onChange="{{ onZip }}" style="display: block; width: 100%; height: 60px; margin-top: 8px; padding: 0 18px; border-radius: 16px; border: 1.6px solid var(--field); background: var(--card); color: var(--ink); font-size: 24px; letter-spacing: .1em;">
+    <sc-if value="{{ zipOk }}" hint-placeholder-val="{{ false }}">
+      <div aria-live="polite" style="display: flex; gap: 12px; align-items: center; margin-top: 12px; padding: 14px 16px; border-radius: 16px; background: var(--ok-soft); border: 1.6px solid var(--ok);">
+        <span style="width: 28px; height: 28px; flex: 0 0 28px; border-radius: 50%; background: var(--ok); color: #FFFFFF; display: grid; place-items: center;">@@ICON_CHECK@@</span>
+        <p style="margin: 0; font-size: 16px; line-height: 1.45;"><strong>Yes! We scoop in {{ zipPlace }}.</strong></p>
+      </div>
+    </sc-if>
+    <sc-if value="{{ zipNo }}" hint-placeholder-val="{{ false }}">
+      <div aria-live="polite" style="margin-top: 12px; padding: 16px; border-radius: 16px; background: var(--bg2); border: 1px solid var(--line);">
+        <p style="margin: 0; font-size: 16px; line-height: 1.5;"><strong>We don’t come to {{ zip }} yet.</strong> Join the waitlist. We will tell you when we do.</p>
+        <sc-if value="{{ waitOpen }}" hint-placeholder-val="{{ true }}">
+          <label for="b-wait" class="flab" style="margin-top: 12px;">Email</label>
+          <div style="display: flex; gap: 8px; margin-top: 6px;">
+            <input id="b-wait" type="email" autocomplete="email" placeholder="you@email.com" value="{{ wait }}" onChange="{{ onWait }}" style="flex: 1; min-width: 0; height: 52px; padding: 0 14px; border-radius: 14px; border: 1.6px solid var(--field); background: var(--card); color: var(--ink); font: inherit; font-size: 16px;">
+            <button type="button" class="btn btn-ink" style="min-height: 52px; padding: 0 18px; font-size: 16px;" onClick="{{ joinWait }}">Join</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ waitDone }}" hint-placeholder-val="{{ false }}">
+          <p style="margin: 12px 0 0; display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 700; color: var(--ok);"><span style="width: 24px; height: 24px; flex: 0 0 24px; border-radius: 50%; background: var(--ok); color: #FFFFFF; display: grid; place-items: center;">@@ICON_CHECK@@</span>You are on the list!</p>
+        </sc-if>
+      </div>
+    </sc-if>
+    <p class="mono" style="margin: 26px 0 8px; font-size: 13px; font-weight: 600; letter-spacing: .09em; color: var(--mute);">WE SCOOP IN</p>
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      <div style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2);"><span style="font-size: 16px; font-weight: 700;">Verrado</span><span style="font-size: 14px; color: var(--mute);">Buckeye</span><span class="mono" style="margin-left: auto; font-size: 16px; font-weight: 600; color: var(--accent-text);">85396</span></div>
+      <div style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2);"><span style="font-size: 16px; font-weight: 700;">Litchfield Park</span><span class="mono" style="margin-left: auto; font-size: 16px; font-weight: 600; color: var(--accent-text);">85340</span></div>
+      <div style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2);"><span style="font-size: 16px; font-weight: 700;">Citrus Park</span><span class="mono" style="margin-left: auto; font-size: 16px; font-weight: 600; color: var(--accent-text);">85355</span></div>
+      <div style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2);"><span style="font-size: 16px; font-weight: 700;">Goodyear</span><span style="font-size: 14px; color: var(--mute);">North of Interstate 10</span><span class="mono" style="margin-left: auto; font-size: 16px; font-weight: 600; color: var(--accent-text);">85395</span></div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ s1 }}" hint-placeholder-val="{{ false }}">
+    <h1 class="bh1">How many dogs?</h1>
+    <div role="radiogroup" aria-label="How many dogs" style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-top: 16px;">
+      <sc-for list="{{ dogOpts }}" as="d" hint-placeholder-count="6">
+        <button type="button" role="radio" aria-checked="{{ d.on }}" aria-label="{{ d.aria }}" onClick="{{ d.pick }}" style="min-height: 60px; border-radius: 16px; border: 1.6px solid {{ d.border }}; background: {{ d.bg }}; color: {{ d.fg }}; font: inherit; font-size: 22px; font-weight: 800; cursor: pointer;">{{ d.label }}</button>
+      </sc-for>
+    </div>
+    <p style="margin: 10px 0 0; font-size: 15px; line-height: 1.5; color: var(--mute);">More than 6 dogs? <a href="sms:+16233096104" style="font-weight: 700;">Text us.</a></p>
+    <h2 style="margin: 28px 0 0; font-size: 24px; font-weight: 800; letter-spacing: -.035em; line-height: 1.1;">How often should we come?</h2>
+    <div role="radiogroup" aria-label="How often we come" style="display: flex; flex-direction: column; gap: 10px; margin-top: 14px;">
+      <sc-for list="{{ plans }}" as="p" hint-placeholder-count="3">
+        <button type="button" role="radio" aria-checked="{{ p.on }}" onClick="{{ p.pick }}" style="display: flex; align-items: center; gap: 14px; width: 100%; min-height: 70px; padding: 12px 16px; border-radius: 16px; border: 1.6px solid {{ p.border }}; background: {{ p.bg }}; color: var(--ink); font: inherit; text-align: left; cursor: pointer;">
+          <span style="width: 24px; height: 24px; flex: 0 0 24px; border-radius: 50%; border: 2px solid {{ p.ring }}; display: grid; place-items: center;"><span style="width: 12px; height: 12px; border-radius: 50%; background: {{ p.dot }};"></span></span>
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 17px; font-weight: 700;">{{ p.name }}</span><span style="font-size: 14px; color: var(--mute);">{{ p.per }}</span></span>
+          <span style="font-size: 22px; font-weight: 800; letter-spacing: -.03em;">{{ p.price }}</span>
+        </button>
+      </sc-for>
+    </div>
+    <p style="margin: 14px 0 0; font-size: 15px; line-height: 1.5; color: var(--mute);">Each dog after two adds $13 a month ($9 every other week). Your first month is free. No contract.</p>
+  </sc-if>
+
+  <sc-if value="{{ s2 }}" hint-placeholder-val="{{ false }}">
+    <h1 class="bh1">Pick your first day.</h1>
+    <p class="lead" style="font-size: 16px;">We text you the night before with a 30 minute window.</p>
+    <div role="radiogroup" aria-label="First visit day" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 20px;">
+      <sc-for list="{{ days }}" as="d" hint-placeholder-count="6">
+        <button type="button" role="radio" aria-checked="{{ d.on }}" aria-label="{{ d.full }}" onClick="{{ d.pick }}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 78px; border-radius: 16px; border: 1.6px solid {{ d.border }}; background: {{ d.bg }}; color: {{ d.fg }}; font: inherit; cursor: pointer;">
+          <span class="mono" style="font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;">{{ d.wd }}</span>
+          <span style="font-size: 20px; font-weight: 800; letter-spacing: -.02em;">{{ d.md }}</span>
+        </button>
+      </sc-for>
+    </div>
+    <div style="display: flex; gap: 12px; align-items: flex-start; margin-top: 18px; padding: 14px 16px; border-radius: 16px; background: var(--bg2);">
+      <span style="color: var(--accent-text); display: flex; padding-top: 1px;">@@ICON_CHAT@@</span>
+      <p style="margin: 0; font-size: 15px; line-height: 1.5; color: var(--ink2);">After that, we come back on the same day. Your first month is free.</p>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ s3 }}" hint-placeholder-val="{{ false }}">
+    <h1 class="bh1">Tell us about you.</h1>
+    <p class="lead" style="font-size: 16px;">We use this to text you before each visit.</p>
+    <label for="b-name" class="flab">Full name</label>
+    <input id="b-name" type="text" autocomplete="name" value="{{ name }}" onChange="{{ onName }}" style="display: block; width: 100%; height: 54px; margin-top: 6px; padding: 0 16px; border-radius: 14px; border: 1.6px solid var(--field); background: var(--card); color: var(--ink); font: inherit; font-size: 17px;">
+    <label for="b-phone" class="flab">Mobile phone</label>
+    <input id="b-phone" type="tel" inputmode="tel" autocomplete="tel" value="{{ phone }}" onChange="{{ onPhone }}" style="display: block; width: 100%; height: 54px; margin-top: 6px; padding: 0 16px; border-radius: 14px; border: 1.6px solid var(--field); background: var(--card); color: var(--ink); font: inherit; font-size: 17px;">
+    <label for="b-email" class="flab">Email</label>
+    <input id="b-email" type="email" autocomplete="email" value="{{ email }}" onChange="{{ onEmail }}" style="display: block; width: 100%; height: 54px; margin-top: 6px; padding: 0 16px; border-radius: 14px; border: 1.6px solid var(--field); background: var(--card); color: var(--ink); font: inherit; font-size: 17px;">
+    <label for="b-addr" class="flab">Street address</label>
+    <input id="b-addr" type="text" autocomplete="street-address" value="{{ addr }}" onChange="{{ onAddr }}" style="display: block; width: 100%; height: 54px; margin-top: 6px; padding: 0 16px; border-radius: 14px; border: 1.6px solid var(--field); background: var(--card); color: var(--ink); font: inherit; font-size: 17px;">
+    <p class="mono" style="margin: 8px 0 0; font-size: 13px; color: var(--mute);">{{ cityLine }}</p>
+    <p style="margin: 18px 0 0; font-size: 15px; line-height: 1.5; color: var(--mute);">You add your gate code and your dogs’ names after you book.</p>
+  </sc-if>
+
+  <sc-if value="{{ s4 }}" hint-placeholder-val="{{ false }}">
+    <h1 class="bh1">Start your free month.</h1>
+    <div style="margin-top: 18px; border-radius: 20px; border: 1px solid var(--line); background: var(--card); overflow: hidden;">
+      <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">Plan</span><span style="font-size: 15px; font-weight: 700; text-align: right;">{{ planName }} · {{ dogsLabel }}</span></div>
+      <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">First visit</span><span style="font-size: 15px; font-weight: 700; text-align: right;">{{ dayFull }}</span></div>
+      <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">First month</span><span style="font-size: 15px; font-weight: 700; color: var(--ok);">Free</span></div>
+      <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">After that</span><span style="font-size: 15px; font-weight: 700;">{{ priceLabel }} a month</span></div>
+      <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 16px; background: var(--bg2);"><span style="font-size: 17px; font-weight: 800;">Due today</span><span style="font-size: 30px; font-weight: 800; letter-spacing: -.04em;">$0.00</span></div>
+    </div>
+    <p style="margin: 10px 0 0; font-size: 14px; line-height: 1.5; color: var(--mute);">{{ billLine }}</p>
+    <button type="button" class="btn btn-pay" style="width: 100%; margin-top: 18px;" onClick="{{ book }}">Subscribe with Apple Pay</button>
+    <div style="display: flex; align-items: center; gap: 12px; margin-top: 16px;" aria-hidden="true"><span style="flex: 1; height: 1px; background: var(--line);"></span><span class="mono" style="font-size: 13px; color: var(--mute);">OR PAY WITH A CARD</span><span style="flex: 1; height: 1px; background: var(--line);"></span></div>
+    <div style="margin-top: 14px; padding: 14px; border-radius: 16px; border: 1.6px dashed var(--field);">
+      <p class="mono" style="margin: 0 0 10px; font-size: 13px; color: var(--mute);">STRIPE CARD FORM LOADS HERE</p>
+      <div style="display: flex; align-items: center; height: 50px; padding: 0 14px; border-radius: 12px; border: 1.6px solid var(--line); background: var(--card); font-size: 16px; color: var(--mute);">Card number</div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px;">
+        <div style="display: flex; align-items: center; height: 50px; padding: 0 14px; border-radius: 12px; border: 1.6px solid var(--line); background: var(--card); font-size: 16px; color: var(--mute);">MM / YY</div>
+        <div style="display: flex; align-items: center; height: 50px; padding: 0 14px; border-radius: 12px; border: 1.6px solid var(--line); background: var(--card); font-size: 16px; color: var(--mute);">CVC</div>
+      </div>
+    </div>
+    <p style="margin: 14px 0 0; display: flex; align-items: center; gap: 8px; font-size: 14px; line-height: 1.5; color: var(--mute);">@@ICON_LOCK@@Secure checkout with Stripe. Cancel anytime in My Yard.</p>
+  </sc-if>
+
+  <sc-if value="{{ s5 }}" hint-placeholder-val="{{ false }}">
+    <div style="display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: 12px;">
+      <span style="width: 88px; height: 88px; border-radius: 50%; background: var(--ok); color: #FFFFFF; display: grid; place-items: center;">@@ICON_CHECK44@@</span>
+      <h1 class="bh1" style="margin-top: 22px; font-size: 38px;">You are booked!</h1>
+      <p class="lead" style="font-size: 17px;">Your first visit is {{ dayFull }}. We will text you the night before.</p>
+    </div>
+    <div style="margin-top: 22px; padding: 6px 16px; border-radius: 20px; background: var(--bg2);">
+      <div style="display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--line);"><span class="mono" style="width: 28px; height: 28px; flex: 0 0 28px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 14px; font-weight: 600;">1</span><p style="margin: 0; font-size: 16px; line-height: 1.45;"><strong>Set up your yard.</strong> Add your dogs’ names, your gate code and any problem spots. It takes 2 minutes.</p></div>
+      <div style="display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--line);"><span class="mono" style="width: 28px; height: 28px; flex: 0 0 28px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 14px; font-weight: 600;">2</span><p style="margin: 0; font-size: 16px; line-height: 1.45;"><strong>Look for our text</strong> the night before.</p></div>
+      <div style="display: flex; gap: 14px; align-items: flex-start; padding: 12px 0;"><span class="mono" style="width: 28px; height: 28px; flex: 0 0 28px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 14px; font-weight: 600;">3</span><p style="margin: 0; font-size: 16px; line-height: 1.45;"><strong>Get your photo</strong> of the shut gate after each visit.</p></div>
+    </div>
+    <a href="https://arizonapetwaste.com/start/login" class="btn btn-dot" style="margin-top: 18px;">Set up my yard</a>
+    <button type="button" class="btn btn-line" style="width: 100%; margin-top: 10px;" onClick="{{ addCal }}">{{ calLabel }}</button>
+    <a href="Main.dc.html" style="display: flex; align-items: center; justify-content: center; min-height: 48px; margin-top: 6px; font-size: 16px; font-weight: 700; color: var(--accent-text); text-decoration: none;">Back to home</a>
+  </sc-if>
+
+</div>
+
+<sc-if value="{{ showBar }}" hint-placeholder-val="{{ true }}">
+  <div style="flex: 0 0 auto; display: flex; align-items: center; gap: 14px; padding: 12px 16px 22px; border-top: 1px solid var(--line); background: var(--bg);">
+    <sc-if value="{{ showSum }}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+        <p style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -.03em; white-space: nowrap;">{{ priceShort }}</p>
+        <p class="mono" style="margin: 0; font-size: 13px; color: var(--mute); white-space: nowrap;">{{ planShort }}</p>
+      </div>
+    </sc-if>
+    <button type="button" class="btn btn-dot" style="flex: 1; min-width: 0;" onClick="{{ next }}" disabled="{{ nextOff }}">{{ nextLabel }}</button>
+  </div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark","auto"],"default":"light","section":"Look"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { dark: this._themeFromProps(), step: 0, zip: '', dogs: 2, plan: 'week', day: 0, name: '', phone: '', email: '', addr: '', wait: '', waitDone: false, cal: false };
+  }
+  componentDidMount() { this._themeInit(); }
+  componentWillUnmount() { this._themeStop(); }
+@@THEME_METHODS@@
+@@PRICE_METHODS@@
+  _days() {
+    const out = [];
+    const d = new Date();
+    d.setHours(12, 0, 0, 0);
+    while (out.length < 6) {
+      d.setDate(d.getDate() + 1);
+      const w = d.getDay();
+      if (w === 0 || w === 6) continue;
+      out.push({
+        wd: d.toLocaleDateString('en-US', { weekday: 'short' }),
+        md: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        full: d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+        date: new Date(d.getTime())
+      });
+    }
+    return out;
+  }
+  renderVals() {
+    const s = this.state;
+    const zips = { '85396': 'Verrado', '85355': 'Citrus Park', '85395': 'Goodyear', '85340': 'Litchfield Park' };
+    const cities = { '85396': 'Buckeye, AZ 85396', '85355': 'Waddell, AZ 85355', '85395': 'Goodyear, AZ 85395', '85340': 'Litchfield Park, AZ 85340' };
+    const names = { week: 'Every week', twice: 'Twice a week', eow: 'Every other week' };
+    const zipOk = !!zips[s.zip];
+    const days = this._days();
+    const day = days[s.day] || days[0];
+    const price = this._price(s.plan, s.dogs);
+    const dogsLabel = s.dogs === 1 ? '1 dog' : s.dogs + ' dogs';
+    const charge = new Date(day.date.getTime());
+    charge.setMonth(charge.getMonth() + 1);
+    const chargeDay = charge.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const inFlow = s.step > 0 && s.step < 5;
+    const tone = (on) => ({ border: on ? 'var(--ink)' : 'var(--field)', bg: on ? 'var(--ink)' : 'var(--card)', fg: on ? 'var(--bg)' : 'var(--ink)' });
+    const field = (k) => (e) => { const o = {}; o[k] = e.target.value; this.setState(o); };
+    return Object.assign({}, this._themeVals(), {
+      s0: s.step === 0, s1: s.step === 1, s2: s.step === 2, s3: s.step === 3, s4: s.step === 4, s5: s.step === 5,
+      topTitle: s.step === 5 ? 'Arizona Pet Waste' : 'Start your free month',
+      canBack: inFlow,
+      noBack: !inFlow,
+      back: () => this.setState({ step: Math.max(0, s.step - 1) }),
+      showProgress: s.step < 5,
+      segs: [0, 1, 2, 3, 4].map((i) => ({ bg: i <= s.step ? 'var(--accent)' : 'var(--line)' })),
+      stepLabel: 'Step ' + (s.step + 1) + ' of 5',
+      showBar: s.step < 5,
+      showSum: s.step >= 1 && s.step <= 3,
+      priceShort: '$' + price + '/mo',
+      planShort: names[s.plan] + ' · ' + dogsLabel,
+      nextOff: s.step === 0 && !zipOk,
+      nextLabel: s.step === 4 ? 'Start my free month' : 'Continue',
+      next: () => { if (s.step === 0 && !zipOk) return; this.setState({ step: Math.min(5, s.step + 1) }); },
+      zip: s.zip,
+      onZip: (e) => this.setState({ zip: String(e.target.value || '').replace(/\D/g, '').slice(0, 5), waitDone: false }),
+      zipOk: zipOk,
+      zipNo: s.zip.length === 5 && !zipOk,
+      zipPlace: zips[s.zip] || '',
+      wait: s.wait,
+      onWait: field('wait'),
+      waitOpen: !s.waitDone,
+      waitDone: s.waitDone,
+      joinWait: () => this.setState({ waitDone: true }),
+      dogOpts: [1, 2, 3, 4, 5, 6].map((n) => Object.assign({
+        label: String(n),
+        aria: n === 1 ? '1 dog' : n + ' dogs',
+        on: s.dogs === n,
+        pick: () => this.setState({ dogs: n })
+      }, tone(s.dogs === n))),
+      billLine: 'Your first month is free. Your card is charged $' + price + ' on ' + chargeDay + ', then once a month. Cancel before then and you pay $0.',
+      plans: this._plans(false),
+      days: days.map((x, i) => Object.assign({}, x, { on: s.day === i, pick: () => this.setState({ day: i }) }, tone(s.day === i))),
+      name: s.name, onName: field('name'),
+      phone: s.phone, onPhone: field('phone'),
+      email: s.email, onEmail: field('email'),
+      addr: s.addr, onAddr: field('addr'),
+      cityLine: cities[s.zip] || 'Buckeye, AZ 85396',
+      planName: names[s.plan],
+      dogsLabel: dogsLabel,
+      dayFull: day.full,
+      priceLabel: '$' + price,
+      book: () => this.setState({ step: 5 }),
+      calLabel: s.cal ? 'Added to your calendar' : 'Add to my calendar',
+      addCal: () => this.setState({ cal: true })
+    });
+  }
+}
+</script>
+</body>
+</html>

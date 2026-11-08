@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Arizona Pet Waste · iPhone Duo open</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+@@FONTS@@
+<style>
+@@BASE_CSS@@
+@@SCENE_CSS@@
+.apw .nlink{display:flex;align-items:center;min-height:44px;color:var(--ink);font-size:15px;font-weight:600;text-decoration:none}
+.apw .lgo{display:block;width:auto;height:46px}
+</style>
+</helmet>
+<div class="apw {{ themeClass }}" style="width: 951px; height: 713px; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); color: var(--ink);">
+
+<header style="display: flex; align-items: center; gap: 12px; height: 64px; flex: 0 0 64px; padding: 0 20px; border-bottom: 1px solid var(--line);">
+  <a href="Main.dc.html" aria-label="Arizona Pet Waste, home" style="display: flex; align-items: center; gap: 10px; min-height: 48px; text-decoration: none;">
+    @@LOGO_H@@
+  </a>
+  <nav aria-label="Main" style="display: flex; gap: 24px; margin-left: 28px;">
+    <a href="#how" class="nlink">What you get</a>
+    <a href="#prices" class="nlink">Prices</a>
+    <a href="#reviews" class="nlink">Reviews</a>
+    <a href="#questions" class="nlink">Questions</a>
+  </nav>
+  <span style="flex: 1;"></span>
+  @@THEME_BTN@@
+  <a href="Booking.dc.html" class="btn btn-dot" style="min-height: 48px; padding: 0 22px; font-size: 16px;">Book now</a>
+</header>
+
+<div style="flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));">
+
+  <section aria-label="Watch a sample visit" style="display: flex; flex-direction: column; min-height: 0; padding: 22px 24px 20px;">
+    <p class="eb" style="display: flex; align-items: center; gap: 10px;"><span class="ldot"></span>Buckeye · Goodyear · Litchfield Park</p>
+    <h1 class="h1" style="margin-top: 10px; font-size: 38px; color: var(--ink);">Dog poop pickup you can watch<span style="color: var(--accent);">.</span></h1>
+    <div class="vsw" style="margin-top: 14px;">
+      <div class="{{ vsClass }}">
+@@SCENE@@
+      </div>
+@@SCENE_CTL@@
+    </div>
+    <p style="margin: 12px 0 0; font-size: 15px; line-height: 1.45; color: var(--ink2);">We pick up dog poop in your yard every week. On your day, you can watch us on a map.</p>
+  </section>
+
+  <section aria-label="Get your first month free" style="display: flex; flex-direction: column; justify-content: center; min-height: 0; padding: 16px 24px; border-left: 1px solid var(--line); background: var(--bg);">
+    <div style="padding: 18px 20px; border-radius: 24px; background: var(--bg2); border: 1px solid var(--line);">
+      <h2 style="margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.04em; line-height: 1;">Get your first month free</h2>
+      <p style="margin: 6px 0 0; font-size: 15px; line-height: 1.45; color: var(--ink2);">Pick a plan. Free sanitizer spray at every visit. No contract.</p>
+      <label for="duo-zip" style="display: block; margin-top: 14px; font-size: 15px; font-weight: 700;">Your ZIP code</label>
+      <div style="display: flex; align-items: center; gap: 12px; margin-top: 6px;">
+        <input id="duo-zip" class="mono" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="5" value="{{ zip }}" onChange="{{ onZip }}" style="width: 128px; flex: 0 0 128px; height: 48px; padding: 0 14px; border-radius: 12px; border: 1.6px solid var(--field); background: var(--card); color: var(--ink); font-size: 19px; letter-spacing: .08em;">
+        <sc-if value="{{ zipOk }}" hint-placeholder-val="{{ true }}"><p aria-live="polite" style="margin: 0; display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: var(--ok);"><span style="width: 24px; height: 24px; flex: 0 0 24px; border-radius: 50%; background: var(--ok); color: #FFFFFF; display: grid; place-items: center;">@@ICON_CHECK@@</span>{{ zipPlace }}. We come here!</p></sc-if>
+        <sc-if value="{{ zipNo }}" hint-placeholder-val="{{ false }}"><p aria-live="polite" style="margin: 0; font-size: 15px; line-height: 1.35; color: var(--ink2);">Not here yet. Book now to join the waitlist.</p></sc-if>
+        <sc-if value="{{ zipShort }}" hint-placeholder-val="{{ false }}"><p aria-live="polite" style="margin: 0; font-size: 15px; color: var(--mute);">Type all 5 numbers.</p></sc-if>
+      </div>
+      <div role="radiogroup" aria-label="How often we come" style="display: flex; flex-direction: column; gap: 6px; margin-top: 14px;">
+        <sc-for list="{{ plans }}" as="p" hint-placeholder-count="3">
+          <button type="button" role="radio" aria-checked="{{ p.on }}" onClick="{{ p.pick }}" style="display: flex; align-items: center; gap: 12px; width: 100%; min-height: 50px; padding: 6px 14px; border-radius: 14px; border: 1.6px solid {{ p.border }}; background: {{ p.bg }}; color: var(--ink); font: inherit; text-align: left; cursor: pointer;">
+            <span style="width: 22px; height: 22px; flex: 0 0 22px; border-radius: 50%; border: 2px solid {{ p.ring }}; display: grid; place-items: center;"><span style="width: 10px; height: 10px; border-radius: 50%; background: {{ p.dot }};"></span></span>
+            <span style="flex: 1; display: flex; flex-direction: column; gap: 1px;"><span style="font-size: 16px; font-weight: 700;">{{ p.name }}</span><span style="font-size: 13px; color: var(--mute);">{{ p.per }}</span></span>
+            <span style="font-size: 19px; font-weight: 800; letter-spacing: -.03em;">{{ p.price }}</span>
+          </button>
+        </sc-for>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px; padding: 4px 4px 4px 14px; border-radius: 14px; border: 1.6px solid var(--field);">
+        <span style="flex: 1; font-size: 16px; font-weight: 700;">How many dogs?</span>
+        <button type="button" class="ibtn" style="width: 44px; height: 44px; flex: 0 0 44px;" aria-label="One less dog" onClick="{{ dogDown }}">@@ICON_MINUS20@@</button>
+        <span class="mono" aria-live="polite" style="min-width: 64px; text-align: center; font-size: 15px; font-weight: 600;">{{ dogLabel }}</span>
+        <button type="button" class="ibtn" style="width: 44px; height: 44px; flex: 0 0 44px;" aria-label="One more dog" onClick="{{ dogUp }}">@@ICON_PLUS20@@</button>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 14px;">
+        <span style="font-size: 36px; font-weight: 800; letter-spacing: -.05em; line-height: 1;">{{ totalLabel }}</span>
+        <span class="mono" style="font-size: 14px; color: var(--mute);">/month</span>
+        <span style="margin-left: auto; font-size: 14px; color: var(--ink2);">{{ perLine }}</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px;">
+        <a href="Booking.dc.html" class="btn btn-dot" style="min-height: 52px; padding: 0 16px;">Book now</a>
+        <a href="Booking.dc.html" class="btn btn-pay" style="min-height: 52px; padding: 0 16px;">Apple Pay</a>
+      </div>
+      <p class="mono" style="margin: 10px 0 0; font-size: 13px; text-align: center; color: var(--mute);">Secure checkout with Stripe · Cancel anytime</p>
+    </div>
+  </section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark","auto"],"default":"light","section":"Look"},"$preview":{"width":951,"height":713}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { dark: this._themeFromProps(), plan: 'week', dogs: 2, zip: '85396', @@VS_STATE@@ };
+  }
+  componentDidMount() {
+    this._themeInit();
+    this._vsInit();
+  }
+  componentWillUnmount() {
+    this._themeStop();
+    this._vsStop();
+  }
+@@THEME_METHODS@@
+@@VS_METHODS@@
+@@PRICE_METHODS@@
+  renderVals() {
+    const s = this.state;
+    const zips = { '85396': 'Verrado', '85355': 'Citrus Park', '85395': 'Goodyear', '85340': 'Litchfield Park' };
+    const ok = !!zips[s.zip];
+    return Object.assign({}, this._themeVals(), this._vsVals(), {
+      plans: this._plans(false),
+      dogLabel: s.dogs === 1 ? '1 dog' : s.dogs + ' dogs',
+      dogDown: () => this.setState({ dogs: Math.max(1, s.dogs - 1) }),
+      dogUp: () => this.setState({ dogs: Math.min(6, s.dogs + 1) }),
+      totalLabel: '$' + this._price(s.plan, s.dogs),
+      perLine: 'About $' + this._per(s.plan, s.dogs) + ' a visit',
+      zip: s.zip,
+      onZip: (e) => this.setState({ zip: String(e.target.value || '').replace(/\D/g, '').slice(0, 5) }),
+      zipOk: ok,
+      zipNo: s.zip.length === 5 && !ok,
+      zipShort: s.zip.length < 5,
+      zipPlace: zips[s.zip] || ''
+    });
+  }
+}
+</script>
+</body>
+</html>

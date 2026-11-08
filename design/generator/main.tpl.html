@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Arizona Pet Waste · Dog poop pickup you can watch</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+@@FONTS@@
+<style>
+@@BASE_CSS@@
+@@SCENE_CSS@@
+@@SITE_CSS@@
+@@PAGE_CSS@@
+.apw .mlink{display:flex;align-items:center;min-height:62px;font-size:24px;font-weight:800;letter-spacing:-.03em;color:var(--ink);text-decoration:none;border-bottom:1px solid var(--line)}
+.apw .flink{display:flex;align-items:center;min-height:44px;color:#FFFFFF;font-size:16px;text-decoration:none}
+.rv{scrollbar-width:none}.rv::-webkit-scrollbar{display:none}
+</style>
+</helmet>
+<div class="apw {{ themeClass }}" style="min-height: 100%; background: var(--bg); color: var(--ink);">
+<div id="top" class="pg">
+
+@@HEADER_MAIN@@
+
+<section class="hero">
+  <div class="in hg">
+  <p class="eb short-hide hey"><span class="ldot"></span>Buckeye · Goodyear · Litchfield Park</p>
+  <h1 class="h1 h1-hero">Dog poop pickup you can <span class="uline">watch@@ULINE@@</span><span style="color: var(--accent);">.</span></h1>
+  <div class="vsw hvid">
+    <div class="{{ vsClass }}">
+@@SCENE@@
+    </div>
+@@SCENE_CTL@@
+  </div>
+  <div class="hbk">
+    <a href="Booking.dc.html" class="btn btn-dot">Book now</a>
+    <span class="sticker" style="right: -2px; top: -18px;">First<br>month<br>free</span>
+  </div>
+  <p class="mono hsm">Free sanitizer spray · No contract</p>
+  <p class="hp">We pick up dog poop in your yard every week. On your day, you can watch us on a map. When we leave, we send you a photo of your shut gate.</p>
+  </div>
+</section>
+
+<section id="prices" class="sec" style="background: var(--band); color: #FFFFFF;">
+  <div class="in">
+  <div class="shd">
+    <p class="eb" style="color: #FF8A66;">Prices</p>
+    <h2 class="h2" style="color: #FFFFFF;">Your price in two taps<span style="color: #FF4A1C;">.</span></h2>
+    <p class="subn">Add your dogs. Then pick how often we come.</p>
+  </div>
+  <div class="g2 prg">
+  <div>
+  <div style="padding: 14px 12px 16px; border-radius: 20px; border: 1.6px solid rgba(255,255,255,.18);">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <button type="button" class="ibtn ibtn-n" aria-label="One less dog" onClick="{{ dogDown }}">@@ICON_MINUS20@@</button>
+      <div class="dogrow">
+        <sc-for list="{{ dogList }}" as="d" hint-placeholder-count="2"><span class="dogf" style="color: {{ d.fur }};">@@DOG_SVG@@</span></sc-for>
+      </div>
+      <button type="button" class="ibtn ibtn-n" aria-label="One more dog" onClick="{{ dogUp }}">@@ICON_PLUS20@@</button>
+    </div>
+    <p class="mono" aria-live="polite" style="margin: 10px 0 0; text-align: center; font-size: 14px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;">{{ dogLabel }}</p>
+    <p style="margin: 8px 0 0; text-align: center; font-size: 15px; line-height: 1.45; color: #D5DAF0;">{{ poopLine }}</p>
+  </div>
+  <div role="radiogroup" aria-label="How often we come" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px;">
+    <sc-for list="{{ plans }}" as="p" hint-placeholder-count="3">
+      <button type="button" role="radio" aria-checked="{{ p.on }}" aria-label="{{ p.aria }}" onClick="{{ p.pick }}" style="display: flex; flex-direction: column; align-items: flex-start; gap: 10px; width: 100%; min-height: 176px; padding: 12px 10px; border-radius: 16px; border: 1.6px solid {{ p.border }}; background: {{ p.bg }}; color: #FFFFFF; font: inherit; text-align: left; cursor: pointer;">
+        <span style="font-size: 15px; font-weight: 700; line-height: 1.15; min-height: 35px;">{{ p.name }}</span>
+        <span class="cal" aria-hidden="true"><sc-for list="{{ p.cal }}" as="c" hint-placeholder-count="28"><span style="background: {{ c.bg }};"></span></sc-for></span>
+        <span style="font-size: 24px; font-weight: 800; letter-spacing: -.04em; line-height: 1;">{{ p.price }}</span>
+        <span style="font-size: 13px; line-height: 1.3; color: #AEB5D8;">{{ p.per }}</span>
+      </button>
+    </sc-for>
+  </div>
+  </div>
+  <div>
+  <div class="ptot" style="padding: 20px; border-radius: 22px; background: var(--band2); border: 1px solid rgba(255,255,255,.10);">
+        <p class="mono" style="margin: 0; font-size: 13px; color: #AEB5D8; text-transform: uppercase; letter-spacing: .06em;">{{ planLine }}</p>
+    <p style="margin: 10px 0 0; display: flex; align-items: baseline; gap: 8px;"><span style="font-size: 64px; font-weight: 800; letter-spacing: -.055em; line-height: .9;">{{ totalLabel }}</span><span class="mono" style="font-size: 15px; color: #AEB5D8;">/month</span></p>
+    <p style="margin: 12px 0 0; font-size: 16px; line-height: 1.5; color: #D5DAF0;">{{ perLine }}. Your first month is free.</p>
+  </div>
+  <p style="margin: 16px 0 0; font-size: 15px; line-height: 1.55; color: #AEB5D8;">Each dog after two adds $13 a month ($9 every other week). No contract. Months with five visits cost the same as four.</p>
+  <p style="margin: 10px 0 0; font-size: 15px; line-height: 1.55; color: #AEB5D8;">Every visit comes with a free sanitizer and deodorizer spray.</p>
+  <a href="Booking.dc.html" class="btn btn-dot" style="margin-top: 20px;">{{ ctaLabel }}</a>
+  <details style="margin-top: 14px; border-top: 1px solid rgba(255,255,255,.14);">
+    <summary style="display: flex; align-items: center; justify-content: space-between; min-height: 56px; font-size: 16px; font-weight: 700; color: #FFFFFF;">See every price@@ICON_PLUS@@</summary>
+@@PRICE_TABLE@@
+  </details>
+  </div>
+  </div>
+  </div>
+</section>
+
+<section id="how" class="sec" style="background: var(--bg2);">
+  <div class="in g2 hw">
+  <div class="stk">
+    <h2 class="h2" style="margin-top: 0; color: var(--ink);">One visit, minute by minute<span style="color: var(--accent);">.</span></h2>
+    <p class="lead">This is what happens every time we come.</p>
+  </div>
+  <div class="routew">
+  <ol id="route" class="route">
+    <li class="stop">
+      <span class="stime mono">7:00 PM</span>
+      <span class="snode" style="background: {{ r0 }};"></span>
+      <div class="sbody">
+        <h3>The night before</h3>
+        <span class="bub">Hi Sam! We will scoop your yard tomorrow between 10:00 and 10:30 AM.</span>
+        <p class="mono" style="font-size: 13px; color: var(--mute);">A text from us</p>
+      </div>
+    </li>
+    <li class="stop">
+      <span class="stime mono">9:38 AM</span>
+      <span class="snode" style="background: {{ r1 }};"></span>
+      <div class="sbody">
+        <h3>Watch us come</h3>
+        <p>Tap the link in your text. Watch our dot drive to your house. No app needed.</p>
+        <div class="minimap">@@MINIMAP@@<span class="mono" style="position: absolute; left: 8px; top: 8px; padding: 4px 8px; border-radius: 999px; background: rgba(10,15,36,.86); color: #FFFFFF; font-size: 13px;">2 stops away</span></div>
+      </div>
+    </li>
+    <li class="stop">
+      <span class="stime mono">10:06 AM</span>
+      <span class="snode" style="background: {{ r2 }};"></span>
+      <div class="sbody">
+        <h3>In your yard</h3>
+        <p>We shut the gate behind us. We walk in rows, front to back, and pick up every pile. Rock yards get raked.</p>
+        <p class="mono" style="display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; padding: 6px 12px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); font-size: 13px; color: var(--ink);"><span class="ldot"></span>14 piles picked up</p>
+      </div>
+    </li>
+    <li class="stop">
+      <span class="stime mono">10:16 AM</span>
+      <span class="snode" style="background: {{ r3 }};"></span>
+      <div class="sbody">
+        <h3>A free spray</h3>
+        <p>We spray sanitizer and deodorizer on the spots your dogs use most. It is free at every visit.</p>
+      </div>
+    </li>
+    <li class="stop">
+      <span class="stime mono">10:19 AM</span>
+      <span class="snode" style="background: {{ r4 }};"></span>
+      <div class="sbody">
+        <h3>Gate check</h3>
+        <p>We latch the gate, pull on it, and take a photo.</p>
+        <div style="position: relative; margin-top: 10px; border-radius: 16px; overflow: hidden; aspect-ratio: 16 / 10; background: #F5EBDA;">
+          <img src="/_blob/1414015c2e51423c09fa3ca2ffa8f0c2" alt="A black steel side gate, shut and latched in a stucco wall" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+          <span class="mono" style="position: absolute; right: 10px; bottom: 10px; padding: 3px; border: 2px solid #FF4A1C; border-radius: 7px; background: rgba(255,255,255,.95); color: #B02A08; font-size: 13px; font-weight: 600; transform: rotate(-4deg);"><span style="display: block; padding: 4px 8px; border: 1px solid #FF4A1C; border-radius: 4px;">GATE LATCHED ✓ 10:19 AM</span></span>
+        </div>
+      </div>
+    </li>
+    <li class="stop">
+      <span class="stime mono">10:20 AM</span>
+      <span class="snode" style="background: {{ r5 }};"></span>
+      <div class="sbody">
+        <h3>Your report comes</h3>
+        <div style="display: flex; align-items: center; gap: 12px; margin-top: 10px; padding: 12px 14px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow);">
+          @@LOGO_SEAL@@
+          <div style="flex: 1; min-width: 0;"><p style="margin: 0; font-size: 16px; font-weight: 800; color: var(--ink);">Your yard is done!</p><p class="mono" style="margin: 2px 0 0; font-size: 13px; color: var(--mute);">14 piles · gate latched</p></div>
+        </div>
+        <a href="#proof" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 4px; font-size: 16px; font-weight: 700; text-decoration: none;">See a sample report@@ICON_ARROW@@</a>
+      </div>
+    </li>
+  </ol>
+  <span class="rdot" style="top: {{ routeTop }};" aria-hidden="true"></span>
+  </div>
+  </div>
+</section>
+
+<section id="proof" class="sec" style="background: var(--bg);">
+  <div class="in pf">
+  <div class="pf-h">
+    <p class="eb">Proof of Scoop</p>
+    <h2 class="h2" style="color: var(--ink);">You get a photo every time<span style="color: var(--accent);">.</span></h2>
+    <p class="lead">When we leave, we send a report like this. It shows the piles, the time, and your shut gate.</p>
+  </div>
+  <article class="pf-a" style="background: var(--card); border: 1px solid var(--line); border-radius: 22px; overflow: hidden; color: var(--ink);">
+    <div style="display: flex; align-items: center; gap: 12px; padding: 14px 16px;">
+      @@LOGO_SEAL@@
+      <div style="flex: 1; min-width: 0;">
+        <p style="margin: 0; font-size: 17px; font-weight: 700;">Proof of Scoop</p>
+        <p class="mono" style="margin: 2px 0 0; font-size: 13px; color: var(--mute);">Tue · 10:06 to 10:19 AM</p>
+      </div>
+      <span class="mono" style="padding: 5px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-text); font-size: 13px; font-weight: 600;">SAMPLE</span>
+    </div>
+    <div style="position: relative; aspect-ratio: 4 / 3; background: #F5EBDA;">
+      <img src="/_blob/5eaa35b6f87df2e6c7c19d16e9370468" alt="A sample gate photo: a black steel side gate shut in a stucco wall, with the latch closed" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+      <div class="mono" style="position: absolute; left: 12px; right: 12px; bottom: 12px; padding: 10px 12px; border-radius: 12px; background: rgba(10,15,36,.88); color: #FFFFFF; font-size: 13px; line-height: 1.55;">
+        <div style="font-weight: 600; color: #FF8A66;">GATE CHECK ✓ LATCHED AND PULLED</div>
+        <div>Tue · 10:19:42 AM · GPS match</div>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 14px;">
+      <div style="padding: 12px 14px; border-radius: 14px; background: var(--bg2);"><p style="margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -.04em;">14</p><p style="margin: 2px 0 0; font-size: 14px; color: var(--mute);">piles picked up</p></div>
+      <div style="padding: 12px 14px; border-radius: 14px; background: var(--bg2);"><p style="margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -.04em;">13</p><p style="margin: 2px 0 0; font-size: 14px; color: var(--mute);">minutes in your yard</p></div>
+      <div style="padding: 12px 14px; border-radius: 14px; background: var(--bg2);"><p style="margin: 0; font-size: 30px; font-weight: 800; letter-spacing: -.04em;">10:19<span class="mono" style="font-size: 14px; font-weight: 600; letter-spacing: 0;"> AM</span></p><p style="margin: 2px 0 0; font-size: 14px; color: var(--mute);">gate latched</p></div>
+      <div style="padding: 12px 14px; border-radius: 14px; background: var(--bg2);"><p style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -.03em; line-height: 1.36; color: var(--ok);">Sprayed</p><p style="margin: 2px 0 0; font-size: 14px; color: var(--mute);">free sanitizer</p></div>
+    </div>
+    <div style="padding: 4px 16px 18px;">
+      <p style="margin: 0 0 10px; font-size: 17px; font-weight: 700;">How did we do?</p>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+        <button type="button" onClick="{{ fbGood }}" aria-pressed="{{ fbIsGood }}" style="min-height: 52px; border-radius: 999px; border: 1.6px solid {{ fbGoodBorder }}; background: {{ fbGoodBg }}; color: {{ fbGoodFg }}; font: inherit; font-size: 16px; font-weight: 700; cursor: pointer;">All good</button>
+        <button type="button" onClick="{{ fbOff }}" aria-pressed="{{ fbIsOff }}" style="min-height: 52px; border-radius: 999px; border: 1.6px solid {{ fbOffBorder }}; background: {{ fbOffBg }}; color: {{ fbOffFg }}; font: inherit; font-size: 16px; font-weight: 700; cursor: pointer;">Something’s off</button>
+      </div>
+      <p aria-live="polite" style="margin: 12px 0 0; font-size: 15px; line-height: 1.5; color: var(--mute);">{{ fbText }}</p>
+    </div>
+  </article>
+  <div class="pf-b" style="display: flex; gap: 14px; padding: 22px 20px; border-radius: 22px; background: var(--band); color: #FFFFFF;">
+    <span style="width: 44px; height: 44px; flex: 0 0 44px; border-radius: 12px; background: rgba(255,74,28,.18); color: #FF8A66; display: grid; place-items: center;">@@ICON_RECEIPT@@</span>
+    <div>
+      <p class="eb" style="color: #AEB5D8;">Your bill</p>
+      <p style="margin: 6px 0 0; font-size: 24px; font-weight: 800; letter-spacing: -.03em;">No proof, no charge.</p>
+      <p style="margin: 8px 0 0; font-size: 16px; line-height: 1.55; color: #D5DAF0;">Each visit on your bill has its photo next to it. If we can’t show the photo, that visit costs $0.</p>
+    </div>
+  </div>
+  </div>
+</section>
+
+<section id="where" class="sec" style="background: var(--bg3); color: var(--ink);">
+  <div class="in wh">
+  <div class="wh-h">
+    <p class="eb">Where we scoop</p>
+    <h2 class="h2" style="color: var(--ink);">Do we come to you<span style="color: var(--accent);">?</span></h2>
+    <p class="lead">Tap a town to see it on the map. Or type your ZIP code.</p>
+  </div>
+  <div class="map">
+@@MAP@@
+  </div>
+  <div class="wh-c">
+@@MAP_CHIPS@@
+  @@MAP_KEY@@
+  <label for="apw-zip" style="display: block; margin-top: 20px; font-size: 17px; font-weight: 700;">Or type your ZIP code</label>
+  <div style="display: flex; gap: 10px; margin-top: 8px;">
+    <input id="apw-zip" class="mono" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="5" placeholder="Your ZIP" value="{{ zip }}" onChange="{{ onZip }}" onKeyDown="{{ zipKey }}" style="flex: 1; min-width: 0; height: 56px; padding: 0 16px; border-radius: 14px; border: 1.6px solid var(--field); background: var(--card); color: var(--ink); font-size: 20px; letter-spacing: .08em;">
+    <button type="button" class="btn btn-ink" onClick="{{ checkZip }}" style="padding: 0 24px;">Check</button>
+  </div>
+  <sc-if value="{{ areaOn }}" hint-placeholder-val="{{ false }}">
+    <div aria-live="polite" style="display: flex; gap: 12px; align-items: flex-start; margin-top: 12px; padding: 16px; border-radius: 18px; background: var(--card); border: 1.6px solid var(--ok);">
+      <span style="width: 28px; height: 28px; flex: 0 0 28px; border-radius: 50%; background: var(--ok); color: #FFFFFF; display: grid; place-items: center;">@@ICON_CHECK@@</span>
+      <div style="flex: 1; min-width: 0;">
+        <p style="margin: 0; font-size: 17px; font-weight: 800;">Yes! We scoop in {{ areaName }}.</p>
+        <p class="mono" style="margin: 4px 0 0; font-size: 13px; color: var(--mute);">{{ areaMeta }}</p>
+        <p style="margin: 8px 0 0; font-size: 16px; line-height: 1.5; color: var(--ink2);">Your scoop day: [Route day]. Book now and pick your first day.</p>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ zipNo }}" hint-placeholder-val="{{ false }}">
+    <div aria-live="polite" style="margin-top: 12px; padding: 16px; border-radius: 18px; background: var(--card); border: 1.6px solid var(--line);">
+      <p style="margin: 0; font-size: 16px; line-height: 1.5;"><strong>Not in {{ zip }} yet.</strong> Tap Book now and add your ZIP. We will put you on the waitlist and text you when we come to your area.</p>
+    </div>
+  </sc-if>
+  <sc-if value="{{ zipShort }}" hint-placeholder-val="{{ false }}">
+    <p aria-live="polite" style="margin: 12px 0 0; font-size: 15px; color: var(--accent-text);">Type all 5 numbers of your ZIP code.</p>
+  </sc-if>
+  </div>
+  </div>
+</section>
+
+<section id="questions" class="sec" style="background: var(--bg2); color: var(--ink);">
+  <div class="in qs">
+  <div class="qs-h">
+    <p class="eb">Questions</p>
+    <h2 class="h2" style="color: var(--ink);">Ask us anything<span style="color: var(--accent);">.</span></h2>
+    <p class="lead">These are the questions neighbors text us most. Tap one to see our answer.</p>
+  </div>
+  <div class="qs-l">
+    @@FAQ@@
+  </div>
+  <div class="qs-c">
+    <a href="sms:+16233096104" class="btn btn-line">@@ICON_CHAT@@Text us your question</a>
+  </div>
+  </div>
+</section>
+
+<section class="sec" style="background: var(--bg);">
+  <div class="in">
+  <div style="padding: 24px 20px; border-radius: 24px; background: var(--bg2); border: 1px solid var(--line);">
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <span class="ph" style="width: 76px; height: 76px; flex: 0 0 76px; border-radius: 50%;">[Owner<br>photo]</span>
+      <div style="min-width: 0;">
+        <p style="margin: 0; font-size: 21px; font-weight: 800; letter-spacing: -.02em; color: var(--ink);">[Owner name]</p>
+        <p class="mono" style="margin: 4px 0 0; font-size: 13px; color: var(--mute);">OWNER · SCOOPS THE FIRST ROUTE</p>
+      </div>
+    </div>
+    <p style="margin: 18px 0 0; font-size: 18px; line-height: 1.55; color: var(--ink);">“Hi! I live in [Verrado] with [my two dogs]. I built the scoop company I wanted to hire. You will always know when we come, and you will always see the proof. If anything is off, text me.”</p>
+    <a href="sms:+16233096104" class="btn btn-line" style="margin-top: 18px;">@@ICON_CHAT@@Text the owner</a>
+  </div>
+  </div>
+</section>
+
+<section id="reviews" class="sec" style="background: var(--band); color: #FFFFFF;">
+  <div class="in">
+  <p class="eb" style="color: #FF8A66;">Reviews</p>
+  <h2 class="h2" style="color: #FFFFFF;">What neighbors say<span style="color: #FF4A1C;">.</span></h2>
+  <div style="display: flex; align-items: center; gap: 16px; margin-top: 22px; padding: 18px 20px; border-radius: 20px; background: var(--band2); border: 1px solid rgba(255,255,255,.10);">
+    <p style="margin: 0; font-size: 54px; font-weight: 800; letter-spacing: -.05em; line-height: 1;">[5.0]</p>
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      @@STARS@@
+      <p style="margin: 0; font-size: 15px; color: #AEB5D8;">[00] reviews on Google</p>
+    </div>
+  </div>
+  <ul class="rv" aria-label="Reviews from customers" tabindex="0" style="display: flex; gap: 12px; margin: 14px -20px 0; padding: 0 20px 4px; overflow-x: auto; scroll-snap-type: x mandatory; list-style: none;">
+    <li style="flex: 0 0 84%; scroll-snap-align: start; padding: 18px; border-radius: 20px; background: #FFFFFF; color: #0E1430;">@@STARS@@<p style="margin: 12px 0 0; font-size: 17px; line-height: 1.5;">“[A real review from a customer in Verrado. Keep it to two short lines.]”</p><p class="mono" style="margin: 14px 0 0; font-size: 13px; color: #4A5272;">[First name] · Verrado</p></li>
+    <li style="flex: 0 0 84%; scroll-snap-align: start; padding: 18px; border-radius: 20px; background: #FFFFFF; color: #0E1430;">@@STARS@@<p style="margin: 12px 0 0; font-size: 17px; line-height: 1.5;">“[A real review from a customer in Litchfield Park. Keep it to two short lines.]”</p><p class="mono" style="margin: 14px 0 0; font-size: 13px; color: #4A5272;">[First name] · Litchfield Park</p></li>
+    <li style="flex: 0 0 84%; scroll-snap-align: start; padding: 18px; border-radius: 20px; background: #FFFFFF; color: #0E1430;">@@STARS@@<p style="margin: 12px 0 0; font-size: 17px; line-height: 1.5;">“[A real review from a customer in Citrus Park. Keep it to two short lines.]”</p><p class="mono" style="margin: 14px 0 0; font-size: 13px; color: #4A5272;">[First name] · Citrus Park</p></li>
+  </ul>
+  <p class="mono" style="margin: 30px 0 0; font-size: 13px; font-weight: 600; letter-spacing: .06em; color: #AEB5D8;">THIS WEEK: [000] GATES LATCHED AND PHOTOGRAPHED</p>
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px;">
+    <img src="/_blob/5eaa35b6f87df2e6c7c19d16e9370468" alt="A latched gate from a sample visit" style="width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 12px; display: block;">
+    <img src="/_blob/1414015c2e51423c09fa3ca2ffa8f0c2" alt="Another latched gate from a sample visit" style="width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 12px; display: block;">
+    <span class="ph" style="aspect-ratio: 1 / 1; border-radius: 12px; border-color: rgba(255,255,255,.3); background: rgba(255,255,255,.04); color: #AEB5D8;">[Real<br>gate<br>photos]</span>
+  </div>
+  </div>
+</section>
+
+<section id="promise" class="sec" style="background: var(--band); color: #FFFFFF;">
+  <div class="in pr">
+  <h2 class="h2" style="margin-top: 0; color: #FFFFFF;">Our promise to you<span style="color: #FF4A1C;">.</span></h2>
+  <div class="rcpt">
+    <p class="mono" style="margin: 0; text-align: center; font-size: 13px; font-weight: 600; letter-spacing: .12em;">ARIZONA PET WASTE</p>
+    <p class="mono" style="margin: 4px 0 12px; text-align: center; font-size: 13px; color: #4A5272;">West Valley, AZ</p>
+    <div style="border-top: 2px dashed #C9C2B3; padding-top: 6px;">
+      <div class="rrow"><span>First month</span><i></i><b>FREE</b></div>
+      <div class="rrow"><span>Sanitizer spray, every visit</span><i></i><b>FREE</b></div>
+      <div class="rrow"><span>Contract</span><i></i><b>NONE</b></div>
+      <div class="rrow"><span>A visit with no photo</span><i></i><b>$0</b></div>
+      <div class="rrow"><span>A missed pile</span><i></i><b>FREE RETURN</b></div>
+      <div class="rrow"><span>Clean tools at every yard</span><i></i><b>ALWAYS</b></div>
+      <div class="rrow"><span>[Licensed and insured]</span><i></i><b>[YES]</b></div>
+    </div>
+    <div class="rrow" style="margin-top: 6px; padding-top: 12px; border-top: 2px dashed #C9C2B3; font-size: 18px; font-weight: 800;"><span>Peace of mind</span><i></i><b style="font-size: 15px;">INCLUDED</b></div>
+  </div>
+  </div>
+</section>
+
+<section class="cta">
+  <div class="sky">@@SKYLINE@@</div>
+  <div class="in cta-in">
+    <h2 class="h2 cta-h">A clean yard every week<span style="color: var(--accent);">.</span></h2>
+    <a href="Booking.dc.html" class="btn btn-dot">Book now</a>
+    <p style="margin: 12px 0 0; font-size: 15px; line-height: 1.5; color: var(--mute);">First month free. No contract.</p>
+    <a href="tel:+16233096104" style="display: inline-flex; align-items: center; gap: 10px; min-height: 48px; margin-top: 10px; color: var(--ink); font-size: 17px; font-weight: 700; text-decoration: none;">@@ICON_PHONE@@Call or text 623.309.6104</a>
+  </div>
+</section>
+
+@@FOOTER_MAIN@@
+
+</div>
+
+@@SBAR@@
+
+@@MENU_MAIN@@
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark","auto"],"default":"light","section":"Look"},"$preview":{"width":@@PREVIEW_W@@,"height":@@MAIN_H@@}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { dark: this._themeFromProps(), plan: 'week', dogs: 2, fb: '', zip: '', zipChecked: false, area: '', menu: false, showBar: false, routeP: 1, @@VS_STATE@@ };
+  }
+  componentDidMount() {
+    this._onScroll = () => {
+      const el = document.documentElement;
+      const vh = window.innerHeight || 800;
+      const canScroll = el.scrollHeight > vh + 120;
+      const y = window.pageYOffset || el.scrollTop || 0;
+      const show = !canScroll || y > 560;
+      const next = {};
+      if (show !== this.state.showBar) next.showBar = show;
+      const r = document.getElementById('route');
+      if (r) {
+        const b = r.getBoundingClientRect();
+        let p = (vh * 0.6 - b.top) / Math.max(1, b.height);
+        p = Math.max(0, Math.min(1, p));
+        if (Math.abs(p - this.state.routeP) > 0.01 || ((p === 0 || p === 1) && p !== this.state.routeP)) next.routeP = p;
+      }
+      if (Object.keys(next).length) this.setState(next);
+    };
+    window.addEventListener('scroll', this._onScroll, { passive: true });
+    window.addEventListener('resize', this._onScroll);
+    this._onScroll();
+    this._themeInit();
+    this._vsInit();
+  }
+  componentWillUnmount() {
+    window.removeEventListener('scroll', this._onScroll);
+    window.removeEventListener('resize', this._onScroll);
+    this._themeStop();
+    this._vsStop();
+  }
+@@THEME_METHODS@@
+@@VS_METHODS@@
+@@PRICE_METHODS@@
+@@AREA_METHODS@@
+  renderVals() {
+    const s = this.state;
+    const names = { week: 'Every week', twice: 'Twice a week', eow: 'Every other week' };
+    const total = this._price(s.plan, s.dogs);
+    const dogs = s.dogs === 1 ? '1 dog' : s.dogs + ' dogs';
+    const furs = ['#D9A066', '#6B4A34', '#F1E3C8', '#3A3434', '#B5652A', '#9A9A9A'];
+    const lbs = Math.round(s.dogs * @@LBS_PER_DOG@@ / 10) * 10;
+    const good = s.fb === 'good';
+    const off = s.fb === 'off';
+    const lit = (i) => (s.routeP >= i / 6 ? '#FF4A1C' : 'var(--bg2)');
+    return Object.assign({}, this._themeVals(), this._vsVals(), this._areaVals(), {
+      r0: lit(0), r1: lit(1), r2: lit(2), r3: lit(3), r4: lit(4), r5: lit(5),
+      routeTop: 'calc(10px + (100% - 20px) * ' + s.routeP.toFixed(3) + ')',
+      plans: this._plans(true),
+      dogList: furs.slice(0, s.dogs).map((f) => ({ fur: f })),
+      dogLabel: dogs,
+      poopLine: (s.dogs === 1 ? '1 dog makes' : s.dogs + ' dogs make') + ' about ' + lbs + ' pounds of poop a year. We pick up all of it.',
+      dogDown: () => this.setState({ dogs: Math.max(1, s.dogs - 1) }),
+      dogUp: () => this.setState({ dogs: Math.min(6, s.dogs + 1) }),
+      planLine: names[s.plan] + ' · ' + dogs,
+      totalLabel: '$' + total,
+      perLine: 'About $' + this._per(s.plan, s.dogs) + ' a visit',
+      ctaLabel: 'Book at $' + total + ' a month',
+      fbGood: () => this.setState({ fb: 'good' }),
+      fbOff: () => this.setState({ fb: 'off' }),
+      fbIsGood: good,
+      fbIsOff: off,
+      fbGoodBorder: good ? 'var(--ok)' : 'var(--field)',
+      fbGoodBg: good ? 'var(--ok)' : 'transparent',
+      fbGoodFg: good ? '#FFFFFF' : 'var(--ink)',
+      fbOffBorder: off ? 'var(--ink)' : 'var(--field)',
+      fbOffBg: off ? 'var(--ink)' : 'transparent',
+      fbOffFg: off ? 'var(--bg)' : 'var(--ink)',
+      fbText: good ? 'Thanks! See you next week.' : off ? 'Free return booked. We will be back within 24 hours.' : 'Tap “Something’s off” and we come back for free within 24 hours.',
+      showBar: s.showBar,
+      menu: s.menu,
+      openMenu: () => this.setState({ menu: true }),
+      closeMenu: () => this.setState({ menu: false })
+    });
+  }
+}
+</script>
+</body>
+</html>
