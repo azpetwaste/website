@@ -64,19 +64,92 @@
    "faq": [
     {
      "q": "Do you serve all of Buckeye?",
-     "a": "Yes. We scoop every home in both Buckeye ZIP codes, 85326 and 85396. That includes Verrado, Sundance, Westpark, Tartesso, Festival Ranch and historic downtown."
+     "a": "Yes. We scoop every home in both Buckeye ZIP codes, 85326 and 85396. That includes Verrado, Sundance, Tartesso, Festival Ranch, Westpark, Blue Horizons, Teravalis and historic downtown."
+    },
+    {
+     "q": "Do you come out to Sun City Festival?",
+     "a": "Yes. Sun City Festival and Festival Foothills are in ZIP 85396, so we come to you. The price is the same as anywhere else."
+    },
+    {
+     "q": "Is it illegal to not pick up dog poop in Buckeye?",
+     "a": "Yes. Buckeye city code says animal poop cannot be left in a way that is not clean, on public land or private land. That includes your own yard. Most HOAs have their own pickup rules too."
+    },
+    {
+     "q": "Can I report my neighbor for dog poop in Buckeye?",
+     "a": "Yes. You can report it to the City of Buckeye. If you have an HOA, you can tell them too. Talking to your neighbor first often works best. Sometimes they just need a hand, and we can help."
+    },
+    {
+     "q": "How much does a pooper scooper cost in Buckeye?",
+     "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and your first month is free. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
+    },
+    {
+     "q": "Where should I throw away dog poop?",
+     "a": "Bag it, tie the bag, and put it in your trash cart. Buckeye wants all trash bagged and tied, and dog poop never goes in the recycle cart. That is what we do at every visit."
     },
     {
      "q": "Do you clean turf and rock yards?",
      "a": "Yes. We pick up every pile on turf, grass and rock. We rake rock and gravel with a wide metal rake, then spray sanitizer and deodorizer where your dogs go most. The spray is free."
     },
     {
+     "q": "Can you get rid of turf smell?",
+     "a": "Every visit comes with a free sanitizer and deodorizer spray. For a deeper clean, add a turf odor treatment for $35. It helps when pee smell builds up in hot turf."
+    },
+    {
+     "q": "Do you do one time cleanups?",
+     "a": "Yes. A one time cleanup is $95. It is a good pick before a party, after a move, or when the yard got away from you."
+    },
+    {
      "q": "Do I need to be home?",
      "a": "No. Most of our customers are at work. Add your gate code in My Yard, and we send a photo of your latched gate when we leave."
     },
     {
+     "q": "What if my dog is in the yard?",
+     "a": "Tell us in My Yard. If a dog in the yard is not safe to be near, we do not go in. We text you to bring the dog inside, and we can come back the same day."
+    },
+    {
+     "q": "Can I skip a week or pause?",
+     "a": "Yes. You get 4 free skips a year. Tell us 24 hours before. You can pause for up to 120 days while you are away, and you do not pay while you are paused."
+    },
+    {
+     "q": "Is there a contract?",
+     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel."
+    },
+    {
      "q": "What day do you come to Buckeye?",
      "a": "You pick your day when you book. You get a text the night before with a 30 minute window."
+    }
+   ],
+   "zips": [
+    {
+     "zip": "85396",
+     "label": "North Buckeye",
+     "names": [
+      "Verrado",
+      "Victory at Verrado",
+      "Sun City Festival",
+      "Festival Foothills",
+      "Tartesso",
+      "Teravalis",
+      "Sienna Hills",
+      "Arroyo Seco"
+     ]
+    },
+    {
+     "zip": "85326",
+     "label": "Buckeye town and south",
+     "names": [
+      "Sundance",
+      "Westpark",
+      "Blue Horizons",
+      "Historic downtown Buckeye",
+      "Montaña Vista",
+      "Apache Farms",
+      "Anderson Parc",
+      "Copper Falls",
+      "Desert Moon Estates",
+      "Ventana Ranch",
+      "Watson Estates"
+     ]
     }
    ]
   },
@@ -84,23 +157,112 @@
    "name": "Goodyear",
    "eyebrow": "Goodyear, AZ · ZIP 85338 and 85395",
    "intro": "Arizona Pet Waste picks up dog poop in Goodyear every week. We text you the night before, let you watch our truck on a live map, and send you a photo of your latched gate when we leave.",
-   "where": "Goodyear has two ZIP codes, and we scoop every home in both. 85395 is north of Interstate 10, with Palm Valley, PebbleCreek and Sedella. 85338 runs south of the freeway to Estrella Mountain Ranch, with Canyon Trails, Centerra and Cottonflower on the way.",
+   "where": "Goodyear has two ZIP codes, and we scoop every home in both. 85395 is north of Interstate 10, with Palm Valley, PebbleCreek and Sedella. 85338 runs south of the freeway to Estrella, with Canyon Trails, Centerra and Cottonflower on the way. A few Goodyear homes, like Palm Valley North, use Litchfield Park 85340, and we scoop those too.",
    "faq": [
     {
      "q": "Do you serve all of Goodyear?",
-     "a": "Yes. We scoop every home in both Goodyear ZIP codes, 85338 and 85395. That includes Estrella Mountain Ranch, Canyon Trails, Centerra, Palm Valley and PebbleCreek."
+     "a": "Yes. We scoop every home in both Goodyear ZIP codes, 85338 and 85395, plus Goodyear homes with Litchfield Park 85340 addresses. That includes Estrella, CantaMia, Canyon Trails, Palm Valley, PebbleCreek and Sedella."
     },
     {
      "q": "Does Goodyear really require pickup twice a week?",
-     "a": "Goodyear city code says manure and droppings must be removed at least twice a week. To match that, pick our twice a week plan. It is $189 a month for 1 or 2 dogs."
+     "a": "Yes. Goodyear city code says droppings must be removed from yards at least twice a week. To match that rule, pick our twice a week plan. It is $189 a month for 1 or 2 dogs."
     },
     {
-     "q": "Do you clean turf?",
-     "a": "Yes. We pick up every pile on turf and spray sanitizer and deodorizer on the spots your dogs use most. The spray is free. For a deep clean, add a turf odor treatment for $35."
+     "q": "Do you serve PebbleCreek and CantaMia?",
+     "a": "Yes. Both are gated, and both are in our service area. Add your gate code in My Yard. Only your scooper sees it, and only on your day."
+    },
+    {
+     "q": "Is it illegal to not pick up dog poop in Goodyear?",
+     "a": "Yes. Goodyear city code says droppings must be removed from yards at least twice a week, and pets cannot cause flies, smell or piles of droppings. On walks, you must pick up right away on public land and other people’s land."
+    },
+    {
+     "q": "Can I report my neighbor for dog poop in Goodyear?",
+     "a": "Yes. You can report it to the City of Goodyear. If you have an HOA, you can tell them too. Talking to your neighbor first often works best."
+    },
+    {
+     "q": "How many dogs can I have in Goodyear?",
+     "a": "Goodyear allows up to four household pets at a home. Dogs, cats and potbellied pigs all count toward the four."
+    },
+    {
+     "q": "How much does a pooper scooper cost in Goodyear?",
+     "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and your first month is free. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
+    },
+    {
+     "q": "Where should I throw away dog poop?",
+     "a": "Seal it in a plastic bag and put it in your tan trash cart. Goodyear says pet waste never goes in the green recycle cart. That is what we do at every visit."
+    },
+    {
+     "q": "Do you clean turf and rock yards?",
+     "a": "Yes. We pick up every pile on turf, grass and rock. We rake rock and gravel with a wide metal rake, then spray sanitizer and deodorizer where your dogs go most. The spray is free."
+    },
+    {
+     "q": "Can you get rid of turf smell?",
+     "a": "Every visit comes with a free sanitizer and deodorizer spray. For a deeper clean, add a turf odor treatment for $35. It helps when pee smell builds up in hot turf."
+    },
+    {
+     "q": "Do you do one time cleanups?",
+     "a": "Yes. A one time cleanup is $95. It is a good pick before a party, after a move, or when the yard got away from you."
+    },
+    {
+     "q": "Do I need to be home?",
+     "a": "No. Most of our customers are at work. Add your gate code in My Yard, and we send a photo of your latched gate when we leave."
+    },
+    {
+     "q": "What if my dog is in the yard?",
+     "a": "Tell us in My Yard. If a dog in the yard is not safe to be near, we do not go in. We text you to bring the dog inside, and we can come back the same day."
+    },
+    {
+     "q": "Can I skip a week or pause?",
+     "a": "Yes. You get 4 free skips a year. Tell us 24 hours before. You can pause for up to 120 days while you are away, and you do not pay while you are paused."
+    },
+    {
+     "q": "Is there a contract?",
+     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel."
     },
     {
      "q": "What day do you come to Goodyear?",
      "a": "You pick your day when you book. You get a text the night before with a 30 minute window."
+    }
+   ],
+   "zips": [
+    {
+     "zip": "85395",
+     "label": "North Goodyear",
+     "names": [
+      "PebbleCreek",
+      "Palm Valley",
+      "Sedella",
+      "Abel Ranch",
+      "Rio Paseo",
+      "Sunrise at Wigwam",
+      "Canada Village"
+     ]
+    },
+    {
+     "zip": "85338",
+     "label": "Central and south Goodyear",
+     "names": [
+      "Estrella",
+      "Montecito in Estrella",
+      "CantaMia at Estrella",
+      "Canyon Trails",
+      "Centerra",
+      "Cottonflower",
+      "Wildflower Ranch",
+      "Sarival Village",
+      "Las Brisas",
+      "El Cidro",
+      "Estrella Vista",
+      "Citrus Park in Goodyear",
+      "Historic Goodyear"
+     ]
+    },
+    {
+     "zip": "85340",
+     "label": "Goodyear homes with Litchfield Park addresses",
+     "names": [
+      "Palm Valley North"
+     ]
     }
    ]
   },
@@ -112,19 +274,81 @@
    "faq": [
     {
      "q": "Do you serve all of Litchfield Park?",
-     "a": "Yes. We scoop every home in ZIP 85340, the ZIP code for Litchfield Park. We also scoop every ZIP code in Goodyear and Buckeye."
+     "a": "Yes. We scoop every home with a Litchfield Park 85340 address, inside the city and out. That includes Litchfield Greens, The Village, Cachet, Dreaming Summit, Wigwam Creek, Russell Ranch, Savannah, Windrose and Canyon Views."
+    },
+    {
+     "q": "Is it illegal to not pick up dog poop in Litchfield Park?",
+     "a": "Yes, in a lot of places. City code says you must pick up dog poop right away in parks, on public land and on any land you do not own. Outside city limits, the county health code says animal waste must be handled so it does not breed insects."
+    },
+    {
+     "q": "Can I report my neighbor for dog poop in Litchfield Park?",
+     "a": "Yes. You can contact the City of Litchfield Park, or Maricopa County if you live outside city limits. If you have an HOA, you can tell them too. Talking to your neighbor first often works best."
+    },
+    {
+     "q": "Can you get into gated neighborhoods like Cachet and Dreaming Summit?",
+     "a": "Yes. Add your gate code in My Yard. Only your scooper sees it, and only on your day."
+    },
+    {
+     "q": "How much does a pooper scooper cost in Litchfield Park?",
+     "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and your first month is free. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
+    },
+    {
+     "q": "Where should I throw away dog poop?",
+     "a": "Bag it, tie the bag, and put it in your trash can. Litchfield Park code says dog poop goes in a closed bag and then in the trash. Never put it in the recycle bin. That is what we do at every visit."
+    },
+    {
+     "q": "Do you clean turf and rock yards?",
+     "a": "Yes. We pick up every pile on turf, grass and rock. We rake rock and gravel with a wide metal rake, then spray sanitizer and deodorizer where your dogs go most. The spray is free."
+    },
+    {
+     "q": "Can you get rid of turf smell?",
+     "a": "Every visit comes with a free sanitizer and deodorizer spray. For a deeper clean, add a turf odor treatment for $35. It helps when pee smell builds up in hot turf."
+    },
+    {
+     "q": "Do you do one time cleanups?",
+     "a": "Yes. A one time cleanup is $95. It is a good pick before a party, after a move, or when the yard got away from you."
+    },
+    {
+     "q": "Do I need to be home?",
+     "a": "No. Most of our customers are at work. Add your gate code in My Yard, and we send a photo of your latched gate when we leave."
+    },
+    {
+     "q": "What if my dog is in the yard?",
+     "a": "Tell us in My Yard. If a dog in the yard is not safe to be near, we do not go in. We text you to bring the dog inside, and we can come back the same day."
+    },
+    {
+     "q": "Can I skip a week or pause?",
+     "a": "Yes. You get 4 free skips a year. Tell us 24 hours before. You can pause for up to 120 days while you are away, and you do not pay while you are paused."
     },
     {
      "q": "Is there a contract?",
-     "a": "No. You pay month to month and can cancel any time in My Yard. Your first month is free on any plan."
-    },
-    {
-     "q": "Is my dog safe when you come?",
-     "a": "Yes. We shut the gate behind us. When we leave, we latch it, pull on it, and send you a photo. If a dog in the yard is not safe to be near, we do not go in. We text you instead."
+     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel."
     },
     {
      "q": "What day do you come to Litchfield Park?",
      "a": "You pick your day when you book. You get a text the night before with a 30 minute window."
+    }
+   ],
+   "zips": [
+    {
+     "zip": "85340",
+     "label": "Litchfield Park",
+     "names": [
+      "Old Litchfield",
+      "Litchfield Greens",
+      "The Village at Litchfield Park",
+      "Cachet at the Wigwam",
+      "Litchfield Park Villas",
+      "Dreaming Summit",
+      "Wigwam Creek North",
+      "Wigwam Creek South",
+      "Russell Ranch",
+      "Savannah",
+      "Windrose",
+      "Canyon Views",
+      "Allen Ranches",
+      "Palm Valley homes"
+     ]
     }
    ]
   },
@@ -132,23 +356,92 @@
    "name": "Citrus Park",
    "eyebrow": "Citrus Park · Waddell, AZ · ZIP 85355",
    "intro": "Arizona Pet Waste picks up dog poop in Citrus Park every week. We text you the night before, let you watch our truck on a live map, and send you a photo of your latched gate when we leave.",
-   "where": "Citrus Park sits between Perryville Road and Cotton Lane, from Northern Avenue south to about Camelback Road. It is not part of any city, and its mail comes through the Waddell post office, ZIP 85355. We scoop every home in 85355 and the homes next to it, like Zanjero Trails.",
+   "where": "Citrus Park is east of Perryville Road and south of Northern Avenue, between Goodyear and Glendale. It is not part of any city. Most homes get their mail through the Waddell post office, ZIP 85355, and some use Litchfield Park 85340. We scoop all of it.",
    "faq": [
     {
      "q": "Do you serve all of Citrus Park?",
-     "a": "Yes. We scoop all of Citrus Park and every home in Waddell ZIP 85355. We also scoop the homes next to it, like Zanjero Trails."
+     "a": "Yes. We scoop all of Citrus Park and every home in Waddell ZIP 85355. Some Citrus Park homes, like Russell Ranch and Savannah, have Litchfield Park 85340 addresses, and we scoop those too."
     },
     {
      "q": "Do you clean big grass yards?",
-     "a": "Yes. We walk your yard in rows and pick up every pile. Then we spray sanitizer and deodorizer where your dogs go most. The spray is free."
+     "a": "Yes. We walk your yard in rows and pick up every pile, even on an acre. Then we spray sanitizer and deodorizer where your dogs go most. The spray is free."
+    },
+    {
+     "q": "Is the price higher for a big lot?",
+     "a": "No. Your price depends on how often we come and how many dogs you have, not the size of your yard."
+    },
+    {
+     "q": "Is it illegal to not pick up dog poop in Waddell?",
+     "a": "Citrus Park and Waddell follow Maricopa County rules. The county health code treats animal waste as trash that must be handled so it does not breed insects, and dogs must be fenced in or leashed."
+    },
+    {
+     "q": "Can I report a neighbor for dog poop in Waddell?",
+     "a": "Yes. Waddell is county land, so you contact Maricopa County. If you have an HOA, you can tell them too. Talking to your neighbor first often works best."
+    },
+    {
+     "q": "How much does a pooper scooper cost in Citrus Park?",
+     "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and your first month is free. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
+    },
+    {
+     "q": "Where should I throw away dog poop?",
+     "a": "Bag it, tie the bag, and put it in your trash can. Do not put it in the recycle bin, and never hose it into the street or a storm drain. That is what we do at every visit."
+    },
+    {
+     "q": "Do you clean turf and rock yards?",
+     "a": "Yes. We pick up every pile on turf, grass and rock. We rake rock and gravel with a wide metal rake, then spray sanitizer and deodorizer where your dogs go most. The spray is free."
+    },
+    {
+     "q": "Can you get rid of turf smell?",
+     "a": "Every visit comes with a free sanitizer and deodorizer spray. For a deeper clean, add a turf odor treatment for $35. It helps when pee smell builds up in hot turf."
+    },
+    {
+     "q": "Do you do one time cleanups?",
+     "a": "Yes. A one time cleanup is $95. It is a good pick before a party, after a move, or when the yard got away from you."
+    },
+    {
+     "q": "Do I need to be home?",
+     "a": "No. Most of our customers are at work. Add your gate code in My Yard, and we send a photo of your latched gate when we leave."
+    },
+    {
+     "q": "What if my dog is in the yard?",
+     "a": "Tell us in My Yard. If a dog in the yard is not safe to be near, we do not go in. We text you to bring the dog inside, and we can come back the same day."
+    },
+    {
+     "q": "Can I skip a week or pause?",
+     "a": "Yes. You get 4 free skips a year. Tell us 24 hours before. You can pause for up to 120 days while you are away, and you do not pay while you are paused."
     },
     {
      "q": "Is there a contract?",
-     "a": "No. You pay month to month and can cancel any time in My Yard. Your first month is free on any plan."
+     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel."
     },
     {
      "q": "What day do you come to Citrus Park?",
      "a": "You pick your day when you book. You get a text the night before with a 30 minute window."
+    }
+   ],
+   "zips": [
+    {
+     "zip": "85355",
+     "label": "Waddell and Citrus Park",
+     "names": [
+      "Citrus Park",
+      "Clearwater Farms",
+      "Tara Estates",
+      "Sentiero at Windrose",
+      "White Tank Foothills",
+      "Zanjero Pass",
+      "Cortessa",
+      "Granite Vista",
+      "Stonebridge Manor"
+     ]
+    },
+    {
+     "zip": "85340",
+     "label": "Citrus Park homes with Litchfield Park addresses",
+     "names": [
+      "Russell Ranch",
+      "Savannah"
+     ]
     }
    ]
   },
@@ -160,19 +453,76 @@
    "faq": [
     {
      "q": "Do you serve all of Verrado?",
-     "a": "Yes. We scoop every Verrado home, and all of Buckeye too, in ZIP codes 85396 and 85326. Not sure? Type your ZIP when you book, and we will tell you right away."
+     "a": "Yes. We scoop every Verrado district: Main Street, Heritage, Marketside, Village, Highlands, Regent Hills and Victory. All of Verrado is in ZIP 85396."
+    },
+    {
+     "q": "Can you get into Regent Hills?",
+     "a": "Yes. Add your gate code or gate app steps in My Yard. Only your scooper sees it, and only on your day."
+    },
+    {
+     "q": "Is it illegal to not pick up dog poop in Verrado?",
+     "a": "Yes. Verrado rules say anyone walking a dog must pick up the poop right away, anywhere in Verrado. Buckeye city code also says animal poop cannot be left in a way that is not clean, even in your own yard."
+    },
+    {
+     "q": "Can I report a neighbor for dog poop in Verrado?",
+     "a": "Yes. You can tell the Verrado Community Association, and you can call the City of Buckeye. Talking to your neighbor first often works best."
+    },
+    {
+     "q": "How much does a pooper scooper cost in Verrado?",
+     "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and your first month is free. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
+    },
+    {
+     "q": "Where should I throw away dog poop?",
+     "a": "Bag it, tie the bag, and put it in your trash cart. Buckeye wants all trash bagged and tied, and dog poop never goes in the recycle cart. That is what we do at every visit."
     },
     {
      "q": "Do you clean turf and rock yards?",
      "a": "Yes. We pick up every pile on turf, grass and rock. We rake rock and gravel with a wide metal rake, then spray sanitizer and deodorizer where your dogs go most. The spray is free."
     },
     {
+     "q": "Can you get rid of turf smell?",
+     "a": "Every visit comes with a free sanitizer and deodorizer spray. For a deeper clean, add a turf odor treatment for $35. It helps when pee smell builds up in hot turf."
+    },
+    {
+     "q": "Do you do one time cleanups?",
+     "a": "Yes. A one time cleanup is $95. It is a good pick before a party, after a move, or when the yard got away from you."
+    },
+    {
      "q": "Do I need to be home?",
      "a": "No. Most of our customers are at work. Add your gate code in My Yard, and we send a photo of your latched gate when we leave."
     },
     {
+     "q": "What if my dog is in the yard?",
+     "a": "Tell us in My Yard. If a dog in the yard is not safe to be near, we do not go in. We text you to bring the dog inside, and we can come back the same day."
+    },
+    {
+     "q": "Can I skip a week or pause?",
+     "a": "Yes. You get 4 free skips a year. Tell us 24 hours before. You can pause for up to 120 days while you are away, and you do not pay while you are paused."
+    },
+    {
+     "q": "Is there a contract?",
+     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel."
+    },
+    {
      "q": "What day do you come to Verrado?",
      "a": "You pick your day when you book. You get a text the night before with a 30 minute window."
+    }
+   ],
+   "zips": [
+    {
+     "zip": "85396",
+     "label": "Verrado districts",
+     "names": [
+      "Main Street District",
+      "Heritage District",
+      "Marketside District",
+      "Village District",
+      "Highlands District",
+      "Regent Hills",
+      "Victory at Verrado",
+      "Sienna Hills",
+      "Arroyo Seco"
+     ]
     }
    ]
   }

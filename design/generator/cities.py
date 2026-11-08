@@ -1,4 +1,4 @@
-"""Copy for the town pages, written at a 7th grade reading level. Sources are in the canvas notes.
+"""Copy for the town pages, written short and plain (3rd to 5th grade reading level). Sources are in the canvas notes.
 We serve every ZIP code in each town: Buckeye 85326 and 85396, Goodyear 85338 and 85395, Litchfield Park 85340,
 Waddell (Citrus Park) 85355. Verrado has its own page inside Buckeye."""
 from parts import faq
@@ -13,6 +13,20 @@ def nearby(links, extra):
     return out + '<p style="margin: 6px 0 0; font-size: 15px; line-height: 1.55; color: #AEB5D8;">%s</p>' % extra
 
 
+import longform  # noqa: E402
+
+
+def faqs(town, local, disposal=None):
+    """Local questions first, then the questions every town page answers, then the route day."""
+    common = longform.faq_common(town)
+    if disposal:
+        common = [(q, disposal if q.startswith('Where should I throw away') else a) for q, a in common]
+    return faq(local + common + [('What day do you come to %s?' % town, 'We scoop %s on [route day]. You get a text the night before with a 30 minute window.' % town)])
+
+
+BUCKEYE_TRASH = ('Bag it, tie the bag, and put it in your trash cart. Buckeye wants all trash bagged and tied, '
+                 'and dog poop never goes in the recycle cart. That is what we do at every visit.')
+
 INTRO = 'Arizona Pet Waste picks up dog poop in %s every week. We text you the night before, let you watch our truck on a live map, and send you a photo of your latched gate when we leave.'
 
 B = ('CityBuckeye.dc.html', 'Buckeye')
@@ -22,117 +36,114 @@ C = ('CityCitrusPark.dc.html', 'Citrus Park')
 G = ('CityGoodyear.dc.html', 'Goodyear')
 ALL = ('AreasWeServe.dc.html', 'Every area we serve')
 
-HEAT = ('Heat and flies.', 'Phoenix has a normal July high of about 106 degrees. Heat makes poop smell stronger, and University of Arizona experts say flies breed in pet waste. Weekly pickup stops the smell before it starts.')
-SOIL = ('Germs stay in the soil.', 'The CDC says roundworm eggs from dog poop can live in soil for months or even years. Its advice is to pick up dog poop, even in your own yard, and most of all where kids play.')
-STORMS = ('Monsoon storms spread it.', 'From mid June through September, heavy rain can wash poop into the street. Maricopa County says storm drain water goes to rivers and lakes without being treated.')
-CONTRACT = ('Is there a contract?', 'No. You pay month to month and can cancel any time in My Yard. Your first month is free on any plan.')
-TURF = ('Do you clean turf and rock yards?', 'Yes. We pick up every pile on turf, grass and rock. We rake rock and gravel with a wide metal rake, then spray sanitizer and deodorizer where your dogs go most. The spray is free.')
-HOME = ('Do I need to be home?', 'No. Most of our customers are at work. Add your gate code in My Yard, and we send a photo of your latched gate when we leave.')
 
 CITIES = [
     dict(
-        file=B[0], id='k', area='buckeye', name='Buckeye', eyebrow='Buckeye, AZ · ZIP 85326 and 85396', h='6400',
+        file=B[0], id='k', area='buckeye', name='Buckeye', eyebrow='Buckeye, AZ · ZIP 85326 and 85396', h='12600',
         intro=INTRO % 'Buckeye',
         map_h2='Buckeye ZIP codes we serve',
         where='Buckeye has two ZIP codes, and we scoop every home in both. 85396 is north Buckeye, near the White Tank Mountains, with Verrado, Tartesso and Festival Ranch. 85326 is the rest of Buckeye, from Sundance and Westpark to historic downtown.',
         why_h2='Why Buckeye yards need weekly pickup',
         why=why([
-            ('A big city that keeps growing.', 'Buckeye covers about 393 square miles, more than any Arizona city but Phoenix, and the Census Bureau has named it one of the fastest growing cities in the country. New homes bring new yards, from turf to rock to grass.'),
-            HEAT,
-            STORMS,
-            SOIL,
+            ('A city that keeps growing.', 'Buckeye covers about 393 square miles, more than any Arizona city but Phoenix. More than 125,000 people live here now, and it keeps growing fast. New homes mean new yards, from turf to rock to grass.'),
+            ('Lots of turf and rock.', 'Many Buckeye yards are turf or rock. Poop hides between rocks and smells fast on hot turf. We rake rock yards and spray the spots your dogs use most.'),
+            ('HOAs and neighbors.', 'Most Buckeye neighborhoods have an HOA. A clean yard means no smell over the wall and no letters from the HOA.'),
+            ('Kids and dogs play there.', 'Your yard is where your kids and dogs play. Weekly pickup keeps it a place you want to be.'),
         ]),
         faq_h2='Buckeye questions',
-        faq=faq([
-            ('Do you serve all of Buckeye?', 'Yes. We scoop every home in both Buckeye ZIP codes, 85326 and 85396. That includes Verrado, Sundance, Westpark, Tartesso, Festival Ranch and historic downtown.'),
-            TURF,
-            HOME,
-            ('What day do you come to Buckeye?', 'We scoop Buckeye on [route day]. You get a text the night before with a 30 minute window.'),
-        ]),
+        faq=faqs('Buckeye', [
+            ('Do you serve all of Buckeye?', 'Yes. We scoop every home in both Buckeye ZIP codes, 85326 and 85396. That includes Verrado, Sundance, Tartesso, Festival Ranch, Westpark, Blue Horizons, Teravalis and historic downtown.'),
+            ('Do you come out to Sun City Festival?', 'Yes. Sun City Festival and Festival Foothills are in ZIP 85396, so we come to you. The price is the same as anywhere else.'),
+            ('Is it illegal to not pick up dog poop in Buckeye?', 'Yes. Buckeye city code says animal poop cannot be left in a way that is not clean, on public land or private land. That includes your own yard. Most HOAs have their own pickup rules too.'),
+            ('Can I report my neighbor for dog poop in Buckeye?', 'Yes. You can report it to the City of Buckeye. If you have an HOA, you can tell them too. Talking to your neighbor first often works best. Sometimes they just need a hand, and we can help.'),
+        ], BUCKEYE_TRASH),
         nearby=nearby([V, G, L, C, ALL], 'Not sure about your street? Type your ZIP when you book, and we will tell you right away.'),
     ),
     dict(
-        file=G[0], id='g', area='goodyear', name='Goodyear', eyebrow='Goodyear, AZ · ZIP 85338 and 85395', h='6300',
+        file=G[0], id='g', area='goodyear', name='Goodyear', eyebrow='Goodyear, AZ · ZIP 85338 and 85395', h='13000',
         intro=INTRO % 'Goodyear',
         map_h2='Goodyear ZIP codes we serve',
-        where='Goodyear has two ZIP codes, and we scoop every home in both. 85395 is north of Interstate 10, with Palm Valley, PebbleCreek and Sedella. 85338 runs south of the freeway to Estrella Mountain Ranch, with Canyon Trails, Centerra and Cottonflower on the way.',
+        where='Goodyear has two ZIP codes, and we scoop every home in both. 85395 is north of Interstate 10, with Palm Valley, PebbleCreek and Sedella. 85338 runs south of the freeway to Estrella, with Canyon Trails, Centerra and Cottonflower on the way. A few Goodyear homes, like Palm Valley North, use Litchfield Park 85340, and we scoop those too.',
         why_h2='Why Goodyear yards need weekly pickup',
         why=why([
-            ('Goodyear has a twice a week rule.', 'Goodyear’s city code says animal droppings must be cleaned out of yards at least twice a week. Our twice a week plan matches that rule.'),
-            ('Storms carry it away.', 'Goodyear’s storm drains flow to the Gila and Agua Fria rivers. During monsoon season, from mid June through September, rain can wash yard poop into those drains.'),
-            ('Turf gets hot.', 'Artificial turf can get hotter than 150 degrees in the sun, so poop starts to smell fast. Our free sanitizer spray helps.'),
-            SOIL,
+            ('Goodyear has a twice a week rule.', 'Goodyear city code says droppings must be cleaned out of yards at least twice a week. Our twice a week plan matches that rule.'),
+            ('Storms carry it away.', 'Goodyear storm drains flow to the Gila and Agua Fria rivers, and that water is not cleaned first. A monsoon storm can wash yard poop right into them.'),
+            ('Turf gets hot.', 'Turf can get hotter than 150 degrees in the sun, so poop starts to smell fast. Our free sanitizer spray helps.'),
+            ('A big, busy city.', 'More than 125,000 people live in Goodyear now, and it added more than 7,000 people in one year. That means a lot of new yards and a lot of dogs.'),
         ]),
         faq_h2='Goodyear questions',
-        faq=faq([
-            ('Do you serve all of Goodyear?', 'Yes. We scoop every home in both Goodyear ZIP codes, 85338 and 85395. That includes Estrella Mountain Ranch, Canyon Trails, Centerra, Palm Valley and PebbleCreek.'),
-            ('Does Goodyear really require pickup twice a week?', 'Goodyear city code says manure and droppings must be removed at least twice a week. To match that, pick our twice a week plan. It is $189 a month for 1 or 2 dogs.'),
-            ('Do you clean turf?', 'Yes. We pick up every pile on turf and spray sanitizer and deodorizer on the spots your dogs use most. The spray is free. For a deep clean, add a turf odor treatment for $35.'),
-            ('What day do you come to Goodyear?', 'We scoop Goodyear on [route day]. You get a text the night before with a 30 minute window.'),
-        ]),
+        faq=faqs('Goodyear', [
+            ('Do you serve all of Goodyear?', 'Yes. We scoop every home in both Goodyear ZIP codes, 85338 and 85395, plus Goodyear homes with Litchfield Park 85340 addresses. That includes Estrella, CantaMia, Canyon Trails, Palm Valley, PebbleCreek and Sedella.'),
+            ('Does Goodyear really require pickup twice a week?', 'Yes. Goodyear city code says droppings must be removed from yards at least twice a week. To match that rule, pick our twice a week plan. It is $189 a month for 1 or 2 dogs.'),
+            ('Do you serve PebbleCreek and CantaMia?', 'Yes. Both are gated, and both are in our service area. Add your gate code in My Yard. Only your scooper sees it, and only on your day.'),
+            ('Is it illegal to not pick up dog poop in Goodyear?', 'Yes. Goodyear city code says droppings must be removed from yards at least twice a week, and pets cannot cause flies, smell or piles of droppings. On walks, you must pick up right away on public land and other people’s land.'),
+            ('Can I report my neighbor for dog poop in Goodyear?', 'Yes. You can report it to the City of Goodyear. If you have an HOA, you can tell them too. Talking to your neighbor first often works best.'),
+            ('How many dogs can I have in Goodyear?', 'Goodyear allows up to four household pets at a home. Dogs, cats and potbellied pigs all count toward the four.'),
+        ], 'Seal it in a plastic bag and put it in your tan trash cart. Goodyear says pet waste never goes in the green recycle cart. That is what we do at every visit.'),
         nearby=nearby([L, B, C, V, ALL], 'Live in Avondale? Join the waitlist when you book.'),
     ),
     dict(
-        file=L[0], id='l', area='litchfield', name='Litchfield Park', eyebrow='Litchfield Park, AZ · ZIP 85340', h='6380',
+        file=L[0], id='l', area='litchfield', name='Litchfield Park', eyebrow='Litchfield Park, AZ · ZIP 85340', h='11800',
         intro=INTRO % 'Litchfield Park',
         map_h2='Litchfield Park ZIP code we serve',
         where='Litchfield Park is north of Interstate 10 at the Litchfield Road exit, with Goodyear to the west and south and Luke Air Force Base to the north. It has one ZIP code, 85340, and we scoop every home in it.',
         why_h2='Why Litchfield Park yards need weekly pickup',
         why=why([
-            ('Big yards, lots of shade.', 'Litchfield Park started in 1916 as a cotton farm for Goodyear Tire. Along Old Litchfield Road, homes sit on deep lots with palms and citrus trees. Dogs love shady spots, and poop under trees is easy to miss.'),
-            ('The city has rules.', 'Litchfield Park city code says dog owners must pick up poop right away in parks, on public property, and on other people’s property. Leashes in parks can be no longer than six feet.'),
-            HEAT,
-            SOIL,
+            ('Big lots and old trees.', 'Litchfield Park started in 1916 as a cotton farm for Goodyear Tire, and the older part of town still has big lots and old shade trees. Dogs love shady spots, and poop under trees is easy to miss.'),
+            ('Golf course living.', 'Many homes sit on or near The Wigwam golf courses. Nobody wants a yard that smells next to the fairway.'),
+            ('The city has rules.', 'Litchfield Park dog owners must pick up poop right away in parks, on public land and on any land they do not own.'),
+            ('Summer heat.', 'Summers here are hot. Heat makes poop smell worse and brings flies. Weekly pickup stops the smell before it starts.'),
         ]),
         faq_h2='Litchfield Park questions',
-        faq=faq([
-            ('Do you serve all of Litchfield Park?', 'Yes. We scoop every home in ZIP 85340, the ZIP code for Litchfield Park. We also scoop every ZIP code in Goodyear and Buckeye.'),
-            CONTRACT,
-            ('Is my dog safe when you come?', 'Yes. We shut the gate behind us. When we leave, we latch it, pull on it, and send you a photo. If a dog in the yard is not safe to be near, we do not go in. We text you instead.'),
-            ('What day do you come to Litchfield Park?', 'We scoop Litchfield Park on [route day]. You get a text the night before with a 30 minute window.'),
-        ]),
+        faq=faqs('Litchfield Park', [
+            ('Do you serve all of Litchfield Park?', 'Yes. We scoop every home with a Litchfield Park 85340 address, inside the city and out. That includes Litchfield Greens, The Village, Cachet, Dreaming Summit, Wigwam Creek, Russell Ranch, Savannah, Windrose and Canyon Views.'),
+            ('Is it illegal to not pick up dog poop in Litchfield Park?', 'Yes, in a lot of places. City code says you must pick up dog poop right away in parks, on public land and on any land you do not own. Outside city limits, the county health code says animal waste must be handled so it does not breed insects.'),
+            ('Can I report my neighbor for dog poop in Litchfield Park?', 'Yes. You can contact the City of Litchfield Park, or Maricopa County if you live outside city limits. If you have an HOA, you can tell them too. Talking to your neighbor first often works best.'),
+            ('Can you get into gated neighborhoods like Cachet and Dreaming Summit?', 'Yes. Add your gate code in My Yard. Only your scooper sees it, and only on your day.'),
+        ], 'Bag it, tie the bag, and put it in your trash can. Litchfield Park code says dog poop goes in a closed bag and then in the trash. Never put it in the recycle bin. That is what we do at every visit.'),
         nearby=nearby([G, B, C, V, ALL], 'Live in Avondale? Join the waitlist when you book.'),
     ),
     dict(
-        file=C[0], id='c', area='citrus', name='Citrus Park', eyebrow='Citrus Park · Waddell, AZ · ZIP 85355', h='6340',
+        file=C[0], id='c', area='citrus', name='Citrus Park', eyebrow='Citrus Park · Waddell, AZ · ZIP 85355', h='11400',
         intro=INTRO % 'Citrus Park',
         map_h2='Citrus Park ZIP code we serve',
-        where='Citrus Park sits between Perryville Road and Cotton Lane, from Northern Avenue south to about Camelback Road. It is not part of any city, and its mail comes through the Waddell post office, ZIP 85355. We scoop every home in 85355 and the homes next to it, like Zanjero Trails.',
+        where='Citrus Park is east of Perryville Road and south of Northern Avenue, between Goodyear and Glendale. It is not part of any city. Most homes get their mail through the Waddell post office, ZIP 85355, and some use Litchfield Park 85340. We scoop all of it.',
         why_h2='Why Citrus Park yards need weekly pickup',
         why=why([
-            ('Big lots and green grass.', 'Many Citrus Park homes sit on an acre or more with flood irrigation, so the grass stays green. Thick grass hides poop, and dogs have lots of room to roam. That makes piles easy to miss.'),
-            STORMS,
-            HEAT,
-            SOIL,
+            ('Big lots and green grass.', 'Many Citrus Park homes sit on an acre or more with flood irrigation, so the grass stays green. Thick grass hides poop, and dogs have lots of room to roam.'),
+            ('Water day spreads it.', 'Flood irrigation can wash poop across the whole yard. Weekly pickup keeps the grass clean before the water comes.'),
+            ('Horse country.', 'Horse properties are common out here, and flies love the heat. Fewer piles in the yard means fewer flies at the back door.'),
+            ('Summer heat.', 'Summers are hot, and hot poop smells worse. Weekly pickup stops the smell before it starts.'),
         ]),
         faq_h2='Citrus Park questions',
-        faq=faq([
-            ('Do you serve all of Citrus Park?', 'Yes. We scoop all of Citrus Park and every home in Waddell ZIP 85355. We also scoop the homes next to it, like Zanjero Trails.'),
-            ('Do you clean big grass yards?', 'Yes. We walk your yard in rows and pick up every pile. Then we spray sanitizer and deodorizer where your dogs go most. The spray is free.'),
-            CONTRACT,
-            ('What day do you come to Citrus Park?', 'We scoop Citrus Park on [route day]. You get a text the night before with a 30 minute window.'),
+        faq=faqs('Citrus Park', [
+            ('Do you serve all of Citrus Park?', 'Yes. We scoop all of Citrus Park and every home in Waddell ZIP 85355. Some Citrus Park homes, like Russell Ranch and Savannah, have Litchfield Park 85340 addresses, and we scoop those too.'),
+            ('Do you clean big grass yards?', 'Yes. We walk your yard in rows and pick up every pile, even on an acre. Then we spray sanitizer and deodorizer where your dogs go most. The spray is free.'),
+            ('Is the price higher for a big lot?', 'No. Your price depends on how often we come and how many dogs you have, not the size of your yard.'),
+            ('Is it illegal to not pick up dog poop in Waddell?', 'Citrus Park and Waddell follow Maricopa County rules. The county health code treats animal waste as trash that must be handled so it does not breed insects, and dogs must be fenced in or leashed.'),
+            ('Can I report a neighbor for dog poop in Waddell?', 'Yes. Waddell is county land, so you contact Maricopa County. If you have an HOA, you can tell them too. Talking to your neighbor first often works best.'),
         ]),
         nearby=nearby([L, G, B, V, ALL], 'Live in Surprise? Join the waitlist when you book.'),
     ),
     dict(
-        file=V[0], id='v', area='verrado', name='Verrado', eyebrow='Verrado · Buckeye, AZ · ZIP 85396', h='6180',
+        file=V[0], id='v', area='verrado', name='Verrado', eyebrow='Verrado · Buckeye, AZ · ZIP 85396', h='11200',
         intro=INTRO % 'Verrado',
         map_h2='Verrado ZIP code we serve',
         where='Verrado sits north of Interstate 10 at the Verrado Way exit, right at the base of the White Tank Mountains. It is in Buckeye ZIP 85396, and we scoop every home in it. We also scoop the rest of Buckeye, ZIP 85326.',
         why_h2='Why Verrado yards need weekly pickup',
         why=why([
-            ('Verrado is made for dogs.', 'The community has more than 86 neighborhood parks, over 26 miles of trails, and Granite Bluff Dog Park off Verrado Way. Active dogs mean a busy yard.'),
-            ('The heat makes it worse.', 'Phoenix has a normal July high of about 106 degrees, and artificial turf can get hotter than 150 degrees. Hot poop smells stronger and draws flies. University of Arizona experts say flies breed in pet waste.'),
-            ('It is a health issue.', 'The CDC says dog poop can carry germs like Salmonella, Giardia, roundworm and hookworm. Roundworm eggs can live in soil for months or even years, so the CDC says to pick up poop even in your own yard.'),
-            STORMS,
+            ('Verrado is made for dogs.', 'Verrado has dozens of small parks, more than 20 miles of trails and two dog parks. Active dogs mean a busy yard.'),
+            ('Small yards fill up fast.', 'Many Verrado homes have small turf or rock yards. With one or two dogs, a small yard gets messy in a few days.'),
+            ('The HOA cares.', 'Verrado rules say dog poop must be picked up right away, anywhere in Verrado. A clean yard keeps you on good terms with the HOA and your neighbors.'),
+            ('Summer heat.', 'Verrado sits at the foot of the White Tank Mountains, and summers are hot. Heat makes poop smell worse and brings flies. Weekly pickup stops the smell before it starts.'),
         ]),
         faq_h2='Verrado questions',
-        faq=faq([
-            ('Do you serve all of Verrado?', 'Yes. We scoop every Verrado home, and all of Buckeye too, in ZIP codes 85396 and 85326. Not sure? Type your ZIP when you book, and we will tell you right away.'),
-            TURF,
-            HOME,
-            ('What day do you come to Verrado?', 'We scoop Verrado on [route day]. You get a text the night before with a 30 minute window.'),
-        ]),
+        faq=faqs('Verrado', [
+            ('Do you serve all of Verrado?', 'Yes. We scoop every Verrado district: Main Street, Heritage, Marketside, Village, Highlands, Regent Hills and Victory. All of Verrado is in ZIP 85396.'),
+            ('Can you get into Regent Hills?', 'Yes. Add your gate code or gate app steps in My Yard. Only your scooper sees it, and only on your day.'),
+            ('Is it illegal to not pick up dog poop in Verrado?', 'Yes. Verrado rules say anyone walking a dog must pick up the poop right away, anywhere in Verrado. Buckeye city code also says animal poop cannot be left in a way that is not clean, even in your own yard.'),
+            ('Can I report a neighbor for dog poop in Verrado?', 'Yes. You can tell the Verrado Community Association, and you can call the City of Buckeye. Talking to your neighbor first often works best.'),
+        ], BUCKEYE_TRASH),
         nearby=nearby([B, G, L, C, ALL], 'Sundance, Tartesso and Festival Ranch are on our Buckeye page.'),
     ),
 ]

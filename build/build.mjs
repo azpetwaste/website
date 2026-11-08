@@ -87,31 +87,9 @@ function socialHtml() {
   return '<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px;">' + cfg.social.map((x) =>
     '<a href="' + esc(x.url) + '" rel="noopener" target="_blank" class="btn btn-line-n" style="min-height: 44px; padding: 0 16px; font-size: 15px;">' + esc(x.name) + '</a>').join('') + '</div>';
 }
-// Every ZIP code in each town we serve, with neighborhoods in it (checked against research/neighborhoods.json and listings).
-const TOWN_ZIPS = {
-  buckeye: [
-    { zip: '85396', label: 'North Buckeye', names: ['Verrado', 'Tartesso', 'Festival Ranch', 'Sun City Festival', 'Teravalis', 'Anderson Parc'] },
-    { zip: '85326', label: 'Buckeye town and south', names: ['Sundance', 'Westpark', 'Historic downtown Buckeye', 'Apache Farms', 'Montana Vista', 'Arroyo Seco'] }
-  ],
-  goodyear: [
-    { zip: '85395', label: 'North Goodyear', names: ['PebbleCreek', 'Palm Valley', 'Palm Valley North', 'Sedella', 'Rio Paseo', 'Abel Ranch', 'Sunrise at Wigwam', 'Canada Village'] },
-    { zip: '85338', label: 'Central and south Goodyear', names: ['Estrella Mountain Ranch', 'CantaMia at Estrella', 'Canyon Trails', 'Centerra', 'Cottonflower', 'Estrella Vista', 'Wildflower Ranch', 'Historic Goodyear'] }
-  ],
-  litchfield: [
-    { zip: '85340', label: 'Litchfield Park', names: null }
-  ],
-  citrus: [
-    { zip: '85355', label: 'Waddell', names: ['Citrus Park', 'Clearwater Farms', 'Montana Farms', 'Tara Estates'] },
-    { zip: '85340', label: 'Litchfield Park homes between Verrado and Citrus Road', names: ['Russell Ranch', 'Savannah', 'Windrose', 'Zanjero Trails', 'Canyon Views'] }
-  ],
-  verrado: [
-    { zip: '85396', label: 'Verrado districts', names: null, extra: ['Village District'] }
-  ]
-};
+// Every ZIP code in each town we serve, with the neighborhoods in it. The town copy (design/generator/longform.py) is the one list.
 function townZips(area) {
-  return (TOWN_ZIPS[area] || []).map((g) => Object.assign({}, g, {
-    names: g.names || ((hoods.areas || {})[area] || []).filter((x) => x.inside !== false).map((x) => x.name).concat(g.extra || [])
-  }));
+  return ((content.cities[area] || {}).zips || []).filter((g) => g.names && g.names.length);
 }
 function zipsHtml(area, name) {
   const groups = townZips(area);
@@ -317,7 +295,7 @@ const TOWNS = [
   { area: 'litchfield', board: 'city-litchfield', route: '/litchfield-park/', title: 'Dog Poop Pickup in Litchfield Park AZ | Arizona Pet Waste',
     description: 'Weekly dog poop pickup for every home in Litchfield Park, AZ 85340. First month free, free sanitizer spray, a live truck map and a photo of your latched gate.' },
   { area: 'citrus', board: 'city-citrus', route: '/citrus-park/', title: 'Dog Poop Pickup in Citrus Park AZ | Arizona Pet Waste',
-    description: 'Weekly dog poop pickup in Citrus Park and Waddell, AZ 85355, including Zanjero Trails. First month free, free sanitizer spray and a gate photo every visit.' },
+    description: 'Weekly dog poop pickup for every home in Citrus Park and Waddell, AZ 85355. First month free, free sanitizer spray and a photo of your latched gate.' },
   { area: 'verrado', board: 'city-verrado', route: '/verrado/', title: 'Dog Poop Pickup in Verrado, Buckeye AZ | Arizona Pet Waste',
     description: 'Weekly dog poop pickup for Verrado homes in Buckeye, AZ 85396. First month free, free sanitizer spray, a live truck map and a photo of your latched gate.' }
 ];
@@ -344,8 +322,8 @@ for (const t of TOWNS) {
   const blurbs = {
     buckeye: 'North Buckeye by the White Tank Mountains, and the rest of Buckeye from Sundance to downtown.',
     goodyear: 'All of Goodyear, from PebbleCreek and Palm Valley down to Estrella Mountain Ranch.',
-    litchfield: 'Every home in Litchfield Park, including the streets around the Wigwam.',
-    citrus: 'Citrus Park and Waddell, plus the homes next door like Zanjero Trails.',
+    litchfield: 'Every 85340 home, inside the city and out, from The Wigwam to Dreaming Summit.',
+    citrus: 'All of Citrus Park and Waddell, from big irrigated lots to new neighborhoods like Zanjero Pass.',
     verrado: 'Every Verrado district, at the foot of the White Tank Mountains in Buckeye.'
   };
   const cards = order.map((a) => {
@@ -461,7 +439,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - [Buckeye, AZ 85326 and 85396](${ORIGIN}/buckeye/). Neighborhoods: ${hoodNames('buckeye').join(', ')}.
 - [Goodyear, AZ 85338 and 85395](${ORIGIN}/goodyear/). Neighborhoods: ${hoodNames('goodyear').join(', ')}.
 - [Litchfield Park, AZ 85340](${ORIGIN}/litchfield-park/). Neighborhoods: ${hoodNames('litchfield').join(', ')}.
-- [Citrus Park and Waddell, AZ 85355](${ORIGIN}/citrus-park/), plus Litchfield Park 85340 homes between Verrado and Citrus Road. Neighborhoods: ${hoodNames('citrus').join(', ')}.
+- [Citrus Park and Waddell, AZ 85355](${ORIGIN}/citrus-park/), plus Citrus Park homes with Litchfield Park 85340 addresses. Neighborhoods: ${hoodNames('citrus').join(', ')}.
 - [Verrado, Buckeye AZ 85396](${ORIGIN}/verrado/). Districts: ${hoodNames('verrado').join(', ')}.
 - Full list: [Areas we serve](${ORIGIN}/areas-we-serve/).
 - Not served yet: Avondale, Surprise, Glendale and Phoenix. People there can join the waitlist when they book.
@@ -471,6 +449,23 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - We shut the gate, pick up every pile front to back, and spray sanitizer where dogs go most.
 - We latch the gate, pull on it, and send a photo.
 - Something off? Tap "Something's off" in My Yard and we come back free within 24 hours.
+
+## Local dog poop rules (plain summary)
+- Buckeye (including Verrado): city code says animal waste cannot be left in an unsanitary way on public or private land, including your own yard. Verrado HOA rules say dog poop must be picked up right away anywhere in Verrado.
+- Goodyear: city code says droppings must be removed from yards at least twice a week, and pets cannot cause flies, odor or piled up droppings. Up to four household pets per home.
+- Litchfield Park: city code says dog owners must pick up poop right away in parks, on public land and on land they do not own, and put it in a closed bag in the trash.
+- Unincorporated Maricopa County (Waddell, Citrus Park and county parts of 85340): dogs must be fenced or on a leash of 6 feet or less, and the county health code treats animal waste as refuse that must not breed insects.
+- Everywhere: bag dog poop, tie the bag, and put it in the trash cart. Never in the recycle cart or a storm drain. Storm drain water is not treated.
+
+## Before you hire a pooper scooper (our answers)
+- Sign up fee: none. You pay $0 today and the first month is free.
+- Price per visit: weekly service is $108 a month for 1 or 2 dogs, about $25 a visit.
+- Deodorizer or sanitizer: free at every visit.
+- Proof: a text the night before, a live truck map on visit day, and a photo of the latched gate after every visit. A visit with no gate photo costs $0.
+- Missed pile: free return within 24 hours.
+- Waste: bagged and put in your trash can.
+- Tools: boots and tools cleaned before every yard.
+- Contract: none. Pause up to 120 days, 4 free skips a year, cancel in My Yard.
 
 ## Common questions
 ${faqText}
@@ -513,7 +508,6 @@ fs.writeFileSync(path.join(DIST, '_redirects'), `/login /account/ 301
 /estrella /goodyear/ 301
 /sundance /buckeye/ 301
 /waddell /citrus-park/ 301
-/zanjero-trails /citrus-park/ 301
 `);
 fs.copyFileSync(path.join(SRC, 'worker/worker.js'), path.join(DIST, '_worker.js'));
 fs.writeFileSync(path.join(DIST, '_routes.json'), JSON.stringify({ version: 1, include: ['/api/*'], exclude: [] }));

@@ -459,6 +459,34 @@ PAGE_CSS = HDR_CSS + r"""
 }"""
 
 
+# long form town pages: neighborhood cards, guide sections, sources
+LF_CSS = r""".apw .hcards{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:24px}
+.apw .hcard{display:flex;flex-direction:column;padding:20px 20px 18px;border-radius:20px;background:var(--card);border:1px solid var(--line)}
+.apw .hcard h3{margin:0;font-size:20px;font-weight:800;letter-spacing:-.02em;line-height:1.2;color:var(--ink)}
+.apw .hcard .hz{align-self:flex-start;margin:8px 0 0;padding:3px 10px;border-radius:999px;background:var(--accent-soft);color:var(--accent-text);font-size:13px;font-weight:600;letter-spacing:.03em}
+.apw .hcard p{margin:10px 0 0;font-size:16px;line-height:1.55;color:var(--ink2)}
+.apw .hcard p.hz{margin-top:8px}
+.apw .lfb{margin-top:24px}
+.apw .lfb h3{margin:30px 0 0;font-size:21px;font-weight:800;letter-spacing:-.02em;line-height:1.2;color:var(--ink)}
+.apw .lfb h3:first-child{margin-top:0}
+.apw .lfb p{margin:10px 0 0;font-size:17px;line-height:1.6;color:var(--ink2)}
+.apw .lfb ul{margin:12px 0 0;padding-left:22px;font-size:17px;line-height:1.6;color:var(--ink2)}
+.apw .lfb li{margin-top:6px}
+.apw .lfb li::marker{color:var(--accent)}
+.apw .lfb strong{color:var(--ink)}
+.apw .lfb ul.src{font-size:15px;line-height:1.5}
+.apw .lfb .upd{margin-top:18px;font-size:13px;color:var(--mute)}
+@media (min-width:700px){.apw .hcards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (min-width:1024px){.apw .lfb{margin-top:0}.apw .hcards{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:36px}.apw .lfb p,.apw .lfb ul{font-size:18px}.apw .lfb ul.src{font-size:15px}}"""
+
+# interactive yard on the home page (yard.py)
+import yard as _yard  # noqa: E402
+_yd = _yard.fill()
+YARD_SECTION = _yd['YARD_SECTION'].replace('@@ICON_MINUS20@@', ICON_MINUS20).replace('@@ICON_PLUS20@@', ICON_PLUS20)
+YARD_CSS = _yd['YARD_CSS']
+YARD_METHODS = _yd['YARD_METHODS']
+YARD_STATE = _yd['YARD_STATE']
+
 def _header(home, links):
     nav = ''.join('<a href="%s">%s</a>' % (h, t) for h, t in links)
     return ('<header class="hdr"><div class="hin">\n'

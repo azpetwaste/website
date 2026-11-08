@@ -84,6 +84,29 @@ with sync_playwright() as p:
     page.goto(BASE + '/', wait_until='networkidle')
     page.wait_for_timeout(500)
     shot(page, 'm_home_full', full=True)
+    # the interactive yard: change the days, run a visit, check it ends clean with the price card
+    yd = page.locator('#yard')
+    yd.scroll_into_view_if_needed()
+    page.fill('#yd-days', '12') if False else page.evaluate("(() => { const r = document.getElementById('yd-days'); r.value = '12'; r.dispatchEvent(new Event('input', { bubbles: true })); })()")
+    page.wait_for_timeout(300)
+    assert '12 days' in yd.inner_text(), 'days slider did not update'
+    piles = page.locator('#yd-piles .ydp').count()
+    assert piles >= 40, 'piles did not appear: %d' % piles
+    shot(page, 'm_yard_before', full=False)
+    page.locator('#yard .yd-go').click()
+    page.wait_for_timeout(3500)
+    gone = page.locator('#yd-piles .ydp.gone').count()
+    assert 0 < gone < piles, 'scooper is not picking up piles: %d of %d' % (gone, piles)
+    page.locator('#yard .ydc').scroll_into_view_if_needed()
+    shot(page, 'm_yard_mid', full=False)
+    page.wait_for_timeout(8000)
+    assert page.locator('#yard .yd-end').count() == 1, 'yard run did not finish'
+    assert page.locator('#yd-piles .ydp.gone').count() == piles, 'piles left after the run'
+    yd.scroll_into_view_if_needed()
+    shot(page, 'm_yard_done', full=False)
+    page.locator('#yard .yd-again').click()
+    page.wait_for_timeout(300)
+    assert page.locator('#yd-piles .ydp.gone').count() == 0, 'run it again did not reset the yard'
 
     for route, name in [('/buckeye/', 'm_buckeye'), ('/areas-we-serve/', 'm_areas'), ('/verrado/', 'm_verrado'), ('/goodyear/', 'm_goodyear'), ('/privacy/', 'm_privacy'), ('/texts/', 'm_texts'), ('/book/', 'm_bookpage'), ('/account/', 'm_account'), ('/404.html', 'm_404')]:
         pg = phone.new_page()
@@ -134,6 +157,9 @@ with sync_playwright() as p:
     dp.wait_for_timeout(300)
     assert not dp.evaluate("document.documentElement.classList.contains('book-open')"), 'clicking outside did not close the window'
     shot(dp, 'd_home_full', full=True)
+    dp.locator('#yard').scroll_into_view_if_needed()
+    dp.wait_for_timeout(300)
+    shot(dp, 'd_yard')
     dp.goto(BASE + '/litchfield-park/', wait_until='networkidle')
     dp.wait_for_timeout(500)
     shot(dp, 'd_litchfield')

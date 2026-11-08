@@ -21,7 +21,8 @@ def _cap(items):
 
 
 parts.faq = _cap
-import cities  # noqa: E402  (imports the patched faq)
+import cities
+import longform  # noqa: E402  (imports the patched faq)
 
 OUT = '/home/claude/apw-site/src/boards/'
 os.makedirs(OUT, exist_ok=True)
@@ -173,7 +174,7 @@ def prod_faq(items):
 
 
 # ---------- boards ----------
-main = common(main_prod(fill(open('main.tpl.html').read(), 'm', {'MAIN_H': '9700', 'PREVIEW_W': '390'})))
+main = common(main_prod(fill(open('main.tpl.html').read(), 'm', {'MAIN_H': '11200', 'PREVIEW_W': '390'})))
 if '#reviews' in main or 'id="reviews"' in main:
     sys.exit('a reviews link is left on the home page')
 write('main', main)
@@ -187,6 +188,7 @@ for i, cdef in enumerate(cities.CITIES):
     vals = {'C_NAME': cdef['name'], 'C_NAME_CAPS': cdef['name'].upper(), 'C_AREA': cdef['area'], 'C_EYEBROW': cdef['eyebrow'],
             'C_INTRO': cdef['intro'], 'C_MAP_H2': cdef['map_h2'], 'C_WHERE': cdef['where'], 'C_WHY_H2': cdef['why_h2'],
             'C_WHY': cdef['why'], 'C_FAQ_H2': cdef['faq_h2'], 'C_FAQ': cdef['faq'], 'C_NEARBY': cdef['nearby'], 'C_H': cdef['h']}
+    vals.update(longform.render(cdef['area'], cdef['name']))
     for k, v in vals.items():
         tpl = tpl.replace('@@%s@@' % k, v)
     html = common(city_prod(fill(tpl, cdef['id'])))
@@ -194,7 +196,7 @@ for i, cdef in enumerate(cities.CITIES):
     write('city-' + slug, html)
     content['cities'][slug] = {
         'name': cdef['name'], 'eyebrow': strip_tags(cdef['eyebrow']), 'intro': strip_tags(cdef['intro']),
-        'where': strip_tags(cdef['where']), 'faq': prod_faq(_captured[i])
+        'where': strip_tags(cdef['where']), 'faq': prod_faq(_captured[i]), 'zips': longform.zip_groups(slug)
     }
     if shell is None:
         shell = doc_shell(html)

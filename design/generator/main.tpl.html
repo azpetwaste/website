@@ -14,6 +14,7 @@
 @@SCENE_CSS@@
 @@SITE_CSS@@
 @@PAGE_CSS@@
+@@YARD_CSS@@
 .apw .mlink{display:flex;align-items:center;min-height:62px;font-size:24px;font-weight:800;letter-spacing:-.03em;color:var(--ink);text-decoration:none;border-bottom:1px solid var(--line)}
 .apw .flink{display:flex;align-items:center;min-height:44px;color:#FFFFFF;font-size:16px;text-decoration:none}
 .rv{scrollbar-width:none}.rv::-webkit-scrollbar{display:none}
@@ -92,6 +93,7 @@
   </div>
 </section>
 
+@@YARD_SECTION@@
 <section id="how" class="sec" style="background: var(--bg2);">
   <div class="in g2 hw">
   <div class="stk">
@@ -355,7 +357,7 @@
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.state = { dark: this._themeFromProps(), plan: 'week', dogs: 2, fb: '', zip: '', zipChecked: false, area: '', menu: false, showBar: false, routeP: 1, @@VS_STATE@@ };
+    this.state = { dark: this._themeFromProps(), plan: 'week', dogs: 2, fb: '', zip: '', zipChecked: false, area: '', menu: false, showBar: false, routeP: 1, @@VS_STATE@@, @@YARD_STATE@@ };
   }
   componentDidMount() {
     this._onScroll = () => {
@@ -386,11 +388,13 @@ class Component extends DCLogic {
     window.removeEventListener('resize', this._onScroll);
     this._themeStop();
     this._vsStop();
+    this._ydStop();
   }
 @@THEME_METHODS@@
 @@VS_METHODS@@
 @@PRICE_METHODS@@
 @@AREA_METHODS@@
+@@YARD_METHODS@@
   renderVals() {
     const s = this.state;
     const names = { week: 'Every week', twice: 'Twice a week', eow: 'Every other week' };
@@ -401,7 +405,7 @@ class Component extends DCLogic {
     const good = s.fb === 'good';
     const off = s.fb === 'off';
     const lit = (i) => (s.routeP >= i / 6 ? '#FF4A1C' : 'var(--bg2)');
-    return Object.assign({}, this._themeVals(), this._vsVals(), this._areaVals(), {
+    return Object.assign({}, this._themeVals(), this._vsVals(), this._areaVals(), this._ydVals(), {
       r0: lit(0), r1: lit(1), r2: lit(2), r3: lit(3), r4: lit(4), r5: lit(5),
       routeTop: 'calc(10px + (100% - 20px) * ' + s.routeP.toFixed(3) + ')',
       plans: this._plans(true),

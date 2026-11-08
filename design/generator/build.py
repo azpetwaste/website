@@ -6,10 +6,10 @@ from html.parser import HTMLParser
 import parts
 
 OUT = '/mnt/user-data/outputs/artifacts/8dafc584-80d3-4012-9f0b-08999c8b7441/project/'
-BOARDS = [('main.tpl.html', 'Main.dc.html', 'm', {'MAIN_H': '9700', 'PREVIEW_W': '390'}),
+BOARDS = [('main.tpl.html', 'Main.dc.html', 'm', {'MAIN_H': '11200', 'PREVIEW_W': '390'}),
           ('main.tpl.html', 'MainDesktop.dc.html', 'w', {'MAIN_H': '@@DESK_H@@', 'PREVIEW_W': '1440'}),
           ('duo.tpl.html', 'DuoOpen.dc.html', 'd', {}), ('booking.tpl.html', 'Booking.dc.html', 'b', {}), ('myyard.tpl.html', 'MyYard.dc.html', 'y', {})]
-DESK_H = '8900'
+DESK_H = '9900'
 
 VOID = {'meta', 'link', 'img', 'input', 'br', 'hr', 'source', 'col', 'area', 'base', 'wbr', 'embed', 'param', 'track'}
 SVG_SELF = {'path', 'rect', 'circle', 'ellipse', 'line', 'stop', 'polyline', 'polygon'}
@@ -63,6 +63,7 @@ def fill(tpl, board_id, extra):
 
 
 import cities
+import longform
 
 JOBS = [(open(src).read(), dst, bid, extra) for src, dst, bid, extra in BOARDS]
 for cdef in cities.CITIES:
@@ -70,6 +71,7 @@ for cdef in cities.CITIES:
     vals = {'C_NAME': cdef['name'], 'C_NAME_CAPS': cdef['name'].upper(), 'C_AREA': cdef['area'], 'C_EYEBROW': cdef['eyebrow'],
             'C_INTRO': cdef['intro'], 'C_MAP_H2': cdef['map_h2'], 'C_WHERE': cdef['where'], 'C_WHY_H2': cdef['why_h2'],
             'C_WHY': cdef['why'], 'C_FAQ_H2': cdef['faq_h2'], 'C_FAQ': cdef['faq'], 'C_NEARBY': cdef['nearby'], 'C_H': cdef['h']}
+    vals.update(longform.render(cdef['area'], cdef['name']))
     for k, v in vals.items():
         tpl = tpl.replace('@@%s@@' % k, v)
     JOBS.append((tpl, cdef['file'], cdef['id'], {}))
