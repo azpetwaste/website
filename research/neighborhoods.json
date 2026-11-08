@@ -1,0 +1,627 @@
+{
+  "generated": "2026-11-06",
+  "method": "Each name was confirmed from the cited source. Coordinates come from the US Census geocoder (sourced listing or office addresses), City of Goodyear HOA GIS extents, Maricopa County Assessor subdivision plat extents, Wikipedia, or a builder map pin, then tested with shapely against service_area.geojson. \"inside\" = point inside that part's sub-polygon, except Citrus entries flagged as being in the service-area strip between Verrado Way and Perryville Rd, which the brief groups with Citrus. \"where\" cross streets are read from the street grid around the tested coordinates/extents (Verrado Way -112.496, Jackrabbit Trl -112.479, Perryville Rd -112.461, Citrus Rd -112.444, Cotton Ln -112.427, Litchfield Rd -112.358; Indian School Rd 33.494, Camelback Rd 33.508, Bethany Home Rd 33.523, Northern Ave 33.552).",
+  "areas": {
+    "verrado": [
+      {
+        "name": "Heritage District",
+        "where": "South-central Verrado, just north of I-10 at the Verrado Way exit (sample homes 3294 N Springfield St and 20730 W Park Meadows Dr, Buckeye 85396)",
+        "lat": 33.484066,
+        "lon": -112.50284,
+        "inside": true,
+        "source": "https://www.verrado.com/visit-verrado/",
+        "coords_from": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=3294+N+Springfield+St%2C+Buckeye%2C+AZ+85396&benchmark=Public_AR_Current&format=json",
+        "polygon_test": "inside verrado sub-polygon",
+        "note": "Listing addresses from https://www.homesbymarco.com/subdivisions/heritage-district-at-verrado-in-buckeye-az; 20730 W Park Meadows Dr geocodes to 33.470776,-112.504808 (also inside)."
+      },
+      {
+        "name": "Main Street District",
+        "where": "Verrado's walkable town center on W Main St (21068 W Main St, Buckeye 85396)",
+        "lat": 33.496227,
+        "lon": -112.512083,
+        "inside": true,
+        "source": "https://en.wikipedia.org/wiki/Verrado",
+        "coords_from": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=21068+W+Main+St%2C+Buckeye%2C+AZ+85396&benchmark=Public_AR_Current&format=json",
+        "polygon_test": "inside verrado sub-polygon",
+        "note": "Walk Score map pin for West Main Street is 33.4952507,-112.508941 (https://www.walkscore.com/score/main-street-buckeye). verrado.com writes it \"Main Street district\"."
+      },
+      {
+        "name": "Marketside District",
+        "where": "Southern edge of Verrado along Verrado Way just north of I-10, beside Verrado Marketplace (sample home 1877 N Marketside Ave)",
+        "lat": 33.468711,
+        "lon": -112.509537,
+        "inside": true,
+        "source": "https://en.wikipedia.org/wiki/Verrado",
+        "coords_from": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=1877+N+Marketside+Ave%2C+Buckeye%2C+AZ+85396&benchmark=Public_AR_Current&format=json",
+        "polygon_test": "inside verrado sub-polygon",
+        "note": "Listing addresses from https://www.homesbymarco.com/subdivisions/marketside-district-at-verrado-in-buckeye-az"
+      },
+      {
+        "name": "Victory at Verrado",
+        "aka": "Victory District (Wikipedia)",
+        "where": "Northern Verrado in the White Tank Mountain foothills, 55+ (sample homes 5878 N 207th Ave and 20667 W Montebello Ave)",
+        "lat": 33.520492,
+        "lon": -112.501654,
+        "inside": true,
+        "source": "https://www.verrado.com/victory-at-verrado/",
+        "coords_from": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=5878+N+207th+Ave%2C+Buckeye%2C+AZ+85396&benchmark=Public_AR_Current&format=json",
+        "polygon_test": "inside verrado sub-polygon",
+        "note": "Listing addresses from https://www.homesbymarco.com/subdivisions/victory-district-at-verrado-in-buckeye-az; 20667 W Montebello Ave geocodes to 33.519133,-112.499251 (inside, about 340 m from the Verrado Way edge)."
+      },
+      {
+        "name": "The Highlands",
+        "aka": "Highlands District at Verrado; Verrado Highlands (David Weekley)",
+        "where": "Gated area on Verrado's upper west side near the White Tank Mountains (sample home 4653 N 212th Dr)",
+        "lat": 33.503811,
+        "lon": -112.516467,
+        "inside": true,
+        "source": "https://www.verrado.com/visit-verrado/",
+        "coords_from": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=4653+N+212th+Dr%2C+Buckeye%2C+AZ+85396&benchmark=Public_AR_Current&format=json",
+        "polygon_test": "inside verrado sub-polygon",
+        "note": "Listing addresses from https://www.homesbymarco.com/subdivisions/highlands-district-at-verrado-in-buckeye-az"
+      },
+      {
+        "name": "Regent Hills",
+        "where": "Private gated enclave in Verrado's western foothills (Pulte sales address 21842 W Monterosa St, Buckeye 85396)",
+        "lat": 33.497085,
+        "lon": -112.530104,
+        "inside": true,
+        "source": "https://www.verrado.com/regent-hills/",
+        "coords_from": "https://www.newhomesource.com/community/az/buckeye/regent-hills-meadow-series-by-pulte-homes/221914",
+        "polygon_test": "inside verrado sub-polygon",
+        "note": "Coordinates are the NewHomeSource map pin for the Regent Hills sales address (street not yet in Census data)."
+      }
+    ],
+    "citrus": [
+      {
+        "name": "Citrus Park",
+        "where": "Unincorporated census place; Perryville Rd is its west edge and Northern Ave its north edge, Goodyear to the south, Glendale to the east",
+        "lat": 33.53278,
+        "lon": -112.44583,
+        "inside": true,
+        "source": "https://en.wikipedia.org/wiki/Citrus_Park,_Arizona",
+        "coords_from": "https://en.wikipedia.org/wiki/Citrus_Park,_Arizona",
+        "polygon_test": "inside citrus sub-polygon"
+      },
+      {
+        "name": "Clearwater Farms",
+        "where": "Acre-lot neighborhood in Citrus Park; sample home 7330 N 175th Ave, Waddell 85355 (north of Glendale Ave between Citrus Rd and Cotton Ln)",
+        "lat": 33.542208,
+        "lon": -112.435642,
+        "inside": true,
+        "source": "https://homes.com/citrus-park-az/",
+        "coords_from": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=7330+N+175th+Ave%2C+Waddell%2C+AZ+85355&benchmark=Public_AR_Current&format=json",
+        "polygon_test": "inside citrus sub-polygon",
+        "note": "County plat name CLEARWATER FARMS ESTATES; Wikipedia (Citrus Park) cites Clearwater Farms Unit 1, Unit II and Unit Three property owner associations."
+      },
+      {
+        "name": "Montana Farms",
+        "where": "North of Bethany Home Rd between Citrus Rd and Cotton Ln (sample home 6411 N 172nd Ln, Waddell 85355)",
+        "lat": 33.529155,
+        "lon": -112.430068,
+        "inside": true,
+        "source": "https://homes.com/citrus-park-az/",
+        "coords_from": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=6411+N+172nd+Ln%2C+Waddell%2C+AZ+85355&benchmark=Public_AR_Current&format=json",
+        "polygon_test": "inside citrus sub-polygon",
+        "extent_share_in_service_area": 1.0,
+        "note": "County plats MONTANA FARMS and MONTANA FARMS 2; extent https://gis.mcassessor.maricopa.gov/arcgis/rest/services/MaricopaDynamicQueryService/MapServer/2/query?where=SUBNAME+LIKE+%27MONTANA+FARMS%25%27&returnExtentOnly=true&outSR=4326&f=json"
+      },
+      {
+        "name": "Russell Ranch",
+        "where": "Gated; west side of Citrus Rd between Camelback Rd and Bethany Home Rd (Litchfield Park 85340 addresses, e.g. 18232 W San Juan Ct)",
+        "lat": 33.517282,
+        "lon": -112.451421,
+        "inside": true,
+        "source": "https://homes.com/citrus-park-az/",
+        "coords_from": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=18232+W+San+Juan+Ct%2C+Litchfield+Park%2C+AZ+85340&benchmark=Public_AR_Current&format=json",
+        "polygon_test": "inside citrus sub-polygon",
+        "extent_share_in_service_area": 1.0,
+        "note": "County plats RUSSELL RANCH PHASE 1-3; whole plat extent is inside citrus: https://gis.mcassessor.maricopa.gov/arcgis/rest/services/MaricopaDynamicQueryService/MapServer/2/query?where=SUBNAME+LIKE+%27RUSSELL+RANCH%25%27&returnExtentOnly=true&outSR=4326&f=json"
+      },
+      {
+        "name": "Savannah",
+        "where": "East side of Perryville Rd just north of Camelback Rd (sample home 18324 W Oregon Ave, Litchfield Park 85340)",
+        "lat": 33.513455,
+        "lon": -112.453832,
+        "inside": true,
+        "source": "https://homes.com/citrus-park-az/",
+        "coords_from": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=18324+W+Oregon+Ave%2C+Litchfield+Park%2C+AZ+85340&benchmark=Public_AR_Current&format=json",
+        "polygon_test": "inside citrus sub-polygon",
+        "extent_share_in_service_area": 1.0,
+        "note": "County plat SAVANNAH; extent https://gis.mcassessor.maricopa.gov/arcgis/rest/services/MaricopaDynamicQueryService/MapServer/2/query?where=SUBNAME%3D%27SAVANNAH%27&returnExtentOnly=true&outSR=4326&f=json"
+      },
+      {
+        "name": "Tara Estates",
+        "where": "Just north of Bethany Home Rd between Citrus Rd and Cotton Ln (Waddell 85355)",
+        "lat": 33.524542,
+        "lon": -112.433331,
+        "inside": true,
+        "source": "https://www.homesbymarco.com/zip-codes/85355/subdivisions",
+        "coords_from": "https://gis.mcassessor.maricopa.gov/arcgis/rest/services/MaricopaDynamicQueryService/MapServer/2/query?where=SUBNAME%3D%27TARA+ESTATES%27&returnExtentOnly=true&outSR=4326&f=json",
+        "polygon_test": "inside citrus sub-polygon",
+        "extent_share_in_service_area": 1.0,
+        "note": "Coordinates are the center of the county plat extent."
+      },
+      {
+        "name": "Zanjero Trails",
+        "where": "Master plan north of Camelback Rd between Jackrabbit Trail and Perryville Rd, around 19390 W Palo Verde Dr (Litchfield Park 85340)",
+        "lat": 33.52123,
+        "lon": -112.476635,
+        "inside": true,
+        "source": "https://levendirealty.realgeeks.com/listings/subdivision/Zanjero-Trails/",
+        "coords_from": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=19390+W+Palo+Verde+Dr%2C+Litchfield+Park%2C+AZ+85340&benchmark=Public_AR_Current&format=json",
+        "polygon_test": "inside service_area strip between Verrado Way and Perryville Rd (north of I-10); outside the citrus sub-polygon but grouped with Citrus per the brief",
+        "extent_share_in_service_area": 0.39,
+        "note": "Southern (Litchfield Park 85340) section is inside the service area. County Zanjero Trails plats run north to about lat 33.595 into Surprise (85388), and those northern phases are OUTSIDE the service area (only about 39% of the plat extent box is inside). Plat extent: https://gis.mcassessor.maricopa.gov/arcgis/rest/services/MaricopaDynamicQueryService/MapServer/2/query?where=SUBNAME+LIKE+%27ZANJERO+TRAILS%25%27&returnExtentOnly=true&outSR=4326&f=json"
+      },
+      {
+        "name": "Windrose",
+        "aka": "Windrose at Zanjero Trails; includes IronWing in Windrose",
+        "where": "640-acre Sunbelt Holdings community north of Camelback Rd off Perryville Rd; community park at Missouri Ave and 189th Ave (sample home 5025 N 190th Dr)",
+        "lat": 33.508742,
+        "lon": -112.468841,
+        "inside": true,
+        "source": "https://azbigmedia.com/lifestyle/windrose-master-planned-community-celebrates-opening/",
+        "coords_from": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=5025+N+190th+Dr%2C+Litchfield+Park%2C+AZ+85340&benchmark=Public_AR_Current&format=json",
+        "polygon_test": "inside service_area strip between Verrado Way and Perryville Rd (north of I-10); outside the citrus sub-polygon but grouped with Citrus per the brief",
+        "note": "Sample address from https://www.homesbymarco.com/subdivisions/windrose-at-zanjero-trails-in-litchfield-park-az. The AZ Big Media article prints the park street as \"I89th Avenue\" (typo for 189th)."
+      },
+      {
+        "name": "Canyon Views",
+        "where": "Between Verrado Way and Jackrabbit Trail near Bethany Home Rd (sample home 19858 W Rancho Dr, Litchfield Park 85340)",
+        "lat": 33.521418,
+        "lon": -112.486944,
+        "inside": true,
+        "source": "https://www.homesbymarco.com/subdivisions/canyon-views-in-litchfield-park-az",
+        "coords_from": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=19858+W+Rancho+Dr%2C+Litchfield+Park%2C+AZ+85340&benchmark=Public_AR_Current&format=json",
+        "polygon_test": "inside service_area strip between Verrado Way and Perryville Rd (north of I-10); outside the citrus sub-polygon but grouped with Citrus per the brief",
+        "extent_share_in_service_area": 1.0,
+        "note": "County plats CANYON VIEWS PHASE 1-4; whole extent inside the service area strip: https://gis.mcassessor.maricopa.gov/arcgis/rest/services/MaricopaDynamicQueryService/MapServer/2/query?where=SUBNAME+LIKE+%27CANYON+VIEWS+PHASE%25%27&returnExtentOnly=true&outSR=4326&f=json"
+      }
+    ],
+    "goodyear": [
+      {
+        "name": "PebbleCreek",
+        "where": "Robson 55+ resort community from about Bullard Ave west toward Cotton Ln, McDowell Rd to Indian School Rd; Eagle's Nest Activities Center at 3657 Clubhouse Dr (Robson Circle and Clubhouse Dr)",
+        "lat": 33.488793,
+        "lon": -112.390497,
+        "inside": true,
+        "source": "https://www.pebblecreekhoa.org/web/pebblecreek-homeowner-association/community-services",
+        "coords_from": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=3657+N+Clubhouse+Dr%2C+Goodyear%2C+AZ+85395&benchmark=Public_AR_Current&format=json",
+        "polygon_test": "inside goodyear sub-polygon",
+        "extent_share_in_service_area": 1.0,
+        "note": "City of Goodyear HOA map extent (fully inside goodyear): https://maps.goodyearaz.gov/server/rest/services/Catalis/Catalis_Home_Owners_Association_HOA/MapServer/0/query?where=HOA%3D%27PebbleCreek%27&returnExtentOnly=true&outSR=4326&f=json"
+      },
+      {
+        "name": "Palm Valley",
+        "where": "Large master plan north of I-10 centered on Litchfield Rd, with sections from Dysart Rd west toward Sarival Ave; Palm Valley Golf Club at 2211 N Litchfield Rd",
+        "lat": 33.468588,
+        "lon": -112.358038,
+        "inside": true,
+        "source": "https://maps.goodyearaz.gov/server/rest/services/Catalis/Catalis_Home_Owners_Association_HOA/MapServer/0/query?where=HOA+LIKE+%27Palm+Valley%25%27&returnExtentOnly=true&outSR=4326&f=json",
+        "coords_from": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=2211+N+Litchfield+Rd%2C+Goodyear%2C+AZ+85395&benchmark=Public_AR_Current&format=json",
+        "polygon_test": "inside goodyear sub-polygon",
+        "note": "City HOA layer lists Palm Valley 1, Palm Valley 2 & 3, Palm Valley 5, Palm Valley 8 North, Palm Valley 8 South, Palm Valley North, Vistas at Palm Valley, Villas at Palm Valley, The Pyramids at Palm Valley. Golf club address from https://www.homesbymarco.com/subdivisions/wigwam-creek-south-in-litchfield-park-az."
+      },
+      {
+        "name": "Sedella",
+        "where": "Perryville Rd to Citrus Rd, Indian School Rd to Camelback Rd",
+        "lat": 33.500939,
+        "lon": -112.452804,
+        "inside": true,
+        "source": "https://maps.goodyearaz.gov/server/rest/services/Catalis/Catalis_Home_Owners_Association_HOA/MapServer/0/query?where=HOA%3D%27Sedella%27&returnExtentOnly=true&outSR=4326&f=json",
+        "coords_from": "https://maps.goodyearaz.gov/server/rest/services/Catalis/Catalis_Home_Owners_Association_HOA/MapServer/0/query?where=HOA%3D%27Sedella%27&returnExtentOnly=true&outSR=4326&f=json",
+        "polygon_test": "inside goodyear sub-polygon",
+        "extent_share_in_service_area": 1.0,
+        "note": "Coordinates are the center of the city HOA map extent."
+      },
+      {
+        "name": "Rio Paseo",
+        "where": "South side of Thomas Rd between Bullard Ave and PebbleCreek Pkwy",
+        "lat": 33.476532,
+        "lon": -112.383203,
+        "inside": true,
+        "source": "https://maps.goodyearaz.gov/server/rest/services/Catalis/Catalis_Home_Owners_Association_HOA/MapServer/0/query?where=HOA%3D%27Rio+Paseo%27&returnExtentOnly=true&outSR=4326&f=json",
+        "coords_from": "https://maps.goodyearaz.gov/server/rest/services/Catalis/Catalis_Home_Owners_Association_HOA/MapServer/0/query?where=HOA%3D%27Rio+Paseo%27&returnExtentOnly=true&outSR=4326&f=json",
+        "polygon_test": "inside goodyear sub-polygon",
+        "extent_share_in_service_area": 1.0,
+        "note": "Coordinates are the center of the city HOA map extent. City layer also lists Cottages at Rio Paseo and Villages at Rio Paseo."
+      },
+      {
+        "name": "Abel Ranch",
+        "where": "Southeast corner of Citrus Rd and Camelback Rd",
+        "lat": 33.504536,
+        "lon": -112.43999,
+        "inside": true,
+        "source": "https://maps.goodyearaz.gov/server/rest/services/Catalis/Catalis_Home_Owners_Association_HOA/MapServer/0/query?where=HOA%3D%27Abel+Ranch%27&returnExtentOnly=true&outSR=4326&f=json",
+        "coords_from": "https://maps.goodyearaz.gov/server/rest/services/Catalis/Catalis_Home_Owners_Association_HOA/MapServer/0/query?where=HOA%3D%27Abel+Ranch%27&returnExtentOnly=true&outSR=4326&f=json",
+        "polygon_test": "inside goodyear sub-polygon",
+        "extent_share_in_service_area": 1.0,
+        "note": "Coordinates are the center of the city HOA map extent."
+      },
+      {
+        "name": "Sunrise at Wigwam",
+        "where": "Between Bullard Ave and Litchfield Rd, Osborn Rd to Indian School Rd, next to the Litchfield Park city line",
+        "lat": 33.489679,
+        "lon": -112.365552,
+        "inside": true,
+        "source": "https://maps.goodyearaz.gov/server/rest/services/Catalis/Catalis_Home_Owners_Association_HOA/MapServer/0/query?where=HOA%3D%27Sunrise+at+Wigwam%27&returnExtentOnly=true&outSR=4326&f=json",
+        "coords_from": "https://maps.goodyearaz.gov/server/rest/services/Catalis/Catalis_Home_Owners_Association_HOA/MapServer/0/query?where=HOA%3D%27Sunrise+at+Wigwam%27&returnExtentOnly=true&outSR=4326&f=json",
+        "polygon_test": "inside goodyear sub-polygon",
+        "extent_share_in_service_area": 1.0,
+        "note": "Coordinates are the center of the city HOA map extent."
+      },
+      {
+        "name": "Canada Village",
+        "where": "Small older neighborhood just north of I-10, west of Citrus Rd",
+        "lat": 33.463275,
+        "lon": -112.448134,
+        "inside": true,
+        "source": "https://maps.goodyearaz.gov/server/rest/services/Catalis/Catalis_Home_Owners_Association_HOA/MapServer/0/query?where=HOA+LIKE+%27%25Canada+Village%27&returnExtentOnly=true&outSR=4326&f=json",
+        "coords_from": "https://maps.goodyearaz.gov/server/rest/services/Catalis/Catalis_Home_Owners_Association_HOA/MapServer/0/query?where=HOA+LIKE+%27%25Canada+Village%27&returnExtentOnly=true&outSR=4326&f=json",
+        "polygon_test": "inside goodyear sub-polygon",
+        "extent_share_in_service_area": 1.0,
+        "note": "City HOA layer lists it as \"No HOA - Canada Village\". Sits right above I-10; coordinates are the extent center."
+      },
+      {
+        "name": "Palm Valley North",
+        "where": "North of Camelback Rd near Bullard Ave (part of the Palm Valley area)",
+        "lat": 33.511115,
+        "lon": -112.37494,
+        "inside": true,
+        "source": "https://maps.goodyearaz.gov/server/rest/services/Catalis/Catalis_Home_Owners_Association_HOA/MapServer/0/query?where=HOA%3D%27Palm+Valley+North%27&returnExtentOnly=true&outSR=4326&f=json",
+        "coords_from": "https://maps.goodyearaz.gov/server/rest/services/Catalis/Catalis_Home_Owners_Association_HOA/MapServer/0/query?where=HOA%3D%27Palm+Valley+North%27&returnExtentOnly=true&outSR=4326&f=json",
+        "polygon_test": "inside goodyear sub-polygon",
+        "extent_share_in_service_area": 1.0,
+        "note": "Coordinates are the center of the city HOA map extent; county plat COVE AT PALM VALLEY NORTH."
+      }
+    ],
+    "litchfield": [
+      {
+        "name": "Litchfield Greens",
+        "where": "West of Litchfield Rd, south of Camelback Rd (sample home 4531 N Clear Creek Dr)",
+        "lat": 33.50183,
+        "lon": -112.363103,
+        "inside": true,
+        "source": "https://www.homesbymarco.com/subdivisions/litchfield-greens-in-litchfield-park-az",
+        "coords_from": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=4531+N+Clear+Creek+Dr%2C+Litchfield+Park%2C+AZ+85340&benchmark=Public_AR_Current&format=json",
+        "polygon_test": "inside litchfield sub-polygon",
+        "extent_share_in_service_area": 1.0,
+        "note": "County plat LITCHFIELD GREENS LOT 1-282; extent https://gis.mcassessor.maricopa.gov/arcgis/rest/services/MaricopaDynamicQueryService/MapServer/2/query?where=SUBNAME+LIKE+%27LITCHFIELD+GREENS%25%27&returnExtentOnly=true&outSR=4326&f=json"
+      },
+      {
+        "name": "Wigwam Creek South",
+        "where": "East of Dysart Rd between Indian School Rd and Camelback Rd (sample home 13038 W Segovia Dr)",
+        "lat": 33.502079,
+        "lon": -112.339374,
+        "inside": true,
+        "source": "https://www.homesbymarco.com/subdivisions/wigwam-creek-south-in-litchfield-park-az",
+        "coords_from": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=13038+W+Segovia+Dr%2C+Litchfield+Park%2C+AZ+85340&benchmark=Public_AR_Current&format=json",
+        "polygon_test": "inside litchfield sub-polygon",
+        "extent_share_in_service_area": 1.0,
+        "note": "County plats WIGWAM CREEK SOUTH PARCELS 1-12; extent https://gis.mcassessor.maricopa.gov/arcgis/rest/services/MaricopaDynamicQueryService/MapServer/2/query?where=SUBNAME+LIKE+%27WIGWAM+CREEK+SOUTH%25%27&returnExtentOnly=true&outSR=4326&f=json"
+      },
+      {
+        "name": "The Village at Litchfield Park",
+        "where": "West side of the city around Bullard Ave, Indian School Rd to Camelback Rd",
+        "lat": 33.500773,
+        "lon": -112.370976,
+        "inside": true,
+        "source": "https://www.homesbymarco.com/neighborhoods/the-village-at-litchfield-park-in-litchfield-park-az/subdivisions",
+        "coords_from": "https://gis.mcassessor.maricopa.gov/arcgis/rest/services/MaricopaDynamicQueryService/MapServer/2/query?where=SUBNAME+LIKE+%27VILLAGE+AT+LITCHFIEL%25%27&returnExtentOnly=true&outSR=4326&f=json",
+        "polygon_test": "inside litchfield sub-polygon",
+        "extent_share_in_service_area": 1.0,
+        "note": "County plats VILLAGE AT LITCHFIELD PARK PHASE 1 and 2; includes Litchfield Reserve and The Estates. About 90% of the extent box is inside the litchfield polygon; coordinates are the extent center."
+      },
+      {
+        "name": "Cachet at the Wigwam",
+        "where": "Just north of Indian School Rd, west of Litchfield Rd",
+        "lat": 33.497207,
+        "lon": -112.3662,
+        "inside": true,
+        "source": "https://www.homesbymarco.com/cities/litchfield-park-az/subdivisions",
+        "coords_from": "https://gis.mcassessor.maricopa.gov/arcgis/rest/services/MaricopaDynamicQueryService/MapServer/2/query?where=SUBNAME+LIKE+%27CACHET+AT+THE+WIGWAM%25%27&returnExtentOnly=true&outSR=4326&f=json",
+        "polygon_test": "inside litchfield sub-polygon",
+        "extent_share_in_service_area": 1.0,
+        "note": "County plats CACHET AT THE WIGWAM AMD / CONDOMINIUM; coordinates are the extent center."
+      },
+      {
+        "name": "Renaissance Villas on the Park",
+        "where": "Condos just north of Indian School Rd, west of Litchfield Rd",
+        "lat": 33.494706,
+        "lon": -112.366875,
+        "inside": true,
+        "source": "https://www.homesbymarco.com/cities/litchfield-park-az/subdivisions",
+        "coords_from": "https://gis.mcassessor.maricopa.gov/arcgis/rest/services/MaricopaDynamicQueryService/MapServer/2/query?where=SUBNAME+LIKE+%27%25VILLAS+ON+THE+PARK%25%27&returnExtentOnly=true&outSR=4326&f=json",
+        "polygon_test": "inside litchfield sub-polygon",
+        "extent_share_in_service_area": 1.0,
+        "note": "Coordinates are the county plat extent center."
+      },
+      {
+        "name": "Litchfield Park Villas",
+        "where": "Condos just west of Litchfield Rd between Osborn Rd and Indian School Rd",
+        "lat": 33.489903,
+        "lon": -112.358891,
+        "inside": true,
+        "source": "https://www.homesbymarco.com/cities/litchfield-park-az/subdivisions",
+        "coords_from": "https://gis.mcassessor.maricopa.gov/arcgis/rest/services/MaricopaDynamicQueryService/MapServer/2/query?where=SUBNAME+LIKE+%27LITCHFIELD+PARK+VILLAS%25%27&returnExtentOnly=true&outSR=4326&f=json",
+        "polygon_test": "inside litchfield sub-polygon",
+        "extent_share_in_service_area": 1.0,
+        "note": "Coordinates are the county plat extent center."
+      },
+      {
+        "name": "Tierra Verde Townhouses",
+        "where": "At Dysart Rd, just north of Indian School Rd",
+        "lat": 33.499088,
+        "lon": -112.341771,
+        "inside": true,
+        "source": "https://www.homesbymarco.com/cities/litchfield-park-az/subdivisions",
+        "coords_from": "https://gis.mcassessor.maricopa.gov/arcgis/rest/services/MaricopaDynamicQueryService/MapServer/2/query?where=SUBNAME+LIKE+%27TIERRA+VERDE+TOWNHOUSES%25%27&returnExtentOnly=true&outSR=4326&f=json",
+        "polygon_test": "inside litchfield sub-polygon",
+        "extent_share_in_service_area": 1.0,
+        "note": "County plat TIERRA VERDE TOWNHOUSES NO. 1; coordinates are the extent center."
+      },
+      {
+        "name": "Sunset Terrace",
+        "where": "North of Camelback Rd, just east of Litchfield Rd",
+        "lat": 33.512581,
+        "lon": -112.355971,
+        "inside": true,
+        "source": "https://www.homesbymarco.com/cities/litchfield-park-az/subdivisions",
+        "coords_from": "https://gis.mcassessor.maricopa.gov/arcgis/rest/services/MaricopaDynamicQueryService/MapServer/2/query?where=SUBNAME+LIKE+%27LA+LOMA+RESIDENTIAL%25%27&returnExtentOnly=true&outSR=4326&f=json",
+        "polygon_test": "inside litchfield sub-polygon",
+        "extent_share_in_service_area": 1.0,
+        "note": "County plat name is \"LA LOMA RESIDENTIAL AKA SUNSET TERRACE\"; coordinates are the extent center."
+      }
+    ]
+  },
+  "borderline": [
+    {
+      "name": "Village District (Verrado)",
+      "status": "borderline: straddles the verrado sub-polygon edge; fully inside the service area",
+      "where": "Verrado's east side along the Indian School Rd corridor, mostly EAST of Verrado Way (Litchfield Park 85340 addresses such as 20090 W Montecito Ave)",
+      "lat": 33.499706,
+      "lon": -112.496859,
+      "point_in_parts": [
+        "verrado"
+      ],
+      "point_in_service_area": true,
+      "source": "https://www.verrado.com/visit-verrado/",
+      "coords_from": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=4459+N+203rd+Ave%2C+Buckeye%2C+AZ+85396&benchmark=Public_AR_Current&format=json",
+      "extent_share_in_service_area": 1.0,
+      "extent_share_by_part": {
+        "verrado": 0.16
+      },
+      "suggested_area": "verrado (name) / service-area strip (location)",
+      "note": "County plats are named VERRADO EAST DISTRICT RESIDENTIAL; only about 16% of that extent is inside the verrado sub-polygon. 4459 N 203rd Ave is inside verrado by about 100 m; 20090 W Montecito Ave (33.498597,-112.491085) is outside verrado but inside the service area. Listing addresses: https://www.homesbymarco.com/subdivisions/village-district-at-verrado-in-buckeye-az"
+    },
+    {
+      "name": "Allen Ranches",
+      "status": "borderline: inside the service area but outside all four named sub-polygons",
+      "where": "East side of Citrus Rd between Camelback Rd and Bethany Home Rd (Litchfield Park 85340)",
+      "lat": 33.515453,
+      "lon": -112.440773,
+      "point_in_parts": [],
+      "point_in_service_area": true,
+      "source": "https://www.homesbymarco.com/cities/litchfield-park-az/subdivisions",
+      "coords_from": "https://gis.mcassessor.maricopa.gov/arcgis/rest/services/MaricopaDynamicQueryService/MapServer/2/query?where=SUBNAME+LIKE+%27ALLEN+RANCHES%25%27&returnExtentOnly=true&outSR=4326&f=json",
+      "extent_share_in_service_area": 1.0,
+      "extent_share_by_part": {
+        "goodyear": 0.01
+      },
+      "suggested_area": "citrus (adjacent to Russell Ranch across Citrus Rd)",
+      "note": "Sits in the unnamed service-area strip from Citrus Rd east to Bullard Ave between Camelback and Bethany Home (otherwise mostly Loop 303 industrial land)."
+    },
+    {
+      "name": "Wigwam Creek North",
+      "status": "borderline: southern part inside litchfield; northern phases outside the service area",
+      "where": "North of Camelback Rd near El Mirage Rd, running up toward Bethany Home Rd (sample home 12346 W Orange Dr is inside)",
+      "lat": 33.511194,
+      "lon": -112.325103,
+      "point_in_parts": [
+        "litchfield"
+      ],
+      "point_in_service_area": true,
+      "source": "https://www.homesbymarco.com/subdivisions/wigwam-creek-north-in-litchfield-park-az",
+      "coords_from": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=12346+W+Orange+Dr%2C+Litchfield+Park%2C+AZ+85340&benchmark=Public_AR_Current&format=json",
+      "extent_share_in_service_area": 0.37,
+      "extent_share_by_part": {
+        "litchfield": 0.37
+      },
+      "suggested_area": "litchfield (only the part south of about lat 33.515)",
+      "note": "Sample point is about 90 m inside the edge. Plat extent: https://gis.mcassessor.maricopa.gov/arcgis/rest/services/MaricopaDynamicQueryService/MapServer/2/query?where=SUBNAME+LIKE+%27WIGWAM+CREEK+NORTH%25%27&returnExtentOnly=true&outSR=4326&f=json"
+    },
+    {
+      "name": "Zanjero Trails (Surprise 85388 section)",
+      "status": "out: north of the service area",
+      "where": "Northern Zanjero Trails phases around Peoria Ave, Surprise 85388 (e.g. 10812 N 188th Dr)",
+      "lat": 33.585237,
+      "lon": -112.464158,
+      "point_in_parts": [],
+      "point_in_service_area": false,
+      "source": "https://www.homesbymarco.com/subdivisions/zanjero-trails-in-surprise-az",
+      "coords_from": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=10812+N+188th+Dr%2C+Surprise%2C+AZ+85388&benchmark=Public_AR_Current&format=json",
+      "note": "Do not imply service here on the Citrus page; only the Litchfield Park 85340 section (Windrose area) is covered."
+    },
+    {
+      "name": "Dreaming Summit",
+      "status": "out: about 95% outside the service area",
+      "where": "North of Camelback Rd between Litchfield Rd and Dysart Rd, toward Luke AFB (e.g. 5513 N 131st Dr)",
+      "lat": 33.51595,
+      "lon": -112.342014,
+      "point_in_parts": [],
+      "point_in_service_area": false,
+      "source": "https://www.homesbymarco.com/subdivisions/dreaming-summit-ii-in-litchfield-park-az",
+      "coords_from": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=5513+N+131st+Dr%2C+Litchfield+Park%2C+AZ+85340&benchmark=Public_AR_Current&format=json",
+      "extent_share_in_service_area": 0.05,
+      "extent_share_by_part": {
+        "litchfield": 0.05
+      },
+      "note": "Plat extent: https://gis.mcassessor.maricopa.gov/arcgis/rest/services/MaricopaDynamicQueryService/MapServer/2/query?where=SUBNAME+LIKE+%27DREAMING+SUMMIT%25%27&returnExtentOnly=true&outSR=4326&f=json"
+    },
+    {
+      "name": "Litchfield Vista Views",
+      "status": "out: fully outside the service area",
+      "where": "North of Camelback Rd between Dysart Rd and El Mirage Rd",
+      "lat": 33.516869,
+      "lon": -112.336692,
+      "point_in_parts": [],
+      "point_in_service_area": false,
+      "source": "https://www.homesbymarco.com/cities/litchfield-park-az/subdivisions",
+      "coords_from": "https://gis.mcassessor.maricopa.gov/arcgis/rest/services/MaricopaDynamicQueryService/MapServer/2/query?where=SUBNAME+LIKE+%27LITCHFIELD+VISTA+VIEWS%25%27&returnExtentOnly=true&outSR=4326&f=json",
+      "extent_share_in_service_area": 0.0,
+      "extent_share_by_part": {}
+    },
+    {
+      "name": "Elianto",
+      "status": "out: far west Buckeye",
+      "where": "Buckeye 85396 around 292nd to 297th Ave (e.g. 3712 N 292nd Dr), about 10 miles west of the polygon",
+      "lat": 33.488879,
+      "lon": -112.680914,
+      "point_in_parts": [],
+      "point_in_service_area": false,
+      "source": "https://www.remax.com/neighborhoods/elianto-real-estate-guide-g10_9mzys3c9",
+      "coords_from": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=3712+N+292nd+Dr%2C+Buckeye%2C+AZ+85396&benchmark=Public_AR_Current&format=json"
+    },
+    {
+      "name": "Canyon Trails",
+      "status": "out: south of I-10 (excluded)",
+      "where": "Goodyear south of I-10 between Citrus Rd and Estrella Pkwy area",
+      "lat": 33.441143,
+      "lon": -112.420328,
+      "point_in_parts": [],
+      "point_in_service_area": false,
+      "source": "https://maps.goodyearaz.gov/server/rest/services/Catalis/Catalis_Home_Owners_Association_HOA/MapServer/0/query?where=HOA+LIKE+%27Canyon+Trails%25%27&returnExtentOnly=true&outSR=4326&f=json",
+      "coords_from": "https://maps.goodyearaz.gov/server/rest/services/Catalis/Catalis_Home_Owners_Association_HOA/MapServer/0/query?where=HOA+LIKE+%27Canyon+Trails%25%27&returnExtentOnly=true&outSR=4326&f=json",
+      "extent_share_in_service_area": 0.0,
+      "extent_share_by_part": {}
+    },
+    {
+      "name": "Estrella (Estrella Mountain Ranch)",
+      "status": "out: far south of I-10 (excluded)",
+      "where": "Goodyear, south of the Gila River",
+      "lat": 33.337843,
+      "lon": -112.426831,
+      "point_in_parts": [],
+      "point_in_service_area": false,
+      "source": "https://maps.goodyearaz.gov/server/rest/services/Catalis/Catalis_Home_Owners_Association_HOA/MapServer/0/query?where=HOA%3D%27Estrella+Mountain+Ranch%27&returnExtentOnly=true&outSR=4326&f=json",
+      "coords_from": "https://maps.goodyearaz.gov/server/rest/services/Catalis/Catalis_Home_Owners_Association_HOA/MapServer/0/query?where=HOA%3D%27Estrella+Mountain+Ranch%27&returnExtentOnly=true&outSR=4326&f=json",
+      "extent_share_in_service_area": 0.0,
+      "extent_share_by_part": {}
+    },
+    {
+      "name": "Citrus Park (Goodyear HOA, south of I-10)",
+      "status": "out: name collision, not the Citrus Park census place",
+      "where": "Goodyear \"Citrus Park Homeowners Association\" near Citrus Rd south of I-10 (builder communities such as Valencia at Citrus Park and Trovita at Citrus Park)",
+      "lat": 33.417391,
+      "lon": -112.448578,
+      "point_in_parts": [],
+      "point_in_service_area": false,
+      "source": "https://maps.goodyearaz.gov/server/rest/services/Catalis/Catalis_Home_Owners_Association_HOA/MapServer/0/query?where=HOA+LIKE+%27Citrus+Park%25%27&returnExtentOnly=true&outSR=4326&f=json",
+      "coords_from": "https://maps.goodyearaz.gov/server/rest/services/Catalis/Catalis_Home_Owners_Association_HOA/MapServer/0/query?where=HOA+LIKE+%27Citrus+Park%25%27&returnExtentOnly=true&outSR=4326&f=json",
+      "extent_share_in_service_area": 0.0,
+      "extent_share_by_part": {},
+      "note": "Avoid confusing this with the Citrus Park census place north of Camelback in Waddell. Builder names from https://www.newhomesource.com/community/az/goodyear/valencia-at-citrus-park-by-risewell-homes/216332"
+    }
+  ],
+  "chambers": [
+    {
+      "name": "Buckeye Valley Chamber of Commerce",
+      "covers": "Buckeye, including Verrado (508 E. Monroe Ave., Buckeye, AZ 85326; 623-386-2727)",
+      "join_url": "https://www.buckeyevalleychamber.org/membership-levels",
+      "price": null,
+      "price_note": "Levels are Essential, Premier, Corporate and Chairman's Circle (plus nonprofit tiers). Dues appear only inside an image matrix that could not be read; no price in page text. Online application: https://www.chamberorganizer.com/members/newmem/new-mem-reg.php?org_id=BVCC",
+      "source": "https://buckeye-valley-chamber.pages.dev/membership/join/"
+    },
+    {
+      "name": "Southwest Valley Chamber of Commerce",
+      "covers": "Avondale, Goodyear, Litchfield Park and Tolleson (289 N. Litchfield Rd, Goodyear, AZ 85338)",
+      "join_url": "https://www.southwestvalleychamber.org/membership-levels",
+      "price": null,
+      "price_note": "No member dues published online; site says to call 623-932-2260. Member directory: https://www.southwestvalleychamber.org/directory",
+      "source": "https://southwestvalleychamber.org/"
+    },
+    {
+      "name": "Surprise Regional Chamber of Commerce",
+      "covers": "NW Valley including El Mirage, Sun City, Sun City Grand, Sun City West, Surprise, Waddell and Wittmann",
+      "join_url": "https://www.surpriseregionalchamber.com/faq-about-membership.html",
+      "price": "Basic membership package $500; Community Stakeholders $15,000; special pricing for micro and home-based businesses with no employees",
+      "price_note": "Only chamber found that names Waddell. Citrus Park itself is unincorporated; its Litchfield Park 85340 addresses also fall in the Southwest Valley Chamber area.",
+      "source": "https://www.surpriseregionalchamber.com/faq-about-membership.html"
+    }
+  ],
+  "bbb": {
+    "name": "BBB Mountain West & Pacific Southwest",
+    "accreditation_url": "https://www.bbb.org/get-accredited",
+    "apply_urls": [
+      "https://www.bbb.org/apply",
+      "https://www.bbb.org/local/1126/apply"
+    ],
+    "office": "1010 E. Missouri Avenue, Phoenix, AZ 85014-4585 (Phoenix hub)",
+    "fee_note": "No dollar amount published. BBB.org says only \"Accredited businesses pay an annual dues investment.\" The interest form asks whether the business has operated more than six months, then the local BBB contacts you. Formed in 2026 when BBB Mountain West and BBB Pacific Southwest merged (AZ, CA, NV, UT).",
+    "source": "https://www.bbb.org/local-bbb/phoenix",
+    "merger_source": "https://inbusinessphx.com/?p=192035"
+  },
+  "other_listings": [
+    {
+      "name": "City of Goodyear business license code and exemptions",
+      "url": "https://goodyearaz.gov/business/business-license",
+      "why": "Goodyear license code (8-7-5 exemptions). Page does not say whether an outside-based service company visiting Goodyear homes must register; confirm with the city."
+    },
+    {
+      "name": "City of Goodyear business registration FAQ",
+      "url": "https://goodyearaz.gov/government/departments/finance/business-registration/frequently-asked-questions",
+      "why": "Annual business registration permit is $75 (new or renewal), renew by Dec 31; mailing address 1900 N Civic Square."
+    },
+    {
+      "name": "City of Goodyear home-based business rules",
+      "url": "https://www.goodyearaz.gov/business/business-services/business-registration/home-based-business",
+      "why": "All home businesses in Goodyear must register and renew yearly."
+    },
+    {
+      "name": "City of Buckeye business licenses (covers Verrado)",
+      "url": "https://buckeyeaz.gov/business/business-licenses-267",
+      "why": "Most businesses operating in incorporated Buckeye need a city license. Contact licensing@buckeyeaz.gov, 623-349-6061."
+    },
+    {
+      "name": "City of Buckeye business license fee schedule",
+      "url": "https://www.buckeyeaz.gov/business/business-licenses/business-license-fee-schedule",
+      "why": "Professional & Personal Services: $25 application + $40/yr. There is also a Solid Waste Hauler class ($40 + $410/yr); ask the city which one applies to dog waste pickup."
+    },
+    {
+      "name": "City of Litchfield Park business licenses",
+      "url": "https://www.litchfieldpark.gov/1001/Business-Licenses",
+      "why": "Required for business conducted within city limits: $75 license + $10 one-time processing ($85 new, $75 renewal). Apply at https://litchfieldparkaz.govbuilt.com/"
+    },
+    {
+      "name": "Maricopa County licenses and permits",
+      "url": "https://www.maricopa.gov/694/Licenses-Permits",
+      "why": "County states it does not issue or require a general business license for unincorporated areas (Citrus Park/Waddell, Russell Ranch, Windrose, Zanjero Trails, Canyon Views, Allen Ranches)."
+    },
+    {
+      "name": "AZTaxes (Arizona Dept. of Revenue TPT license portal)",
+      "url": "https://www.aztaxes.gov",
+      "why": "Litchfield Park points businesses here for a TPT license \"if applicable\"; check whether pet waste service is taxable before registering."
+    },
+    {
+      "name": "BBB Arizona \"Pet Waste Removal\" category",
+      "url": "https://www.bbb.org/us/az/category/pet-waste-removal",
+      "why": "Industry category listing (63 AZ results); competitors like Arrowhead Pooper Scoopers and Plunto list Goodyear, Litchfield Park and Waddell as service areas."
+    },
+    {
+      "name": "Southwest Valley Chamber member directory",
+      "url": "https://www.southwestvalleychamber.org/directory",
+      "why": "Local citation and member listing for Goodyear and Litchfield Park."
+    },
+    {
+      "name": "Buckeye Valley Chamber member directory",
+      "url": "https://www.buckeyevalleychamber.org/directory",
+      "why": "Local citation and member listing for Buckeye/Verrado."
+    },
+    {
+      "name": "City of Goodyear HOA map service",
+      "url": "https://maps.goodyearaz.gov/server/rest/services/Catalis/Catalis_Home_Owners_Association_HOA/MapServer",
+      "why": "Official list of Goodyear HOAs with their management companies; handy for HOA common-area outreach and neighborhood page names."
+    }
+  ]
+}

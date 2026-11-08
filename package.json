@@ -1,0 +1,12 @@
+{
+  "name": "arizonapetwaste",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build/build.mjs",
+    "check": "node build/check.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0"
+  }
+}
