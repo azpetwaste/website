@@ -581,6 +581,7 @@ def _footer(pre):
             '        <a href="Pricing.dc.html" class="flink">Pricing</a>\n'
             '        <a href="Commercial.dc.html" class="flink">Commercial</a>\n'
             '        <a href="Faq.dc.html" class="flink">FAQ</a>\n'
+            '        <a href="Blog.dc.html" class="flink">Blog</a>\n'
             '        <a href="Booking.dc.html" class="flink">Book now</a>\n'
             '      </div>\n'
             '    </nav>\n'
@@ -598,8 +599,8 @@ def _footer(pre):
 
 HEADER_MAIN = _header('Main.dc.html', [('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Commercial.dc.html', 'Commercial'), ('Faq.dc.html', 'FAQ')])
 HEADER_CITY = _header('Main.dc.html', [('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Commercial.dc.html', 'Commercial'), ('Faq.dc.html', 'FAQ')])
-MENU_MAIN = _menu([('Main.dc.html', 'Home'), ('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Commercial.dc.html', 'Commercial'), ('Faq.dc.html', 'FAQ'), ('CityBuckeye.dc.html', 'Buckeye'), ('CityGoodyear.dc.html', 'Goodyear'), ('CityLitchfieldPark.dc.html', 'Litchfield Park'), ('CityCitrusPark.dc.html', 'Citrus Park'), ('CityVerrado.dc.html', 'Verrado')])
-MENU_CITY = _menu([('Main.dc.html', 'Home'), ('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Commercial.dc.html', 'Commercial'), ('Faq.dc.html', 'FAQ'), ('CityBuckeye.dc.html', 'Buckeye'), ('CityGoodyear.dc.html', 'Goodyear'), ('CityLitchfieldPark.dc.html', 'Litchfield Park'), ('CityCitrusPark.dc.html', 'Citrus Park'), ('CityVerrado.dc.html', 'Verrado')])
+MENU_MAIN = _menu([('Main.dc.html', 'Home'), ('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Commercial.dc.html', 'Commercial'), ('Faq.dc.html', 'FAQ'), ('Blog.dc.html', 'Blog'), ('CityBuckeye.dc.html', 'Buckeye'), ('CityGoodyear.dc.html', 'Goodyear'), ('CityLitchfieldPark.dc.html', 'Litchfield Park'), ('CityCitrusPark.dc.html', 'Citrus Park'), ('CityVerrado.dc.html', 'Verrado')])
+MENU_CITY = _menu([('Main.dc.html', 'Home'), ('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Commercial.dc.html', 'Commercial'), ('Faq.dc.html', 'FAQ'), ('Blog.dc.html', 'Blog'), ('CityBuckeye.dc.html', 'Buckeye'), ('CityGoodyear.dc.html', 'Goodyear'), ('CityLitchfieldPark.dc.html', 'Litchfield Park'), ('CityCitrusPark.dc.html', 'Citrus Park'), ('CityVerrado.dc.html', 'Verrado')])
 FOOTER_MAIN = _footer('')
 FOOTER_CITY = _footer('Main.dc.html')
 
