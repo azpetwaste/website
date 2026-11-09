@@ -278,6 +278,12 @@ async function checkout(request, env, ctx) {
   const row = rows && rows[0];
   if (row && row.stripe_subscription_id && ['trialing', 'active', 'past_due', 'paused'].includes(row.status)) return ok({ already: true });
 
+  // One free month per home. A home or phone that already had a plan has to reach us to start again.
+  const had = row && row.stripe_subscription_id ? [row] : await db(env, 'GET', 'customers?id=neq.' + u.id + '&stripe_subscription_id=not.is.null&or=(phone.eq.' + phone + ',zip.eq.' + zip + ')&select=phone,address,zip&limit=1000');
+  if (had.some((x) => x === row || x.phone === phone || (x.zip === zip && sameHome(x.address, address)))) {
+    return fail(409, 'This home has had a free month with us before. Call or text 623.309.6104 and we will start you again today.', 'had_free_month');
+  }
+
   const cust = {
     email: u.email, name, phone: '+1' + phone,
     address: { line1: address, city: z.city, state: 'AZ', postal_code: zip, country: 'US' },
@@ -325,6 +331,10 @@ async function checkout(request, env, ctx) {
   });
   return ok({ clientSecret: session.client_secret });
 }
+
+const HOME_WORDS = { street: 'st', avenue: 'ave', road: 'rd', drive: 'dr', lane: 'ln', court: 'ct', place: 'pl', boulevard: 'blvd', circle: 'cir', trail: 'trl', parkway: 'pkwy', north: 'n', south: 's', east: 'e', west: 'w' };
+const homeKey = (a) => String(a || '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter(Boolean).map((w) => HOME_WORDS[w] || w).join('');
+const sameHome = (a, b) => !!homeKey(a) && homeKey(a) === homeKey(b);
 
 async function verifyStripe(payload, header, secret) {
   if (!secret || !header) return false;
@@ -467,6 +477,7 @@ async function waitlist(request, env, ctx) {
   if (address.length < 5) return fail(400, 'Type your street address.');
   if (email && !emailOk(email)) return fail(400, 'Type your email, like you@email.com.');
   const texts = !!b.texts;
+  if (await tooMany(env, 'waitlist')) return fail(429, 'We are getting a lot of sign ups right now. Text 623.309.6104 with your name, address and ZIP, and we will add you.');
   const stored = live(env) ? await db(env, 'POST', 'waitlist', [{ email: email || null, zip, name, phone, address, texts_ok: texts, ip: request.headers.get('cf-connecting-ip') || '' }], 'return=minimal').then(() => true, () => false) : false;
   if (sbLive(env)) await addLead(env, { kind: 'waitlist', name, email: email || null, phone, address, zip, details: texts ? 'Text when we start there' : null });
   const sent = await mail(env, owner(env), 'Waitlist: ' + name + ', ZIP ' + zip, [
@@ -492,6 +503,7 @@ async function signupRequest(request, env, ctx) {
   if (!(dogs >= 1 && dogs <= 6)) return fail(400, 'Please pick 1 to 6 dogs.');
   const name = clean(b.name, 120), phone = digits(b.phone), address = clean(b.address, 200), email = clean(b.email, 200).toLowerCase();
   if (name.length < 2 || phone.length !== 10 || address.length < 5 || !emailOk(email)) return fail(400, 'Please fill in your name, mobile number, email and street address.');
+  if (await tooMany(env, 'signup_request')) return fail(429, 'We are getting a lot of sign ups right now. Call or text 623.309.6104 and we will book you today.');
   const total = monthly(b.plan, dogs);
   const bill = firstCharge(env, total);
   const sent = await mail(env, owner(env), 'New sign up request: ' + name + ', ' + z.name, [
@@ -507,6 +519,12 @@ async function signupRequest(request, env, ctx) {
     details: PLANS[b.plan].name + ', ' + dogs + (dogs === 1 ? ' dog, ' : ' dogs, ') + money(total) + ' a month. Visit texts: ' + (b.textsVisit ? 'yes' : 'no') }) : false;
   if (!sent && !kept) return fail(503, 'Online sign up opens soon. Call or text 623.309.6104 and we will book you today.');
   return ok({ ok: true });
+}
+
+// A cap on the open forms, so a script cannot flood the office: 40 leads of one kind an hour.
+async function tooMany(env, kind) {
+  if (!sbLive(env)) return false;
+  try { return (await db(env, 'GET', 'leads?kind=eq.' + kind + '&created_at=gte.' + encodeURIComponent(new Date(Date.now() - 3600e3).toISOString()) + '&select=id&limit=40')).length >= 40; } catch (e) { return false; }
 }
 
 const ME_FIELDS = 'name,email,phone,address,zip,area,plan,dogs,first_visit,status,gate_code,gate_notes,dog_names,problem_spots,skip_spray,texts_visit,texts_deals';
@@ -1297,8 +1315,14 @@ function nextVisits(c, from, n) {
   }
   return out;
 }
-function planView(c) {
+// Pausing opens after the 60 day minimum, so a pause cannot be used to sit out the minimum and keep the free month.
+async function minEndOf(env, c) {
+  if (!c.stripe_subscription_id) return 0;
+  try { return parseInt(((await stripe(env, 'GET', 'subscriptions/' + c.stripe_subscription_id)).metadata || {}).min_end || '0', 10) || 0; } catch (e) { return 0; }
+}
+function planView(c, minEnd) {
   const today = azToday();
+  const early = !!minEnd && Date.now() / 1000 < minEnd;
   const paused = c.status === 'paused';
   const days = PAYING.includes(c.status) ? nextVisits(c, addDays(today, 1), 3) : [];
   const used = c.skips.filter((d) => d.slice(0, 4) === today.slice(0, 4)).length;
@@ -1307,7 +1331,8 @@ function planView(c) {
     next: days.map((d) => ({ day: d, skipped: c.skips.includes(d), canSkip: d >= addDays(today, 2) })),
     skipReady: c.skipReady, skipsLeft: Math.max(0, SKIPS_A_YEAR - used),
     paused, pauseUntil: paused && c.pause_until ? addDays(c.pause_until, 1) : null,
-    canPause: ['trialing', 'active'].includes(c.status) && !!c.stripe_subscription_id, pauseMax: addDays(today, PAUSE_MAX_DAYS)
+    canPause: !early && ['trialing', 'active'].includes(c.status) && !!c.stripe_subscription_id, pauseMax: addDays(today, PAUSE_MAX_DAYS),
+    pauseAfter: early ? dateLabel(new Date(minEnd * 1000)) : null
   };
 }
 async function me2(request, env) {
@@ -1320,7 +1345,7 @@ async function me2(request, env) {
 }
 async function mePlan(request, env) {
   const x = await me2(request, env);
-  return x.err || ok({ plan: planView(x.c) });
+  return x.err || ok({ plan: planView(x.c, await minEndOf(env, x.c)) });
 }
 async function meInvoices(request, env) {
   const x = await me2(request, env);
@@ -1359,6 +1384,8 @@ async function mePause(request, env, ctx) {
   const c = x.c, b = (await body(request)) || {};
   const until = String(b.until || ''), today = azToday();
   if (!['trialing', 'active'].includes(c.status) || !c.stripe_subscription_id) return fail(400, 'We could not pause this plan. ' + CALL_US);
+  const minEnd = await minEndOf(env, c);
+  if (minEnd && Date.now() / 1000 < minEnd) return fail(400, 'You can pause after ' + dateLabel(new Date(minEnd * 1000)) + '. Need a break before then? Skip a visit, or text 623.309.6104.');
   if (!isDay(until) || until <= today) return fail(400, 'Pick the day you want us to start again.');
   if (until > addDays(today, PAUSE_MAX_DAYS)) return fail(400, 'You can pause for up to 120 days.');
   await stripe(env, 'POST', 'subscriptions/' + c.stripe_subscription_id, { pause_collection: { behavior: 'void', resumes_at: Math.floor(noonAZ(until).getTime() / 1000) } });

@@ -601,7 +601,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - Missed pile: free return within 24 hours.
 - Waste: bagged and put in your trash can.
 - Tools: boots and tools cleaned after every yard.
-- Contract: none. Pause up to 120 days, 4 free skips a year, cancel in My Yard.
+- Contract: none. 4 free skips a year. After the first 60 days, pause up to 120 days. Cancel in My Yard. One free month per home.
 - My Yard: the customer account at ${ORIGIN}/account/. Sign in with an email code, no password. See next visits, skip a visit, pause, see bills and gate photos, change the card, or cancel. No phone call needed.
 - Payment: secure checkout by Stripe. Arizona Pet Waste never sees or stores card numbers.
 
@@ -634,6 +634,8 @@ fs.writeFileSync(path.join(DIST, '_headers'), `/*
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(self), microphone=(), geolocation=(self), payment=(self "https://js.stripe.com")
   Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'none'; base-uri 'self'; object-src 'none'
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 /book/*

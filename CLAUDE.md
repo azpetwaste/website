@@ -31,7 +31,7 @@ DATABASE_URL=postgres://... node build/desk.test.mjs   # needs a local Postgres 
 
 ## Still open (needs Joe)
 State on Nov 9, 2026. Supabase keys, Google Maps keys and Stripe test mode keys are in Cloudflare. Supabase sign in email sends through Resend.
-1. Test mode sign up, run by a person: `/book/` with a real inbox for the 6 digit code and Stripe test card 4242 4242 4242 4242. Then check the customer shows in `/crew` with status Free month.
+1. Test mode sign up, run by a person: `/book/?test=1` (while Stripe test keys are in, the public gets the "we call you" sign up and leads land in the office; `?test=1` turns real checkout on for that browser tab) with a real inbox for the 6 digit code and Stripe test card 4242 4242 4242 4242. Then check the customer shows in `/crew` with status Free month.
 2. Mail from the site: `RESEND_API_KEY`, `MAIL_FROM`, `NOTIFY_EMAIL` in Cloudflare Pages. Until then no sign up notice reaches the office inbox.
 3. Stripe live mode keys and live webhook, after the phone test passes.
 4. Twilio: EIN, brand and campaign registration, then wire sending into `queueText`.

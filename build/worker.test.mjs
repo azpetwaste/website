@@ -14,6 +14,8 @@ let stored = null, session = null;
 const mails = [];
 const credits = [];
 let paidSoFar = [];
+let others = [];
+let subMeta = null;
 const subPosts = [];
 const reply = (data, status = 200) => new Response(data === '' ? '' : JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
 globalThis.fetch = async (url, init = {}) => {
@@ -35,6 +37,9 @@ globalThis.fetch = async (url, init = {}) => {
   if (url.startsWith('https://api.stripe.com/v1/invoices?subscription=')) return reply({ data: paidSoFar.map((n) => ({ amount_paid: n })) });
   if (url.startsWith('https://api.stripe.com/v1/invoices?customer=')) return reply({ data: [{ created: 1795000000, total: 4290, status: 'paid', hosted_invoice_url: 'https://invoice.stripe.com/i/test' }, { created: 1795000001, total: 100, status: 'draft' }] });
   if (url.startsWith(SB + '/rest/v1/stops?customer_id=eq.u1') && m === 'DELETE') return reply('', 200);
+  if (url.startsWith(SB + '/rest/v1/customers?id=neq.u1') && m === 'GET') return reply(others);
+  if (url.startsWith(SB + '/rest/v1/leads?kind=eq.') && m === 'GET') return reply([]);
+  if (url === 'https://api.stripe.com/v1/subscriptions/sub_1' && m === 'GET' && subMeta) return reply({ id: 'sub_1', status: 'active', metadata: subMeta });
   if (url.startsWith('https://api.stripe.com/v1/subscriptions/sub_1') && m === 'POST') { subPosts.push(String(init.body)); return reply({ id: 'sub_1', status: 'active' }); }
   if (url === 'https://api.stripe.com/v1/invoices') return reply({ id: 'in_1', status: 'draft' });
   if (url === 'https://api.stripe.com/v1/invoices/in_1/finalize') return reply({ id: 'in_1', status: 'open' });
@@ -51,6 +56,9 @@ await show('config', await call('/api/config'));
 await show('checkout without sign in', await call('/api/checkout', 'POST', {}, null));
 const good = { zip: '85396', plan: 'week', dogs: 3, name: 'Test Person', phone: '(623) 555-0100', address: '123 W Test St', textsVisit: true, textsDeals: false, page: '/' };
 await show('checkout bad zip', await call('/api/checkout', 'POST', Object.assign({}, good, { zip: '85001' }), 'good'));
+others = [{ phone: '0000000000', address: '4321 West Example Street', zip: good.zip }];
+{ const r = await call('/api/checkout', 'POST', Object.assign({}, good, { address: '4321 W. Example St' }), 'good'); await show('second free month at the same home is blocked', r); if (r.status !== 409) throw new Error('same home should not get a second free month'); }
+others = [];
 await show('checkout ok', await call('/api/checkout', 'POST', good, 'good'));
 console.log('first charge:', new Date(Number(session.get('subscription_data[trial_end]')) * 1000).toISOString());
 console.log('stripe note:', session.get('subscription_data[description]'));
@@ -117,6 +125,10 @@ console.log('stored skips:', JSON.stringify(stored.skips));
 await show('skip a day that is not a visit', await call('/api/me/skip', 'POST', { date: az(4) }, 'good'));
 await show('undo skip', await call('/api/me/skip', 'POST', { date: az(3), undo: true }, 'good'));
 await show('pause too long', await call('/api/me/pause', 'POST', { until: az(200) }, 'good'));
+subMeta = { min_end: String(Math.floor(Date.now() / 1000) + 30 * 86400) };
+{ const r = await call('/api/me/pause', 'POST', { until: az(30) }, 'good'); await show('pause inside the first 60 days is blocked', r); if (r.status !== 400) throw new Error('pause should be blocked in the first 60 days'); }
+{ const r = await call('/api/me/plan', 'GET', null, 'good'); const j = await r.clone().json(); if (j.plan.canPause || !j.plan.pauseAfter) throw new Error('plan should say when pausing opens'); }
+subMeta = { min_end: String(Math.floor(Date.now() / 1000) - 86400) };
 await show('pause 30 days', await call('/api/me/pause', 'POST', { until: az(30) }, 'good'));
 console.log('stripe pause call:', decodeURIComponent(subPosts[0] || ''), '| row:', stored.status, stored.pause_from, stored.pause_until);
 await show('start again', await call('/api/me/resume', 'POST', {}, 'good'));

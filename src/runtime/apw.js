@@ -137,6 +137,13 @@
         Object.keys(c).forEach(function (k) { if (c[k] !== null && c[k] !== undefined) APW.cfg[k] = c[k]; });
         APW.live = !!(c.live && c.supabaseUrl && c.supabaseAnonKey && c.stripeKey);
       }
+      // Stripe test keys on the real domain: the public gets the "we call you" sign up, so nobody types a real card into
+      // test mode. Staff open /book/?test=1 once to run a test sign up in that tab.
+      if (APW.live && /^pk_test_/.test(String(c && c.stripeKey || '')) && /(^|\.)arizonapetwaste\.com$/.test(location.hostname)) {
+        var t = false;
+        try { if (/[?&]test=1(&|$)/.test(location.search)) sessionStorage.setItem('apw.test', '1'); t = sessionStorage.getItem('apw.test') === '1'; } catch (e) { }
+        if (!t) APW.live = false;
+      }
       // On the real domain, never pretend: until the keys are in, sign up says to call or text.
       APW.closed = !APW.live && /(^|\.)arizonapetwaste\.com$/.test(location.hostname);
       root.classList.toggle('demo', !APW.live && !APW.closed);

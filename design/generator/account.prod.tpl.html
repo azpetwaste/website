@@ -158,6 +158,7 @@
       <p class="lead" style="font-size: 16px;">Pause for up to 120 days. You do not pay while paused.</p>
       <a href="{{ pauseHref }}" class="btn btn-line" style="width: 100%; margin-top: 14px;">Pause</a>
     </sc-if>
+    <sc-if value="{{ pauseLater }}" hint-placeholder-val="{{ false }}"><p class="lead" style="font-size: 16px;">{{ pauseLaterLine }}</p></sc-if>
     <sc-if value="{{ actErr }}" hint-placeholder-val="{{ false }}"><p class="ferr" role="alert">{{ actErr }}</p></sc-if>
     <h2 class="yh2" id="bills">Bills and card</h2>
     <sc-if value="{{ hasBills }}" hint-placeholder-val="{{ false }}">
@@ -368,7 +369,9 @@ class Component extends DCLogic {
       isPaused: !!(pl && pl.paused),
       pausedLine: pl && pl.paused ? (pl.pauseUntil ? 'You are paused. We start again on ' + nice(pl.pauseUntil, true) + '. You do not pay while paused.' : 'You are paused. You do not pay while paused.') : '',
       canPause: !!(pl && pl.canPause && !pl.paused),
-      pauseByText: paying && !(pl && (pl.canPause || pl.paused)),
+      pauseByText: paying && !(pl && (pl.canPause || pl.paused || pl.pauseAfter)),
+      pauseLater: !!(pl && pl.pauseAfter && !pl.paused),
+      pauseLaterLine: pl && pl.pauseAfter ? 'You can pause after ' + pl.pauseAfter + '. Need a break before then? Skip a visit above, or text 623.309.6104.' : '',
       pauseMin: this._iso(1), pauseMax: pl ? pl.pauseMax : this._iso(120),
       until: s.until, onUntil: (e) => this.setState({ until: e.target.value, actErr: '' }),
       pause: () => this._pause(), resume: () => this._resume(),
