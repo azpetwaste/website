@@ -7,6 +7,8 @@
 //   RESEND_API_KEY: every sign up, sign up request and waitlist form is emailed to NOTIFY_EMAIL (default info@arizonapetwaste.com).
 //     Without it, forms tell people to call or text, so no lead is lost silently.
 //   Optional: NOTIFY_EMAIL, MAIL_FROM (needs a domain verified in Resend), SITE_URL, FIRST_VISIT_FROM (default 2026-11-20), SCHEDULE_DAYS (default 7)
+//   Live map on the truck link: GOOGLE_MAPS_BROWSER_KEY (Maps JavaScript API, locked to arizonapetwaste.com) and
+//     GOOGLE_MAPS_SERVER_KEY (Routes API, secret). Without them the link shows arrival time and miles with no map.
 // With the keys missing, /api/config says live: false and the site runs its demo sign up.
 
 const STRIPE_VERSION = '2026-10-28.endive';
@@ -620,7 +622,7 @@ async function desk(path, request, env, ctx) {
 
   // Crew: any signed in staff member, on their own route for today.
   if (path === '/api/crew/today' && m === 'GET') return crewToday(s, env);
-  if (path === '/api/crew/start' && m === 'POST') return crewStart(s, env);
+  if (path === '/api/crew/start' && m === 'POST') return crewStart(s, env, b);
   if (path === '/api/crew/ping' && m === 'POST') return crewPing(s, env, b);
   if (path === '/api/crew/arrive' && m === 'POST') return crewArrive(s, env, b);
   if (path === '/api/crew/photo' && m === 'POST') return crewPhoto(s, env, b);
@@ -710,9 +712,13 @@ async function advance(env, routeId) {
   await queueText(env, next.customer, next.id, 'on_the_way', next.code);
   return next.id;
 }
-async function crewStart(s, env) {
+async function crewStart(s, env, b) {
   const r = await myRoute(s, env);
   if (!r) return fail(404, 'No route for you today.');
+  if (!s.location_ok_at) {
+    if (!b || !b.locationOk) return fail(428, 'Starting a route shares this phone\'s location with Arizona Pet Waste and with the customer you are driving to, until the route ends.', 'location_consent');
+    await db(env, 'PATCH', 'staff?id=eq.' + s.id, { location_ok_at: new Date().toISOString() }, 'return=minimal');
+  }
   if (r.status !== 'live') await db(env, 'PATCH', 'routes?id=eq.' + r.id, { status: 'live', started_at: r.started_at || new Date().toISOString(), ended_at: null }, 'return=minimal');
   await advance(env, r.id);
   return crewToday(s, env);
@@ -1016,13 +1022,38 @@ async function officeTeam(env, s, b) {
   return ok({ team: await db(env, 'GET', 'staff?select=' + STAFF_FIELDS + '&order=active.desc,name') });
 }
 
+/* ---------- road route and traffic arrival time (Google Routes API) ---------- */
+// Needs GOOGLE_MAPS_SERVER_KEY. Cached on the stop for 60 seconds so a customer watching the link costs about one call a minute.
+async function roadRoute(env, st, p, home) {
+  if (!env.GOOGLE_MAPS_SERVER_KEY) return null;
+  if (st.route_at && Date.now() - Date.parse(st.route_at) < 60e3 && st.eta_at) return { eta: st.eta_at, polyline: st.route_polyline, meters: st.route_meters };
+  try {
+    const r = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GOOGLE_MAPS_SERVER_KEY, 'x-goog-fieldmask': 'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline' },
+      body: JSON.stringify({
+        origin: { location: { latLng: { latitude: p.lat, longitude: p.lng } } },
+        destination: { location: { latLng: { latitude: home.lat, longitude: home.lng } } },
+        travelMode: 'DRIVE', routingPreference: 'TRAFFIC_AWARE'
+      })
+    });
+    if (!r.ok) { console.error('routes api', r.status, (await r.text()).slice(0, 200)); return null; }
+    const route = ((await r.json()).routes || [])[0];
+    if (!route) return null;
+    const secs = parseInt(String(route.duration || '0s'), 10) || 0;
+    const out = { eta: new Date(Date.now() + secs * 1000).toISOString(), polyline: (route.polyline && route.polyline.encodedPolyline) || null, meters: route.distanceMeters ?? null };
+    await db(env, 'PATCH', 'stops?id=eq.' + st.id, { eta_at: out.eta, route_polyline: out.polyline, route_meters: out.meters, route_at: new Date().toISOString() }, 'return=minimal');
+    return out;
+  } catch (e) { console.error('routes api', e); return null; }
+}
+
 /* ---------- customer truck link: arizonapetwaste.com/t/CODE ---------- */
 // Shows only this one visit: status, arrival time, how far away, the scooper's first name and, when done, the gate photo.
 // It never shows other homes, and it ends 2 hours after the visit.
 async function track(raw, env) {
   const code = String(raw || '').toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 8);
   if (code.length !== 6) return fail(404, 'This link is not active.');
-  const st = (await db(env, 'GET', 'stops?code=eq.' + code + '&select=id,route_id,day,position,status,reason,photo_path,no_photo,on_way_at,arrived_at,done_at,' +
+  const st = (await db(env, 'GET', 'stops?code=eq.' + code + '&select=id,route_id,day,position,status,reason,photo_path,no_photo,on_way_at,arrived_at,done_at,eta_at,route_polyline,route_at,route_meters,' +
     'customer:customers(lat,lng),route:routes(status,started_at,staff:staff(name))'))[0];
   if (!st) return fail(404, 'This link is not active.');
   const now = Date.now(), today = azToday();
@@ -1039,7 +1070,7 @@ async function track(raw, env) {
   if (st.status === 'on_the_way') {
     out.stopsAway = 1;
     const home = st.customer && st.customer.lat != null ? { lat: st.customer.lat, lng: st.customer.lng } : null;
-    const p = (await db(env, 'GET', 'positions?route_id=eq.' + st.route_id + '&select=lat,lng,at&order=at.desc&limit=1'))[0];
+    const p = (await db(env, 'GET', 'positions?route_id=eq.' + st.route_id + '&select=lat,lng,heading,at&order=at.desc&limit=1'))[0];
     if (home && p && now - Date.parse(p.at) < 10 * 60e3) {
       const mi = miles(p, home);
       out.miles = Math.round(mi * 10) / 10;
@@ -1048,7 +1079,17 @@ async function track(raw, env) {
       const startMi = startP ? miles(startP, home) : mi;
       out.progress = startMi > 0.05 ? Math.max(0, Math.min(1, 1 - mi / startMi)) : 0.9;
       out.seen = p.at;
+      // Only while we head to this yard: the truck, this home, and the road route between them.
+      out.truck = { lat: p.lat, lng: p.lng, heading: p.heading };
+      out.home = home;
+      const road = await roadRoute(env, st, p, home);
+      if (road) {
+        out.eta = road.eta;
+        out.polyline = road.polyline;
+        if (road.meters != null) out.miles = Math.round(road.meters / 160.934) / 10;
+      }
     } else out.eta = new Date(now + 15 * 60e3).toISOString();
+    if (env.GOOGLE_MAPS_BROWSER_KEY) out.mapsKey = env.GOOGLE_MAPS_BROWSER_KEY;
   }
   if (st.status === 'here') out.arrivedAt = st.arrived_at;
   if (st.status === 'done') { out.doneAt = st.done_at; out.photo = await photoUrl(env, st.photo_path); out.noPhoto = !!st.no_photo; }

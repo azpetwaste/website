@@ -33,6 +33,10 @@ h1{font-size:40px;line-height:1;letter-spacing:-.045em;font-weight:800;margin:56
 .steps .lbl{font-size:10px;letter-spacing:.1em}
 .steps div.on .lbl{color:var(--ink)}
 .photo{width:100%;display:block;margin-top:28px;border:1px solid var(--line)}
+.mapwrap{position:relative;height:46vh;min-height:280px;margin:28px -22px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#0B0D14}
+#gmap{position:absolute;inset:0}
+.w.live h1{margin-top:24px}
+.w.live .eta{margin-top:18px}
 .grow{flex:1}
 .btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:60px;margin-top:32px;border:1px solid var(--line);color:var(--ink);text-decoration:none;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:13px;font-weight:600;letter-spacing:.2em;text-transform:uppercase}
 .btn.acc{background:var(--accent);border-color:var(--accent);color:#000}
@@ -59,6 +63,7 @@ h1{font-size:40px;line-height:1;letter-spacing:-.045em;font-weight:800;margin:56
   function foot(extra) { return '<div class="grow"></div>' + (extra || '') + '<a class="btn" href="' + TEXT + '">Text us</a><div class="foot"><a href="/account/">My Yard</a></div>'; }
   function draw(d) {
     var who = d.scooper ? h(d.scooper) : 'Your scooper';
+    v.classList.remove('live');
     if (d.expired) { v.innerHTML = top() + '<h1>This link has ended.</h1><p class="sub">' + h(d.message) + '</p>' + foot('<a class="btn acc" href="/account/">Open My Yard</a>'); return; }
     if (d.status === 'scheduled') {
       v.innerHTML = top() + '<h1>' + (d.routeLive ? 'We are on our route.' : 'You are on today\'s route.') + '</h1>' +
@@ -66,10 +71,14 @@ h1{font-size:40px;line-height:1;letter-spacing:-.045em;font-weight:800;margin:56
         '<p class="sub">' + (d.stopsAway === 1 ? 'You are next.' : 'You are ' + h(d.stopsAway) + ' stops away.') + ' ' + who + ' is scooping today. We text you when we head your way.</p>' + steps(0) + foot();
     } else if (d.status === 'on_the_way') {
       var p = typeof d.progress === 'number' ? d.progress : 0.15;
-      v.innerHTML = top() + '<h1>' + who + ' is on the way.</h1><div class="eta">' + h(t(d.eta)) + '</div>' +
+      var live = !!(d.mapsKey && d.truck && d.home);
+      v.classList.toggle('live', live);
+      v.innerHTML = top() + (live ? '<div class="mapwrap" id="mapslot" aria-label="Map of our truck on the way to you"></div>' : '') +
+        '<h1>' + who + ' is on the way.</h1><div class="eta">' + h(t(d.eta)) + '</div>' +
         '<p class="sub">' + (d.miles != null ? h(d.miles) + ' miles away. ' : '') + 'Please unlock the gate and keep your dogs inside.</p>' +
-        '<div class="track" aria-hidden="true"><div class="ln"></div><div class="fill" style="width:' + Math.round(p * 100) + '%"></div><div class="truck" style="left:' + Math.round(p * 100) + '%">' + TRUCK + '</div>' + HOME + '</div>' +
+        (live ? '' : '<div class="track" aria-hidden="true"><div class="ln"></div><div class="fill" style="width:' + Math.round(p * 100) + '%"></div><div class="truck" style="left:' + Math.round(p * 100) + '%">' + TRUCK + '</div>' + HOME + '</div>') +
         steps(1) + (d.seen ? '<p class="lbl" style="margin-top:16px">Updated ' + h(t(d.seen)) + '</p>' : '') + foot();
+      if (live) liveMap(d);
     } else if (d.status === 'here') {
       v.innerHTML = top() + '<h1>' + who + ' is in your yard.</h1><p class="sub">Since ' + h(t(d.arrivedAt)) + '. We latch the gate and send a photo when we finish.</p>' + steps(2) + foot();
     } else if (d.status === 'done') {
@@ -82,6 +91,71 @@ h1{font-size:40px;line-height:1;letter-spacing:-.045em;font-weight:800;margin:56
       v.innerHTML = top() + '<h1>No visit today.</h1><p class="sub">This visit was skipped. Questions? Text us.</p>' + foot();
     }
   }
+  /* ---------- live map (Google Maps), shown only while we head to this yard ---------- */
+  var gm = { el: null, map: null, truck: null, home: null, line: null, anim: null, pos: null, ready: null, fitted: false };
+  var DARK = [
+    { elementType: 'geometry', stylers: [{ color: '#0b0d14' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#8b90a3' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#0b0d14' }] },
+    { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+    { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1d2233' }] },
+    { featureType: 'road', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
+    { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#2a3048' }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#05070f' }] },
+    { featureType: 'administrative', elementType: 'geometry', stylers: [{ visibility: 'off' }] }
+  ];
+  function mapsReady(key) {
+    if (gm.ready) return gm.ready;
+    gm.ready = new Promise(function (resolve, reject) {
+      window.__apwMaps = function () { resolve(); };
+      var sc = document.createElement('script');
+      sc.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) + '&v=weekly&loading=async&callback=__apwMaps';
+      sc.async = true;
+      sc.onerror = function () { gm.ready = null; reject(new Error('map')); };
+      document.head.appendChild(sc);
+    });
+    return gm.ready;
+  }
+  function easeTo(to, heading) {
+    var from = gm.pos || to, t0 = performance.now(), dur = gm.pos ? 14000 : 0;
+    if (gm.anim) cancelAnimationFrame(gm.anim);
+    if (heading == null && gm.pos && google.maps.geometry) heading = google.maps.geometry.spherical.computeHeading(new google.maps.LatLng(from), new google.maps.LatLng(to));
+    if (heading != null) { var ic = gm.truck.getIcon(); ic.rotation = heading; gm.truck.setIcon(ic); }
+    (function step(now) {
+      var k = dur ? Math.min(1, (now - t0) / dur) : 1;
+      var p = { lat: from.lat + (to.lat - from.lat) * k, lng: from.lng + (to.lng - from.lng) * k };
+      gm.pos = p; gm.truck.setPosition(p);
+      if (k < 1) gm.anim = requestAnimationFrame(step);
+    })(t0);
+  }
+  async function liveMap(d) {
+    var slot = document.getElementById('mapslot');
+    if (!slot) return;
+    if (!gm.el) { gm.el = document.createElement('div'); gm.el.id = 'gmap'; }
+    slot.appendChild(gm.el);
+    try { await mapsReady(d.mapsKey); } catch (e) { slot.remove(); return; }
+    var tr = { lat: Number(d.truck.lat), lng: Number(d.truck.lng) }, home = { lat: Number(d.home.lat), lng: Number(d.home.lng) };
+    var maps = await google.maps.importLibrary('maps');
+    var marker = await google.maps.importLibrary('marker');
+    await google.maps.importLibrary('geometry');
+    if (!gm.map) {
+      gm.map = new maps.Map(gm.el, { center: tr, zoom: 14, styles: DARK, disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy', clickableIcons: false, backgroundColor: '#0b0d14' });
+      gm.home = new marker.Marker({ map: gm.map, position: home, title: 'Your home', zIndex: 1,
+        icon: { path: 'M -9 1 L 0 -8 L 9 1 L 9 10 L -9 10 Z', fillColor: '#ffffff', fillOpacity: 1, strokeColor: '#000000', strokeWeight: 2, scale: 1.3, anchor: new google.maps.Point(0, 10) } });
+      gm.truck = new marker.Marker({ map: gm.map, position: tr, title: 'Our truck', zIndex: 2,
+        icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, fillColor: '#FF4A1C', fillOpacity: 1, strokeColor: '#ffffff', strokeWeight: 2, scale: 7, rotation: d.truck.heading || 0 } });
+      gm.line = new maps.Polyline({ map: gm.map, strokeColor: '#FF4A1C', strokeOpacity: 0.95, strokeWeight: 5 });
+    }
+    var path = d.polyline && google.maps.geometry.encoding ? google.maps.geometry.encoding.decodePath(d.polyline) : [tr, home];
+    gm.line.setPath(path);
+    easeTo(tr, d.truck.heading);
+    var b = new google.maps.LatLngBounds();
+    b.extend(tr); b.extend(home);
+    path.forEach(function (pt) { b.extend(pt); });
+    if (!gm.fitted || !gm.map.getBounds() || !gm.map.getBounds().contains(tr)) { gm.map.fitBounds(b, 56); gm.fitted = true; }
+  }
+
   var timer = null;
   async function load() {
     try {

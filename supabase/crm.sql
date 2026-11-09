@@ -136,3 +136,10 @@ where not exists (select 1 from public.leads l where l.kind = 'waitlist' and l.c
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('gate-photos', 'gate-photos', false, 3145728, array['image/jpeg', 'image/png', 'image/webp'])
 on conflict (id) do nothing;
+
+-- Live map on the truck link: cached road route and traffic arrival time per stop, and the scooper's location consent.
+alter table public.stops add column if not exists eta_at timestamptz;
+alter table public.stops add column if not exists route_polyline text;
+alter table public.stops add column if not exists route_at timestamptz;
+alter table public.stops add column if not exists route_meters int;
+alter table public.staff add column if not exists location_ok_at timestamptz;

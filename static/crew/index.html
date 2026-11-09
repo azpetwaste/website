@@ -153,7 +153,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (t) headers.authorization = 'Bearer ' + t;
     var r = await fetch(path, { method: method, headers: headers, body: body ? JSON.stringify(body) : undefined });
     var d = null; try { d = await r.json(); } catch (e) { }
-    if (!r.ok) { var e = new Error((d && d.error) || 'Something went wrong. Try again.'); e.status = r.status; throw e; }
+    if (!r.ok) { var e = new Error((d && d.error) || 'Something went wrong. Try again.'); e.status = r.status; e.code = d && d.code; throw e; }
     return d || {};
   }
   async function api(method, path, body) {
@@ -236,7 +236,10 @@ table.t tr.click:hover td{background:var(--bg2)}
   async function act(kind, body) {
     if (S.busy) return; S.busy = true; render();
     try { S.data.today = await api('POST', '/api/crew/' + kind, body || {}); S.check = {}; S.shot = null; }
-    catch (e) { toast(e.message); }
+    catch (e) {
+      if (e.code === 'location_consent' && window.confirm(e.message + '\n\nTap OK to agree and start.')) { S.busy = false; return act(kind, Object.assign({}, body, { locationOk: true })); }
+      if (e.code !== 'location_consent') toast(e.message);
+    }
     S.busy = false;
     var r = route().route; if (r && r.status === 'live') startGps(); else stopGps();
     render();

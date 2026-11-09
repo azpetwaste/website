@@ -121,6 +121,7 @@ const users = {}; // token -> user
 const codes = {}; // email -> code
 const files = {};
 let otpSent = [];
+let routesCalls = 0;
 async function authUser(email) {
   const r = await db.query('select id from auth.users where email = $1', [email]);
   if (r.rows[0]) return r.rows[0].id;
@@ -148,6 +149,7 @@ globalThis.fetch = async (u, init = {}) => {
   if (u === SB + '/auth/v1/user') { const t = String((init.headers || {}).authorization || '').slice(7); return users[t] ? reply(users[t]) : reply({ msg: 'bad' }, 401); }
   if (u.startsWith(SB + '/storage/v1/object/sign/')) return reply({ signedURL: '/object/sign/' + u.split('/object/sign/')[1] + '?token=x' });
   if (u.startsWith(SB + '/storage/v1/object/')) { files[u.split('/object/')[1]] = init.body.length; return reply({ Key: 'ok' }); }
+  if (u === 'https://routes.googleapis.com/directions/v2:computeRoutes') { routesCalls++; return reply({ routes: [{ duration: '420s', distanceMeters: 2500, polyline: { encodedPolyline: '_p~iF~ps|U_ulLnnqC' } }] }); }
   if (u.startsWith('https://geocoding.geo.census.gov/')) return reply({ result: { addressMatches: [{ coordinates: { x: -112.5501, y: 33.4801 } }] } });
   if (u.startsWith('https://api.resend.com/')) return reply({ id: 'm1' });
   return reply({ error: 'unmocked ' + u }, 500);
@@ -247,12 +249,23 @@ ok('Maria sees 2 stops with gate fields', r.d.stops.length === 2 && 'gate_code' 
 r = await call('/api/track/' + samStop.code, 'GET');
 ok('truck link before start: on the route', r.status === 200 && r.d.status === 'scheduled' && r.d.stopsAway === 1 && r.d.scooper === 'Maria', r.d);
 r = await call('/api/crew/start', 'POST', {}, mt);
+ok('first start asks for location consent', r.status === 428 && r.d.code === 'location_consent', r.d);
+r = await call('/api/crew/start', 'POST', { locationOk: true }, mt);
 ok('start route: first stop on the way', r.d.route.status === 'live' && r.d.stops[0].status === 'on_the_way');
 ok('on the way text queued for Sam (opted in)', r.d.texts.some((x) => x.kind === 'on_the_way' && /arizonapetwaste\.com\/t\//.test(x.body)), r.d.texts);
 r = await call('/api/crew/ping', 'POST', { lat: 33.47, lng: -112.53, accuracy: 8 }, mt);
 ok('GPS ping saved', r.d.ok === true);
 r = await call('/api/track/' + samStop.code, 'GET');
 ok('truck link: on the way with miles and arrival time', r.d.status === 'on_the_way' && r.d.miles > 0 && r.d.eta, r.d);
+ok('no map keys: no map data', r.d.mapsKey === undefined && r.d.polyline === undefined);
+env.GOOGLE_MAPS_BROWSER_KEY = 'browser_key_test'; env.GOOGLE_MAPS_SERVER_KEY = 'server_key_test';
+r = await call('/api/track/' + samStop.code, 'GET');
+ok('with map keys: truck, home, road route, traffic arrival', r.d.mapsKey === 'browser_key_test' && r.d.truck && r.d.home && r.d.polyline && r.d.miles === 1.6 && routesCalls === 1, r.d);
+r = await call('/api/track/' + samStop.code, 'GET');
+ok('road route cached for 60 seconds, same miles', routesCalls === 1 && r.d.polyline && r.d.miles === 1.6, { routesCalls, miles: r.d.miles });
+r = await call('/api/track/' + patStop.code, 'GET');
+ok('next customer sees no truck and no map', r.d.truck === undefined && r.d.mapsKey === undefined, r.d);
+delete env.GOOGLE_MAPS_BROWSER_KEY; delete env.GOOGLE_MAPS_SERVER_KEY;
 r = await call('/api/track/' + patStop.code, 'GET');
 ok('next customer sees stops away, no truck', r.d.status === 'scheduled' && r.d.stopsAway === 2 && r.d.miles === undefined, r.d);
 r = await call('/api/crew/done', 'POST', { stopId: samStop.id }, mt);
