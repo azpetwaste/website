@@ -30,8 +30,10 @@ DATABASE_URL=postgres://... node build/desk.test.mjs   # needs a local Postgres 
 ```
 
 ## Still open (needs Joe)
-1. Supabase project `arizonapetwaste` exists and both SQL files are applied. Still to do: Auth email template with the 6 digit code, custom SMTP through Resend, and the Supabase keys in Cloudflare.
-2. Twilio: EIN, brand and campaign registration, then wire sending into `queueText`.
-3. Google Cloud project with billing, Maps JavaScript API and Routes API on, two keys in Cloudflare: GOOGLE_MAPS_BROWSER_KEY (locked to arizonapetwaste.com) and GOOGLE_MAPS_SERVER_KEY.
-4. Phone road test of the crew app on the scooper's real phone (iPhone and Android).
-5. The Cursor field desk code: push it to GitHub so it can be compared and anything worth keeping moved here.
+State on Nov 9, 2026. Supabase keys, Google Maps keys and Stripe test mode keys are in Cloudflare. Supabase sign in email sends through Resend.
+1. Test mode sign up, run by a person: `/book/` with a real inbox for the 6 digit code and Stripe test card 4242 4242 4242 4242. Then check the customer shows in `/crew` with status Free month.
+2. Mail from the site: `RESEND_API_KEY`, `MAIL_FROM`, `NOTIFY_EMAIL` in Cloudflare Pages. Until then no sign up notice reaches the office inbox.
+3. Stripe live mode keys and live webhook, after the phone test passes.
+4. Twilio: EIN, brand and campaign registration, then wire sending into `queueText`.
+5. Phone road test of the crew app on the scooper's real phone (iPhone and Android).
+6. The Cursor field desk code: push it to GitHub so it can be compared and anything worth keeping moved here.
