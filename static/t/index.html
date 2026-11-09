@@ -10,38 +10,56 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Schibsted+Grotesk:wght@400;600;800&display=swap">
 <style>
-:root{--ink:#FFF;--mute:#8B90A3;--dim:#3A3F52;--line:rgba(255,255,255,.12);--accent:#FF4A1C;--ok:#3DDC97}
+:root{--ink:#FFF;--mute:#8B90A3;--dim:#3A3F52;--line:rgba(255,255,255,.12);--accent:#FF4A1C;--ok:#3DDC97;--mono:"IBM Plex Mono",ui-monospace,Consolas,monospace}
 *{box-sizing:border-box}
 html,body{margin:0;background:#000;color:var(--ink);font-family:"Schibsted Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
 .w{max-width:480px;margin:0 auto;padding:22px 22px calc(28px + env(safe-area-inset-bottom));min-height:100dvh;display:flex;flex-direction:column}
 .top{display:flex;align-items:center;justify-content:space-between}
 .top img{height:26px;width:auto;display:block}
-.lbl{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:11px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--mute)}
+.lbl{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--mute)}
+.pill{border:1px solid var(--accent);color:var(--accent);padding:5px 9px}
 h1{font-size:40px;line-height:1;letter-spacing:-.045em;font-weight:800;margin:56px 0 0}
-.eta{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:64px;font-weight:500;letter-spacing:-.02em;line-height:1;margin-top:28px}
+.eta{font-family:var(--mono);font-size:64px;font-weight:500;letter-spacing:-.02em;line-height:1;margin-top:28px}
 .sub{color:var(--mute);font-size:17px;line-height:1.5;margin:14px 0 0}
 .track{position:relative;height:56px;margin:40px 0 0}
 .track .ln{position:absolute;left:0;right:0;top:27px;height:2px;background:var(--dim)}
 .track .fill{position:absolute;left:0;top:27px;height:2px;background:var(--accent);transition:width 1s ease}
 .track .home{position:absolute;right:-6px;top:16px;width:24px;height:24px}
-.track .truck{position:absolute;top:13px;width:30px;height:30px;margin-left:-15px;border-radius:50%;background:var(--accent);display:grid;place-items:center;transition:left 1s ease;box-shadow:0 0 0 0 rgba(255,74,28,.6);animation:p 1.8s ease-out infinite}
+.track .truck{position:absolute;top:13px;width:30px;height:30px;margin-left:-15px;border-radius:50%;background:var(--accent);display:grid;place-items:center;transition:left 1s ease;animation:p 1.8s ease-out infinite}
 @keyframes p{0%{box-shadow:0 0 0 0 rgba(255,74,28,.55)}70%{box-shadow:0 0 0 14px rgba(255,74,28,0)}100%{box-shadow:0 0 0 0 rgba(255,74,28,0)}}
-@media (prefers-reduced-motion:reduce){.track .truck{animation:none}}
 .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:40px}
 .steps div{border-top:2px solid var(--dim);padding-top:10px}
 .steps div.on{border-top-color:var(--accent)}
 .steps .lbl{font-size:10px;letter-spacing:.1em}
 .steps div.on .lbl{color:var(--ink)}
 .photo{width:100%;display:block;margin-top:28px;border:1px solid var(--line)}
-.mapwrap{position:relative;height:46vh;min-height:280px;margin:28px -22px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#0B0D14}
-#gmap{position:absolute;inset:0}
-.w.live h1{margin-top:24px}
-.w.live .eta{margin-top:18px}
 .grow{flex:1}
-.btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:60px;margin-top:32px;border:1px solid var(--line);color:var(--ink);text-decoration:none;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:13px;font-weight:600;letter-spacing:.2em;text-transform:uppercase}
+.btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:60px;margin-top:32px;border:1px solid var(--line);color:var(--ink);text-decoration:none;font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.2em;text-transform:uppercase}
 .btn.acc{background:var(--accent);border-color:var(--accent);color:#000}
 .foot{margin-top:18px;text-align:center}
 .foot a{color:var(--mute);font-size:14px}
+/* live: the map is the whole screen, one card says when we get there */
+.w.live{max-width:none;padding:0;display:block;height:100dvh;min-height:0;overflow:hidden;position:relative}
+.w.live .mapwrap{position:absolute;inset:0;background:#0B0D14}
+#gmap{position:absolute;inset:0}
+.w.live .top{position:absolute;z-index:2;left:0;right:0;top:0;padding:calc(16px + env(safe-area-inset-top)) 20px 34px;background:linear-gradient(#000 0%,rgba(0,0,0,.72) 45%,rgba(0,0,0,0) 100%);pointer-events:none}
+.card{position:absolute;z-index:2;left:0;right:0;bottom:0;margin:0 auto;max-width:520px;background:rgba(0,0,0,.92);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:20px 22px calc(18px + env(safe-area-inset-bottom))}
+@media (min-width:560px){.card{bottom:22px;border:1px solid var(--line)}}
+.card h1{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--mute);margin:0;line-height:1.4}
+.card h1 i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:9px;animation:p 1.8s ease-out infinite}
+.mins{display:flex;align-items:baseline;gap:10px;margin-top:10px;font-family:var(--mono);line-height:.9}
+.mins b{font-size:92px;font-weight:500;letter-spacing:-.05em}
+.mins span{font-size:20px;color:var(--mute);letter-spacing:.14em;text-transform:uppercase}
+.meta{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:16px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.meta div{padding:12px 0}
+.meta div+div{border-left:1px solid var(--line);padding-left:16px}
+.meta b{display:block;font-family:var(--mono);font-size:20px;font-weight:500;margin-top:4px}
+.bar{height:2px;background:var(--dim);margin-top:16px}
+.bar i{display:block;height:2px;width:0;background:var(--accent);transition:width 1.2s linear}
+.card .sub{font-size:15px;margin-top:14px}
+.card .btn{min-height:50px;margin-top:14px}
+@media (max-height:640px){.mins b{font-size:68px}.card .sub{display:none}}
+@media (prefers-reduced-motion:reduce){.track .truck,.card h1 i{animation:none}}
 </style>
 </head>
 <body>
@@ -52,6 +70,12 @@ h1{font-size:40px;line-height:1;letter-spacing:-.045em;font-weight:800;margin:56
   var v = document.getElementById('v');
   var code = (location.pathname.split('/')[2] || location.hash.slice(1) || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
   var TEXT = 'sms:+16233096104';
+  var demo = false, mode = '', etaAt = 0;
+  // Crashes on this page go to the office so we can fix them.
+  var sent = 0;
+  function report(msg, detail) { if (sent++ > 2) return; try { fetch('/api/log', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source: 'truck', path: demo ? '/t/DEMO' : '/t', message: String(msg).slice(0, 300), detail: String(detail || '').slice(0, 1200) }), keepalive: true }); } catch (e) { } }
+  window.addEventListener('error', function (e) { report(e.message, (e.filename || '') + ':' + (e.lineno || '') + ' ' + ((e.error && e.error.stack) || '')); });
+  window.addEventListener('unhandledrejection', function (e) { report('Promise: ' + ((e.reason && e.reason.message) || e.reason), e.reason && e.reason.stack); });
   function h(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function t(iso) { return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix' }); }
   var HOME = '<svg class="home" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" aria-hidden="true"><path d="M3 11l9-7 9 7v9H3z"/><path d="M10 20v-5h4v5"/></svg>';
@@ -59,10 +83,17 @@ h1{font-size:40px;line-height:1;letter-spacing:-.045em;font-weight:800;margin:56
   function steps(n) {
     return '<div class="steps">' + ['Scheduled', 'On the way', 'Here', 'Done'].map(function (s, i) { return '<div class="' + (i <= n ? 'on' : '') + '"><span class="lbl">' + s + '</span></div>'; }).join('') + '</div>';
   }
-  function top() { return '<div class="top"><img src="/assets/img/logo-horizontal-dark.svg" alt="Arizona Pet Waste"><span class="lbl">Your visit</span></div>'; }
+  function top() { return '<div class="top"><img src="/assets/img/logo-horizontal-dark.svg" alt="Arizona Pet Waste"><span class="lbl' + (demo ? ' pill' : '') + '">' + (demo ? 'Demo' : 'Your visit') + '</span></div>'; }
   function foot(extra) { return '<div class="grow"></div>' + (extra || '') + '<a class="btn" href="' + TEXT + '">Text us</a><div class="foot"><a href="/account/">My Yard</a></div>'; }
+  function minsLeft() { return Math.max(1, Math.ceil((etaAt - Date.now()) / 60000)); }
+  function tick() { var m = document.getElementById('mn'); if (m && etaAt) m.textContent = minsLeft(); }
+  setInterval(tick, 1000);
   function draw(d) {
     var who = d.scooper ? h(d.scooper) : 'Your scooper';
+    demo = !!d.demo;
+    var live = d.status === 'on_the_way' && !!(d.mapsKey && d.truck && d.home);
+    if (live) return drawLive(d, who);
+    mode = d.status; etaAt = 0;
     v.classList.remove('live');
     if (d.expired) { v.innerHTML = top() + '<h1>This link has ended.</h1><p class="sub">' + h(d.message) + '</p>' + foot('<a class="btn acc" href="/account/">Open My Yard</a>'); return; }
     if (d.status === 'scheduled') {
@@ -71,14 +102,10 @@ h1{font-size:40px;line-height:1;letter-spacing:-.045em;font-weight:800;margin:56
         '<p class="sub">' + (d.stopsAway === 1 ? 'You are next.' : 'You are ' + h(d.stopsAway) + ' stops away.') + ' ' + who + ' is scooping today. We text you when we head your way.</p>' + steps(0) + foot();
     } else if (d.status === 'on_the_way') {
       var p = typeof d.progress === 'number' ? d.progress : 0.15;
-      var live = !!(d.mapsKey && d.truck && d.home);
-      v.classList.toggle('live', live);
-      v.innerHTML = top() + (live ? '<div class="mapwrap" id="mapslot" aria-label="Map of our truck on the way to you"></div>' : '') +
-        '<h1>' + who + ' is on the way.</h1><div class="eta">' + h(t(d.eta)) + '</div>' +
+      v.innerHTML = top() + '<h1>' + who + ' is on the way.</h1><div class="eta">' + h(t(d.eta)) + '</div>' +
         '<p class="sub">' + (d.miles != null ? h(d.miles) + ' miles away. ' : '') + 'Please unlock the gate and keep your dogs inside.</p>' +
-        (live ? '' : '<div class="track" aria-hidden="true"><div class="ln"></div><div class="fill" style="width:' + Math.round(p * 100) + '%"></div><div class="truck" style="left:' + Math.round(p * 100) + '%">' + TRUCK + '</div>' + HOME + '</div>') +
+        '<div class="track" aria-hidden="true"><div class="ln"></div><div class="fill" style="width:' + Math.round(p * 100) + '%"></div><div class="truck" style="left:' + Math.round(p * 100) + '%">' + TRUCK + '</div>' + HOME + '</div>' +
         steps(1) + (d.seen ? '<p class="lbl" style="margin-top:16px">Updated ' + h(t(d.seen)) + '</p>' : '') + foot();
-      if (live) liveMap(d);
     } else if (d.status === 'here') {
       v.innerHTML = top() + '<h1>' + who + ' is in your yard.</h1><p class="sub">Since ' + h(t(d.arrivedAt)) + '. We latch the gate and send a photo when we finish.</p>' + steps(2) + foot();
     } else if (d.status === 'done') {
@@ -91,24 +118,48 @@ h1{font-size:40px;line-height:1;letter-spacing:-.045em;font-weight:800;margin:56
       v.innerHTML = top() + '<h1>No visit today.</h1><p class="sub">This visit was skipped. Questions? Text us.</p>' + foot();
     }
   }
-  /* ---------- live map (Google Maps), shown only while we head to this yard ---------- */
-  var gm = { el: null, map: null, truck: null, home: null, line: null, anim: null, pos: null, ready: null, fitted: false };
+  /* ---------- live: full screen map and one card ---------- */
+  function drawLive(d, who) {
+    etaAt = Date.parse(d.eta);
+    if (mode !== 'live') {
+      mode = 'live'; gm.pos = null; gm.fitted = false;
+      v.classList.add('live');
+      v.innerHTML = '<div class="mapwrap" id="mapslot" aria-label="Map of our truck on the way to you"></div>' + top() +
+        '<section class="card"><h1><i></i>' + who + ' is on the way</h1>' +
+        '<div class="mins"><b id="mn"></b><span>min away</span></div>' +
+        '<div class="meta"><div><span class="lbl">Arrives</span><b id="at"></b></div><div><span class="lbl">Miles</span><b id="mi"></b></div></div>' +
+        '<div class="bar"><i id="pg"></i></div>' +
+        '<p class="sub">Please unlock the gate and keep your dogs inside.</p>' +
+        '<a class="btn" href="' + TEXT + '">Text us</a></section>';
+    }
+    tick();
+    document.getElementById('at').textContent = t(d.eta);
+    document.getElementById('mi').textContent = d.miles != null ? d.miles : '';
+    document.getElementById('pg').style.width = Math.round((typeof d.progress === 'number' ? d.progress : 0.1) * 100) + '%';
+    liveMap(d);
+  }
+  var gm = { el: null, map: null, truck: null, halo: null, home: null, line: null, glow: null, anim: null, pos: null, ready: null, fitted: false, key: '' };
   var DARK = [
     { elementType: 'geometry', stylers: [{ color: '#0b0d14' }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: '#8b90a3' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#6b7186' }] },
     { elementType: 'labels.text.stroke', stylers: [{ color: '#0b0d14' }] },
     { featureType: 'poi', stylers: [{ visibility: 'off' }] },
     { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1d2233' }] },
+    { featureType: 'landscape.man_made', stylers: [{ visibility: 'off' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1a1f2e' }] },
+    { featureType: 'road.local', elementType: 'labels', stylers: [{ visibility: 'simplified' }] },
     { featureType: 'road', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
-    { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#2a3048' }] },
+    { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#232a3d' }] },
+    { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#2c3450' }] },
     { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#05070f' }] },
-    { featureType: 'administrative', elementType: 'geometry', stylers: [{ visibility: 'off' }] }
+    { featureType: 'administrative', elementType: 'geometry', stylers: [{ visibility: 'off' }] },
+    { featureType: 'administrative.neighborhood', stylers: [{ visibility: 'off' }] }
   ];
   function mapsReady(key) {
     if (gm.ready) return gm.ready;
     gm.ready = new Promise(function (resolve, reject) {
       window.__apwMaps = function () { resolve(); };
+      window.gm_authFailure = function () { report('Google Maps key refused'); };
       var sc = document.createElement('script');
       sc.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) + '&v=weekly&loading=async&callback=__apwMaps';
       sc.async = true;
@@ -117,57 +168,78 @@ h1{font-size:40px;line-height:1;letter-spacing:-.045em;font-weight:800;margin:56
     });
     return gm.ready;
   }
-  function easeTo(to, heading) {
-    var from = gm.pos || to, t0 = performance.now(), dur = gm.pos ? 14000 : 0;
+  function easeTo(to, heading, dur) {
+    var from = gm.pos || to, t0 = performance.now();
+    if (!gm.pos) dur = 0;
     if (gm.anim) cancelAnimationFrame(gm.anim);
     if (heading == null && gm.pos && google.maps.geometry) heading = google.maps.geometry.spherical.computeHeading(new google.maps.LatLng(from), new google.maps.LatLng(to));
     if (heading != null) { var ic = gm.truck.getIcon(); ic.rotation = heading; gm.truck.setIcon(ic); }
     (function step(now) {
       var k = dur ? Math.min(1, (now - t0) / dur) : 1;
       var p = { lat: from.lat + (to.lat - from.lat) * k, lng: from.lng + (to.lng - from.lng) * k };
-      gm.pos = p; gm.truck.setPosition(p);
+      gm.pos = p; gm.truck.setPosition(p); gm.halo.setPosition(p);
       if (k < 1) gm.anim = requestAnimationFrame(step);
+    })(t0);
+  }
+  function pulse() {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var t0 = performance.now(), last = 0;
+    (function step(now) {
+      if (mode === 'live' && gm.halo && now - last > 60) {
+        last = now;
+        var k = ((now - t0) % 1800) / 1800, ic = gm.halo.getIcon();
+        ic.scale = 10 + k * 22; ic.fillOpacity = 0.32 * (1 - k); gm.halo.setIcon(ic);
+      }
+      requestAnimationFrame(step);
     })(t0);
   }
   async function liveMap(d) {
     var slot = document.getElementById('mapslot');
     if (!slot) return;
     if (!gm.el) { gm.el = document.createElement('div'); gm.el.id = 'gmap'; }
-    slot.appendChild(gm.el);
-    try { await mapsReady(d.mapsKey); } catch (e) { slot.remove(); return; }
+    if (gm.el.parentNode !== slot) slot.appendChild(gm.el);
+    try { await mapsReady(d.mapsKey); } catch (e) { report('Google Maps did not load'); return; }
     var tr = { lat: Number(d.truck.lat), lng: Number(d.truck.lng) }, home = { lat: Number(d.home.lat), lng: Number(d.home.lng) };
     var maps = await google.maps.importLibrary('maps');
     var marker = await google.maps.importLibrary('marker');
     await google.maps.importLibrary('geometry');
     if (!gm.map) {
-      gm.map = new maps.Map(gm.el, { center: tr, zoom: 14, styles: DARK, disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy', clickableIcons: false, backgroundColor: '#0b0d14' });
+      gm.map = new maps.Map(gm.el, { center: tr, zoom: 14, styles: DARK, disableDefaultUI: true, gestureHandling: 'greedy', clickableIcons: false, backgroundColor: '#0b0d14', keyboardShortcuts: false });
+      gm.glow = new maps.Polyline({ map: gm.map, strokeColor: '#FF4A1C', strokeOpacity: 0.22, strokeWeight: 14 });
+      gm.line = new maps.Polyline({ map: gm.map, strokeColor: '#FF4A1C', strokeOpacity: 1, strokeWeight: 4 });
       gm.home = new marker.Marker({ map: gm.map, position: home, title: 'Your home', zIndex: 1,
         icon: { path: 'M -9 1 L 0 -8 L 9 1 L 9 10 L -9 10 Z', fillColor: '#ffffff', fillOpacity: 1, strokeColor: '#000000', strokeWeight: 2, scale: 1.3, anchor: new google.maps.Point(0, 10) } });
-      gm.truck = new marker.Marker({ map: gm.map, position: tr, title: 'Our truck', zIndex: 2,
+      gm.halo = new marker.Marker({ map: gm.map, position: tr, clickable: false, zIndex: 2,
+        icon: { path: google.maps.SymbolPath.CIRCLE, fillColor: '#FF4A1C', fillOpacity: 0.3, strokeWeight: 0, scale: 12 } });
+      gm.truck = new marker.Marker({ map: gm.map, position: tr, title: 'Our truck', zIndex: 3,
         icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, fillColor: '#FF4A1C', fillOpacity: 1, strokeColor: '#ffffff', strokeWeight: 2, scale: 7, rotation: d.truck.heading || 0 } });
-      gm.line = new maps.Polyline({ map: gm.map, strokeColor: '#FF4A1C', strokeOpacity: 0.95, strokeWeight: 5 });
+      pulse();
     }
     var path = d.polyline && google.maps.geometry.encoding ? google.maps.geometry.encoding.decodePath(d.polyline) : [tr, home];
-    gm.line.setPath(path);
-    easeTo(tr, d.truck.heading);
-    var b = new google.maps.LatLngBounds();
-    b.extend(tr); b.extend(home);
-    path.forEach(function (pt) { b.extend(pt); });
-    if (!gm.fitted || !gm.map.getBounds() || !gm.map.getBounds().contains(tr)) { gm.map.fitBounds(b, 56); gm.fitted = true; }
+    if (d.polyline !== gm.key) { gm.key = d.polyline; gm.line.setPath(path); gm.glow.setPath(path); gm.fitted = false; }
+    easeTo(tr, d.truck.heading, ((d.poll || 15) * 1000) - 400);
+    if (!gm.fitted || !gm.map.getBounds() || !gm.map.getBounds().contains(tr)) {
+      var b = new google.maps.LatLngBounds();
+      b.extend(tr); b.extend(home);
+      path.forEach(function (pt) { b.extend(pt); });
+      var card = document.querySelector('.card');
+      gm.map.fitBounds(b, { top: 90, left: 44, right: 44, bottom: (card ? card.offsetHeight : 260) + 40 });
+      gm.fitted = true;
+    }
   }
 
   var timer = null;
   async function load() {
+    clearTimeout(timer);
     try {
       var r = await fetch('/api/track/' + encodeURIComponent(code), { headers: { accept: 'application/json' } });
       var d = await r.json();
-      if (!r.ok) { v.innerHTML = top() + '<h1>This link is not active.</h1><p class="sub">' + h(d.error || '') + ' See every visit in My Yard.</p>' + foot(); return; }
+      if (!r.ok) { mode = ''; v.classList.remove('live'); v.innerHTML = top() + '<h1>This link is not active.</h1><p class="sub">' + h(d.error || '') + ' See every visit in My Yard.</p>' + foot(); return; }
       draw(d);
-      clearTimeout(timer);
-      if (!d.expired && ['scheduled', 'on_the_way', 'here'].indexOf(d.status) >= 0) timer = setTimeout(load, d.status === 'on_the_way' ? 15000 : 60000);
+      if (!d.expired && (d.demo || ['scheduled', 'on_the_way', 'here'].indexOf(d.status) >= 0)) timer = setTimeout(load, d.poll ? d.poll * 1000 : d.status === 'on_the_way' ? 15000 : 60000);
     } catch (e) {
-      v.innerHTML = top() + '<h1>We could not load your visit.</h1><p class="sub">Check your connection and try again.</p>' + foot();
-      timer = setTimeout(load, 30000);
+      if (mode !== 'live') v.innerHTML = top() + '<h1>We could not load your visit.</h1><p class="sub">Check your connection and try again.</p>' + foot();
+      timer = setTimeout(load, mode === 'live' ? 8000 : 30000);
     }
   }
   if (code.length !== 6) { v.innerHTML = top() + '<h1>This link is not active.</h1><p class="sub">See every visit in My Yard.</p>' + foot(); return; }

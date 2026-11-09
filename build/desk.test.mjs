@@ -271,6 +271,15 @@ ok('next customer sees no truck and no map', r.d.truck === undefined && r.d.maps
 delete env.GOOGLE_MAPS_BROWSER_KEY; delete env.GOOGLE_MAPS_SERVER_KEY;
 r = await call('/api/track/' + patStop.code, 'GET');
 ok('next customer sees stops away, no truck', r.d.status === 'scheduled' && r.d.stopsAway === 2 && r.d.miles === undefined, r.d);
+r = await call('/api/track/DEMO01', 'GET');
+ok('demo truck link works with no real visit', r.status === 200 && r.d.demo === true && r.d.scooper === 'Sam' && ['scheduled', 'on_the_way', 'here', 'done'].includes(r.d.status), r.d);
+r = await call('/api/log', 'POST', { source: 'crew', path: '/crew route', message: 'Test crash', detail: 'stack' });
+ok('crew app crash is logged', r.status === 200);
+r = await call('/api/log', 'POST', { source: 'nope', message: 'x' });
+r = await call('/api/office/health', 'GET', null, mt);
+ok('scooper cannot open health', r.status === 403);
+r = await call('/api/office/health', 'GET', null, owner);
+ok('health: checks, live truck, last GPS, one crash', r.status === 200 && r.d.checks.desk === true && r.d.liveRoutes === 1 && r.d.lastPing && r.d.errors.length === 1 && r.d.errors[0].message === 'Test crash', r.d);
 r = await call('/api/crew/done', 'POST', { stopId: samStop.id }, mt);
 ok('done without photo refused', r.status === 400 && /photo/.test(r.d.error), r);
 r = await call('/api/crew/arrive', 'POST', { stopId: samStop.id }, mt);

@@ -6,6 +6,8 @@ Read this first. `README.md` has how the site is built. `GO_LIVE.md` has account
 - The public site (Cloudflare Pages, boards in `src/boards`, do not hand edit those).
 - The server: `src/worker/worker.js`. It answers `/api/*` only. Sign up, Stripe, My Yard, and the field desk.
 - The field desk: `static/crew/index.html` (staff), `static/t/index.html` (customer truck link), `supabase/crm.sql` (tables).
+- Demo, no sign in: `/crew/?demo` (made up yards, lives in the browser tab only) and `/t/DEMO01` (a made up visit that loops every 3 minutes, served by `trackDemo`).
+- Crash log: server errors and crashes in the crew app or on a truck link go to the `errors` table. The office reads them on the Health tab (`/api/office/health`).
 - One Supabase database for everything. The Stripe webhook keeps `customers` in sync, so every sign up shows up in the office on its own.
 
 ## Rules

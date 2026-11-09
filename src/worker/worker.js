@@ -54,6 +54,7 @@ export default {
       return res;
     } catch (e) {
       console.error('api error', url.pathname, e && e.stack || e);
+      if (ctx && ctx.waitUntil) ctx.waitUntil(logError(env, 'server', url.pathname, e && e.message, e && e.stack));
       return fail(500, 'Something went wrong on our side. ' + CALL_US);
     }
   }
@@ -71,6 +72,7 @@ async function route(path, request, env, ctx) {
   if (path === '/api/portal' && m === 'POST') return portal(request, env);
   if (path === '/api/me/visits' && m === 'GET') return meVisits(request, env);
   if (path === '/api/health' && m === 'GET') return ok({ ok: true, live: live(env), desk: sbLive(env) });
+  if (path === '/api/log' && m === 'POST') return clientLog(request, env);
   if (/^\/api\/(staff|crew|office|track)\//.test(path)) return desk(path, request, env, ctx);
   return fail(404, 'Not found.');
 }
@@ -644,7 +646,7 @@ async function staffRefresh(request, env) {
 async function desk(path, request, env, ctx) {
   const m = request.method;
   if (!sbLive(env)) return fail(503, 'The field desk needs the Supabase keys in Cloudflare first.');
-  if (path.startsWith('/api/track/') && m === 'GET') return track(path.slice(11), env);
+  if (path.startsWith('/api/track/') && m === 'GET') return path.slice(11).toUpperCase() === DEMO_CODE ? trackDemo(env) : track(path.slice(11), env);
   if (path === '/api/staff/code' && m === 'POST') return staffCode(request, env);
   if (path === '/api/staff/verify' && m === 'POST') return staffVerify(request, env);
   if (path === '/api/staff/refresh' && m === 'POST') return staffRefresh(request, env);
@@ -683,6 +685,7 @@ async function desk(path, request, env, ctx) {
   if (path === '/api/office/text' && m === 'POST') return markText(s, env, b, false);
   if (path === '/api/office/night-before' && m === 'POST') return nightBefore(env, isDay(b.date) ? b.date : null);
   if (path === '/api/office/money' && m === 'GET') return officeMoney(env);
+  if (path === '/api/office/health' && m === 'GET') return officeHealth(env);
   if (path === '/api/office/areas' && m === 'GET') return officeAreas(env);
   if (path === '/api/office/area' && m === 'POST') return officeArea(env, b);
   if (path === '/api/office/team' && m === 'GET') return ok({ team: await db(env, 'GET', 'staff?select=' + STAFF_FIELDS + '&order=active.desc,name') });
@@ -1132,6 +1135,109 @@ async function track(raw, env) {
   if (st.status === 'done') { out.doneAt = st.done_at; out.photo = await photoUrl(env, st.photo_path); out.noPhoto = !!st.no_photo; }
   if (st.status === 'cant') { out.reason = REASONS[st.reason] || REASONS.other; out.doneAt = st.done_at; }
   return ok(out);
+}
+
+/* ---------- demo truck link: arizonapetwaste.com/t/DEMO01 ---------- */
+// A made up visit that loops every 3 minutes so anyone can see what a customer sees. No real customer, truck or home.
+const DEMO_CODE = 'DEMO01';
+const DEMO_FROM = { lat: 33.6387, lng: -112.3331 }, DEMO_HOME = { lat: 33.6292, lng: -112.3955 };
+let demoRoute = null;
+function decodeLine(str) {
+  const pts = []; let i = 0, lat = 0, lng = 0;
+  while (i < str.length) {
+    for (const k of [0, 1]) {
+      let b, shift = 0, res = 0;
+      do { b = str.charCodeAt(i++) - 63; res |= (b & 31) << shift; shift += 5; } while (b >= 32);
+      const d = res & 1 ? ~(res >> 1) : res >> 1;
+      if (k === 0) lat += d; else lng += d;
+    }
+    pts.push({ lat: lat / 1e5, lng: lng / 1e5 });
+  }
+  return pts;
+}
+async function demoRoad(env) {
+  if (demoRoute && (demoRoute.polyline || !env.GOOGLE_MAPS_SERVER_KEY || Date.now() - demoRoute.at < 300e3)) return demoRoute;
+  let out = { at: Date.now(), polyline: null, pts: [DEMO_FROM, DEMO_HOME], meters: Math.round(miles(DEMO_FROM, DEMO_HOME) * 1609), secs: Math.round(driveMin(miles(DEMO_FROM, DEMO_HOME)) * 60) };
+  if (env.GOOGLE_MAPS_SERVER_KEY) {
+    try {
+      const r = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GOOGLE_MAPS_SERVER_KEY, 'x-goog-fieldmask': 'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline' },
+        body: JSON.stringify({ origin: { location: { latLng: { latitude: DEMO_FROM.lat, longitude: DEMO_FROM.lng } } }, destination: { location: { latLng: { latitude: DEMO_HOME.lat, longitude: DEMO_HOME.lng } } }, travelMode: 'DRIVE' })
+      });
+      const route = r.ok ? ((await r.json()).routes || [])[0] : null;
+      const line = route && route.polyline && route.polyline.encodedPolyline;
+      if (line) out = { at: Date.now(), polyline: line, pts: decodeLine(line), meters: route.distanceMeters || out.meters, secs: parseInt(String(route.duration || '0s'), 10) || out.secs };
+    } catch (e) { console.error('demo route', e); }
+  }
+  demoRoute = out;
+  return out;
+}
+function along(pts, k) {
+  const seg = []; let total = 0;
+  for (let i = 1; i < pts.length; i++) { const d = miles(pts[i - 1], pts[i]); seg.push(d); total += d; }
+  let want = Math.max(0, Math.min(1, k)) * total;
+  for (let i = 0; i < seg.length; i++) {
+    if (want <= seg[i] || i === seg.length - 1) {
+      const f = seg[i] ? Math.min(1, want / seg[i]) : 0, a = pts[i], b = pts[i + 1];
+      const heading = (Math.atan2((b.lng - a.lng) * Math.cos(a.lat * Math.PI / 180), b.lat - a.lat) * 180 / Math.PI + 360) % 360;
+      return { lat: a.lat + (b.lat - a.lat) * f, lng: a.lng + (b.lng - a.lng) * f, heading: Math.round(heading) };
+    }
+    want -= seg[i];
+  }
+  return Object.assign({ heading: 0 }, pts[0]);
+}
+async function trackDemo(env) {
+  const now = Date.now(), t = (now / 1000) % 180, today = azToday();
+  const out = { demo: true, poll: 3, day: today, dayName: DAYS[weekday(today)], scooper: 'Sam', routeLive: true };
+  if (t < 10) return ok(Object.assign(out, { status: 'scheduled', stopsAway: 1, eta: new Date(now + 20 * 60e3).toISOString() }));
+  if (t < 130) {
+    const road = await demoRoad(env), k = (t - 10) / 120, left = 1 - k;
+    Object.assign(out, { status: 'on_the_way', stopsAway: 1, progress: k, seen: new Date(now).toISOString(), home: DEMO_HOME, truck: along(road.pts, k),
+      miles: Math.round(road.meters * left / 160.934) / 10, eta: new Date(now + road.secs * left * 1000).toISOString() });
+    if (road.polyline) out.polyline = road.polyline;
+    if (env.GOOGLE_MAPS_BROWSER_KEY) out.mapsKey = env.GOOGLE_MAPS_BROWSER_KEY;
+    return ok(out);
+  }
+  if (t < 150) return ok(Object.assign(out, { status: 'here', arrivedAt: new Date(now - (t - 130) * 1000).toISOString() }));
+  return ok(Object.assign(out, { status: 'done', doneAt: new Date(now - (t - 150) * 1000).toISOString(), photo: '/assets/img/gate-photo.jpg', noPhoto: false }));
+}
+
+/* ---------- crash log and health check ---------- */
+// Every server error and every crash in the crew app or on a truck link lands in the errors table. The office reads it on the Health tab.
+async function logError(env, source, path, message, detail) {
+  if (!sbLive(env)) return;
+  try {
+    await db(env, 'POST', 'errors', { source: clean(source, 20), path: clean(path, 200), message: clean(message, 300) || 'Unknown error', detail: String(detail || '').slice(0, 1500) || null }, 'return=minimal');
+  } catch (e) { console.error('log error', e); }
+}
+async function clientLog(request, env) {
+  const b = (await body(request)) || {};
+  const source = ['crew', 'truck'].includes(b.source) ? b.source : null;
+  if (!source || !sbLive(env) || !clean(b.message, 300)) return ok({ ok: true });
+  // A cap so a broken phone or a stranger cannot fill the table.
+  const recent = await db(env, 'GET', 'errors?at=gte.' + enc(new Date(Date.now() - 3600e3).toISOString()) + '&source=in.(crew,truck)&select=id&limit=60');
+  if (recent.length < 60) await logError(env, source, b.path, b.message, b.detail);
+  return ok({ ok: true });
+}
+async function officeHealth(env) {
+  const hour = new Date(Date.now() - 3600e3).toISOString();
+  const [errors, pings, live1, queued] = await Promise.all([
+    db(env, 'GET', 'errors?select=id,at,source,path,message&order=at.desc&limit=50'),
+    db(env, 'GET', 'positions?select=at&order=at.desc&limit=1'),
+    db(env, 'GET', 'routes?day=eq.' + azToday() + '&status=eq.live&select=id'),
+    db(env, 'GET', 'messages?status=eq.queued&select=id')
+  ]);
+  return ok({
+    checks: {
+      desk: true,
+      booking: live(env),
+      map: !!(env.GOOGLE_MAPS_BROWSER_KEY && env.GOOGLE_MAPS_SERVER_KEY),
+      texts: false
+    },
+    liveRoutes: live1.length, lastPing: pings[0] ? pings[0].at : null, queuedTexts: queued.length,
+    errorsLastHour: errors.filter((e) => e.at >= hour).length, errors
+  });
 }
 
 /* ---------- My Yard: visit history with gate photos ---------- */

@@ -143,3 +143,15 @@ alter table public.stops add column if not exists route_polyline text;
 alter table public.stops add column if not exists route_at timestamptz;
 alter table public.stops add column if not exists route_meters int;
 alter table public.staff add column if not exists location_ok_at timestamptz;
+
+-- Crash log. Server errors and crashes in the crew app or on a truck link. The office reads it on the Health tab.
+create table if not exists public.errors (
+  id bigint generated always as identity primary key,
+  at timestamptz not null default now(),
+  source text not null,
+  path text,
+  message text not null,
+  detail text
+);
+create index if not exists errors_at_idx on public.errors (at desc);
+alter table public.errors enable row level security;

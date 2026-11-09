@@ -117,6 +117,12 @@ table.t tr.click:hover td{background:var(--bg2)}
   var PLAN = { week: 'Weekly', twice: '2x week', eow: 'Every other wk' };
   var REASONS = [['gate_locked', 'Gate locked'], ['dog_out', 'Dog in the yard'], ['weather', 'Weather'], ['other', 'Other']];
   var S = { view: null, tab: 'today', day: null, data: {}, sel: null, check: {}, busy: false };
+  var DEMO = /[?&]demo\b/.test(location.search);
+  // Crashes in this app go to the Health tab so the office sees them.
+  var sentErr = 0;
+  function report(msg, detail) { if (DEMO || sentErr++ > 4) return; try { fetch('/api/log', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source: 'crew', path: '/crew ' + (S.view || '') + ' ' + (S.tab || ''), message: String(msg).slice(0, 300), detail: String(detail || '').slice(0, 1200) }), keepalive: true }); } catch (e) { } }
+  window.addEventListener('error', function (e) { report(e.message, (e.filename || '') + ':' + (e.lineno || '') + ' ' + ((e.error && e.error.stack) || '')); });
+  window.addEventListener('unhandledrejection', function (e) { report('Promise: ' + ((e.reason && e.reason.message) || e.reason), e.reason && e.reason.stack); });
 
   /* ---------- helpers ---------- */
   function h(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -157,12 +163,98 @@ table.t tr.click:hover td{background:var(--bg2)}
     return d || {};
   }
   async function api(method, path, body) {
+    if (DEMO) return demoApi(method, path, body || {});
     var t = await token();
     if (!t) { signOut(); throw new Error('Please sign in again.'); }
     try { return await raw(method, path, body, t); }
     catch (e) { if (e.status === 401) signOut(); throw e; }
   }
-  function signOut() { try { localStorage.removeItem(KEY); } catch (e) { } stopGps(); S.view = 'signin'; render(); }
+  function signOut() { if (DEMO) { location.href = '/crew/'; return; } try { localStorage.removeItem(KEY); } catch (e) { } stopGps(); S.view = 'signin'; render(); }
+
+  /* ---------- demo: made up data that lives in this browser tab only ---------- */
+  var D = null;
+  function demoSeed() {
+    var today = new Date(Date.now() - 7 * 3600e3).toISOString().slice(0, 10), wd = new Date(today + 'T19:00:00Z').getUTCDay();
+    var mk = function (id, name, address, dogs, names, gate, plan, status, extra) { return Object.assign({ id: 'c' + id, name: name, email: name.split(' ')[0].toLowerCase() + '@example.com', phone: '623555010' + id, address: address, zip: '85374', dogs: dogs, dog_names: names, gate_code: gate, gate_notes: '', problem_spots: '', office_notes: '', skip_spray: false, plan: plan, status: status, lat: 33.63, lng: -112.37, service_day: wd, service_day2: null, eow_week: 0, stop_order: id, scooper_id: 's2', texts_visit: true, texts_deals: false, pause_from: null, pause_until: null }, extra || {}); };
+    var cs = [
+      mk(1, 'Dana Ruiz', '101 Sample St', 2, 'Milo, Bean', '4417', 'week', 'active', { gate_notes: 'Side gate on the left.' }),
+      mk(2, 'Chris Park', '202 Example Ave', 1, 'Rosie', '', 'week', 'trialing', { problem_spots: 'Back corner by the shed.' }),
+      mk(3, 'Lee Morgan', '303 Demo Ln', 3, 'Ace, Duke, Pip', '9021', 'twice', 'active', { skip_spray: true }),
+      mk(4, 'Pat Quinn', '404 Test Ct', 2, 'Luna, Moose', '1180', 'eow', 'active', { office_notes: 'Dogs are friendly. Knock first.' }),
+      mk(5, 'Sky Bell', '505 Mock Rd', 1, 'Otis', '', 'week', 'trialing', { service_day: null, scooper_id: null, stop_order: null }),
+      mk(6, 'Remy Cole', '606 Placeholder Way', 2, 'Kona, Taz', '', 'week', 'past_due', {})
+    ];
+    var stops = cs.slice(0, 4).map(function (c, i) { return { id: 'st' + (i + 1), route_id: 'r1', day: today, position: i + 1, status: 'scheduled', code: 'DEMO01', note: null, reason: null, photo_path: null, no_photo: false, on_way_at: null, arrived_at: null, done_at: null, customer: c }; });
+    D = {
+      today: today, wd: wd, customers: cs, stops: stops, route: { id: 'r1', status: 'planned', staff: { id: 's2', name: 'Sam Scooper' } }, ping: null, n: 1,
+      team: [{ id: 's1', name: 'Joe', email: 'owner@example.com', phone: '6235550100', role: 'owner', active: true }, { id: 's2', name: 'Sam Scooper', email: 'sam@example.com', phone: '6235550101', role: 'scooper', active: true }],
+      leads: [{ id: 1, kind: 'waitlist', name: 'Jo Hart', phone: '6235550120', email: 'jo@example.com', address: '707 Sample St', zip: '85379', details: 'Text when we start there', status: 'new', notes: '', created_at: new Date().toISOString() },
+        { id: 2, kind: 'commercial', name: 'Maple HOA', phone: '6235550121', email: '', address: '', zip: '85388', details: 'Two dog parks, weekly', status: 'quoted', notes: 'Sent quote', created_at: new Date(Date.now() - 2 * 864e5).toISOString() }],
+      texts: [{ id: 1, kind: 'night_before', to_addr: '6235550101', body: 'Arizona Pet Waste: we scoop your yard tomorrow. Please unlock the gate and keep dogs inside.', status: 'queued', stop_id: 'st1', customer: { name: 'Dana Ruiz' } }],
+      areas: [{ area: 'surprise', name: 'Surprise', day: wd }, { area: 'elmirage', name: 'El Mirage', day: null }, { area: 'sun_city', name: 'Sun City', day: null }]
+    };
+  }
+  function demoText(kind, st, body) { if (st.customer.texts_visit) D.texts.push({ id: ++D.n + 10, kind: kind, to_addr: st.customer.phone, body: body, status: 'queued', stop_id: st.id, customer: { name: st.customer.name } }); }
+  function demoNext() { var nx = D.stops.filter(function (x) { return x.status === 'scheduled'; })[0]; if (nx) { nx.status = 'on_the_way'; nx.on_way_at = new Date().toISOString(); demoText('on_the_way', nx, 'Arizona Pet Waste: Sam is on the way. Watch the truck: arizonapetwaste.com/t/DEMO01'); } }
+  function demoDay() {
+    var pings = {}; if (D.ping) pings.r1 = { at: D.ping };
+    return { day: S.day || D.today, today: D.today, stops: (S.day && S.day !== D.today) ? [] : D.stops, routes: (S.day && S.day !== D.today) ? [] : [D.route], pings: pings, needDay: D.customers.filter(function (c) { return c.service_day == null && c.status !== 'canceled'; }), queuedTexts: D.texts.filter(function (t) { return t.status === 'queued'; }).length };
+  }
+  function demoToday() { return { day: D.today, dayName: DAYS[D.wd], route: D.route, stops: D.stops, texts: D.texts.filter(function (t) { return t.status === 'queued' && t.stop_id; }) }; }
+  function demoCust(id) { var c = D.customers.filter(function (x) { return x.id === id; })[0]; return { customer: c, monthly: 8000, visits: D.stops.filter(function (s) { return s.customer.id === id && s.status !== 'scheduled'; }), texts: D.texts.filter(function (t) { return t.customer && t.customer.name === c.name; }) }; }
+  async function demoApi(method, path, b) {
+    if (!D) demoSeed();
+    await new Promise(function (r) { setTimeout(r, 120); });
+    var q = new URLSearchParams(path.split('?')[1] || ''), p = path.split('?')[0], st = D.stops.filter(function (x) { return x.id === (b.stopId || b.id); })[0];
+    var queued = function () { return D.texts.filter(function (t) { return t.status === 'queued'; }); };
+    if (p === '/api/crew/today') return demoToday();
+    if (p === '/api/crew/start') { D.route.status = 'live'; D.ping = new Date().toISOString(); if (!D.stops.some(function (x) { return x.status === 'on_the_way' || x.status === 'here'; })) demoNext(); return demoToday(); }
+    if (p === '/api/crew/arrive') { st.status = 'here'; st.arrived_at = new Date().toISOString(); D.ping = st.arrived_at; return demoToday(); }
+    if (p === '/api/crew/photo') { st.photo_path = 'demo'; return { ok: true }; }
+    if (p === '/api/crew/done') { st.status = 'done'; st.done_at = new Date().toISOString(); st.no_photo = !!b.noPhoto; demoText('done', st, 'Arizona Pet Waste: your yard is done and the gate is latched. Photo: arizonapetwaste.com/t/DEMO01'); demoNext(); return demoToday(); }
+    if (p === '/api/crew/cant') { st.status = 'cant'; st.reason = b.reason; st.note = b.note || null; st.done_at = new Date().toISOString(); demoNext(); return demoToday(); }
+    if (p === '/api/crew/end') { D.route.status = 'done'; return demoToday(); }
+    if (p === '/api/crew/text' || p === '/api/office/text') { D.texts.forEach(function (t) { if (String(t.id) === String(b.id)) t.status = b.status; }); return { ok: true }; }
+    if (p === '/api/office/day') return demoDay();
+    if (p === '/api/office/plan') return { added: 0 };
+    if (p === '/api/office/night-before') return { queued: 0, day: D.today };
+    if (p === '/api/office/stop') {
+      var i = D.stops.indexOf(st);
+      if (b.action === 'skip') st.status = 'skipped'; if (b.action === 'unskip') st.status = 'scheduled';
+      if (b.action === 'up' && i > 0) { D.stops.splice(i, 1); D.stops.splice(i - 1, 0, st); }
+      if (b.action === 'down' && i < D.stops.length - 1) { D.stops.splice(i, 1); D.stops.splice(i + 1, 0, st); }
+      return demoDay();
+    }
+    if (p === '/api/office/customers') {
+      var show = q.get('show') || 'current', qq = (q.get('q') || '').toLowerCase();
+      return { customers: D.customers.filter(function (c) { return (show === 'all' || (show === 'current' && c.status !== 'canceled' && c.status !== 'checkout') || c.status === show || (show === 'started' && c.status === 'checkout')) && (!qq || (c.name + ' ' + c.address + ' ' + c.phone).toLowerCase().indexOf(qq) >= 0); }) };
+    }
+    if (p === '/api/office/customer' && method === 'GET') return demoCust(q.get('id'));
+    if (p === '/api/office/customer') {
+      var c = D.customers.filter(function (x) { return x.id === b.id; })[0];
+      ['gate_code', 'dog_names', 'gate_notes', 'problem_spots', 'office_notes', 'skip_spray'].forEach(function (k) { if (k in b) c[k] = b[k]; });
+      ['service_day', 'service_day2', 'stop_order'].forEach(function (k) { if (k in b) c[k] = b[k] === '' || b[k] == null ? null : +b[k]; });
+      ['pause_from', 'pause_until', 'scooper_id'].forEach(function (k) { if (k in b) c[k] = b[k] || null; });
+      return demoCust(b.id);
+    }
+    if (p === '/api/office/photo') return { url: '/assets/img/gate-photo.jpg' };
+    if (p === '/api/office/leads') return { leads: D.leads };
+    if (p === '/api/office/lead') {
+      if (b.id) D.leads.forEach(function (l) { if (String(l.id) === String(b.id)) { if (b.status) l.status = b.status; if (b.notes != null) l.notes = b.notes; } });
+      else D.leads.unshift({ id: ++D.n + 100, kind: b.kind, name: b.name, phone: b.phone, email: '', address: '', zip: '', details: b.details, status: 'new', notes: '', created_at: new Date().toISOString() });
+      return { leads: D.leads };
+    }
+    if (p === '/api/office/texts') return { texts: queued() };
+    if (p === '/api/office/team') {
+      if (method === 'POST') { if (b.id) D.team.forEach(function (m) { if (m.id === b.id) { if (b.role) m.role = b.role; if ('active' in b) m.active = b.active; } }); else D.team.push({ id: 's' + (++D.n + 5), name: b.name, email: b.email, phone: b.phone, role: b.role, active: true }); }
+      return { team: D.team };
+    }
+    if (p === '/api/office/areas') return { areas: D.areas };
+    if (p === '/api/office/area') { D.areas.forEach(function (a) { if (a.area === b.area) a.day = b.day === '' ? null : +b.day; }); return { areas: D.areas }; }
+    if (p === '/api/office/money') return { paying: { count: 3, monthly: 27000 }, freeMonth: { count: 2, monthly: 16000 }, pastDue: [{ name: 'Remy Cole', phone: '6235550106', monthly: 8000 }], started: 1 };
+    if (p === '/api/office/health') return { checks: { desk: true, booking: true, map: true, texts: false }, liveRoutes: D.route.status === 'live' ? 1 : 0, lastPing: D.ping, queuedTexts: queued().length, errorsLastHour: 0, errors: [] };
+    return {};
+  }
 
   /* ---------- sign in ---------- */
   var si = { step: 'email', email: '', err: '', info: '' };
@@ -174,7 +266,7 @@ table.t tr.click:hover td{background:var(--bg2)}
         : '<p style="color:var(--mute);margin:0 0 18px;font-size:15px;line-height:1.5">' + h(si.info) + '<br>' + h(si.email) + '</p>' +
           '<label class="lbl" for="cd">6 digit code</label><input id="cd" class="f mono" inputmode="numeric" autocomplete="one-time-code" maxlength="8" style="margin-top:8px;font-size:28px;letter-spacing:.3em">' +
           '<div style="height:14px"></div><button class="btn" id="go">Sign in</button><button class="link" id="back">Use a different email</button>') +
-      '<p class="err" role="alert">' + h(si.err) + '</p></div>';
+      '<p class="err" role="alert">' + h(si.err) + '</p><p style="margin-top:28px"><a href="/crew/?demo" style="color:var(--mute);font-size:14px">See a demo with made up yards</a></p></div>';
   }
   function bindSignin() {
     var go = document.getElementById('go');
@@ -203,7 +295,7 @@ table.t tr.click:hover td{background:var(--bg2)}
   /* ---------- GPS and screen awake while a route is live ---------- */
   var gps = { id: null, last: 0, pos: null, lock: null };
   function startGps() {
-    if (gps.id != null || !navigator.geolocation) return;
+    if (DEMO || gps.id != null || !navigator.geolocation) return;
     gps.id = navigator.geolocation.watchPosition(function (p) {
       gps.pos = p.coords;
       var now = Date.now();
@@ -389,6 +481,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       if (t === 'texts') S.data.texts = await api('GET', '/api/office/texts');
       if (t === 'team') { S.data.team = await api('GET', '/api/office/team'); S.data.areas = await api('GET', '/api/office/areas'); }
       if (t === 'money') S.data.money = await api('GET', '/api/office/money');
+      if (t === 'health') S.data.health = await api('GET', '/api/office/health');
     } catch (e) { toast(e.message); }
     render();
   }
@@ -402,6 +495,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (t === 'texts') out += officeTexts(d.texts);
     if (t === 'team') out += officeTeam(d.team, d.areas);
     if (t === 'money') out += officeMoney(d.money);
+    if (t === 'health') out += officeHealth(d.health);
     return out + '<div style="height:60px"></div></div>';
   }
   function officeToday(d) {
@@ -499,6 +593,23 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (m.pastDue.length) out += '<div class="sec"><h3>Past due</h3><table class="t"><tbody>' + m.pastDue.map(function (p) { return '<tr><td><b>' + h(p.name) + '</b></td><td><a href="tel:+1' + h(p.phone) + '">' + h(phone(p.phone)) + '</a></td><td class="mono">' + money(p.monthly) + '</td></tr>'; }).join('') + '</tbody></table></div>';
     return out;
   }
+  function officeHealth(x) {
+    var out = '<div class="daynav"><h2>Health</h2><span style="flex:1"></span><a class="btn ghost sm" href="/t/DEMO01" target="_blank" rel="noopener">Open demo truck link</a></div>';
+    if (!x) return out + '<p class="empty">Loading…</p>';
+    var c = x.checks, row = function (name, on, good, bad) { return '<tr><td><b>' + name + '</b></td><td>' + (on ? '<span class="tag ok">On</span>' : '<span class="tag warn">Off</span>') + '</td><td style="color:var(--mute);font-size:14px">' + (on ? good : bad) + '</td></tr>'; };
+    out += '<div class="stats"><div class="stat"><span class="lbl">Trucks live now</span><b>' + x.liveRoutes + '</b></div><div class="stat"><span class="lbl">Last GPS</span><b style="font-size:22px">' + (x.lastPing ? h(ago(x.lastPing)) : 'None yet') + '</b></div>' +
+      '<div class="stat"><span class="lbl">Crashes, last hour</span><b' + (x.errorsLastHour ? ' style="color:var(--bad)"' : '') + '>' + x.errorsLastHour + '</b></div><div class="stat" data-tab="texts" style="cursor:pointer"><span class="lbl">Texts to send</span><b>' + x.queuedTexts + '</b></div></div>' +
+      '<div class="sec"><h3>What is on</h3><div class="scroll"><table class="t"><tbody>' +
+      row('Field desk', c.desk, 'Crew app, office and truck links work.', '') +
+      row('Online sign up', c.booking, 'New customers can pay on the site and land here.', 'The Stripe keys are not in Cloudflare yet. The site takes requests as leads until then.') +
+      row('Live truck map', c.map, 'Customers see the truck on a Google map.', 'The Google Maps keys are not in Cloudflare. Customers see a simple progress line.') +
+      row('Texts send on their own', c.texts, '', 'Twilio is not approved yet. Staff send each text by hand from the Texts tab.') +
+      '</tbody></table></div></div>' +
+      '<div class="sec"><h3>Crash log</h3>' + (x.errors.length ? '<div class="scroll"><table class="t"><thead><tr><th>When</th><th>Where</th><th>What happened</th></tr></thead><tbody>' + x.errors.map(function (e) {
+        return '<tr><td class="mono" style="font-size:12px;color:var(--mute);white-space:nowrap">' + h(new Date(e.at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix' })) + '</td><td class="lbl" style="white-space:nowrap">' + h(e.source) + '<div style="text-transform:none;letter-spacing:0">' + h(e.path || '') + '</div></td><td style="font-size:14px">' + h(e.message) + '</td></tr>';
+      }).join('') + '</tbody></table></div>' : '<p class="empty">No crashes. Every server error and every crash in the crew app or on a truck link shows up here.</p>') + '</div>';
+    return out;
+  }
   async function openCustomer(id) {
     try { S.sel = await api('GET', '/api/office/customer?id=' + id); } catch (e) { return toast(e.message); }
     drawCustomer();
@@ -582,14 +693,14 @@ table.t tr.click:hover td{background:var(--bg2)}
   }
 
   /* ---------- shell ---------- */
-  var TABS = [['today', 'Today'], ['route', 'My route'], ['customers', 'Customers'], ['leads', 'Leads'], ['texts', 'Texts'], ['team', 'Team'], ['money', 'Money']];
+  var TABS = [['today', 'Today'], ['route', 'My route'], ['customers', 'Customers'], ['leads', 'Leads'], ['texts', 'Texts'], ['team', 'Team'], ['money', 'Money'], ['health', 'Health']];
   function go(t) { S.tab = t; render(); loadTab(); }
   function shell(inner) {
     var tabs = S.view === 'office' ? TABS.map(function (t) {
       var n = t[0] === 'texts' && S.data.day && S.data.day.queuedTexts ? '<span class="n">' + S.data.day.queuedTexts + '</span>' : '';
       return '<button class="tab' + (S.tab === t[0] ? ' on' : '') + '" data-tab="' + t[0] + '">' + t[1] + n + '</button>';
     }).join('') : '<span class="tabs"></span>';
-    return '<header class="bar"><div class="' + (S.view === 'office' ? 'wrap' : 'narrow') + ' in"><span class="brand">APW</span><nav class="tabs">' + tabs + '</nav><button class="out" id="so">Sign out</button></div></header>' + inner;
+    return '<header class="bar"><div class="' + (S.view === 'office' ? 'wrap' : 'narrow') + ' in"><span class="brand">APW' + (DEMO ? ' <span class="tag acc" style="margin-left:6px">Demo</span>' : '') + '</span><nav class="tabs">' + tabs + '</nav><button class="out" id="so">Sign out</button></div></header>' + inner;
   }
   function render() {
     var sx = window.scrollY;
@@ -601,6 +712,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     window.scrollTo(0, sx);
   }
   async function boot() {
+    if (DEMO) { S.role = 'owner'; S.view = 'office'; S.data.team = await api('GET', '/api/office/team'); toast('Demo. Made up yards. Nothing is saved.'); return go('today'); }
     var s = load();
     if (!s) { S.view = 'signin'; return render(); }
     try { var me = await api('GET', '/api/staff/me'); s.role = me.staff.role; s.name = me.staff.name; save(s); }
