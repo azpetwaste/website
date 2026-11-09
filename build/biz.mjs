@@ -32,7 +32,8 @@ export const ICONS = {
   clock: svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
   ruler: svg('<path d="M3.5 15.5 15.5 3.5l5 5-12 12z"/><path d="m7 12 2 2M10 9l2 2M13 6l2 2"/>'),
   truck: svg('<path d="M2.5 6.5h11v9h-11z"/><path d="M13.5 9.5h4l3 3v3h-7"/><circle cx="6.5" cy="17" r="1.8"/><circle cx="17" cy="17" r="1.8"/>'),
-  bag: svg('<path d="M6 8.5h12l-1 12H7z"/><path d="M9 8.5V7a3 3 0 0 1 6 0v1.5"/>')
+  bag: svg('<path d="M6 8.5h12l-1 12H7z"/><path d="M9 8.5V7a3 3 0 0 1 6 0v1.5"/>'),
+  shield: svg('<path d="M12 3l7 3v5c0 4.6-3 8.4-7 10-4-1.6-7-5.4-7-10V6z"/><path d="m9 12 2 2 4-4"/>', 'bxbi')
 };
 
 export const SERVICES = [
@@ -98,6 +99,7 @@ export function stepsBlock() {
   return '<ol class="bxsteps">' + STEPS.map(([a, b], i) => `<li><span class="bxn">${i + 1}</span><h3>${esc(a)}</h3><p>${esc(b)}</p></li>`).join('') + '</ol>';
 }
 export const ASK = [
+  ['Are you licensed, bonded and insured?', 'Yes. Ask and we send a certificate of insurance.'],
   ['Do you send proof after every visit?', 'Yes. You get a photo report after each visit.'],
   ['Are bags and liners included?', 'Yes. They are part of your price.'],
   ['Do we have to sign a contract?', 'No. Plans are month to month with 30 days notice.'],
@@ -157,6 +159,7 @@ export function hero(pg, trail) {
   return '<section class="bxh"><div class="bxw"><div class="bxh-in"><div class="bxh-copy">' + crumbsNav(trail) +
     `<p class="eb">${esc(pg.eyebrow || 'Commercial')}</p><h1>${esc(pg.h1)}${dot}</h1><p class="lead">${h.lead || ''}</p>` +
     (h.ctaHtml || ctaButtons(h.cta)) +
+    `<p class="bxtrust">${ICONS.shield}${esc(h.trust || 'Licensed, bonded and insured · Free site walk')}</p>` +
     '<ul class="bxh-stats">' + stats.map(([n, u, t]) => `<li><b>${esc(n)}<small>${esc(u)}</small></b><span>${esc(t)}</span></li>`).join('') + '</ul>' +
     '</div><div class="bxh-side">' + (h.side || reportCard(h.site)) + '</div></div></div></section>';
 }
@@ -220,6 +223,7 @@ const RAW_CSS = `.apw .doc.bxdoc{max-width:none;margin:0;padding:0;background:va
 .apw .bxh h1{margin:14px 0 0;font-size:44px;font-weight:800;letter-spacing:-.05em;line-height:.98;color:#FFFFFF;text-wrap:balance}
 .apw .bxdoc .bxh .lead{margin:20px 0 0;max-width:620px;font-size:19px;line-height:1.55;color:var(--ink2)}
 .apw .bxh-cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}.apw .bxh-cta .btn{min-height:54px;padding:0 22px;font-size:17px}
+.apw .bxdoc .bxtrust{display:flex;align-items:center;gap:8px;margin:16px 0 0;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:13px;line-height:1.45;color:var(--ink2)}.apw .bxtrust .bxbi{width:18px;height:18px;flex:0 0 18px;color:#FF8A66}
 .apw .bxh-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:34px 0 0;padding:22px 0 0;border-top:1px solid var(--line);list-style:none}
 .apw .bxh-stats li{margin:0;padding:0 12px;border-left:1px solid var(--line)}.apw .bxh-stats li:first-child{padding-left:0;border-left:0}
 .apw .bxh-stats b{display:flex;align-items:baseline;gap:6px;font-size:30px;font-weight:800;letter-spacing:-.04em;line-height:1;color:#FFFFFF}

@@ -21,7 +21,7 @@ def ask(town, zips):
     """What to ask before you hire a pooper scooper, with our answers."""
     return [
         ('Do you come to my street?', 'We scoop every home in %s. Type your ZIP when you book, and we tell you right away.' % zips),
-        ('Are you licensed and insured?', 'Yes. Arizona Pet Waste is licensed and insured.'),
+        ('Are you licensed, bonded and insured?', 'Yes. Arizona Pet Waste is licensed, bonded and insured.'),
         ('Is there a sign up fee?', 'Not with us. You pay $0 today. Your first month is free on any plan.'),
         ('How much is each visit?', PRICES),
         ('Is the spray extra?', 'No. At every visit, we spray deodorizer on the spots your dogs use most. It is free.'),

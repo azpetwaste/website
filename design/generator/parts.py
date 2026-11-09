@@ -284,7 +284,7 @@ FAQ_ITEMS = [
     ('What if it storms?', 'Light rain is fine. If there is lightning, we wait until it is safe. We text you if your time changes.'),
     ('Do you clean artificial turf?', 'Yes. We pick up every pile and spray the spots your dogs use most. Turf can smell in the heat. For a deep clean, add a turf odor treatment for $35.'),
     ('Where does the poop go?', 'We bag it, tie it shut and put it in your trash can.'),
-    ('Are you licensed and insured?', 'Yes. Arizona Pet Waste is licensed and insured.'),
+    ('Are you licensed, bonded and insured?', 'Yes. Arizona Pet Waste is licensed, bonded and insured.'),
     ('Do you clean your tools?', 'Yes. We clean our boots and tools after every yard. That keeps germs from going from yard to yard.'),
     ('Can I pick my day?', 'No. We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window.'),
     ('Can you come today? We have a party.', 'Yes. Text us and we can come the same day for $49. It goes on your next bill on the 1st.'),
@@ -581,6 +581,10 @@ _fcon = 'style="display: flex; align-items: center; gap: 12px; min-height: 56px;
 _fsoc = 'class="btn btn-line-n" style="min-height: 44px; padding: 0 16px; font-size: 15px;"'
 
 
+SHIELD = ('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF8A66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+          '<path d="M12 3l7 3v5c0 4.6-3 8.4-7 10-4-1.6-7-5.4-7-10V6z"></path><path d="m9 12 2 2 4-4"></path></svg>')
+
+
 def _footer(pre):
     """pre is '' on the home page (links stay on the page) and 'Main.dc.html' everywhere else."""
     return ('<footer class="ftr">\n'
@@ -589,6 +593,7 @@ def _footer(pre):
             '    <div>\n'
             '      <img class="flogo" src="' + BLOB_LOGO_DARK + '" alt="Arizona Pet Waste" width="260" height="79">\n'
             '      <p class="mono" style="margin: 16px 0 0; font-size: 14px; color: #AEB5D8;">You always know. Or you don’t pay.</p>\n'
+            '      <p style="display: inline-flex; align-items: center; gap: 8px; margin: 14px 0 0; padding: 8px 14px 8px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18); font-size: 14px; font-weight: 700; color: #F6F4EF;">' + SHIELD + 'Licensed, bonded and insured</p>\n'
             '      <div style="display: flex; flex-direction: column; margin-top: 20px; border-top: 1px solid rgba(255,255,255,.10);">\n'
             '        <a href="tel:+16233096104" ' + _fcon + '>' + ICON_PHONE + '623.309.6104</a>\n'
             '        <a href="sms:+16233096104" ' + _fcon + '>' + ICON_SMS_O + 'Text us</a>\n'
@@ -637,7 +642,7 @@ FOOTER_CITY = _footer('Main.dc.html')
 
 # ---------- Redesign layer (Nov 2026): dark stage heroes, spec ticker, numbered sections, specs grid, motion ----------
 TICK_ITEMS = ['Gate photo every visit', 'Free deodorizer spray', 'Live truck map', 'First month $0', 'No contract',
-              '4 free skips a year', 'Free return in 24 hours', 'Licensed and insured']
+              '4 free skips a year', 'Free return in 24 hours', 'Licensed, bonded and insured']
 _tick_li = ''.join('<li>%s</li>' % x for x in TICK_ITEMS)
 TICKER = ('<div class="tick" role="region" aria-label="What every plan includes">\n'
           '  <input type="checkbox" id="tick-pause" class="tick-p" aria-label="Pause the moving list">\n'
@@ -661,7 +666,7 @@ SPECS = ('<section id="specs" class="sec spec">\n  <div class="in">\n'
          '  <dl class="sgrid">\n' +
          ''.join('    <div class="scell"><dt><b>%s</b><small>%s</small></dt><dd>%s</dd></div>\n' % s for s in SPEC_ITEMS) +
          '  </dl>\n'
-         '  <p class="mono sfoot">Licensed and insured · First month free · No sign up fee</p>\n'
+         '  <p class="mono sfoot">Licensed, bonded and insured · First month free · No sign up fee</p>\n'
          '  </div>\n</section>')
 
 REVAMP_CSS = r"""

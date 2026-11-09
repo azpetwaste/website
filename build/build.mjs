@@ -197,7 +197,7 @@ const OFFERS = [
 ];
 const business = {
   '@type': 'LocalBusiness', '@id': BIZ_ID, name: cfg.name, url: ORIGIN + '/',
-  description: 'Dog poop pickup and pet waste removal for every home in Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell and Citrus Park (85355), Arizona. Weekly, twice a week, or every other week. First month free, free deodorizer spray at every visit, and a photo of your latched gate after each visit.',
+  description: 'Dog poop pickup and pet waste removal for every home in Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell and Citrus Park (85355), Arizona. Weekly, twice a week, or every other week. First month free, free deodorizer spray at every visit, and a photo of your latched gate after each visit. Licensed, bonded and insured.',
   telephone: '+1-623-309-6104', email: cfg.email,
   logo: ORIGIN + '/assets/img/icon-512.png', image: ORIGIN + '/assets/img/og.png',
   priceRange: '$75 to $189 a month', currenciesAccepted: 'USD', paymentAccepted: 'Credit card, debit card, Apple Pay, Google Pay',
@@ -349,7 +349,7 @@ for (const t of TOWNS) {
     eyebrow: 'Every home in 6 ZIP codes', h1: 'Pooper scooper service areas',
     hero: {
       lead: 'We pick up dog poop at every home in six West Valley ZIP codes: Buckeye, Goodyear, Litchfield Park, and Waddell with Citrus Park. Pick your town to see neighborhoods, prices and answers.',
-      ctaHtml: book, side: BIZ.mapBox(content.svcmap.res),
+      ctaHtml: book, side: BIZ.mapBox(content.svcmap.res), trust: 'Licensed, bonded and insured · First month free · No contract',
       stats: [['6', 'ZIP codes', 'We scoop every home in all six'], ['4', 'towns', 'Plus every Verrado district'], ['$0', 'today', 'Your first month is free']]
     }
   };
@@ -549,7 +549,7 @@ Sitemap: ${ORIGIN}/sitemap.xml
 const faqText = content.faq.main.map((x) => `- ${x.q} ${x.a}`).join('\n');
 fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 
-> Dog poop pickup (pet waste removal) for every home in six West Valley, Arizona ZIP codes: Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell with Citrus Park (85355). Weekly, twice a week or every other week. First month free. Free deodorizer spray at every visit. A photo of your latched gate after every visit, and a live map of our truck on visit day. No contract.
+> Dog poop pickup (pet waste removal) for every home in six West Valley, Arizona ZIP codes, from a licensed, bonded and insured local company: Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell with Citrus Park (85355). Weekly, twice a week or every other week. First month free. Free deodorizer spray at every visit. A photo of your latched gate after every visit, and a live map of our truck on visit day. No contract.
 
 ## Prices (per month)
 - Every week: $108 for 1 or 2 dogs (about $25 a visit). Each dog after two adds $13.
@@ -592,7 +592,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - Everywhere: bag dog poop, tie the bag, and put it in the trash cart. Never in the recycle cart or a storm drain. Storm drain water is not treated.
 
 ## Before you hire a pooper scooper (our answers)
-- Licensed and insured: yes.
+- Licensed, bonded and insured: yes.
 - Sign up fee: none. You pay $0 today and the first month is free.
 - Price per visit: weekly service is $108 a month for 1 or 2 dogs, about $25 a visit.
 - Deodorizer spray: free at every visit.
