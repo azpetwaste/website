@@ -277,22 +277,23 @@ MAP_CHIPS = '''  <div class="mchips" role="group" aria-label="Towns we scoop">
 from scene import saguaro, agave, barrel  # noqa: E402
 
 FAQ_ITEMS = [
+    ('What is the Black Friday deal?', 'Sign up by November 30 and your first month is free. The big chains give you one free cleanup or $25 off. We give you a whole month. Keep your plan after the free month and it stays free. If you cancel during the free month, we charge you for that month.'),
     ('How much does it cost?', 'Weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Your first month is free when you sign up for any plan.'),
     ('Is the spray really free?', 'Yes. At every visit, we spray deodorizer on the spots your dogs use most. It costs you nothing.'),
     ('Do you come in the summer heat?', 'Yes. In summer we start early, so your yard is done before the worst heat of the day.'),
     ('What if it storms?', 'Light rain is fine. If there is lightning, we wait until it is safe. We text you if your time changes.'),
     ('Do you clean artificial turf?', 'Yes. We pick up every pile and spray the spots your dogs use most. Turf can smell in the heat. For a deep clean, add a turf odor treatment for $35.'),
-    ('Where does the poop go?', '[Pick one: We bag it and take it with us. Or we bag it and put it in your trash can.]'),
+    ('Where does the poop go?', 'We bag it, tie it shut and put it in your trash can.'),
     ('Are you licensed and insured?', 'Yes. Arizona Pet Waste is licensed and insured.'),
     ('Do you clean your tools?', 'Yes. We clean our boots and tools after every yard. That keeps germs from going from yard to yard.'),
     ('Can I pick my day?', 'No. We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window.'),
     ('Can you come today? We have a party.', 'Yes. Text us and we can come the same day for $49. It goes on your next bill on the 1st.'),
-    ('When do you charge my card?', 'On the 1st of each month. Your first month is free. Your first charge only covers the days after your free month, so it is smaller. Then you pay the full price on the 1st of each month.'),
+    ('When do you charge my card?', 'On the 1st of each month. Your first month is free. Your first charge only covers the days after your free month, so it is smaller. Then you pay the full price on the 1st of each month. If you cancel during your free month, we charge you for that month.'),
     ('Who sees my gate code?', 'Only your scooper, and only on your day. You add it after you sign up. If you cancel, we delete it.'),
     ('What if a dog in the yard is not safe to be near?', 'We don’t go in. We text you to bring the dog inside. We can come back the same day.'),
     ('Can I skip a week?', 'Yes. You get 4 free skips a year. Tell us 24 hours before. It is one tap in My Yard.'),
     ('Can I pause while we are away?', 'Yes. Pause for up to 120 days in My Yard. You don’t pay while you are paused.'),
-    ('How do I cancel?', 'Tap cancel in My Yard. There is no contract and no phone call.'),
+    ('How do I cancel?', 'Tap cancel in My Yard. There is no contract and no phone call. If you cancel during your free month, we charge you for that month.'),
     ('My yard is rock, not grass.', 'Rock can hide poop. So we rake rock yards with a wide metal rake.'),
 ]
 _seal28 = ('<sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}"><img src="' + BLOB_MARK + '" alt=""></sc-if>'
@@ -502,8 +503,37 @@ YARD_CSS = _yd['YARD_CSS']
 YARD_METHODS = _yd['YARD_METHODS']
 YARD_STATE = _yd['YARD_STATE']
 
+DD_CHEV = '<svg class="ddc" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+DD_AREAS = ('<div class="ddp">'
+    '<a href="CityBuckeye.dc.html"><b>Buckeye</b><span>85326 · 85396</span></a>'
+    '<a href="CityVerrado.dc.html"><b>Verrado</b><span>Buckeye 85396</span></a>'
+    '<a href="CityGoodyear.dc.html"><b>Goodyear</b><span>85338 · 85395</span></a>'
+    '<a href="CityLitchfieldPark.dc.html"><b>Litchfield Park</b><span>85340</span></a>'
+    '<a href="CityCitrusPark.dc.html"><b>Citrus Park and Waddell</b><span>85355</span></a>'
+    '<a href="AreasWeServe.dc.html" class="dda">See all service areas ›</a></div>')
+DD_COMM = ('<div class="ddp ddg"><div><p class="ddh">Services</p>'
+    '<a href="CommercialHoa.dc.html"><b>HOA common areas</b><span>Greenbelts, trails and parks</span></a>'
+    '<a href="CommercialApartments.dc.html"><b>Apartments</b><span>Pet relief areas and dog runs</span></a>'
+    '<a href="CommercialDogParks.dc.html"><b>Dog parks</b><span>HOA and private parks</span></a>'
+    '<a href="CommercialStations.dc.html"><b>Pet waste stations</b><span>Empty, restock and repair</span></a>'
+    '<a href="CommercialEvents.dc.html"><b>Events</b><span>Loaner stations and cleanup</span></a></div>'
+    '<div><p class="ddh">Areas</p>'
+    '<a href="CommercialBuckeye.dc.html"><b>Buckeye</b><span>Verrado, Sundance, Tartesso</span></a>'
+    '<a href="CommercialGoodyear.dc.html"><b>Goodyear</b><span>Estrella, PebbleCreek, Palm Valley</span></a>'
+    '<a href="CommercialLitchfield.dc.html"><b>Litchfield Park</b><span>HOAs, condos, resorts</span></a>'
+    '<a href="CommercialCitrus.dc.html"><b>Citrus Park and Waddell</b><span>New communities, kennels</span></a>'
+    '<a href="Commercial.dc.html" class="dda">Commercial overview ›</a></div></div>')
+DD = {'Areas we serve': DD_AREAS, 'Commercial': DD_COMM}
+
+
+def _navlink(h, t):
+    if t in DD:
+        return ('<div class="dd"><a href="%s" class="ddt">%s%s</a><div class="ddm">%s</div></div>' % (h, t, DD_CHEV, DD[t]))
+    return '<a href="%s">%s</a>' % (h, t)
+
+
 def _header(home, links):
-    nav = ''.join('<a href="%s">%s</a>' % (h, t) for h, t in links)
+    nav = ''.join(_navlink(h, t) for h, t in links)
     return ('<header class="hdr"><div class="hin">\n'
             '  <a href="' + home + '" class="hlogo" aria-label="Arizona Pet Waste, home">' + LOGO_H + '</a>\n'
             '  <nav class="dnav" aria-label="Main">' + nav + '</nav>\n'
@@ -700,3 +730,31 @@ REVAMP_CSS = r"""
 }
 @media (prefers-reduced-motion:reduce){.apw .tick-in{animation:none}.apw .tick{overflow-x:auto}.apw .tick-b{display:none}.apw .hbk .btn-dot::after{display:none}.apw .btn{transition:none}.apw .btn:not(:disabled):hover,.apw .btn:not(:disabled):active{transform:none}}"""
 PAGE_CSS += REVAMP_CSS
+
+BF_DEAL = ('<div class="bfd" data-deal-end="2026-12-01T06:59:59Z">'
+  '<div><p class="bfd-tag"><span class="bfd-dot"></span>Black Friday deal</p>'
+  '<p class="bfd-h">Your first month is free<span>.</span></p>'
+  '<p class="bfd-p">The big chains give you one free cleanup or $25 off. We give you a whole month.</p></div>'
+  '<div><p class="bfd-ends">Deal ends Monday, November 30</p>'
+  '<div class="bfd-clock" aria-hidden="true"><span><b data-u="d">00</b><i>days</i></span><span><b data-u="h">00</b><i>hrs</i></span><span><b data-u="m">00</b><i>min</i></span><span><b data-u="s">00</b><i>sec</i></span></div></div>'
+  '<p class="bfd-fine">No contract. Keep your plan after your free month and it stays free. If you cancel during your free month, we charge you for that month.</p>'
+  '</div>')
+
+DD_CSS = r""".apw .dd{position:relative;display:flex;align-items:center}
+.apw .dnav .ddt{gap:4px}
+.apw .ddc{width:14px;height:14px;transition:transform .15s}
+.apw .dd:hover .ddc,.apw .dd:focus-within .ddc{transform:rotate(180deg)}
+.apw .ddm{position:absolute;top:100%;left:50%;z-index:30;padding-top:10px;opacity:0;visibility:hidden;transform:translate(-50%,6px);transition:opacity .15s,transform .15s,visibility 0s .15s}
+.apw .dd:hover .ddm,.apw .dd:focus-within .ddm{opacity:1;visibility:visible;transform:translate(-50%,0);transition:opacity .15s,transform .15s}
+.apw .ddp{min-width:270px;padding:8px;border-radius:18px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow)}
+.apw .dnav .ddp a{display:grid;gap:2px;min-height:0;padding:10px 12px;border-radius:12px;white-space:normal;font-size:15px}
+.apw .dnav .ddp a:hover,.apw .dnav .ddp a:focus-visible{background:var(--bg2)}
+.apw .ddp b{font-weight:700}
+.apw .ddp span{font-size:13px;font-weight:500;color:var(--mute)}
+.apw .dnav .ddp .dda{margin-top:4px;border-top:1px solid var(--line);border-radius:0 0 12px 12px;font-weight:700;color:var(--accent-text)}
+.apw .ddg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;width:600px}
+.apw .ddh{margin:8px 12px 4px;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.apw.dark .ddp,.dark .apw .ddp{background:var(--card)}
+"""
+PAGE_CSS += DD_CSS
+HDR_CSS += DD_CSS

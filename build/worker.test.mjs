@@ -30,6 +30,9 @@ globalThis.fetch = async (url, init = {}) => {
   if (url === 'https://api.stripe.com/v1/checkout/sessions') { session = new URLSearchParams(init.body); return reply({ client_secret: 'cs_test_secret' }); }
   if (url === 'https://api.resend.com/emails') { mails.push(JSON.parse(init.body)); return reply({ id: 'm1' }); }
   if (url === 'https://api.stripe.com/v1/invoiceitems') { credits.push({ body: new URLSearchParams(init.body), idem: init.headers['idempotency-key'] }); return reply({ id: 'ii_1' }); }
+  if (url === 'https://api.stripe.com/v1/invoices') return reply({ id: 'in_1', status: 'draft' });
+  if (url === 'https://api.stripe.com/v1/invoices/in_1/finalize') return reply({ id: 'in_1', status: 'open' });
+  if (url === 'https://api.stripe.com/v1/invoices/in_1/pay') return reply({ id: 'in_1', status: 'paid' });
   if (url.startsWith('https://api.stripe.com/v1/subscriptions/')) return reply({ status: 'trialing', trial_end: Number(session.get('subscription_data[trial_end]')), metadata: Object.fromEntries([...session.entries()].filter(([k]) => k.startsWith('subscription_data[metadata]')).map(([k, v]) => [k.slice(28, -1), v])) });
   return reply({ error: 'unmocked ' + url }, 500);
 };
@@ -68,3 +71,18 @@ for (const m of mails) console.log('\nEMAIL to ' + m.to + ': ' + m.subject + '\n
 const noMail = Object.assign({}, env); delete noMail.RESEND_API_KEY; delete noMail.SUPABASE_URL;
 const r = await worker.fetch(new Request('https://arizonapetwaste.com/api/waitlist', { method: 'POST', body: JSON.stringify({ name: 'No Mail', phone: '6235550199', address: '2 W Main St', zip: '85301' }), headers: { 'content-type': 'application/json' } }), noMail, ctx);
 console.log('\nwaitlist with no email set up', r.status, JSON.stringify(await r.json()));
+
+// Free month rule: cancel asked before the free month ends is charged one month; after it, nothing.
+const now = Math.floor(Date.now() / 1000);
+const subEvt = (canceledAt, freeEnd) => JSON.stringify({ type: 'customer.subscription.deleted', data: { object: { id: 'sub_9', customer: 'cus_1', status: 'canceled',
+  canceled_at: canceledAt, default_payment_method: 'pm_1', metadata: { user_id: 'u1', free_end: String(freeEnd) }, items: { data: [{ price: { unit_amount: 9900 }, quantity: 1 }] } } } });
+const sendEvt = (body) => { const tt = Math.floor(Date.now() / 1000); const sg = crypto.createHmac('sha256', env.STRIPE_WEBHOOK_SECRET).update(tt + '.' + body).digest('hex');
+  return worker.fetch(new Request('https://arizonapetwaste.com/api/stripe-webhook', { method: 'POST', body, headers: { 'stripe-signature': 't=' + tt + ',v1=' + sg } }), env, ctx); };
+credits.length = 0; calls.length = 0; mails.length = 0;
+await show('\ncancel during free month', await sendEvt(subEvt(now, now + 10 * 86400)));
+console.log('early charge items:', credits.map((c) => c.body.get('amount') + ' ' + c.idem).join(' | '));
+console.log('invoice calls:', calls.filter((c) => c.includes('/v1/invoices')).map((c) => c.split('  ')[0]).join(' | '));
+console.log('owner mail:', mails.map((m) => m.subject).join(' | '));
+credits.length = 0; calls.length = 0;
+await show('cancel after free month', await sendEvt(subEvt(now, now - 86400)));
+console.log('charges after free month (should be none):', credits.length, calls.filter((c) => c.includes('/v1/invoices')).length);

@@ -6,6 +6,7 @@ import vm from 'node:vm';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
+import * as BIZ from './biz.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = path.join(ROOT, 'src');
@@ -163,12 +164,13 @@ html.book-open #book-dock{display:flex;align-items:center;justify-content:center
 .apw .doc .tocd summary{display:flex;align-items:center;min-height:44px;font-weight:800;color:var(--ink);cursor:pointer}
 .apw .doc .toc{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 0;padding:0;list-style:none}
 .apw .doc .toc a{display:inline-flex;align-items:center;min-height:40px;padding:0 12px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);font-size:14px;color:var(--ink);text-decoration:none}
+.apw .doc a.btn{text-decoration:none}.apw .doc a.btn-dot{color:var(--accent-ink)}
 .skip{position:absolute;left:12px;top:-60px;z-index:100;padding:12px 16px;border-radius:12px;background:#FF4A1C;color:#0E1430;font:700 16px system-ui,sans-serif;text-decoration:none}
 .skip:focus{top:12px}
 @media (prefers-reduced-motion:reduce){#book-dock>.apw{animation:none}}`;
 
 // ---------- structured data ----------
-const BIZ = ORIGIN + '/#business';
+const BIZ_ID = ORIGIN + '/#business';
 const PLACES = {
   buckeye: { name: 'Buckeye', locality: 'Buckeye', zips: ['85326', '85396'], url: '/pooper-scooper/buckeye-az/' },
   goodyear: { name: 'Goodyear', locality: 'Goodyear', zips: ['85338', '85395'], url: '/pooper-scooper/goodyear-az/' },
@@ -184,7 +186,7 @@ const SERVED = [cityPlace(PLACES.buckeye), cityPlace(PLACES.goodyear), cityPlace
 const monthly = (name, price, desc) => ({
   '@type': 'Offer', name, description: desc, price: price.toFixed(2), priceCurrency: 'USD', availability: 'https://schema.org/InStock',
   priceSpecification: { '@type': 'UnitPriceSpecification', price: price.toFixed(2), priceCurrency: 'USD', unitText: 'MONTH', referenceQuantity: { '@type': 'QuantitativeValue', value: 1, unitCode: 'MON' } },
-  itemOffered: { '@type': 'Service', name: name, provider: { '@id': BIZ } }
+  itemOffered: { '@type': 'Service', name: name, provider: { '@id': BIZ_ID } }
 });
 const OFFERS = [
   monthly('Dog poop pickup every week', 108, 'For 1 or 2 dogs. About $25 a visit. Each dog after two adds $13 a month. First month free.'),
@@ -194,7 +196,7 @@ const OFFERS = [
   { '@type': 'Offer', name: 'One time yard cleanup', price: '95.00', priceCurrency: 'USD', itemOffered: { '@type': 'Service', name: 'One time dog poop cleanup' } }
 ];
 const business = {
-  '@type': 'LocalBusiness', '@id': BIZ, name: cfg.name, url: ORIGIN + '/',
+  '@type': 'LocalBusiness', '@id': BIZ_ID, name: cfg.name, url: ORIGIN + '/',
   description: 'Dog poop pickup and pet waste removal for every home in Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell and Citrus Park (85355), Arizona. Weekly, twice a week, or every other week. First month free, free deodorizer spray at every visit, and a photo of your latched gate after each visit.',
   telephone: '+1-623-309-6104', email: cfg.email,
   logo: ORIGIN + '/assets/img/icon-512.png', image: ORIGIN + '/assets/img/og.png',
@@ -205,17 +207,21 @@ const business = {
   hasOfferCatalog: { '@type': 'OfferCatalog', name: 'Dog poop pickup plans', itemListElement: OFFERS }
 };
 if (cfg.sameAs.length) business.sameAs = cfg.sameAs;
-const website = { '@type': 'WebSite', '@id': ORIGIN + '/#website', url: ORIGIN + '/', name: cfg.name, publisher: { '@id': BIZ }, inLanguage: 'en-US' };
+const website = { '@type': 'WebSite', '@id': ORIGIN + '/#website', url: ORIGIN + '/', name: cfg.name, publisher: { '@id': BIZ_ID }, inLanguage: 'en-US' };
 const faqLd = (url, items) => ({ '@type': 'FAQPage', '@id': url + '#faq', mainEntity: items.map((x) => ({ '@type': 'Question', name: x.q, acceptedAnswer: { '@type': 'Answer', text: x.a } })) });
 const crumbs = (url, trail) => ({ '@type': 'BreadcrumbList', '@id': url + '#breadcrumb', itemListElement: trail.map((t, i) => ({ '@type': 'ListItem', position: i + 1, name: t[0], item: ORIGIN + t[1] })) });
 
 // ---------- pages ----------
 const FONTS_PRE = '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>';
+const DEAL_END = '2026-12-01T06:59:59Z';
+const BF_BAR = `<a class="bf" href="/book/" data-deal-end="${DEAL_END}" aria-label="Black Friday deal. Your first month is free. Ends Monday, November 30. Start your free month."><span class="bf-tag">Black Friday</span><span class="bf-t">First month free</span><span class="bf-d">Ends Mon, Nov 30</span><span class="bf-c" aria-hidden="true"><b data-u="d">00</b>d <b data-u="h">00</b>h <b data-u="m">00</b>m <b data-u="s">00</b>s</span><span class="bf-go">Get it ›</span></a>`;
+const BF_SKIP = new Set(['/book/', '/account/']);
+const BF_CSS = `.bf{font-family:"Schibsted Grotesk",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px 12px;padding:9px 14px;background:#0B0B0F;color:#fff;text-decoration:none;font-size:14px;line-height:1.3;text-align:center}.bf:hover .bf-go,.bf:focus-visible .bf-go{text-decoration:underline}.bf-tag{padding:3px 8px;border-radius:6px;background:#FF4A1C;color:#0E1430;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}.bf-t{font-weight:800}.bf-d{color:#C9CDE0}.bf-c{display:none;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-weight:700;color:#FFB199;font-variant-numeric:tabular-nums}.bf-c b{font-weight:800}html.bf-live .bf-c{display:inline}.bf-go{font-weight:800;color:#FF8A66}@media (max-width:560px){.bf{gap:4px 10px;padding:8px 10px;font-size:13px}.bf-d,.bf-go{display:none}}.bfd{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px 24px;margin:0 0 22px;padding:20px 22px;border-radius:22px;background:#0B0B0F;color:#fff;border:2px solid #FF4A1C;box-shadow:0 0 0 4px rgba(255,74,28,.18)}.bfd p{margin:0}.bfd-tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#FF8A66}.bfd-dot{width:8px;height:8px;border-radius:50%;background:#FF4A1C;animation:bfp 1.4s infinite}@keyframes bfp{50%{opacity:.25}}.bfd .bfd-h{margin-top:8px;font-size:clamp(26px,4vw,38px);font-weight:800;letter-spacing:-.03em;line-height:1.05;color:#fff}.bfd-h span{color:#FF4A1C}.bfd .bfd-p{margin-top:8px;font-size:16px;line-height:1.45;color:#D5DAF0}.bfd .bfd-ends{margin-bottom:8px;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#C9CDE0;text-align:center}.bfd-clock{display:flex;justify-content:center;gap:8px}.bfd-clock span{display:grid;justify-items:center;min-width:58px;padding:8px 6px;border-radius:12px;background:#1A1B24;border:1px solid #2C2E3A}.bfd-clock b{font-size:26px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;color:#fff}.bfd-clock i{margin-top:4px;font-style:normal;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#9CA2BD}.bfd .bfd-fine{grid-column:1/-1;font-size:13px;line-height:1.45;color:#9CA2BD}@media (max-width:720px){.bfd{grid-template-columns:minmax(0,1fr);padding:18px}.bfd .bfd-ends{text-align:left}.bfd-clock{justify-content:flex-start}}.sticker.bf-st{background:#0B0B0F;color:#fff}.sticker.bf-st::after{border-color:rgba(255,74,28,.95)}.bf-chip{display:inline-flex;align-items:center;gap:8px;margin:10px 0 0;padding:6px 12px 6px 6px;border-radius:999px;background:#0B0B0F;color:#fff;font-size:14px;font-weight:700}.bf-chip span{padding:3px 8px;border-radius:999px;background:#FF4A1C;color:#0E1430;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}@media (prefers-reduced-motion:reduce){.bfd-dot{animation:none}}html.bf-over .bf,html.bf-over [data-deal-end]{display:none!important}`;
 function page(p) {
   const url = ORIGIN + p.route;
   const robots = p.index ? 'index, follow, max-image-preview:large, max-snippet:-1' : 'noindex, follow';
-  const graph = p.index ? [website, business, { '@type': 'WebPage', '@id': url + '#webpage', url, name: p.title, description: p.description, isPartOf: { '@id': ORIGIN + '/#website' }, about: { '@id': BIZ }, inLanguage: 'en-US', dateModified: TODAY }, ...(p.ld || [])] : null;
-  const css = p.css.join('\n') + '\n' + SITE_CSS + '\n.stf{display:block;width:max-content;margin:0 auto;padding:6px 10px 10px;font:10px/1 ui-monospace,Consolas,monospace;letter-spacing:.12em;color:#2A3150;text-decoration:none}.stf:hover,.stf:focus-visible{color:#6B7398}@media (max-width:1023px){.stf{padding-bottom:104px}}';
+  const graph = p.index ? [website, business, { '@type': 'WebPage', '@id': url + '#webpage', url, name: p.title, description: p.description, isPartOf: { '@id': ORIGIN + '/#website' }, about: { '@id': BIZ_ID }, inLanguage: 'en-US', dateModified: TODAY }, ...(p.ld || [])] : null;
+  const css = p.css.join('\n') + '\n' + SITE_CSS + '\n' + BF_CSS + '\n.stf{display:block;width:max-content;margin:0 auto;padding:6px 10px 10px;font:10px/1 ui-monospace,Consolas,monospace;letter-spacing:.12em;color:#2A3150;text-decoration:none}.stf:hover,.stf:focus-visible{color:#6B7398}@media (max-width:1023px){.stf{padding-bottom:104px}}';
   const scripts = [assets['dc.js'], ...p.boards.map((b) => b.js), assets['apw.js']];
   const html = `<!doctype html>
 <html lang="en">
@@ -251,6 +257,7 @@ ${graph ? `<script type="application/ld+json">${ldjson({ '@context': 'https://sc
 </head>
 <body${p.bodyClass ? ` class="${p.bodyClass}"` : ''}>
 <a class="skip" href="#app">Skip to content</a>
+${BF_SKIP.has(p.route) ? '' : BF_BAR}
 <div id="app" data-board="${p.board}">${p.body}</div>
 <a class="stf" href="/crew/" rel="nofollow">staff</a>
 ${p.dock ? `<div id="book-dock" role="dialog" aria-modal="true" aria-label="Start your free month">${p.dock}</div>` : ''}
@@ -281,7 +288,7 @@ const dockHtml = ssr(bookDock, { mode: 'dock' });
     fonts: e.b.fonts, css: [e.b.css, bookDock.b.css.replace(content.base_css, '')], boards: [e, bookDock],
     body: ssr(e), dock: dockHtml,
     ld: [faqLd(url, content.faq.main), {
-      '@type': 'Service', '@id': url + '#service', name: 'Dog poop pickup', serviceType: 'Pet waste removal', provider: { '@id': BIZ },
+      '@type': 'Service', '@id': url + '#service', name: 'Dog poop pickup', serviceType: 'Pet waste removal', provider: { '@id': BIZ_ID },
       areaServed: SERVED, offers: { '@type': 'AggregateOffer', lowPrice: '75.00', highPrice: '189.00', priceCurrency: 'USD', offerCount: 3 }
     }]
   }));
@@ -309,13 +316,13 @@ for (const t of TOWNS) {
     fonts: e.b.fonts, css: [e.b.css, bookDock.b.css.replace(content.base_css, '')], boards: [e, bookDock],
     body: ssr(e), dock: dockHtml,
     ld: [faqLd(url, c.faq), crumbs(url, [['Home', '/'], ['Areas we serve', '/pooper-scooper/']].concat(t.area === 'verrado' ? [['Buckeye', '/pooper-scooper/buckeye-az/']] : []).concat([[c.name, t.route]])), {
-      '@type': 'Service', '@id': url + '#service', name: 'Pooper scooper service in ' + c.name, serviceType: 'Pet waste removal', provider: { '@id': BIZ },
+      '@type': 'Service', '@id': url + '#service', name: 'Pooper scooper service in ' + c.name, serviceType: 'Pet waste removal', provider: { '@id': BIZ_ID },
       areaServed: place(PLACES[t.area]).concat(hoodNames(t.area).map((n) => ({ '@type': 'Place', name: n + ', AZ' }))), description: c.intro, offers: { '@type': 'AggregateOffer', lowPrice: '75.00', highPrice: '189.00', priceCurrency: 'USD', offerCount: 3 }
     }]
   }));
 }
 
-// areas we serve: one page that lists every town and every ZIP code
+// areas we serve: one page that lists every town and every ZIP code (designed layout from build/biz.mjs)
 {
   const route = '/pooper-scooper/';
   const url = ORIGIN + route;
@@ -327,35 +334,47 @@ for (const t of TOWNS) {
     citrus: 'All of Citrus Park and Waddell, from big irrigated lots to new neighborhoods like Zanjero Pass.',
     verrado: 'Every Verrado district, at the foot of the White Tank Mountains in Buckeye.'
   };
-  const cards = order.map((a) => {
+  const cards = '<div class="bxtowns bxtowns-g">' + order.map((a) => {
     const p = PLACES[a];
-    const groups = townZips(a);
-    const names = groups.flatMap((g) => g.names).slice(0, 6);
-    return '<article class="town"><h2>' + esc(p.name) + '<span style="color: var(--accent);">.</span></h2>' +
-      '<ul class="tzips" aria-label="ZIP codes">' + p.zips.map((z) => '<li>' + z + '</li>').join('') + '</ul>' +
-      '<p>' + esc(blurbs[a]) + '</p>' +
-      '<p style="color: var(--mute); font-size: 15px;">' + esc(names.join(' · ')) + '</p>' +
-      '<a class="tgo" href="' + p.url + '">Pooper scooper in ' + esc(p.name) + ' ›</a></article>';
-  }).join('');
+    const names = townZips(a).flatMap((g) => g.names).slice(0, 6);
+    return '<a class="bxtown" href="' + p.url + '"><span class="bxtown-n">' + esc(p.name) + '</span>' +
+      '<span class="bxzips">' + p.zips.map((z) => '<i>' + z + '</i>').join('') + '</span>' +
+      '<span class="bxtown-p">' + esc(blurbs[a]) + '</span><span class="bxtown-h">' + esc(names.join(' · ')) + '</span>' +
+      '<span class="bxgo">Pooper scooper in ' + esc(p.name) + ' ›</span></a>';
+  }).join('') + '</div>';
   const rows = ALL_ZIPS.map((z) => '<tr><td>' + z[0] + '</td><td>' + esc(z[1]) + '</td><td><a href="' + PLACES[z[2]].url + '">' + esc(PLACES[z[2]].name) + ' page</a></td></tr>').join('');
-  const inner = '<p class="eb">Arizona Pet Waste</p><h1 class="h1 dh1">Pooper scooper service areas<span style="color: var(--accent);">.</span></h1>' +
-    '<p class="lead">We pick up dog poop at every home in six West Valley ZIP codes: Buckeye, Goodyear, Litchfield Park, and Waddell with Citrus Park. Pick your town to see neighborhoods, prices and answers.</p>' +
-    '<div class="towns">' + cards + '</div>' +
-    '<h2 id="zip-codes">Every ZIP code we serve<span style="color: var(--accent);">.</span></h2>' +
-    '<table class="ziplist"><thead><tr><th scope="col">ZIP</th><th scope="col">TOWN</th><th scope="col">PAGE</th></tr></thead><tbody>' + rows + '</tbody></table>' +
-    '<h2 id="not-listed">Not on the list? Join the waitlist<span style="color: var(--accent);">.</span></h2>' +
-    '<p><strong>Coming soon:</strong> Surprise, Peoria, Glendale, Laveen, the Central and East Valley, Tucson, Flagstaff, Kingman and Lake Havasu City.</p>' +
-    '<p>We don’t come to you yet? Let us know. Tap the button, type your ZIP, and add your name, phone and address. We will tell you when we start in your area.</p>' +
-    '<p><strong>Join by November 30 and your first month is free when we start in your area.</strong></p>' +
-    '<a class="btn btn-dot hubcta" href="/book/">Join the waitlist</a>';
-  const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc docw"').replace('@@DOC@@', inner));
+  const sec = (id, k, h, lead, inner, alt) => '<section class="bxs' + (alt ? ' bxalt' : '') + '" id="' + id + '"><div class="bxw">' + BIZ.h2(id + '-h', h, k) + (lead ? '<p class="bxl">' + lead + '</p>' : '') + inner + '</div></section>';
+  const book = '<div class="bxh-cta"><a class="btn btn-dot" href="/book/">Start your free month</a><a class="btn btn-line-n" href="#zip-codes">See every ZIP code</a></div>';
+  const pg = {
+    eyebrow: 'Every home in 6 ZIP codes', h1: 'Pooper scooper service areas',
+    hero: {
+      lead: 'We pick up dog poop at every home in six West Valley ZIP codes: Buckeye, Goodyear, Litchfield Park, and Waddell with Citrus Park. Pick your town to see neighborhoods, prices and answers.',
+      ctaHtml: book, side: BIZ.mapBox(content.svcmap.res),
+      stats: [['6', 'ZIP codes', 'We scoop every home in all six'], ['4', 'towns', 'Plus every Verrado district'], ['$0', 'today', 'Your first month is free']]
+    }
+  };
+  const inner = BIZ.hero(pg, [['Home', '/'], ['Areas we serve', route]]) +
+    sec('towns', 'Pick your town', 'Towns we serve', 'Each town page shows the neighborhoods we cover, local dog poop rules and answers to common questions.', cards) +
+    sec('zip-codes', 'ZIP codes', 'Every ZIP code we serve', 'If your address is in one of these ZIP codes, we come to you.',
+      '<div class="bxtable-wrap"><table class="bxtable bxzipt"><thead><tr><th scope="col">ZIP</th><th scope="col">Town</th><th scope="col">Page</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<p class="bxnote">Not sure about your street? Type your ZIP when you book and we will tell you right away.</p>', true) +
+    sec('not-listed', 'Coming soon', 'Not on the list? Join the waitlist', 'We don’t come to you yet? Tap the button, type your ZIP, and add your name, phone and address. We will tell you when we start in your area.',
+      '<ul class="bxsoon">' + ['Surprise', 'Peoria', 'Glendale', 'Laveen', 'Central Valley', 'East Valley', 'Tucson', 'Flagstaff', 'Kingman', 'Lake Havasu City'].map((x) => '<li>' + x + '</li>').join('') + '</ul>' +
+      '<p class="bxl"><strong>Join by November 30 and your first month is free when we start in your area.</strong></p>' +
+      '<div class="bxh-cta"><a class="btn btn-dot" href="/book/">Join the waitlist</a></div>') +
+    sec('commercial', 'HOAs and businesses', 'Need it for an HOA or a business', 'We also service pet waste stations and common areas for HOAs, apartments, dog parks and businesses in the same four towns.',
+      BIZ.townsStrip() + '<p class="bxnote"><a href="' + BIZ.HUB + '">See commercial pet waste removal</a></p>', true) +
+    '<section class="bxcta"><div class="bxw"><div class="bxcta-in"><div><h2 id="get-started">Start your free month<span class="dot">.</span></h2>' +
+    '<p>Sign up in about 2 minutes. You pay $0 today, and we text you your day and time.</p></div>' +
+    '<div class="bxh-cta"><a class="btn btn-dot" href="/book/">Book now</a><a class="btn btn-line-n" href="tel:+16233096104">' + BIZ.ICONS.phone + 'Call ' + BIZ.PHONE + '</a></div></div></div></section>';
+  const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc bxdoc"').replace('@@DOC@@', inner));
   built.push(page({
     route, board: 'doc', index: true, title: 'Pooper Scooper Areas in the West Valley AZ | Arizona Pet Waste',
     description: 'Pooper scooper service for every home in Buckeye, Goodyear, Litchfield Park and Waddell, AZ: ZIP 85326, 85338, 85340, 85355, 85395 and 85396.',
-    fonts: e.b.fonts, css: [e.b.css], boards: [e], body: ssr(e),
+    fonts: e.b.fonts, css: [e.b.css, BIZ.BIZ_CSS, content.svcmap.css], boards: [e], body: ssr(e),
     ld: [crumbs(url, [['Home', '/'], ['Areas we serve', route]]),
       { '@type': 'ItemList', '@id': url + '#towns', name: 'Towns Arizona Pet Waste serves', itemListElement: order.map((a, i) => ({ '@type': 'ListItem', position: i + 1, name: PLACES[a].name, url: ORIGIN + PLACES[a].url })) },
-      { '@type': 'Service', '@id': url + '#service', name: 'Dog poop pickup in the West Valley', serviceType: 'Pet waste removal', provider: { '@id': BIZ }, areaServed: SERVED,
+      { '@type': 'Service', '@id': url + '#service', name: 'Dog poop pickup in the West Valley', serviceType: 'Pet waste removal', provider: { '@id': BIZ_ID }, areaServed: SERVED,
         offers: { '@type': 'AggregateOffer', lowPrice: '75.00', highPrice: '189.00', priceCurrency: 'USD', offerCount: 3 } }]
   }));
 }
@@ -375,7 +394,7 @@ for (const t of TOWNS) {
       fs.readFileSync(path.join(ROOT, 'content/pages', pg.slug + '.html'), 'utf8');
     const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc docw"').replace('@@DOC@@', inner));
     const ld = [crumbs(url, [['Home', '/'], [pg.h1, route]])];
-    if (pg.slug === 'pricing') ld.push({ '@type': 'Service', '@id': url + '#service', name: 'Pooper scooper service', serviceType: 'Pet waste removal', provider: { '@id': BIZ }, areaServed: SERVED,
+    if (pg.slug === 'pricing') ld.push({ '@type': 'Service', '@id': url + '#service', name: 'Pooper scooper service', serviceType: 'Pet waste removal', provider: { '@id': BIZ_ID }, areaServed: SERVED,
       offers: [['Every week, 1 or 2 dogs', '108.00'], ['Twice a week, 1 or 2 dogs', '189.00'], ['Every other week, 1 or 2 dogs', '75.00']].map(([n, pr]) => ({ '@type': 'Offer', name: n, price: pr, priceCurrency: 'USD',
         priceSpecification: { '@type': 'UnitPriceSpecification', price: pr, priceCurrency: 'USD', unitText: 'MONTH' } })) });
     built.push(page({ route, board: 'doc', index: true, title: pg.title, description: pg.description, fonts: e.b.fonts, css: [e.b.css], boards: [e], body: ssr(e), ld }));
@@ -402,7 +421,7 @@ for (const t of TOWNS) {
 }
 
 // file pages: every HTML fragment under content/site/ becomes a page at the same path
-// (content/site/commercial-dog-waste-removal/index.html -> /commercial-dog-waste-removal/, content/site/blog/x.html -> /blog/x/).
+// (content/site/commercial-pet-waste-removal/index.html -> /commercial-pet-waste-removal/, content/site/blog/x.html -> /blog/x/).
 // Each file starts with a JSON header in a comment: <!--{"title","description","h1","type":"service|blog|page","date","crumbs":[[name,route]],"faq":[[q,a]],"area"}-->
 const FILE_PAGES = [];
 {
@@ -429,6 +448,19 @@ const FILE_PAGES = [];
   for (const pg of FILE_PAGES) {
     const url = ORIGIN + pg.route;
     const trail = [['Home', '/']].concat(pg.crumbs || []).concat(pg.type === 'blog' ? [['Blog', '/blog/']] : []).concat([[pg.crumb || pg.h1, pg.route]]);
+    if (pg.layout === 'biz') {
+      const inner = BIZ.bizInner(pg, trail, { comMap: content.svcmap.com });
+      const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc bxdoc"').replace('@@DOC@@', inner));
+      const ld = [crumbs(url, trail)];
+      if (pg.faq && pg.faq.length) ld.push(faqLd(url, pg.faq.map(([q, a]) => ({ q, a }))));
+      const svc = { '@type': 'Service', '@id': url + '#service', name: pg.service || pg.h1, serviceType: pg.serviceType || 'Commercial pet waste removal', provider: { '@id': BIZ_ID },
+        areaServed: pg.area && PLACES[pg.area] ? place(PLACES[pg.area]) : SERVED, description: pg.description, url,
+        audience: { '@type': 'BusinessAudience', name: pg.audience || 'HOAs, property managers and businesses' } };
+      if (pg.catalog) svc.hasOfferCatalog = { '@type': 'OfferCatalog', name: 'Commercial pet waste services', itemListElement: BIZ.SERVICES.filter((s) => !s.href.includes('#')).map((s) => ({ '@type': 'Offer', itemOffered: { '@type': 'Service', name: s.go, url: ORIGIN + s.href, provider: { '@id': BIZ_ID } } })) };
+      ld.push(svc);
+      built.push(page({ route: pg.route, board: 'doc', index: true, title: pg.title, description: pg.description, fonts: e.b.fonts, css: [e.b.css, BIZ.BIZ_CSS, content.svcmap.css], boards: [e], body: ssr(e), ld }));
+      continue;
+    }
     let inner = '<p class="eb">' + esc(pg.eyebrow || 'Arizona Pet Waste') + '</p><h1 class="h1 dh1">' + esc(pg.h1) + '<span style="color: var(--accent);">.</span></h1>';
     if (pg.type === 'blog') inner += '<p class="mono" style="margin: 12px 0 0; font-size: 13px; color: var(--mute);">' + esc(fmtDate(pg.date).toUpperCase()) + ' · ' + Math.max(2, Math.round(pg.html.replace(/<[^>]+>/g, ' ').split(/\s+/).length / 200)) + ' MINUTE READ</p>';
     inner += pg.html;
@@ -437,11 +469,11 @@ const FILE_PAGES = [];
     const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc docw"').replace('@@DOC@@', inner));
     const ld = [crumbs(url, trail)];
     if (pg.faq && pg.faq.length) ld.push(faqLd(url, pg.faq.map(([q, a]) => ({ q, a }))));
-    if (pg.type === 'service') ld.push({ '@type': 'Service', '@id': url + '#service', name: pg.service || pg.h1, serviceType: pg.serviceType || 'Pet waste removal', provider: { '@id': BIZ },
+    if (pg.type === 'service') ld.push({ '@type': 'Service', '@id': url + '#service', name: pg.service || pg.h1, serviceType: pg.serviceType || 'Pet waste removal', provider: { '@id': BIZ_ID },
       areaServed: pg.area && PLACES[pg.area] ? place(PLACES[pg.area]) : SERVED, description: pg.description });
     if (pg.type === 'blog') ld.push({ '@type': 'BlogPosting', '@id': url + '#post', headline: pg.h1, description: pg.description, datePublished: pg.date, dateModified: pg.updated || pg.date,
-      author: { '@type': 'Organization', name: 'Arizona Pet Waste', url: ORIGIN + '/' }, publisher: { '@id': BIZ }, mainEntityOfPage: url, image: ORIGIN + '/assets/img/og.png', inLanguage: 'en-US' });
-    if (pg.type === 'blogindex') ld.push({ '@type': 'Blog', '@id': url + '#blog', name: 'Arizona Pet Waste dog care blog', publisher: { '@id': BIZ },
+      author: { '@type': 'Organization', name: 'Arizona Pet Waste', url: ORIGIN + '/' }, publisher: { '@id': BIZ_ID }, mainEntityOfPage: url, image: ORIGIN + '/assets/img/og.png', inLanguage: 'en-US' });
+    if (pg.type === 'blogindex') ld.push({ '@type': 'Blog', '@id': url + '#blog', name: 'Arizona Pet Waste dog care blog', publisher: { '@id': BIZ_ID },
       blogPost: pg.posts.map((x) => ({ '@type': 'BlogPosting', headline: x.h1, url: ORIGIN + x.route, datePublished: x.date })) });
     built.push(page({ route: pg.route, board: 'doc', index: true, title: pg.title, description: pg.description, fonts: e.b.fonts, css: [e.b.css], boards: [e], body: ssr(e), ld }));
   }
@@ -525,6 +557,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - Every other week: $75 for 1 or 2 dogs. Each dog after two adds $9.
 - Turf odor treatment: $35. One time cleanup: $95. Same day pickup for a party or guests: $49, added to the next bill.
 - Billing: everyone is billed on the 1st of each month. First month free on any plan. The first charge only covers the days after the free month, so it is smaller. Then the full price on the 1st. A card is saved at sign up and nothing is charged that day.
+- Black Friday deal: sign up by Monday, November 30, 2026 and the first month is free. The free month stays free when the customer keeps the plan after it. Canceling during the free month is charged one month at the plan price.
 
 ## Service area (every home in these ZIP codes)
 - [Buckeye, AZ 85326 and 85396](${ORIGIN}/pooper-scooper/buckeye-az/). Neighborhoods: ${hoodNames('buckeye').join(', ')}.
@@ -534,6 +567,15 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - [Verrado, Buckeye AZ 85396](${ORIGIN}/pooper-scooper/buckeye-az/verrado/). Districts: ${hoodNames('verrado').join(', ')}.
 - Full list: [Areas we serve](${ORIGIN}/pooper-scooper/).
 - Coming soon: Surprise, Peoria, Glendale, Laveen, the Central and East Valley, Tucson, Flagstaff, Kingman and Lake Havasu City. Anyone outside our ZIP codes can join the waitlist. Join by November 30, 2026 and the first month is free when we start in that area.
+
+## Commercial pet waste removal (HOAs, apartments, dog parks, businesses)
+- What: dog waste pickup in common areas plus pet waste station service (empty the can, new liner, refill bags, wipe and check the station, photo report after every visit). Any brand of station. Bags and liners included.
+- Who: HOAs and master planned communities, apartment and build to rent communities, HOA and private dog parks, offices, vet clinics, groomers, boarding, hotels, property managers and events.
+- Where: Buckeye (including Verrado), Goodyear, Litchfield Park, Citrus Park and Waddell.
+- How often: most HOA common areas need one visit a week; dog parks and busy stations often need two; apartment relief areas two or three.
+- Price: quoted after a free site walk, based on stations, ground to scoop, visits a week and drive time. Written quote within one business day. Month to month with 30 days notice. One bill on the 1st. Events quoted by the job.
+- New stations: small station jobs under $1,000. Arizona Pet Waste is not a licensed contractor, so bigger installs go to a licensed contractor.
+- Pages: [Commercial pet waste removal](${ORIGIN}/commercial-pet-waste-removal/), [HOAs](${ORIGIN}/commercial-pet-waste-removal/hoa/), [Apartments](${ORIGIN}/commercial-pet-waste-removal/apartments/), [Dog parks](${ORIGIN}/commercial-pet-waste-removal/dog-parks/), [Pet waste stations](${ORIGIN}/commercial-pet-waste-removal/pet-waste-stations/), [Events](${ORIGIN}/commercial-pet-waste-removal/events/).
 
 ## How a visit works
 - Customers do not pick a day. We set each yard's day for them. We run set routes, and that keeps prices down. After sign up, we reach out to let the customer know their day and time.
@@ -631,6 +673,19 @@ fs.writeFileSync(path.join(DIST, '_redirects'), `/t/* /t/index.html 200
 /price /pricing/ 301
 /how /how-it-works/ 301
 /faqs /faq/ 301
+/commercial /commercial-pet-waste-removal/ 301
+/commercial/ /commercial-pet-waste-removal/ 301
+/commercial-dog-waste-removal /commercial-pet-waste-removal/ 301
+/commercial-dog-waste-removal/ /commercial-pet-waste-removal/ 301
+/commercial-dog-waste-removal/pet-waste-stations/ /commercial-pet-waste-removal/pet-waste-stations/ 301
+/commercial-dog-waste-removal/buckeye-az/ /commercial-pet-waste-removal/buckeye-az/ 301
+/commercial-dog-waste-removal/goodyear-az/ /commercial-pet-waste-removal/goodyear-az/ 301
+/commercial-dog-waste-removal/litchfield-park-az/ /commercial-pet-waste-removal/litchfield-park-az/ 301
+/commercial-dog-waste-removal/citrus-park-az/ /commercial-pet-waste-removal/citrus-park-az/ 301
+/commercial-dog-waste-removal/* /commercial-pet-waste-removal/:splat 301
+/hoa-pet-waste-removal /commercial-pet-waste-removal/hoa/ 301
+/pet-waste-stations /commercial-pet-waste-removal/pet-waste-stations/ 301
+/dog-park-cleaning /commercial-pet-waste-removal/dog-parks/ 301
 /questions /faq/ 301
 `);
 fs.copyFileSync(path.join(SRC, 'worker/worker.js'), path.join(DIST, '_worker.js'));

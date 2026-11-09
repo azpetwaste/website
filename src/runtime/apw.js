@@ -256,3 +256,21 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })();
+
+// Black Friday countdown: fills every [data-u] clock and hides the deal at the deadline.
+(function () {
+  var END = Date.parse('2026-12-01T06:59:59Z');
+  var root = document.documentElement;
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function tick() {
+    var ms = END - Date.now();
+    if (ms <= 0) { root.classList.add('bf-over'); return false; }
+    var s = Math.floor(ms / 1000);
+    var v = { d: String(Math.floor(s / 86400)), h: pad(Math.floor(s % 86400 / 3600)), m: pad(Math.floor(s % 3600 / 60)), s: pad(s % 60) };
+    var els = document.querySelectorAll('[data-deal-end] [data-u]');
+    for (var i = 0; i < els.length; i++) { var u = els[i].getAttribute('data-u'); if (v[u] != null && els[i].textContent !== v[u]) els[i].textContent = v[u]; }
+    root.classList.add('bf-live');
+    return true;
+  }
+  if (tick()) var t = setInterval(function () { if (!tick()) clearInterval(t); }, 1000);
+})();
