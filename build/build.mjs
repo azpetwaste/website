@@ -199,6 +199,7 @@ const business = {
   '@type': 'LocalBusiness', '@id': BIZ_ID, name: cfg.name, url: ORIGIN + '/',
   description: 'Dog poop pickup and pet waste removal for every home in Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell and Citrus Park (85355), Arizona. Weekly, twice a week, or every other week. First month free, free deodorizer spray at every visit, and a photo of your latched gate after each visit. Licensed, bonded and insured.',
   telephone: '+1-623-309-6104', email: cfg.email,
+  openingHoursSpecification: [{ '@type': 'OpeningHoursSpecification', dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], opens: '08:00', closes: '17:00' }],
   logo: ORIGIN + '/assets/img/icon-512.png', image: ORIGIN + '/assets/img/og.png',
   priceRange: '$75 to $189 a month', currenciesAccepted: 'USD', paymentAccepted: 'Credit card, debit card, Apple Pay, Google Pay',
   areaServed: SERVED,
@@ -625,6 +626,7 @@ ${FILE_PAGES.filter((x) => x.type !== 'blogindex').map((x) => '- [' + x.h1 + '](
 
 ## Contact
 - Call or text: 623.309.6104
+- Office hours: 8 am to 5 pm, every day of the week (Arizona time)
 - Email: ${cfg.email}
 `);
 fs.writeFileSync(path.join(DIST, '_headers'), `/*
