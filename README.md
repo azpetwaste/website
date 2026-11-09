@@ -15,6 +15,8 @@ Everything is under info@arizonapetwaste.com.
 | `/book/` | Sign up on its own page (for QR codes, yard signs, texts) | not indexed |
 | `/account/` | My Yard: sign in, gate code, dog names, texts, card and cancel | not indexed |
 | `/sitemap.xml` `/robots.txt` `/llms.txt` | For Google and AI search | |
+| `/crew/` | Field desk: staff sign in, crew route, office (tiny "staff" link under the footer) | not indexed |
+| `/t/CODE` | Customer truck link for one visit. Ends 2 hours after the visit | not indexed |
 
 Deep links for flyers and QR codes: `/book/?zip=85396&plan=week&dogs=2`
 
@@ -65,3 +67,22 @@ Prices are created in Stripe on the first sign up (lookup keys `apw_week_base`, 
 ## Database
 
 Run `supabase/schema.sql` once in Supabase > SQL Editor. The `route_sheet` view lists every booked yard by first visit day.
+
+## Field desk (crew app, office, truck link)
+
+One staff entrance: `arizonapetwaste.com/crew`. Staff type their email and get a 6 digit code. Only emails on the Team list get a code, so customers and strangers cannot get in. No passwords.
+
+- Scoopers see today's route with one big button: Start route, Arrived, checklist, Gate photo, Done. Can't service has a reason. GPS goes out every 15 seconds while the route is live and the screen stays awake. Arrived fires on its own within about 50 meters of a pinned yard.
+- Owner and office see Today, My route, Customers, Leads, Texts, Team and Money.
+- Every booking on the website lands in Customers on its own (the Stripe webhook marks it paid, pins the address with the free US Census lookup, and gives it the area's service day). Waitlist and sign up requests land in Leads. Cancel or pause takes them off routes that have not happened yet.
+- Texts never send from here. Until Twilio is approved, each text waits in Texts. Tap Open on the business phone, send it, tap Sent.
+- The truck link shows only that visit: status, arrival time, miles away while we head there, the scooper's first name, and the gate photo when done. While we head to that yard it shows a live Google map: the truck gliding along the road line to their home, with a traffic based arrival time. It never shows other homes.
+- Photos sit in the private `gate-photos` bucket and go out only by links that expire in 2 hours.
+
+Setup: run `supabase/crm.sql` once in Supabase > SQL Editor (after `schema.sql`). It adds the owner row for `info@arizonapetwaste.com`. Sign in at `/crew`, add the team, and set a service day for each area under Team.
+
+Live map: add `GOOGLE_MAPS_BROWSER_KEY` (Maps JavaScript API, HTTP referrer locked to arizonapetwaste.com) and `GOOGLE_MAPS_SERVER_KEY` (Routes API only, type Secret) in Cloudflare. Without them the link shows the arrival time and a simple progress line.
+
+Optional: `CRON_SECRET` (16+ characters) lets an outside scheduler call `POST /api/office/night-before` with header `x-cron-secret`. Until then, press "Queue tomorrow's texts" on Today.
+
+Test: `node build/worker.test.mjs` (site server). `DATABASE_URL=postgres://... node build/desk.test.mjs` runs the field desk end to end against a real Postgres (needs the `pg` package).
