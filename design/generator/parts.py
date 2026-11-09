@@ -503,8 +503,37 @@ YARD_CSS = _yd['YARD_CSS']
 YARD_METHODS = _yd['YARD_METHODS']
 YARD_STATE = _yd['YARD_STATE']
 
+DD_CHEV = '<svg class="ddc" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+DD_AREAS = ('<div class="ddp">'
+    '<a href="CityBuckeye.dc.html"><b>Buckeye</b><span>85326 · 85396</span></a>'
+    '<a href="CityVerrado.dc.html"><b>Verrado</b><span>Buckeye 85396</span></a>'
+    '<a href="CityGoodyear.dc.html"><b>Goodyear</b><span>85338 · 85395</span></a>'
+    '<a href="CityLitchfieldPark.dc.html"><b>Litchfield Park</b><span>85340</span></a>'
+    '<a href="CityCitrusPark.dc.html"><b>Citrus Park and Waddell</b><span>85355</span></a>'
+    '<a href="AreasWeServe.dc.html" class="dda">See all service areas ›</a></div>')
+DD_COMM = ('<div class="ddp ddg"><div><p class="ddh">Services</p>'
+    '<a href="CommercialHoa.dc.html"><b>HOA common areas</b><span>Greenbelts, trails and parks</span></a>'
+    '<a href="CommercialApartments.dc.html"><b>Apartments</b><span>Pet relief areas and dog runs</span></a>'
+    '<a href="CommercialDogParks.dc.html"><b>Dog parks</b><span>HOA and private parks</span></a>'
+    '<a href="CommercialStations.dc.html"><b>Pet waste stations</b><span>Empty, restock and repair</span></a>'
+    '<a href="CommercialEvents.dc.html"><b>Events</b><span>Loaner stations and cleanup</span></a></div>'
+    '<div><p class="ddh">Areas</p>'
+    '<a href="CommercialBuckeye.dc.html"><b>Buckeye</b><span>Verrado, Sundance, Tartesso</span></a>'
+    '<a href="CommercialGoodyear.dc.html"><b>Goodyear</b><span>Estrella, PebbleCreek, Palm Valley</span></a>'
+    '<a href="CommercialLitchfield.dc.html"><b>Litchfield Park</b><span>HOAs, condos, resorts</span></a>'
+    '<a href="CommercialCitrus.dc.html"><b>Citrus Park and Waddell</b><span>New communities, kennels</span></a>'
+    '<a href="Commercial.dc.html" class="dda">Commercial overview ›</a></div></div>')
+DD = {'Areas we serve': DD_AREAS, 'Commercial': DD_COMM}
+
+
+def _navlink(h, t):
+    if t in DD:
+        return ('<div class="dd"><a href="%s" class="ddt">%s%s</a><div class="ddm">%s</div></div>' % (h, t, DD_CHEV, DD[t]))
+    return '<a href="%s">%s</a>' % (h, t)
+
+
 def _header(home, links):
-    nav = ''.join('<a href="%s">%s</a>' % (h, t) for h, t in links)
+    nav = ''.join(_navlink(h, t) for h, t in links)
     return ('<header class="hdr"><div class="hin">\n'
             '  <a href="' + home + '" class="hlogo" aria-label="Arizona Pet Waste, home">' + LOGO_H + '</a>\n'
             '  <nav class="dnav" aria-label="Main">' + nav + '</nav>\n'
@@ -710,3 +739,22 @@ BF_DEAL = ('<div class="bfd" data-deal-end="2026-12-01T06:59:59Z">'
   '<div class="bfd-clock" aria-hidden="true"><span><b data-u="d">00</b><i>days</i></span><span><b data-u="h">00</b><i>hrs</i></span><span><b data-u="m">00</b><i>min</i></span><span><b data-u="s">00</b><i>sec</i></span></div></div>'
   '<p class="bfd-fine">No contract. Keep your plan after your free month and it stays free. If you cancel during your free month, we charge you for that month.</p>'
   '</div>')
+
+DD_CSS = r""".apw .dd{position:relative;display:flex;align-items:center}
+.apw .dnav .ddt{gap:4px}
+.apw .ddc{width:14px;height:14px;transition:transform .15s}
+.apw .dd:hover .ddc,.apw .dd:focus-within .ddc{transform:rotate(180deg)}
+.apw .ddm{position:absolute;top:100%;left:50%;z-index:30;padding-top:10px;opacity:0;visibility:hidden;transform:translate(-50%,6px);transition:opacity .15s,transform .15s,visibility 0s .15s}
+.apw .dd:hover .ddm,.apw .dd:focus-within .ddm{opacity:1;visibility:visible;transform:translate(-50%,0);transition:opacity .15s,transform .15s}
+.apw .ddp{min-width:270px;padding:8px;border-radius:18px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow)}
+.apw .dnav .ddp a{display:grid;gap:2px;min-height:0;padding:10px 12px;border-radius:12px;white-space:normal;font-size:15px}
+.apw .dnav .ddp a:hover,.apw .dnav .ddp a:focus-visible{background:var(--bg2)}
+.apw .ddp b{font-weight:700}
+.apw .ddp span{font-size:13px;font-weight:500;color:var(--mute)}
+.apw .dnav .ddp .dda{margin-top:4px;border-top:1px solid var(--line);border-radius:0 0 12px 12px;font-weight:700;color:var(--accent-text)}
+.apw .ddg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;width:600px}
+.apw .ddh{margin:8px 12px 4px;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.apw.dark .ddp,.dark .apw .ddp{background:var(--card)}
+"""
+PAGE_CSS += DD_CSS
+HDR_CSS += DD_CSS

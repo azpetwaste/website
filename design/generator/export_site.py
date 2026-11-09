@@ -40,7 +40,16 @@ LINKS = {
     'HowItWorks.dc.html': '/how-it-works/',
     'Pricing.dc.html': '/pricing/',
     'Faq.dc.html': '/faq/',
-    'Commercial.dc.html': '/commercial-dog-waste-removal/',
+    'Commercial.dc.html': '/commercial-pet-waste-removal/',
+    'CommercialHoa.dc.html': '/commercial-pet-waste-removal/hoa/',
+    'CommercialApartments.dc.html': '/commercial-pet-waste-removal/apartments/',
+    'CommercialDogParks.dc.html': '/commercial-pet-waste-removal/dog-parks/',
+    'CommercialStations.dc.html': '/commercial-pet-waste-removal/pet-waste-stations/',
+    'CommercialEvents.dc.html': '/commercial-pet-waste-removal/events/',
+    'CommercialBuckeye.dc.html': '/commercial-pet-waste-removal/buckeye-az/',
+    'CommercialGoodyear.dc.html': '/commercial-pet-waste-removal/goodyear-az/',
+    'CommercialLitchfield.dc.html': '/commercial-pet-waste-removal/litchfield-park-az/',
+    'CommercialCitrus.dc.html': '/commercial-pet-waste-removal/citrus-park-az/',
     'Blog.dc.html': '/blog/',
 }
 BLOBS = {
@@ -194,5 +203,36 @@ for i, cdef in enumerate(cities.CITIES):
     if shell is None:
         shell = doc_shell(html)
 write('doc', shell)
+
+# static service maps for the hub pages: each town shape links to a page
+import truemap  # noqa: E402
+
+
+def static_map(links, label):
+    svg = truemap.build('pV', 'pC', 'pG', 'pL', 'pB')
+
+    def rep(m):
+        href, name = links[m.group(2)]
+        return '<a href="%s" aria-label="%s"><path class="mplc mlink" d="%s"></path></a>' % (href, name, m.group(1))
+    svg, n = re.subn(r'<path class="mplc" d="([^"]+)" style="fill: \{\{ (\w+) \}\};" onClick="\{\{ \w+ \}\}"></path>', rep, svg)
+    if n != 5:
+        sys.exit('static map: expected 5 town shapes, found %d' % n)
+    return re.sub(r' role="img" aria-label="[^"]*"', ' aria-label="%s"' % label, svg, count=1)
+
+
+RES = {'bB': ('/pooper-scooper/buckeye-az/', 'Pooper scooper in Buckeye'), 'bG': ('/pooper-scooper/goodyear-az/', 'Pooper scooper in Goodyear'),
+       'bL': ('/pooper-scooper/litchfield-park-az/', 'Pooper scooper in Litchfield Park'), 'bC': ('/pooper-scooper/citrus-park-az/', 'Pooper scooper in Citrus Park'),
+       'bV': ('/pooper-scooper/buckeye-az/verrado/', 'Pooper scooper in Verrado')}
+COM = {'bB': ('/commercial-pet-waste-removal/buckeye-az/', 'Commercial pet waste removal in Buckeye'),
+       'bG': ('/commercial-pet-waste-removal/goodyear-az/', 'Commercial pet waste removal in Goodyear'),
+       'bL': ('/commercial-pet-waste-removal/litchfield-park-az/', 'Commercial pet waste removal in Litchfield Park'),
+       'bC': ('/commercial-pet-waste-removal/citrus-park-az/', 'Commercial pet waste removal in Citrus Park'),
+       'bV': ('/commercial-pet-waste-removal/buckeye-az/', 'Commercial pet waste removal in Verrado and Buckeye')}
+_mcss = truemap.MAP_CSS.split('}', 1)[1]  # drop the home page .map box rule
+content['svcmap'] = {
+    'res': static_map(RES, 'Map of the towns and ZIP codes we serve. Tap a town to open its page.'),
+    'com': static_map(COM, 'Map of the towns we serve for HOAs and businesses. Tap a town to open its page.'),
+    'css': _mcss + '.mlink{fill:rgba(255,74,28,0);transition:fill .2s ease}a:hover .mlink,a:focus-visible .mlink{fill:rgba(255,74,28,.24)}a:focus-visible .mlink{stroke:#0E1430;stroke-width:2.5px}.dark a:focus-visible .mlink{stroke:#FFFFFF}'
+}
 json.dump(content, open(OUT + 'content.json', 'w'), ensure_ascii=False, indent=1)
 print('content.json written')
