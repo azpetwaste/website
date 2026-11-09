@@ -31,7 +31,7 @@ def ask(town, zips):
         ('Do you clean your tools?', 'Yes. We clean our boots and tools after every yard. That keeps germs from going from yard to yard.'),
         ('What if you miss a pile or forget the photo?', 'Tap “Something’s off” in My Yard, and we come back for free within 24 hours. '
                                                        'If a visit has no gate photo, you pay $0 for that visit.'),
-        ('Do I have to sign a contract?', 'No. You pay month to month. You can pause or cancel any time in My Yard. If you cancel during your free month, we charge you for that month.'),
+        ('Do I have to sign a contract?', 'No. You pay month to month. You can pause or cancel any time in My Yard. If you cancel in your first 60 days, we charge one month.'),
     ]
 
 
@@ -75,7 +75,7 @@ def faq_common(town):
         ('Can I skip a week or pause?',
          'Yes. You get 4 free skips a year. Tell us 24 hours before. You can pause for up to 120 days while you are away, and you do not pay while you are paused.'),
         ('Is there a contract?',
-         'No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel. If you cancel during your free month, we charge you for that month.'),
+         'No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel. If you cancel in your first 60 days, we charge one month.'),
     ]
 
 

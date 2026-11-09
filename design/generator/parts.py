@@ -277,7 +277,7 @@ MAP_CHIPS = '''  <div class="mchips" role="group" aria-label="Towns we scoop">
 from scene import saguaro, agave, barrel  # noqa: E402
 
 FAQ_ITEMS = [
-    ('What is the Black Friday deal?', 'Sign up by November 30 and your first month is free. The big chains give you one free cleanup or $25 off. We give you a whole month. Keep your plan after the free month and it stays free. If you cancel during the free month, we charge you for that month.'),
+    ('What is the Black Friday deal?', 'Sign up by November 30 and your first month is free. The big chains give you one free cleanup or $25 off. We give you a whole month. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.'),
     ('How much does it cost?', 'Weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Your first month is free when you sign up for any plan.'),
     ('Is the spray really free?', 'Yes. At every visit, we spray deodorizer on the spots your dogs use most. It costs you nothing.'),
     ('Do you come in the summer heat?', 'Yes. In summer we start early, so your yard is done before the worst heat of the day.'),
@@ -288,12 +288,15 @@ FAQ_ITEMS = [
     ('Do you clean your tools?', 'Yes. We clean our boots and tools after every yard. That keeps germs from going from yard to yard.'),
     ('Can I pick my day?', 'No. We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window.'),
     ('Can you come today? We have a party.', 'Yes. Text us and we can come the same day for $49. It goes on your next bill on the 1st.'),
-    ('When do you charge my card?', 'On the 1st of each month. Your first month is free. Your first charge only covers the days after your free month, so it is smaller. Then you pay the full price on the 1st of each month. If you cancel during your free month, we charge you for that month.'),
+    ('When do you charge my card?', 'On the 1st of each month. Your first month is free. Your first charge only covers the days after your free month, so it is smaller. Then you pay the full price on the 1st of each month.'),
     ('Who sees my gate code?', 'Only your scooper, and only on your day. You add it after you sign up. If you cancel, we delete it.'),
     ('What if a dog in the yard is not safe to be near?', 'We don’t go in. We text you to bring the dog inside. We can come back the same day.'),
-    ('Can I skip a week?', 'Yes. You get 4 free skips a year. Tell us 24 hours before. It is one tap in My Yard.'),
+    ('Can I skip a week?', 'Yes. You get 4 free skips a year. Sign in to My Yard and tap Skip next to the visit, up to 24 hours before. No phone call.'),
     ('Can I pause while we are away?', 'Yes. Pause for up to 120 days in My Yard. You don’t pay while you are paused.'),
-    ('How do I cancel?', 'Tap cancel in My Yard. There is no contract and no phone call. If you cancel during your free month, we charge you for that month.'),
+    ('How do I cancel?', 'Tap cancel in My Yard. There is no contract and no phone call. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.'),
+    ('What is My Yard?', 'My Yard is your account on our site. Sign in with your email and a 6 digit code. No password. You can see your next visits, skip a visit, pause, see your bills and gate photos, change your card, or cancel.'),
+    ('Is my card safe?', 'Yes. You pay through Stripe, the same checkout big stores use. Stripe keeps your card. We never see or store your card number.'),
+    ('How do I see my bills?', 'Sign in to My Yard. Every bill is there, and you can open or save each one.'),
     ('My yard is rock, not grass.', 'Rock can hide poop. So we rake rock yards with a wide metal rake.'),
 ]
 _seal28 = ('<sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}"><img src="' + BLOB_MARK + '" alt=""></sc-if>'
@@ -585,6 +588,12 @@ SHIELD = ('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#
           '<path d="M12 3l7 3v5c0 4.6-3 8.4-7 10-4-1.6-7-5.4-7-10V6z"></path><path d="m9 12 2 2 4-4"></path></svg>')
 
 
+FLOCK = ('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF8A66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+         '<rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>')
+FCHECK = ('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF8A66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+          '<circle cx="12" cy="12" r="9"></circle><path d="m8.5 12 2.5 2.5 4.5-5"></path></svg>')
+
+
 def _footer(pre):
     """pre is '' on the home page (links stay on the page) and 'Main.dc.html' everywhere else."""
     return ('<footer class="ftr">\n'
@@ -593,7 +602,6 @@ def _footer(pre):
             '    <div>\n'
             '      <img class="flogo" src="' + BLOB_LOGO_DARK + '" alt="Arizona Pet Waste" width="260" height="79">\n'
             '      <p class="mono" style="margin: 16px 0 0; font-size: 14px; color: #AEB5D8;">You always know. Or you don’t pay.</p>\n'
-            '      <p style="display: inline-flex; align-items: center; gap: 8px; margin: 14px 0 0; padding: 8px 14px 8px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18); font-size: 14px; font-weight: 700; color: #F6F4EF;">' + SHIELD + 'Licensed, bonded and insured</p>\n'
             '      <div style="display: flex; flex-direction: column; margin-top: 20px; border-top: 1px solid rgba(255,255,255,.10);">\n'
             '        <a href="tel:+16233096104" ' + _fcon + '>' + ICON_PHONE + '623.309.6104</a>\n'
             '        <a href="sms:+16233096104" ' + _fcon + '>' + ICON_SMS_O + 'Text us</a>\n'
@@ -617,16 +625,25 @@ def _footer(pre):
             '        <a href="Commercial.dc.html" class="flink">Commercial</a>\n'
             '        <a href="Faq.dc.html" class="flink">FAQ</a>\n'
             '        <a href="Blog.dc.html" class="flink">Blog</a>\n'
+            '        <a href="About.dc.html" class="flink">About us</a>\n'
+            '        <a href="Promise.dc.html" class="flink">Our promise</a>\n'
+            '        <a href="Contact.dc.html" class="flink">Contact</a>\n'
+            '        <a href="MyYard.dc.html" class="flink">My Yard sign in</a>\n'
             '        <a href="Booking.dc.html" class="flink">Book now</a>\n'
             '      </div>\n'
             '    </nav>\n'
             '  </div>\n'
             '  <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px;">\n'
-            '    <a href="#reviews" ' + _fsoc + '>Google</a>\n'
-            '    <a href="#reviews" ' + _fsoc + '>Facebook</a>\n'
-            '    <a href="#reviews" ' + _fsoc + '>Instagram</a>\n'
-            '    <a href="#reviews" ' + _fsoc + '>Nextdoor</a>\n'
+            '    <a href="' + pre + '#reviews" ' + _fsoc + '>Google</a>\n'
+            '    <a href="' + pre + '#reviews" ' + _fsoc + '>Facebook</a>\n'
+            '    <a href="' + pre + '#reviews" ' + _fsoc + '>Instagram</a>\n'
+            '    <a href="' + pre + '#reviews" ' + _fsoc + '>Nextdoor</a>\n'
             '  </div>\n'
+            '  <ul class="ftrust" aria-label="Why you can trust us">\n'
+            '    <li>' + SHIELD + '<span><b>Licensed, bonded and insured</b>Your home and yard are covered.</span></li>\n'
+            '    <li>' + FLOCK + '<span><b>Secure checkout</b>Stripe keeps your card. We never see the number.</span></li>\n'
+            '    <li>' + FCHECK + '<span><b>Cancel online</b>No contract and no phone call.</span></li>\n'
+            '  </ul>\n'
             '  <p style="margin: 26px 0 0; font-size: 14px; line-height: 1.6; color: #AEB5D8;">© 2026 Arizona Pet Waste. All rights reserved.</p>\n'
             '  </div>\n'
             '</footer>')
@@ -735,6 +752,12 @@ REVAMP_CSS = r"""
 }
 @media (prefers-reduced-motion:reduce){.apw .tick-in{animation:none}.apw .tick{overflow-x:auto}.apw .tick-b{display:none}.apw .hbk .btn-dot::after{display:none}.apw .btn{transition:none}.apw .btn:not(:disabled):hover,.apw .btn:not(:disabled):active{transform:none}}"""
 PAGE_CSS += REVAMP_CSS
+PAGE_CSS += r"""
+.apw .ftrust{list-style:none;margin:26px 0 0;padding:18px 0 0;border-top:1px solid rgba(255,255,255,.10);display:grid;gap:14px}
+.apw .ftrust li{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.45;color:#AEB5D8}
+.apw .ftrust svg{flex:0 0 auto;margin-top:2px}
+.apw .ftrust b{display:block;font-size:15px;color:#F6F4EF}
+@media (min-width:600px){.apw .ftrust{grid-template-columns:repeat(3,1fr);gap:20px}}"""
 
 BF_DEAL = ('<div class="bfd" data-deal-end="2026-12-01T06:59:59Z">'
   '<div><p class="bfd-tag"><span class="bfd-dot"></span>Black Friday deal</p>'
@@ -742,7 +765,7 @@ BF_DEAL = ('<div class="bfd" data-deal-end="2026-12-01T06:59:59Z">'
   '<p class="bfd-p">The big chains give you one free cleanup or $25 off. We give you a whole month.</p></div>'
   '<div><p class="bfd-ends">Deal ends Monday, November 30</p>'
   '<div class="bfd-clock" aria-hidden="true"><span><b data-u="d">00</b><i>days</i></span><span><b data-u="h">00</b><i>hrs</i></span><span><b data-u="m">00</b><i>min</i></span><span><b data-u="s">00</b><i>sec</i></span></div></div>'
-  '<p class="bfd-fine">No contract. Keep your plan after your free month and it stays free. If you cancel during your free month, we charge you for that month.</p>'
+  '<p class="bfd-fine">No contract. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.</p>'
   '</div>')
 
 DD_CSS = r""".apw .dd{position:relative;display:flex;align-items:center}

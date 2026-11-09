@@ -71,6 +71,11 @@ async function route(path, request, env, ctx) {
   if (path === '/api/me' && m === 'POST') return meSave(request, env);
   if (path === '/api/portal' && m === 'POST') return portal(request, env);
   if (path === '/api/me/visits' && m === 'GET') return meVisits(request, env);
+  if (path === '/api/me/invoices' && m === 'GET') return meInvoices(request, env);
+  if (path === '/api/me/plan' && m === 'GET') return mePlan(request, env);
+  if (path === '/api/me/skip' && m === 'POST') return meSkip(request, env, ctx);
+  if (path === '/api/me/pause' && m === 'POST') return mePause(request, env, ctx);
+  if (path === '/api/me/resume' && m === 'POST') return meResume(request, env, ctx);
   if (path === '/api/health' && m === 'GET') return ok({ ok: true, live: live(env), desk: sbLive(env) });
   if (path === '/api/log' && m === 'POST') return clientLog(request, env);
   if (/^\/api\/(staff|crew|office|track)\//.test(path)) return desk(path, request, env, ctx);
@@ -173,11 +178,14 @@ function firstCharge(env, totalCents) {
   const monthDays = Math.round((next - first) / 86400e3);
   const paidDays = Math.round((next - freeEnd) / 86400e3);
   const firstCents = Math.round(totalCents * paidDays / monthDays);
+  const minEnd = new Date(start.getTime() + MIN_DAYS * 86400e3);
   return {
+    minEnd: Math.floor(minEnd.getTime() / 1000), minLabel: dateLabel(minEnd),
     charge: Math.floor(first.getTime() / 1000), freeEnd: Math.floor(freeEnd.getTime() / 1000), firstCents, creditCents: totalCents - firstCents, full: paidDays === monthDays,
     firstLabel: dateLabel(first), freeLabel: dateLabel(freeEnd), nextLabel: dateLabel(next)
   };
 }
+const MIN_DAYS = 60;
 function dateLabel(d) { return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'America/Phoenix' }); }
 function billText(b, totalCents) {
   if (b.full) return 'Your free month runs until ' + b.freeLabel + '. Then we charge ' + money(totalCents) + ' on the 1st of each month, starting ' + b.firstLabel + '.';
@@ -310,10 +318,10 @@ async function checkout(request, env, ctx) {
       trial_end: bill.charge,
       description: PLANS[b.plan].name + ', ' + dogs + (dogs === 1 ? ' dog' : ' dogs') + ', ' + z.name + '. We reach out to set the first visit.',
       metadata: { user_id: u.id, plan: b.plan, dogs: String(dogs), zip, credit: String(bill.creditCents), first_charge: String(bill.firstCents),
-        free_label: bill.freeLabel, first_label: bill.firstLabel, next_label: bill.nextLabel, free_end: String(bill.freeEnd) }
+        free_label: bill.freeLabel, first_label: bill.firstLabel, next_label: bill.nextLabel, free_end: String(bill.freeEnd), min_end: String(bill.minEnd), min_label: bill.minLabel }
     },
     metadata: { user_id: u.id, plan: b.plan, dogs: String(dogs), zip },
-    custom_text: { submit: { message: 'You pay $0 today. ' + billText(bill, total) + ' ' + FREE_RULE } }
+    custom_text: { submit: { message: 'You pay $0 today. ' + billText(bill, total) + ' ' + freeRule(bill.minLabel) } }
   });
   return ok({ clientSecret: session.client_secret });
 }
@@ -381,7 +389,7 @@ async function webhook(request, env, ctx) {
         ctx.waitUntil(mail(env, c.email, 'You are booked with Arizona Pet Waste', [
           'Hi ' + String(c.name).split(' ')[0] + ',', '',
           'You are booked. We will reach out to let you know your day and time.',
-          billLine + ' ' + FREE_RULE, '',
+          billLine + ' ' + freeRule(meta.min_label), '',
           'Next, set up your yard: add your gate code, your dogs’ names and any problem spots.',
           (env.SITE_URL || 'https://arizonapetwaste.com') + '/account/', '',
           'Questions? Call or text 623.309.6104.', '', 'Arizona Pet Waste'
@@ -408,33 +416,44 @@ async function webhook(request, env, ctx) {
   return ok({ received: true });
 }
 
-// The free month stays free only when the customer keeps the plan past it. A cancel requested before the
-// free month ends (canceled_at is when they asked, even for cancel at period end) gets one month at plan price.
+// The free month stays free when the customer keeps the plan for 60 days. A cancel requested before that
+// (canceled_at is when they asked, even for cancel at period end) brings what they have paid up to one month
+// at plan price. Subscriptions made before the 60 day rule only have free_end, so they keep the older rule.
 async function freeMonthCharge(env, ctx, sub, row) {
-  const freeEnd = parseInt((sub.metadata || {}).free_end || '0', 10);
+  const md = sub.metadata || {};
+  const cutoff = parseInt(md.min_end || md.free_end || '0', 10);
   const askedAt = sub.canceled_at || sub.ended_at || Math.floor(Date.now() / 1000);
-  if (!freeEnd || askedAt >= freeEnd) return;
+  if (!cutoff || askedAt >= cutoff) return;
   const item = (sub.items && sub.items.data && sub.items.data[0]) || {};
   const price = item.price && item.price.unit_amount ? item.price.unit_amount * (item.quantity || 1) : 0;
-  const amount = price || (row && PLANS[row.plan] ? monthly(row.plan, row.dogs) : 0);
-  if (!amount) return;
+  const month = price || (row && PLANS[row.plan] ? monthly(row.plan, row.dogs) : 0);
+  if (!month) return;
   const who = row ? row.name + ', ' + row.address + ', ' + row.zip : sub.customer;
+  let amount = month;
   try {
+    if (md.min_end) {
+      const paid = await stripe(env, 'GET', 'invoices', { subscription: sub.id, status: 'paid', limit: 24 });
+      amount = month - (paid.data || []).reduce((n, i) => n + (i.amount_paid || 0), 0);
+      if (amount < 50) return; // already paid a month (Stripe will not charge under 50 cents)
+    }
     await stripe(env, 'POST', 'invoiceitems', { customer: sub.customer, amount, currency: 'usd',
-      description: 'Free month charge: canceled during the free month' }, 'apw-early-item-' + sub.id);
+      description: 'Early cancel charge: one month at plan price, minus what was paid' }, 'apw-early-item-' + sub.id);
     const inv = await stripe(env, 'POST', 'invoices', Object.assign({ customer: sub.customer, collection_method: 'charge_automatically',
-      auto_advance: 'true', pending_invoice_items_behavior: 'include', description: 'You canceled during your free month, so this month is charged at your plan price.' },
+      auto_advance: 'true', pending_invoice_items_behavior: 'include', description: 'You canceled in your first 60 days, so we charge one month at your plan price, minus anything you paid.' },
       sub.default_payment_method ? { default_payment_method: sub.default_payment_method } : {}), 'apw-early-inv-' + sub.id);
     await stripe(env, 'POST', 'invoices/' + inv.id + '/finalize', {}, 'apw-early-fin-' + sub.id);
     await stripe(env, 'POST', 'invoices/' + inv.id + '/pay', {}, 'apw-early-pay-' + sub.id);
-    ctx.waitUntil(mail(env, owner(env), 'Free month charged: ' + who, 'This customer canceled during the free month, so we charged ' + money(amount) + ' for the month.\n\nCustomer: ' + who + '\nStripe customer: ' + sub.customer));
+    ctx.waitUntil(mail(env, owner(env), 'Free month charged: ' + who, 'This customer canceled in the first 60 days, so we charged ' + money(amount) + '.\n\nCustomer: ' + who + '\nStripe customer: ' + sub.customer));
   } catch (e) {
     console.error('free month charge failed', e);
-    ctx.waitUntil(mail(env, owner(env), 'Check billing: free month charge failed', 'A customer canceled during the free month but the ' + money(amount) + ' charge failed. Charge it in Stripe.\n\nCustomer: ' + who + '\nStripe customer: ' + sub.customer));
+    ctx.waitUntil(mail(env, owner(env), 'Check billing: free month charge failed', 'A customer canceled in the first 60 days but the ' + money(amount) + ' charge failed. Check it in Stripe.\n\nCustomer: ' + who + '\nStripe customer: ' + sub.customer));
   }
 }
 
-const FREE_RULE = 'Keep your plan after your free month and it stays free. If you cancel during your free month, we charge one month at your plan price.';
+const FREE_RULE = 'Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.';
+function freeRule(label) {
+  return label ? 'Keep your plan until ' + label + ' and your free month stays free. If you cancel before ' + label + ', we charge one month at your plan price, minus anything you have paid.' : FREE_RULE;
+}
 const WAIT_OFFER = 'Join by November 30, 2026 and your first month is free when we start in your area.';
 async function waitlist(request, env, ctx) {
   const b = await body(request);
@@ -849,7 +868,9 @@ async function planDay(env, day) {
   const wd = weekday(day);
   const rows = await db(env, 'GET', 'customers?status=in.(' + PAYING.join(',') + ')&or=(service_day.eq.' + wd + ',service_day2.eq.' + wd + ')' +
     '&select=id,plan,eow_week,scooper_id,stop_order,pause_from,pause_until,first_visit,address');
+  const skipped = await skippedOn(env, day);
   const due = rows.filter((c) => {
+    if (skipped.has(c.id)) return false;
     if (c.plan === 'eow' && weekParity(day) !== (c.eow_week || 0)) return false;
     if (c.pause_from && c.pause_from <= day && (!c.pause_until || c.pause_until >= day)) return false;
     if (c.first_visit && day < c.first_visit) return false;
@@ -1249,4 +1270,112 @@ async function meVisits(request, env) {
   const visits = [];
   for (const r of rows) visits.push({ day: r.day, status: r.status, reason: r.reason ? REASONS[r.reason] : null, note: r.note, doneAt: r.done_at, photo: await photoUrl(env, r.photo_path) });
   return ok({ visits });
+}
+
+/* =====================================================================================================
+   My Yard self service: bills, next visits, skip a visit, pause and start again.
+   Skips live in customers.skips (a list of dates). Until that column is added, skip falls back to a text.
+   ===================================================================================================== */
+const SKIPS_A_YEAR = 4, PAUSE_MAX_DAYS = 120;
+async function skippedOn(env, day) {
+  try { return new Set((await db(env, 'GET', 'customers?skips=cs.{' + day + '}&select=id')).map((x) => x.id)); } catch (e) { return new Set(); }
+}
+async function myRow(env, id) {
+  const base = 'plan,status,first_visit,service_day,service_day2,eow_week,pause_from,pause_until,stripe_customer_id,stripe_subscription_id,name,address,zip';
+  try { const r = await db(env, 'GET', 'customers?id=eq.' + id + '&select=' + base + ',skips'); return r[0] ? Object.assign(r[0], { skipReady: true, skips: r[0].skips || [] }) : null; }
+  catch (e) { const r = await db(env, 'GET', 'customers?id=eq.' + id + '&select=' + base); return r[0] ? Object.assign(r[0], { skipReady: false, skips: [] }) : null; }
+}
+function nextVisits(c, from, n) {
+  const out = [];
+  if (c.service_day == null && c.service_day2 == null) return out;
+  for (let i = 0; i < 70 && out.length < n; i++) {
+    const d = addDays(from, i), wd = weekday(d);
+    if (wd !== c.service_day && wd !== c.service_day2) continue;
+    if (c.plan === 'eow' && weekParity(d) !== (c.eow_week || 0)) continue;
+    if (c.first_visit && d < c.first_visit) continue;
+    out.push(d);
+  }
+  return out;
+}
+function planView(c) {
+  const today = azToday();
+  const paused = c.status === 'paused';
+  const days = PAYING.includes(c.status) ? nextVisits(c, addDays(today, 1), 3) : [];
+  const used = c.skips.filter((d) => d.slice(0, 4) === today.slice(0, 4)).length;
+  return {
+    dayName: c.service_day != null ? DAYS[c.service_day] + (c.service_day2 != null ? ' and ' + DAYS[c.service_day2] : '') : null,
+    next: days.map((d) => ({ day: d, skipped: c.skips.includes(d), canSkip: d >= addDays(today, 2) })),
+    skipReady: c.skipReady, skipsLeft: Math.max(0, SKIPS_A_YEAR - used),
+    paused, pauseUntil: paused && c.pause_until ? addDays(c.pause_until, 1) : null,
+    canPause: ['trialing', 'active'].includes(c.status) && !!c.stripe_subscription_id, pauseMax: addDays(today, PAUSE_MAX_DAYS)
+  };
+}
+async function me2(request, env) {
+  if (!live(env)) return { err: fail(503, 'My Yard is not turned on yet. ' + CALL_US) };
+  const u = await signedIn(request, env);
+  if (!u) return { err: fail(401, 'Please sign in again.') };
+  const c = await myRow(env, u.id);
+  if (!c) return { err: fail(404, 'Finish signing up first.') };
+  return { u, c };
+}
+async function mePlan(request, env) {
+  const x = await me2(request, env);
+  return x.err || ok({ plan: planView(x.c) });
+}
+async function meInvoices(request, env) {
+  const x = await me2(request, env);
+  if (x.err) return x.err;
+  if (!x.c.stripe_customer_id) return ok({ invoices: [] });
+  const r = await stripe(env, 'GET', 'invoices', { customer: x.c.stripe_customer_id, limit: 12 });
+  return ok({ invoices: (r.data || []).filter((i) => i.status !== 'draft' && i.status !== 'void').map((i) => ({
+    date: new Date(i.created * 1000).toISOString().slice(0, 10), amount: i.total, status: i.status, url: i.hosted_invoice_url || null })) });
+}
+async function meSkip(request, env, ctx) {
+  const x = await me2(request, env);
+  if (x.err) return x.err;
+  const c = x.c, b = (await body(request)) || {};
+  if (!c.skipReady) return fail(503, 'Skips are not turned on yet. Text 623.309.6104 and we will skip it for you.');
+  const day = String(b.date || '');
+  const view = planView(c);
+  const hit = view.next.find((v) => v.day === day);
+  if (!isDay(day) || !hit) return fail(400, 'Pick one of your next visits.');
+  let skips;
+  if (b.undo) skips = c.skips.filter((d) => d !== day);
+  else {
+    if (hit.skipped) return ok({ plan: view });
+    if (!hit.canSkip) return fail(400, 'That visit is less than 24 hours away. Text 623.309.6104 and we will try.');
+    if (view.skipsLeft < 1) return fail(400, 'You have used your 4 free skips this year. Text 623.309.6104 for help.');
+    skips = c.skips.concat(day);
+  }
+  await db(env, 'PATCH', 'customers?id=eq.' + x.u.id, { skips, updated_at: new Date().toISOString() }, 'return=minimal');
+  if (!b.undo) await db(env, 'DELETE', 'stops?customer_id=eq.' + x.u.id + '&status=eq.scheduled&day=eq.' + day, null, 'return=minimal').catch((e) => console.error('skip cleanup', e));
+  ctx.waitUntil(mail(env, owner(env), (b.undo ? 'Skip undone: ' : 'Skip: ') + c.name + ', ' + day, c.name + (b.undo ? ' wants the visit on ' : ' skipped the visit on ') + day + '.\n\nAddress: ' + c.address + ', ' + c.zip +
+    (b.undo ? '\n\nAdd the stop back to the route in the office.' : '')));
+  return ok({ plan: planView(Object.assign(c, { skips })) });
+}
+async function mePause(request, env, ctx) {
+  const x = await me2(request, env);
+  if (x.err) return x.err;
+  const c = x.c, b = (await body(request)) || {};
+  const until = String(b.until || ''), today = azToday();
+  if (!['trialing', 'active'].includes(c.status) || !c.stripe_subscription_id) return fail(400, 'We could not pause this plan. ' + CALL_US);
+  if (!isDay(until) || until <= today) return fail(400, 'Pick the day you want us to start again.');
+  if (until > addDays(today, PAUSE_MAX_DAYS)) return fail(400, 'You can pause for up to 120 days.');
+  await stripe(env, 'POST', 'subscriptions/' + c.stripe_subscription_id, { pause_collection: { behavior: 'void', resumes_at: Math.floor(noonAZ(until).getTime() / 1000) } });
+  const patch = { status: 'paused', pause_from: today, pause_until: addDays(until, -1), updated_at: new Date().toISOString() };
+  await db(env, 'PATCH', 'customers?id=eq.' + x.u.id, patch, 'return=minimal');
+  await db(env, 'DELETE', 'stops?customer_id=eq.' + x.u.id + '&status=eq.scheduled&day=gte.' + today + '&day=lt.' + until, null, 'return=minimal').catch((e) => console.error('pause cleanup', e));
+  ctx.waitUntil(mail(env, owner(env), 'Paused: ' + c.name, c.name + ' paused until ' + until + '. No bills go out while paused.\n\nAddress: ' + c.address + ', ' + c.zip));
+  return ok({ plan: planView(Object.assign(c, patch)) });
+}
+async function meResume(request, env, ctx) {
+  const x = await me2(request, env);
+  if (x.err) return x.err;
+  const c = x.c;
+  if (c.status !== 'paused' || !c.stripe_subscription_id) return fail(400, 'Your plan is not paused.');
+  const s = await stripe(env, 'POST', 'subscriptions/' + c.stripe_subscription_id, { pause_collection: '' });
+  const patch = { status: s.status || 'active', pause_from: null, pause_until: null, updated_at: new Date().toISOString() };
+  await db(env, 'PATCH', 'customers?id=eq.' + x.u.id, patch, 'return=minimal');
+  ctx.waitUntil(mail(env, owner(env), 'Back from pause: ' + c.name, c.name + ' started the plan again.\n\nAddress: ' + c.address + ', ' + c.zip));
+  return ok({ plan: planView(Object.assign(c, patch)) });
 }

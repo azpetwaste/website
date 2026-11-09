@@ -28,6 +28,7 @@
 .apw .yrow span{color:var(--mute)}.apw .yrow b{text-align:right}
 .apw .yh2{margin:36px 0 0;font-size:24px;font-weight:800;letter-spacing:-.035em;line-height:1.1}
 .apw .note{display:flex;gap:12px;align-items:flex-start;margin-top:14px;padding:14px 16px;border-radius:16px;background:var(--bg2);font-size:15px;line-height:1.5;color:var(--ink2)}
+.apw .vrow{align-items:center}.apw .vday{text-align:left!important;font-size:16px}.apw .vday small{display:block;margin-top:2px;font-size:13px;font-weight:500;color:var(--mute)}.apw .vbtn{min-height:44px;padding:0 16px;font-size:15px;flex:0 0 auto}.apw .ylab{margin:22px 0 0;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--mute)}.apw .fine svg{width:14px;height:14px;vertical-align:-2px}
 .apw .demo{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:6px 12px;border-radius:999px;background:var(--bg2);border:1px dashed var(--field);font-size:13px;font-weight:700;color:var(--mute)}
 @@HDR_CSS@@
 .apw .accm{width:100%;max-width:560px;margin:0 auto;padding:26px 20px 64px}
@@ -116,18 +117,62 @@
     <sc-if value="{{ saveErr }}" hint-placeholder-val="{{ false }}"><p class="ferr" role="alert">{{ saveErr }}</p></sc-if>
     <button type="button" class="btn btn-dot" style="width: 100%; margin-top: 18px;" onClick="{{ save }}" disabled="{{ busy }}">{{ saveLabel }}</button>
 
-    <h2 class="yh2">Skip or pause</h2>
-    <p class="lead" style="font-size: 16px;">You get 4 free skips a year. Tell us 24 hours before. Pause for up to 120 days and you do not pay while paused.</p>
-    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px;">
-      <a href="{{ skipHref }}" class="btn btn-line">Skip a visit</a>
-      <a href="{{ pauseHref }}" class="btn btn-line">Pause</a>
-    </div>
-
-    <h2 class="yh2">Card and plan</h2>
-    <p class="lead" style="font-size: 16px;">Change your card, see your bills, or cancel. No phone call needed.</p>
+    <h2 class="yh2" id="visits">Your visits</h2>
+    <p class="lead" style="font-size: 16px;">{{ dayLine }}</p>
+    <sc-if value="{{ hasNext }}" hint-placeholder-val="{{ false }}">
+      <div class="ycard">
+        <sc-for list="{{ nextList }}" as="v" hint-placeholder-count="3">
+          <div class="yrow vrow"><b class="vday">{{ v.label }}<small>{{ v.sub }}</small></b>
+            <sc-if value="{{ v.showBtn }}" hint-placeholder-val="{{ true }}"><button type="button" class="btn btn-line vbtn" onClick="{{ v.tap }}" disabled="{{ actBusy }}">{{ v.btn }}</button></sc-if>
+          </div>
+        </sc-for>
+      </div>
+      <p class="fine">{{ skipLine }}</p>
+    </sc-if>
+    <sc-if value="{{ skipByText }}" hint-placeholder-val="{{ false }}">
+      <a href="{{ skipHref }}" class="btn btn-line" style="width: 100%; margin-top: 14px;">Skip a visit</a>
+      <p class="fine">You get 4 free skips a year. Tell us 24 hours before.</p>
+    </sc-if>
+    <sc-if value="{{ hasPast }}" hint-placeholder-val="{{ false }}">
+      <p class="mono ylab">Past visits</p>
+      <div class="ycard">
+        <sc-for list="{{ pastList }}" as="v" hint-placeholder-count="2">
+          <div class="yrow vrow"><b class="vday">{{ v.label }}<small>{{ v.sub }}</small></b>
+            <sc-if value="{{ v.photo }}" hint-placeholder-val="{{ false }}"><a class="tlink" href="{{ v.photo }}" target="_blank" rel="noopener">Gate photo</a></sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+    <h2 class="yh2" id="pause">Going away? Pause</h2>
+    <sc-if value="{{ isPaused }}" hint-placeholder-val="{{ false }}">
+      <p class="lead" style="font-size: 16px;">{{ pausedLine }}</p>
+      <button type="button" class="btn btn-dot" style="width: 100%; margin-top: 14px;" onClick="{{ resume }}" disabled="{{ actBusy }}">Start again now</button>
+    </sc-if>
+    <sc-if value="{{ canPause }}" hint-placeholder-val="{{ true }}">
+      <p class="lead" style="font-size: 16px;">Pause for up to 120 days. You do not pay while paused. We start again on the day you pick.</p>
+      <label for="a-until" class="flab">Start again on</label>
+      <input id="a-until" class="fin" type="date" min="{{ pauseMin }}" max="{{ pauseMax }}" value="{{ until }}" onChange="{{ onUntil }}">
+      <button type="button" class="btn btn-line" style="width: 100%; margin-top: 12px;" onClick="{{ pause }}" disabled="{{ actBusy }}">Pause my visits</button>
+    </sc-if>
+    <sc-if value="{{ pauseByText }}" hint-placeholder-val="{{ false }}">
+      <p class="lead" style="font-size: 16px;">Pause for up to 120 days. You do not pay while paused.</p>
+      <a href="{{ pauseHref }}" class="btn btn-line" style="width: 100%; margin-top: 14px;">Pause</a>
+    </sc-if>
+    <sc-if value="{{ actErr }}" hint-placeholder-val="{{ false }}"><p class="ferr" role="alert">{{ actErr }}</p></sc-if>
+    <h2 class="yh2" id="bills">Bills and card</h2>
+    <sc-if value="{{ hasBills }}" hint-placeholder-val="{{ false }}">
+      <div class="ycard">
+        <sc-for list="{{ billList }}" as="i" hint-placeholder-count="2">
+          <div class="yrow vrow"><b class="vday">{{ i.amount }}<small>{{ i.sub }}</small></b>
+            <sc-if value="{{ i.url }}" hint-placeholder-val="{{ true }}"><a class="tlink" href="{{ i.url }}" target="_blank" rel="noopener">View bill</a></sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{ noBills }}" hint-placeholder-val="{{ true }}"><p class="lead" style="font-size: 16px;">No bills yet. Your first month is free.</p></sc-if>
     <sc-if value="{{ portalErr }}" hint-placeholder-val="{{ false }}"><p class="ferr" role="alert">{{ portalErr }}</p></sc-if>
-    <button type="button" class="btn btn-line" style="width: 100%; margin-top: 14px;" onClick="{{ portal }}" disabled="{{ busy }}">Manage card or cancel</button>
-
+    <button type="button" class="btn btn-line" style="width: 100%; margin-top: 14px;" onClick="{{ portal }}" disabled="{{ busy }}">Change card or cancel</button>
+    <p class="fine">@@ICON_LOCK@@ Your card is kept by Stripe. We never see or store your card number. You can cancel online any time, with no phone call. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.</p>
     <div class="note" style="margin-top: 32px;">
       <span style="color: var(--accent-text); display: flex; padding-top: 1px;">@@ICON_CAMERA@@</span>
       <p style="margin: 0;">On visit day, your live map and your gate photos show up here. Questions? Text <a href="sms:+16233096104" style="color: var(--ink); font-weight: 700;">623.309.6104</a>.</p>
@@ -146,7 +191,7 @@
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.state = { dark: this._themeFromProps(), phase: 'loading', email: '', code: '', err: '', busy: false, me: null, form: {}, saved: false, saveErr: '', portalErr: '' };
+    this.state = { dark: this._themeFromProps(), phase: 'loading', email: '', code: '', err: '', busy: false, me: null, form: {}, saved: false, saveErr: '', portalErr: '', plan: null, visits: [], bills: [], until: '', actErr: '', actBusy: false };
   }
   componentDidMount() { this._themeInit(); this._load(); }
   componentWillUnmount() { this._themeStop(); }
@@ -169,12 +214,14 @@ class Component extends DCLogic {
     try {
       const r = await a.get('/api/me', true);
       this._setMe(r.customer || { email: a.auth.session().email, status: 'new' });
+      this._extras();
     } catch (e) {
       if (e && e.status === 401) { a.auth.signOut(); this.setState({ phase: 'out' }); return; }
       this.setState({ phase: 'out', err: a.msg(e) });
     }
   }
   _setMe(me) {
+    if (this._demo() && !this.state.plan) this.setState({ plan: this._samplePlan(), visits: [{ day: this._iso(-4), status: 'done', doneAt: null, photo: null }], bills: [] });
     this.setState({ phase: 'in', me: me, busy: false, err: '', form: {
       gate: me.gate_code || '', notes: me.gate_notes || '', dogNames: me.dog_names || '', spots: me.problem_spots || '',
       noSpray: !!me.skip_spray, txtVisit: !!me.texts_visit, txtDeals: !!me.texts_deals } });
@@ -226,6 +273,33 @@ class Component extends DCLogic {
     try { sessionStorage.removeItem('apw.demoIn'); } catch (e) { }
     this.setState({ phase: 'out', me: null, code: '', err: '' });
   }
+  _iso(n) { return new Date(Date.now() - 7 * 3600e3 + n * 86400e3).toISOString().slice(0, 10); }
+  _samplePlan() {
+    return { dayName: 'Thursday', skipReady: true, skipsLeft: 4, paused: false, pauseUntil: null, canPause: true, pauseMax: this._iso(120),
+      next: [3, 10, 17].map((n) => ({ day: this._iso(n), skipped: false, canSkip: true })) };
+  }
+  async _extras() {
+    const a = this._apw();
+    const quiet = (p) => p.catch(() => null);
+    const [p, v, b] = await Promise.all([quiet(a.get('/api/me/plan', true)), quiet(a.get('/api/me/visits', true)), quiet(a.get('/api/me/invoices', true))]);
+    this.setState({ plan: p && p.plan, visits: (v && v.visits) || [], bills: (b && b.invoices) || [] });
+  }
+  async _act(path, body, demo) {
+    const a = this._apw();
+    if (this._demo()) { this.setState({ plan: demo(Object.assign({}, this.state.plan || this._samplePlan())), actErr: '' }); return; }
+    this.setState({ actBusy: true, actErr: '' });
+    try { const r = await a.post(path, body, true); this.setState({ actBusy: false, plan: r.plan, me: Object.assign({}, this.state.me, { status: r.plan.paused ? 'paused' : (this.state.me.status === 'paused' ? 'active' : this.state.me.status) }) }); }
+    catch (e) { this.setState({ actBusy: false, actErr: a.msg(e) }); }
+  }
+  _skip(day, undo) {
+    this._act('/api/me/skip', { date: day, undo: !!undo }, (p) => { p.next = p.next.map((v) => v.day === day ? Object.assign({}, v, { skipped: !undo }) : v); p.skipsLeft += undo ? 1 : -1; return p; });
+  }
+  _pause() {
+    const until = this.state.until;
+    if (!until) { this.setState({ actErr: 'Pick the day you want us to start again.' }); return; }
+    this._act('/api/me/pause', { until: until }, (p) => Object.assign(p, { paused: true, pauseUntil: until, canPause: false, next: [] }));
+  }
+  _resume() { this._act('/api/me/resume', {}, () => this._samplePlan()); }
   _sms(text) { return 'sms:+16233096104?&body=' + encodeURIComponent(text); }
   renderVals() {
     const s = this.state;
@@ -238,6 +312,12 @@ class Component extends DCLogic {
     const set = (k, fromCheck) => (e) => { const nf = Object.assign({}, this.state.form); nf[k] = fromCheck ? !!e.target.checked : e.target.value; this.setState({ form: nf, saved: false }); };
     const ph = String(me.phone || '').replace(/\D/g, '');
     const first = String(me.name || '').trim().split(/\s+/)[0] || 'there';
+    const pl = s.plan;
+    const nice = (iso, long) => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', long ? { weekday: 'long', month: 'long', day: 'numeric' } : { month: 'long', day: 'numeric', year: 'numeric' });
+    const paying = ['trialing', 'active', 'past_due', 'paused'].indexOf(me.status) >= 0;
+    const selfSkip = !!(pl && pl.skipReady && pl.next && pl.next.length);
+    const billNames = { paid: 'Paid', open: 'Due', uncollectible: 'Not paid' };
+    const pastNames = { done: 'Done', cant: 'We could not get in', skipped: 'Skipped' };
     return Object.assign({}, this._themeVals(), {
       loading: s.phase === 'loading',
       showOut: s.phase === 'out',
@@ -277,6 +357,24 @@ class Component extends DCLogic {
       saveErr: s.saveErr,
       skipHref: this._sms('Hi! Please skip my next visit. My address is ' + (me.address || '') + '.'),
       pauseHref: this._sms('Hi! Please pause my visits. My address is ' + (me.address || '') + '. Start again on: '),
+      dayLine: !paying ? 'Your visits show up here after you sign up.' : (pl && pl.paused ? 'Your visits are paused.' : (pl && pl.dayName ? 'Your day is ' + pl.dayName + '. We text you the night before with a 30 minute window.' : 'We are setting your day. We will reach out with your day and time.')),
+      hasNext: selfSkip,
+      nextList: selfSkip ? pl.next.map((v) => ({ label: nice(v.day, true), sub: v.skipped ? 'Skipped. We will not come.' : 'Scheduled', showBtn: v.skipped || (v.canSkip && pl.skipsLeft > 0),
+        btn: v.skipped ? 'Undo' : 'Skip', tap: () => this._skip(v.day, v.skipped) })) : [],
+      skipLine: pl ? 'You have ' + pl.skipsLeft + ' of 4 free skips left this year. Skip up to 24 hours before a visit.' : '',
+      skipByText: paying && !selfSkip && !(pl && pl.paused),
+      hasPast: s.visits.length > 0,
+      pastList: s.visits.map((v) => ({ label: nice(v.day, true), sub: (pastNames[v.status] || 'Done') + (v.reason ? ': ' + v.reason : ''), photo: v.photo || '' })),
+      isPaused: !!(pl && pl.paused),
+      pausedLine: pl && pl.paused ? (pl.pauseUntil ? 'You are paused. We start again on ' + nice(pl.pauseUntil, true) + '. You do not pay while paused.' : 'You are paused. You do not pay while paused.') : '',
+      canPause: !!(pl && pl.canPause && !pl.paused),
+      pauseByText: paying && !(pl && (pl.canPause || pl.paused)),
+      pauseMin: this._iso(1), pauseMax: pl ? pl.pauseMax : this._iso(120),
+      until: s.until, onUntil: (e) => this.setState({ until: e.target.value, actErr: '' }),
+      pause: () => this._pause(), resume: () => this._resume(),
+      actErr: s.actErr, actBusy: s.actBusy,
+      hasBills: s.bills.length > 0, noBills: s.bills.length === 0,
+      billList: s.bills.map((i) => ({ amount: '$' + (i.amount / 100).toFixed(2), sub: nice(i.date) + ' · ' + (billNames[i.status] || i.status), url: i.url || '' })),
       portal: () => this._portal(),
       portalErr: s.portalErr,
       signOut: () => this._signOut()

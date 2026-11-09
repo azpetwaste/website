@@ -38,6 +38,8 @@ alter table public.customers add column if not exists scooper_id uuid references
 alter table public.customers add column if not exists pause_from date;
 alter table public.customers add column if not exists pause_until date;
 alter table public.customers add column if not exists office_notes text;
+-- Dates the customer skipped from My Yard (4 free skips a year).
+alter table public.customers add column if not exists skips date[] not null default '{}';
 create index if not exists customers_service_day_idx on public.customers (service_day);
 
 -- One route per scooper per day.

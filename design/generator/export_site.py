@@ -51,6 +51,9 @@ LINKS = {
     'CommercialLitchfield.dc.html': '/commercial-pet-waste-removal/litchfield-park-az/',
     'CommercialCitrus.dc.html': '/commercial-pet-waste-removal/citrus-park-az/',
     'Blog.dc.html': '/blog/',
+    'About.dc.html': '/about/',
+    'Promise.dc.html': '/our-promise/',
+    'Contact.dc.html': '/contact/',
 }
 BLOBS = {
     'd40859938aad2cb6ad7648561b9a1a69': '/assets/img/logo-horizontal.svg',

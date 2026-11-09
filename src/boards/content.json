@@ -3,7 +3,7 @@
   "main": [
    {
     "q": "What is the Black Friday deal?",
-    "a": "Sign up by November 30 and your first month is free. The big chains give you one free cleanup or $25 off. We give you a whole month. Keep your plan after the free month and it stays free. If you cancel during the free month, we charge you for that month."
+    "a": "Sign up by November 30 and your first month is free. The big chains give you one free cleanup or $25 off. We give you a whole month. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid."
    },
    {
     "q": "How much does it cost?",
@@ -47,7 +47,7 @@
    },
    {
     "q": "When do you charge my card?",
-    "a": "On the 1st of each month. Your first month is free. Your first charge only covers the days after your free month, so it is smaller. Then you pay the full price on the 1st of each month. If you cancel during your free month, we charge you for that month."
+    "a": "On the 1st of each month. Your first month is free. Your first charge only covers the days after your free month, so it is smaller. Then you pay the full price on the 1st of each month."
    },
    {
     "q": "Who sees my gate code?",
@@ -59,7 +59,7 @@
    },
    {
     "q": "Can I skip a week?",
-    "a": "Yes. You get 4 free skips a year. Tell us 24 hours before. It is one tap in My Yard."
+    "a": "Yes. You get 4 free skips a year. Sign in to My Yard and tap Skip next to the visit, up to 24 hours before. No phone call."
    },
    {
     "q": "Can I pause while we are away?",
@@ -67,7 +67,19 @@
    },
    {
     "q": "How do I cancel?",
-    "a": "Tap cancel in My Yard. There is no contract and no phone call. If you cancel during your free month, we charge you for that month."
+    "a": "Tap cancel in My Yard. There is no contract and no phone call. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid."
+   },
+   {
+    "q": "What is My Yard?",
+    "a": "My Yard is your account on our site. Sign in with your email and a 6 digit code. No password. You can see your next visits, skip a visit, pause, see your bills and gate photos, change your card, or cancel."
+   },
+   {
+    "q": "Is my card safe?",
+    "a": "Yes. You pay through Stripe, the same checkout big stores use. Stripe keeps your card. We never see or store your card number."
+   },
+   {
+    "q": "How do I see my bills?",
+    "a": "Sign in to My Yard. Every bill is there, and you can open or save each one."
    },
    {
     "q": "My yard is rock, not grass.",
@@ -113,7 +125,7 @@
    },
    {
     "q": "Is there a contract?",
-    "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel. If you cancel during your free month, we charge you for that month."
+    "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel. If you cancel in your first 60 days, we charge one month."
    }
   ]
  },
@@ -178,7 +190,7 @@
     },
     {
      "q": "Is there a contract?",
-     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel. If you cancel during your free month, we charge you for that month."
+     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel. If you cancel in your first 60 days, we charge one month."
     },
     {
      "q": "What day do you come to Buckeye?",
@@ -287,7 +299,7 @@
     },
     {
      "q": "Is there a contract?",
-     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel. If you cancel during your free month, we charge you for that month."
+     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel. If you cancel in your first 60 days, we charge one month."
     },
     {
      "q": "What day do you come to Goodyear?",
@@ -396,7 +408,7 @@
     },
     {
      "q": "Is there a contract?",
-     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel. If you cancel during your free month, we charge you for that month."
+     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel. If you cancel in your first 60 days, we charge one month."
     },
     {
      "q": "What day do you come to Litchfield Park?",
@@ -490,7 +502,7 @@
     },
     {
      "q": "Is there a contract?",
-     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel. If you cancel during your free month, we charge you for that month."
+     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel. If you cancel in your first 60 days, we charge one month."
     },
     {
      "q": "What day do you come to Citrus Park?",
@@ -583,7 +595,7 @@
     },
     {
      "q": "Is there a contract?",
-     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel. If you cancel during your free month, we charge you for that month."
+     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel. If you cancel in your first 60 days, we charge one month."
     },
     {
      "q": "What day do you come to Verrado?",

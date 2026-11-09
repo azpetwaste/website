@@ -13,6 +13,8 @@ const calls = [];
 let stored = null, session = null;
 const mails = [];
 const credits = [];
+let paidSoFar = [];
+const subPosts = [];
 const reply = (data, status = 200) => new Response(data === '' ? '' : JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
 globalThis.fetch = async (url, init = {}) => {
   const m = init.method || 'GET';
@@ -30,6 +32,10 @@ globalThis.fetch = async (url, init = {}) => {
   if (url === 'https://api.stripe.com/v1/checkout/sessions') { session = new URLSearchParams(init.body); return reply({ client_secret: 'cs_test_secret' }); }
   if (url === 'https://api.resend.com/emails') { mails.push(JSON.parse(init.body)); return reply({ id: 'm1' }); }
   if (url === 'https://api.stripe.com/v1/invoiceitems') { credits.push({ body: new URLSearchParams(init.body), idem: init.headers['idempotency-key'] }); return reply({ id: 'ii_1' }); }
+  if (url.startsWith('https://api.stripe.com/v1/invoices?subscription=')) return reply({ data: paidSoFar.map((n) => ({ amount_paid: n })) });
+  if (url.startsWith('https://api.stripe.com/v1/invoices?customer=')) return reply({ data: [{ created: 1795000000, total: 4290, status: 'paid', hosted_invoice_url: 'https://invoice.stripe.com/i/test' }, { created: 1795000001, total: 100, status: 'draft' }] });
+  if (url.startsWith(SB + '/rest/v1/stops?customer_id=eq.u1') && m === 'DELETE') return reply('', 200);
+  if (url.startsWith('https://api.stripe.com/v1/subscriptions/sub_1') && m === 'POST') { subPosts.push(String(init.body)); return reply({ id: 'sub_1', status: 'active' }); }
   if (url === 'https://api.stripe.com/v1/invoices') return reply({ id: 'in_1', status: 'draft' });
   if (url === 'https://api.stripe.com/v1/invoices/in_1/finalize') return reply({ id: 'in_1', status: 'open' });
   if (url === 'https://api.stripe.com/v1/invoices/in_1/pay') return reply({ id: 'in_1', status: 'paid' });
@@ -86,3 +92,32 @@ console.log('owner mail:', mails.map((m) => m.subject).join(' | '));
 credits.length = 0; calls.length = 0;
 await show('cancel after free month', await sendEvt(subEvt(now, now - 86400)));
 console.log('charges after free month (should be none):', credits.length, calls.filter((c) => c.includes('/v1/invoices')).length);
+
+// 60 day rule: a cancel in the first 60 days brings what was paid up to one month at plan price.
+const subEvt60 = (canceledAt, minEnd) => JSON.stringify({ type: 'customer.subscription.deleted', data: { object: { id: 'sub_60', customer: 'cus_1', status: 'canceled',
+  canceled_at: canceledAt, default_payment_method: 'pm_1', metadata: { user_id: 'u1', free_end: String(now - 5 * 86400), min_end: String(minEnd) }, items: { data: [{ price: { unit_amount: 9900 }, quantity: 1 }] } } } });
+const charged = () => credits.map((c) => c.body.get('amount')).join(',') || 'none';
+credits.length = 0; paidSoFar = [];
+await show('\ncancel on day 20, nothing paid', await sendEvt(subEvt60(now, now + 40 * 86400))); console.log('charged (want 9900):', charged());
+credits.length = 0; paidSoFar = [4290];
+await show('cancel on day 45, paid $42.90', await sendEvt(subEvt60(now, now + 15 * 86400))); console.log('charged (want 5610):', charged());
+credits.length = 0; paidSoFar = [4290, 9900];
+await show('cancel on day 55, paid over a month', await sendEvt(subEvt60(now, now + 5 * 86400))); console.log('charged (want none):', charged());
+credits.length = 0; paidSoFar = [];
+await show('cancel on day 61', await sendEvt(subEvt60(now, now - 86400))); console.log('charged (want none):', charged());
+
+// My Yard self service
+const az = (n) => new Date(Date.now() - 7 * 3600e3 + n * 86400e3).toISOString().slice(0, 10);
+const wd = (d) => new Date(d + 'T19:00:00Z').getUTCDay();
+Object.assign(stored, { status: 'active', plan: 'week', stripe_subscription_id: 'sub_1', stripe_customer_id: 'cus_1', service_day: wd(az(3)), service_day2: null, skips: [], first_visit: null, pause_from: null, pause_until: null });
+await show('\nbills', await call('/api/me/invoices', 'GET', null, 'good'));
+await show('plan', await call('/api/me/plan', 'GET', null, 'good'));
+await show('skip next visit', await call('/api/me/skip', 'POST', { date: az(3) }, 'good'));
+console.log('stored skips:', JSON.stringify(stored.skips));
+await show('skip a day that is not a visit', await call('/api/me/skip', 'POST', { date: az(4) }, 'good'));
+await show('undo skip', await call('/api/me/skip', 'POST', { date: az(3), undo: true }, 'good'));
+await show('pause too long', await call('/api/me/pause', 'POST', { until: az(200) }, 'good'));
+await show('pause 30 days', await call('/api/me/pause', 'POST', { until: az(30) }, 'good'));
+console.log('stripe pause call:', decodeURIComponent(subPosts[0] || ''), '| row:', stored.status, stored.pause_from, stored.pause_until);
+await show('start again', await call('/api/me/resume', 'POST', {}, 'good'));
+console.log('stripe resume call:', decodeURIComponent(subPosts[1] || ''), '| row:', stored.status, stored.pause_until);

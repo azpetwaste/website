@@ -509,7 +509,7 @@ for (const [slug, fallbackH1] of POLICIES) {
   const a = useBoard('account');
   built.push(page({
     route: '/account/', board: 'account', index: false, title: 'My Yard | Arizona Pet Waste',
-    description: 'Sign in to My Yard to set up your gate code, see your plan and manage your card.',
+    description: 'Sign in to My Yard to see your visits, skip, pause, see your bills and manage your card.',
     fonts: a.b.fonts, css: [a.b.css], boards: [a], body: ssr(a)
   }));
   const nf = useBoard('doc', (mk) => slots(mk).replace('@@DOC@@', '<p class="eb">Arizona Pet Waste</p><h1 class="h1 dh1">We could not find that page<span style="color: var(--accent);">.</span></h1>' +
@@ -557,7 +557,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - Every other week: $75 for 1 or 2 dogs. Each dog after two adds $9.
 - Turf odor treatment: $35. One time cleanup: $95. Same day pickup for a party or guests: $49, added to the next bill.
 - Billing: everyone is billed on the 1st of each month. First month free on any plan. The first charge only covers the days after the free month, so it is smaller. Then the full price on the 1st. A card is saved at sign up and nothing is charged that day.
-- Black Friday deal: sign up by Monday, November 30, 2026 and the first month is free. The free month stays free when the customer keeps the plan after it. Canceling during the free month is charged one month at the plan price.
+- Black Friday deal: sign up by Monday, November 30, 2026 and the first month is free. The free month stays free when the customer keeps the plan for 60 days. Canceling in the first 60 days is charged one month at the plan price, minus anything already paid. Canceling is done online in My Yard, with no phone call.
 
 ## Service area (every home in these ZIP codes)
 - [Buckeye, AZ 85326 and 85396](${ORIGIN}/pooper-scooper/buckeye-az/). Neighborhoods: ${hoodNames('buckeye').join(', ')}.
@@ -601,6 +601,8 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - Waste: bagged and put in your trash can.
 - Tools: boots and tools cleaned after every yard.
 - Contract: none. Pause up to 120 days, 4 free skips a year, cancel in My Yard.
+- My Yard: the customer account at ${ORIGIN}/account/. Sign in with an email code, no password. See next visits, skip a visit, pause, see bills and gate photos, change the card, or cancel. No phone call needed.
+- Payment: secure checkout by Stripe. Arizona Pet Waste never sees or stores card numbers.
 
 ## Common questions
 ${faqText}
@@ -608,6 +610,9 @@ ${faqText}
 ## Pages
 ${FILE_PAGES.filter((x) => x.type !== 'blogindex').map((x) => '- [' + x.h1 + '](' + ORIGIN + x.route + '): ' + x.description).join('\n')}${FILE_PAGES.length ? '\n' : ''}- [Home](${ORIGIN}/): plans, prices, how a visit works, service map
 - [How it works](${ORIGIN}/how-it-works/): every step of a visit
+- [About us](${ORIGIN}/about/): who we are, where we work, licensed, bonded and insured
+- [Our promise](${ORIGIN}/our-promise/): gate photo or the visit is $0, free return in 24 hours, the 60 day rule
+- [Contact](${ORIGIN}/contact/): call, text or email
 - [Pricing](${ORIGIN}/pricing/): plans, extras and billing on the 1st
 - [FAQ](${ORIGIN}/faq/): all of our answers
 - [Start your free month](${ORIGIN}/book/): sign up online in about 2 minutes
