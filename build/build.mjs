@@ -215,7 +215,7 @@ function page(p) {
   const url = ORIGIN + p.route;
   const robots = p.index ? 'index, follow, max-image-preview:large, max-snippet:-1' : 'noindex, follow';
   const graph = p.index ? [website, business, { '@type': 'WebPage', '@id': url + '#webpage', url, name: p.title, description: p.description, isPartOf: { '@id': ORIGIN + '/#website' }, about: { '@id': BIZ }, inLanguage: 'en-US', dateModified: TODAY }, ...(p.ld || [])] : null;
-  const css = p.css.join('\n') + '\n' + SITE_CSS;
+  const css = p.css.join('\n') + '\n' + SITE_CSS + '\n.stf{display:block;width:max-content;margin:0 auto;padding:6px 10px 10px;font:10px/1 ui-monospace,Consolas,monospace;letter-spacing:.12em;color:#2A3150;text-decoration:none}.stf:hover,.stf:focus-visible{color:#6B7398}@media (max-width:1023px){.stf{padding-bottom:104px}}';
   const scripts = [assets['dc.js'], ...p.boards.map((b) => b.js), assets['apw.js']];
   const html = `<!doctype html>
 <html lang="en">
@@ -252,6 +252,7 @@ ${graph ? `<script type="application/ld+json">${ldjson({ '@context': 'https://sc
 <body${p.bodyClass ? ` class="${p.bodyClass}"` : ''}>
 <a class="skip" href="#app">Skip to content</a>
 <div id="app" data-board="${p.board}">${p.body}</div>
+<a class="stf" href="/crew/" rel="nofollow">staff</a>
 ${p.dock ? `<div id="book-dock" role="dialog" aria-modal="true" aria-label="Start your free month">${p.dock}</div>` : ''}
 <noscript><style>#book-dock{display:none!important}</style></noscript>
 ${scripts.map((s) => `<script src="${s}" defer></script>`).join('\n')}
@@ -582,7 +583,7 @@ ${FILE_PAGES.filter((x) => x.type !== 'blogindex').map((x) => '- [' + x.h1 + '](
 fs.writeFileSync(path.join(DIST, '_headers'), `/*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(self "https://js.stripe.com")
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(self), payment=(self "https://js.stripe.com")
   Strict-Transport-Security: max-age=31536000; includeSubDomains
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
@@ -590,8 +591,17 @@ fs.writeFileSync(path.join(DIST, '_headers'), `/*
   X-Robots-Tag: noindex
 /account/*
   X-Robots-Tag: noindex
+/crew/*
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-cache
+/t/*
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-cache
+  Referrer-Policy: no-referrer
 `);
-fs.writeFileSync(path.join(DIST, '_redirects'), `/login /account/ 301
+fs.writeFileSync(path.join(DIST, '_redirects'), `/t/* /t/index.html 200
+/staff /crew/ 301
+/login /account/ 301
 /login/ /account/ 301
 /start/login /account/ 301
 /my-yard /account/ 301

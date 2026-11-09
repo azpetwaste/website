@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#000000">
+<title>Your visit · Arizona Pet Waste</title>
+<link rel="icon" href="/assets/img/icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Schibsted+Grotesk:wght@400;600;800&display=swap">
+<style>
+:root{--ink:#FFF;--mute:#8B90A3;--dim:#3A3F52;--line:rgba(255,255,255,.12);--accent:#FF4A1C;--ok:#3DDC97}
+*{box-sizing:border-box}
+html,body{margin:0;background:#000;color:var(--ink);font-family:"Schibsted Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+.w{max-width:480px;margin:0 auto;padding:22px 22px calc(28px + env(safe-area-inset-bottom));min-height:100dvh;display:flex;flex-direction:column}
+.top{display:flex;align-items:center;justify-content:space-between}
+.top img{height:26px;width:auto;display:block}
+.lbl{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:11px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--mute)}
+h1{font-size:40px;line-height:1;letter-spacing:-.045em;font-weight:800;margin:56px 0 0}
+.eta{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:64px;font-weight:500;letter-spacing:-.02em;line-height:1;margin-top:28px}
+.sub{color:var(--mute);font-size:17px;line-height:1.5;margin:14px 0 0}
+.track{position:relative;height:56px;margin:40px 0 0}
+.track .ln{position:absolute;left:0;right:0;top:27px;height:2px;background:var(--dim)}
+.track .fill{position:absolute;left:0;top:27px;height:2px;background:var(--accent);transition:width 1s ease}
+.track .home{position:absolute;right:-6px;top:16px;width:24px;height:24px}
+.track .truck{position:absolute;top:13px;width:30px;height:30px;margin-left:-15px;border-radius:50%;background:var(--accent);display:grid;place-items:center;transition:left 1s ease;box-shadow:0 0 0 0 rgba(255,74,28,.6);animation:p 1.8s ease-out infinite}
+@keyframes p{0%{box-shadow:0 0 0 0 rgba(255,74,28,.55)}70%{box-shadow:0 0 0 14px rgba(255,74,28,0)}100%{box-shadow:0 0 0 0 rgba(255,74,28,0)}}
+@media (prefers-reduced-motion:reduce){.track .truck{animation:none}}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:40px}
+.steps div{border-top:2px solid var(--dim);padding-top:10px}
+.steps div.on{border-top-color:var(--accent)}
+.steps .lbl{font-size:10px;letter-spacing:.1em}
+.steps div.on .lbl{color:var(--ink)}
+.photo{width:100%;display:block;margin-top:28px;border:1px solid var(--line)}
+.grow{flex:1}
+.btn{display:flex;align-items:center;justify-content:center;width:100%;min-height:60px;margin-top:32px;border:1px solid var(--line);color:var(--ink);text-decoration:none;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:13px;font-weight:600;letter-spacing:.2em;text-transform:uppercase}
+.btn.acc{background:var(--accent);border-color:var(--accent);color:#000}
+.foot{margin-top:18px;text-align:center}
+.foot a{color:var(--mute);font-size:14px}
+</style>
+</head>
+<body>
+<main class="w" id="v" aria-live="polite"><div class="top"><img src="/assets/img/logo-horizontal-dark.svg" alt="Arizona Pet Waste"></div><h1>Your visit</h1><p class="sub">Loading…</p></main>
+<script>
+(function () {
+  'use strict';
+  var v = document.getElementById('v');
+  var code = (location.pathname.split('/')[2] || location.hash.slice(1) || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
+  var TEXT = 'sms:+16233096104';
+  function h(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function t(iso) { return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix' }); }
+  var HOME = '<svg class="home" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" aria-hidden="true"><path d="M3 11l9-7 9 7v9H3z"/><path d="M10 20v-5h4v5"/></svg>';
+  var TRUCK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="#000" aria-hidden="true"><path d="M2 6h11v9H2zM13 9h4l3 3v3h-7z"/><circle cx="6" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>';
+  function steps(n) {
+    return '<div class="steps">' + ['Scheduled', 'On the way', 'Here', 'Done'].map(function (s, i) { return '<div class="' + (i <= n ? 'on' : '') + '"><span class="lbl">' + s + '</span></div>'; }).join('') + '</div>';
+  }
+  function top() { return '<div class="top"><img src="/assets/img/logo-horizontal-dark.svg" alt="Arizona Pet Waste"><span class="lbl">Your visit</span></div>'; }
+  function foot(extra) { return '<div class="grow"></div>' + (extra || '') + '<a class="btn" href="' + TEXT + '">Text us</a><div class="foot"><a href="/account/">My Yard</a></div>'; }
+  function draw(d) {
+    var who = d.scooper ? h(d.scooper) : 'Your scooper';
+    if (d.expired) { v.innerHTML = top() + '<h1>This link has ended.</h1><p class="sub">' + h(d.message) + '</p>' + foot('<a class="btn acc" href="/account/">Open My Yard</a>'); return; }
+    if (d.status === 'scheduled') {
+      v.innerHTML = top() + '<h1>' + (d.routeLive ? 'We are on our route.' : 'You are on today\'s route.') + '</h1>' +
+        (d.eta ? '<div class="eta">~' + h(t(d.eta)) + '</div>' : '') +
+        '<p class="sub">' + (d.stopsAway === 1 ? 'You are next.' : 'You are ' + h(d.stopsAway) + ' stops away.') + ' ' + who + ' is scooping today. We text you when we head your way.</p>' + steps(0) + foot();
+    } else if (d.status === 'on_the_way') {
+      var p = typeof d.progress === 'number' ? d.progress : 0.15;
+      v.innerHTML = top() + '<h1>' + who + ' is on the way.</h1><div class="eta">' + h(t(d.eta)) + '</div>' +
+        '<p class="sub">' + (d.miles != null ? h(d.miles) + ' miles away. ' : '') + 'Please unlock the gate and keep your dogs inside.</p>' +
+        '<div class="track" aria-hidden="true"><div class="ln"></div><div class="fill" style="width:' + Math.round(p * 100) + '%"></div><div class="truck" style="left:' + Math.round(p * 100) + '%">' + TRUCK + '</div>' + HOME + '</div>' +
+        steps(1) + (d.seen ? '<p class="lbl" style="margin-top:16px">Updated ' + h(t(d.seen)) + '</p>' : '') + foot();
+    } else if (d.status === 'here') {
+      v.innerHTML = top() + '<h1>' + who + ' is in your yard.</h1><p class="sub">Since ' + h(t(d.arrivedAt)) + '. We latch the gate and send a photo when we finish.</p>' + steps(2) + foot();
+    } else if (d.status === 'done') {
+      v.innerHTML = top() + '<h1>Your yard is done.</h1><p class="sub">Finished at ' + h(t(d.doneAt)) + '. ' + (d.photo ? 'Here is your latched gate.' : 'No gate photo this time, so this visit is free.') + '</p>' +
+        (d.photo ? '<img class="photo" src="' + h(d.photo) + '" alt="Your latched gate">' : '') + steps(3) +
+        '<p class="sub">Missed a pile? Text us and we come back within 24 hours.</p>' + foot();
+    } else if (d.status === 'cant') {
+      v.innerHTML = top() + '<h1>We could not get in today.</h1><p class="sub">The reason: ' + h(d.reason) + '. Text us and we will set a time.</p>' + foot();
+    } else {
+      v.innerHTML = top() + '<h1>No visit today.</h1><p class="sub">This visit was skipped. Questions? Text us.</p>' + foot();
+    }
+  }
+  var timer = null;
+  async function load() {
+    try {
+      var r = await fetch('/api/track/' + encodeURIComponent(code), { headers: { accept: 'application/json' } });
+      var d = await r.json();
+      if (!r.ok) { v.innerHTML = top() + '<h1>This link is not active.</h1><p class="sub">' + h(d.error || '') + ' See every visit in My Yard.</p>' + foot(); return; }
+      draw(d);
+      clearTimeout(timer);
+      if (!d.expired && ['scheduled', 'on_the_way', 'here'].indexOf(d.status) >= 0) timer = setTimeout(load, d.status === 'on_the_way' ? 15000 : 60000);
+    } catch (e) {
+      v.innerHTML = top() + '<h1>We could not load your visit.</h1><p class="sub">Check your connection and try again.</p>' + foot();
+      timer = setTimeout(load, 30000);
+    }
+  }
+  if (code.length !== 6) { v.innerHTML = top() + '<h1>This link is not active.</h1><p class="sub">See every visit in My Yard.</p>' + foot(); return; }
+  load();
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') load(); });
+})();
+</script>
+</body>
+</html>

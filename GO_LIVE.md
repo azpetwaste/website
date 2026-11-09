@@ -34,6 +34,7 @@ Use info@arizonapetwaste.com for every account. Never paste a password, API key 
 5. Authentication > Emails > SMTP Settings: turn on custom SMTP. Host `smtp.resend.com`, port `465`, username `resend`, password = the Resend API key, sender `info@arizonapetwaste.com`, sender name `Arizona Pet Waste`.
 6. Authentication > URL Configuration: Site URL `https://arizonapetwaste.com`. Authentication > Rate Limits: emails per hour 100.
 7. Project Settings > API Keys: copy the Project URL, the publishable key and the secret key into Cloudflare (step 2.6).
+8. SQL Editor > New query > paste all of `supabase/crm.sql` > Run. This turns on the field desk at arizonapetwaste.com/crew (crew app, office, truck links, private gate photo bucket).
 
 ## 4. Resend (email that does not land in spam)
 1. Create an account. Domains > Add `arizonapetwaste.com`. Add the DNS records it shows in Cloudflare DNS (set them to DNS only, gray cloud). Wait for Verified.
