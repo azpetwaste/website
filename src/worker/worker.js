@@ -157,7 +157,7 @@ function firstCharge(env, totalCents) {
   const paidDays = Math.round((next - freeEnd) / 86400e3);
   const firstCents = Math.round(totalCents * paidDays / monthDays);
   return {
-    charge: Math.floor(first.getTime() / 1000), firstCents, creditCents: totalCents - firstCents, full: paidDays === monthDays,
+    charge: Math.floor(first.getTime() / 1000), freeEnd: Math.floor(freeEnd.getTime() / 1000), firstCents, creditCents: totalCents - firstCents, full: paidDays === monthDays,
     firstLabel: dateLabel(first), freeLabel: dateLabel(freeEnd), nextLabel: dateLabel(next)
   };
 }
@@ -293,10 +293,10 @@ async function checkout(request, env, ctx) {
       trial_end: bill.charge,
       description: PLANS[b.plan].name + ', ' + dogs + (dogs === 1 ? ' dog' : ' dogs') + ', ' + z.name + '. We reach out to set the first visit.',
       metadata: { user_id: u.id, plan: b.plan, dogs: String(dogs), zip, credit: String(bill.creditCents), first_charge: String(bill.firstCents),
-        free_label: bill.freeLabel, first_label: bill.firstLabel, next_label: bill.nextLabel }
+        free_label: bill.freeLabel, first_label: bill.firstLabel, next_label: bill.nextLabel, free_end: String(bill.freeEnd) }
     },
     metadata: { user_id: u.id, plan: b.plan, dogs: String(dogs), zip },
-    custom_text: { submit: { message: 'You pay $0 today. ' + billText(bill, total) + ' Cancel in My Yard before ' + bill.firstLabel + ' and you pay nothing.' } }
+    custom_text: { submit: { message: 'You pay $0 today. ' + billText(bill, total) + ' ' + FREE_RULE } }
   });
   return ok({ clientSecret: session.client_secret });
 }
@@ -363,7 +363,7 @@ async function webhook(request, env, ctx) {
         ctx.waitUntil(mail(env, c.email, 'You are booked with Arizona Pet Waste', [
           'Hi ' + String(c.name).split(' ')[0] + ',', '',
           'You are booked. We will reach out to let you know your day and time.',
-          billLine + ' Cancel in My Yard before ' + (meta.first_label || 'your first charge') + ' and you pay $0.', '',
+          billLine + ' ' + FREE_RULE, '',
           'Next, set up your yard: add your gate code, your dogs’ names and any problem spots.',
           (env.SITE_URL || 'https://arizonapetwaste.com') + '/account/', '',
           'Questions? Call or text 623.309.6104.', '', 'Arizona Pet Waste'
@@ -378,6 +378,7 @@ async function webhook(request, env, ctx) {
     const filter = uid ? 'id=eq.' + uid : 'stripe_customer_id=eq.' + encodeURIComponent(o.customer);
     const rows = await db(env, 'PATCH', 'customers?' + filter, patch, 'return=representation');
     if (gone && rows && rows[0]) ctx.waitUntil(mail(env, owner(env), 'Canceled: ' + rows[0].name, 'A customer canceled.\n\nName: ' + rows[0].name + '\nAddress: ' + rows[0].address + ', ' + rows[0].zip + '\nMobile: ' + rows[0].phone));
+    if (gone) await freeMonthCharge(env, ctx, o, rows && rows[0]);
   } else if (evt.type === 'invoice.payment_failed') {
     const rows = await db(env, 'PATCH', 'customers?stripe_customer_id=eq.' + encodeURIComponent(o.customer), { status: 'past_due', updated_at: now }, 'return=representation');
     if (rows && rows[0]) ctx.waitUntil(mail(env, owner(env), 'Card failed: ' + rows[0].name, 'A payment failed. Stripe will retry.\n\nName: ' + rows[0].name + '\nMobile: ' + rows[0].phone + '\nEmail: ' + rows[0].email));
@@ -385,6 +386,33 @@ async function webhook(request, env, ctx) {
   return ok({ received: true });
 }
 
+// The free month stays free only when the customer keeps the plan past it. A cancel requested before the
+// free month ends (canceled_at is when they asked, even for cancel at period end) gets one month at plan price.
+async function freeMonthCharge(env, ctx, sub, row) {
+  const freeEnd = parseInt((sub.metadata || {}).free_end || '0', 10);
+  const askedAt = sub.canceled_at || sub.ended_at || Math.floor(Date.now() / 1000);
+  if (!freeEnd || askedAt >= freeEnd) return;
+  const item = (sub.items && sub.items.data && sub.items.data[0]) || {};
+  const price = item.price && item.price.unit_amount ? item.price.unit_amount * (item.quantity || 1) : 0;
+  const amount = price || (row && PLANS[row.plan] ? monthly(row.plan, row.dogs) : 0);
+  if (!amount) return;
+  const who = row ? row.name + ', ' + row.address + ', ' + row.zip : sub.customer;
+  try {
+    await stripe(env, 'POST', 'invoiceitems', { customer: sub.customer, amount, currency: 'usd',
+      description: 'Free month charge: canceled during the free month' }, 'apw-early-item-' + sub.id);
+    const inv = await stripe(env, 'POST', 'invoices', Object.assign({ customer: sub.customer, collection_method: 'charge_automatically',
+      auto_advance: 'true', pending_invoice_items_behavior: 'include', description: 'You canceled during your free month, so this month is charged at your plan price.' },
+      sub.default_payment_method ? { default_payment_method: sub.default_payment_method } : {}), 'apw-early-inv-' + sub.id);
+    await stripe(env, 'POST', 'invoices/' + inv.id + '/finalize', {}, 'apw-early-fin-' + sub.id);
+    await stripe(env, 'POST', 'invoices/' + inv.id + '/pay', {}, 'apw-early-pay-' + sub.id);
+    ctx.waitUntil(mail(env, owner(env), 'Free month charged: ' + who, 'This customer canceled during the free month, so we charged ' + money(amount) + ' for the month.\n\nCustomer: ' + who + '\nStripe customer: ' + sub.customer));
+  } catch (e) {
+    console.error('free month charge failed', e);
+    ctx.waitUntil(mail(env, owner(env), 'Check billing: free month charge failed', 'A customer canceled during the free month but the ' + money(amount) + ' charge failed. Charge it in Stripe.\n\nCustomer: ' + who + '\nStripe customer: ' + sub.customer));
+  }
+}
+
+const FREE_RULE = 'Keep your plan after your free month and it stays free. If you cancel during your free month, we charge one month at your plan price.';
 const WAIT_OFFER = 'Join by November 30, 2026 and your first month is free when we start in your area.';
 async function waitlist(request, env, ctx) {
   const b = await body(request);

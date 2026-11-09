@@ -211,11 +211,15 @@ const crumbs = (url, trail) => ({ '@type': 'BreadcrumbList', '@id': url + '#brea
 
 // ---------- pages ----------
 const FONTS_PRE = '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>';
+const DEAL_END = '2026-12-01T06:59:59Z';
+const BF_BAR = `<a class="bf" href="/book/" data-deal-end="${DEAL_END}" aria-label="Black Friday deal. Your first month is free. Ends Monday, November 30. Start your free month."><span class="bf-tag">Black Friday</span><span class="bf-t">First month free</span><span class="bf-d">Ends Mon, Nov 30</span><span class="bf-c" aria-hidden="true"><b data-u="d">00</b>d <b data-u="h">00</b>h <b data-u="m">00</b>m <b data-u="s">00</b>s</span><span class="bf-go">Get it ›</span></a>`;
+const BF_SKIP = new Set(['/book/', '/account/']);
+const BF_CSS = `.bf{font-family:"Schibsted Grotesk",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px 12px;padding:9px 14px;background:#0B0B0F;color:#fff;text-decoration:none;font-size:14px;line-height:1.3;text-align:center}.bf:hover .bf-go,.bf:focus-visible .bf-go{text-decoration:underline}.bf-tag{padding:3px 8px;border-radius:6px;background:#FF4A1C;color:#0E1430;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}.bf-t{font-weight:800}.bf-d{color:#C9CDE0}.bf-c{display:none;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-weight:700;color:#FFB199;font-variant-numeric:tabular-nums}.bf-c b{font-weight:800}html.bf-live .bf-c{display:inline}.bf-go{font-weight:800;color:#FF8A66}@media (max-width:560px){.bf{gap:4px 10px;padding:8px 10px;font-size:13px}.bf-d,.bf-go{display:none}}.bfd{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px 24px;margin:0 0 22px;padding:20px 22px;border-radius:22px;background:#0B0B0F;color:#fff;border:2px solid #FF4A1C;box-shadow:0 0 0 4px rgba(255,74,28,.18)}.bfd p{margin:0}.bfd-tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#FF8A66}.bfd-dot{width:8px;height:8px;border-radius:50%;background:#FF4A1C;animation:bfp 1.4s infinite}@keyframes bfp{50%{opacity:.25}}.bfd .bfd-h{margin-top:8px;font-size:clamp(26px,4vw,38px);font-weight:800;letter-spacing:-.03em;line-height:1.05;color:#fff}.bfd-h span{color:#FF4A1C}.bfd .bfd-p{margin-top:8px;font-size:16px;line-height:1.45;color:#D5DAF0}.bfd .bfd-ends{margin-bottom:8px;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#C9CDE0;text-align:center}.bfd-clock{display:flex;justify-content:center;gap:8px}.bfd-clock span{display:grid;justify-items:center;min-width:58px;padding:8px 6px;border-radius:12px;background:#1A1B24;border:1px solid #2C2E3A}.bfd-clock b{font-size:26px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;color:#fff}.bfd-clock i{margin-top:4px;font-style:normal;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#9CA2BD}.bfd .bfd-fine{grid-column:1/-1;font-size:13px;line-height:1.45;color:#9CA2BD}@media (max-width:720px){.bfd{grid-template-columns:minmax(0,1fr);padding:18px}.bfd .bfd-ends{text-align:left}.bfd-clock{justify-content:flex-start}}.sticker.bf-st{background:#0B0B0F;color:#fff}.sticker.bf-st::after{border-color:rgba(255,74,28,.95)}.bf-chip{display:inline-flex;align-items:center;gap:8px;margin:10px 0 0;padding:6px 12px 6px 6px;border-radius:999px;background:#0B0B0F;color:#fff;font-size:14px;font-weight:700}.bf-chip span{padding:3px 8px;border-radius:999px;background:#FF4A1C;color:#0E1430;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}@media (prefers-reduced-motion:reduce){.bfd-dot{animation:none}}html.bf-over .bf,html.bf-over [data-deal-end]{display:none!important}`;
 function page(p) {
   const url = ORIGIN + p.route;
   const robots = p.index ? 'index, follow, max-image-preview:large, max-snippet:-1' : 'noindex, follow';
   const graph = p.index ? [website, business, { '@type': 'WebPage', '@id': url + '#webpage', url, name: p.title, description: p.description, isPartOf: { '@id': ORIGIN + '/#website' }, about: { '@id': BIZ }, inLanguage: 'en-US', dateModified: TODAY }, ...(p.ld || [])] : null;
-  const css = p.css.join('\n') + '\n' + SITE_CSS;
+  const css = p.css.join('\n') + '\n' + SITE_CSS + '\n' + BF_CSS;
   const scripts = [assets['dc.js'], ...p.boards.map((b) => b.js), assets['apw.js']];
   const html = `<!doctype html>
 <html lang="en">
@@ -251,6 +255,7 @@ ${graph ? `<script type="application/ld+json">${ldjson({ '@context': 'https://sc
 </head>
 <body${p.bodyClass ? ` class="${p.bodyClass}"` : ''}>
 <a class="skip" href="#app">Skip to content</a>
+${BF_SKIP.has(p.route) ? '' : BF_BAR}
 <div id="app" data-board="${p.board}">${p.body}</div>
 ${p.dock ? `<div id="book-dock" role="dialog" aria-modal="true" aria-label="Start your free month">${p.dock}</div>` : ''}
 <noscript><style>#book-dock{display:none!important}</style></noscript>
@@ -524,6 +529,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - Every other week: $75 for 1 or 2 dogs. Each dog after two adds $9.
 - Turf odor treatment: $35. One time cleanup: $95. Same day pickup for a party or guests: $49, added to the next bill.
 - Billing: everyone is billed on the 1st of each month. First month free on any plan. The first charge only covers the days after the free month, so it is smaller. Then the full price on the 1st. A card is saved at sign up and nothing is charged that day.
+- Black Friday deal: sign up by Monday, November 30, 2026 and the first month is free. The free month stays free when the customer keeps the plan after it. Canceling during the free month is charged one month at the plan price.
 
 ## Service area (every home in these ZIP codes)
 - [Buckeye, AZ 85326 and 85396](${ORIGIN}/pooper-scooper/buckeye-az/). Neighborhoods: ${hoodNames('buckeye').join(', ')}.

@@ -277,22 +277,23 @@ MAP_CHIPS = '''  <div class="mchips" role="group" aria-label="Towns we scoop">
 from scene import saguaro, agave, barrel  # noqa: E402
 
 FAQ_ITEMS = [
+    ('What is the Black Friday deal?', 'Sign up by November 30 and your first month is free. The big chains give you one free cleanup or $25 off. We give you a whole month. Keep your plan after the free month and it stays free. If you cancel during the free month, we charge you for that month.'),
     ('How much does it cost?', 'Weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Your first month is free when you sign up for any plan.'),
     ('Is the spray really free?', 'Yes. At every visit, we spray deodorizer on the spots your dogs use most. It costs you nothing.'),
     ('Do you come in the summer heat?', 'Yes. In summer we start early, so your yard is done before the worst heat of the day.'),
     ('What if it storms?', 'Light rain is fine. If there is lightning, we wait until it is safe. We text you if your time changes.'),
     ('Do you clean artificial turf?', 'Yes. We pick up every pile and spray the spots your dogs use most. Turf can smell in the heat. For a deep clean, add a turf odor treatment for $35.'),
-    ('Where does the poop go?', '[Pick one: We bag it and take it with us. Or we bag it and put it in your trash can.]'),
+    ('Where does the poop go?', 'We bag it, tie it shut and put it in your trash can.'),
     ('Are you licensed and insured?', 'Yes. Arizona Pet Waste is licensed and insured.'),
     ('Do you clean your tools?', 'Yes. We clean our boots and tools after every yard. That keeps germs from going from yard to yard.'),
     ('Can I pick my day?', 'No. We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window.'),
     ('Can you come today? We have a party.', 'Yes. Text us and we can come the same day for $49. It goes on your next bill on the 1st.'),
-    ('When do you charge my card?', 'On the 1st of each month. Your first month is free. Your first charge only covers the days after your free month, so it is smaller. Then you pay the full price on the 1st of each month.'),
+    ('When do you charge my card?', 'On the 1st of each month. Your first month is free. Your first charge only covers the days after your free month, so it is smaller. Then you pay the full price on the 1st of each month. If you cancel during your free month, we charge you for that month.'),
     ('Who sees my gate code?', 'Only your scooper, and only on your day. You add it after you sign up. If you cancel, we delete it.'),
     ('What if a dog in the yard is not safe to be near?', 'We don’t go in. We text you to bring the dog inside. We can come back the same day.'),
     ('Can I skip a week?', 'Yes. You get 4 free skips a year. Tell us 24 hours before. It is one tap in My Yard.'),
     ('Can I pause while we are away?', 'Yes. Pause for up to 120 days in My Yard. You don’t pay while you are paused.'),
-    ('How do I cancel?', 'Tap cancel in My Yard. There is no contract and no phone call.'),
+    ('How do I cancel?', 'Tap cancel in My Yard. There is no contract and no phone call. If you cancel during your free month, we charge you for that month.'),
     ('My yard is rock, not grass.', 'Rock can hide poop. So we rake rock yards with a wide metal rake.'),
 ]
 _seal28 = ('<sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}"><img src="' + BLOB_MARK + '" alt=""></sc-if>'
@@ -700,3 +701,12 @@ REVAMP_CSS = r"""
 }
 @media (prefers-reduced-motion:reduce){.apw .tick-in{animation:none}.apw .tick{overflow-x:auto}.apw .tick-b{display:none}.apw .hbk .btn-dot::after{display:none}.apw .btn{transition:none}.apw .btn:not(:disabled):hover,.apw .btn:not(:disabled):active{transform:none}}"""
 PAGE_CSS += REVAMP_CSS
+
+BF_DEAL = ('<div class="bfd" data-deal-end="2026-12-01T06:59:59Z">'
+  '<div><p class="bfd-tag"><span class="bfd-dot"></span>Black Friday deal</p>'
+  '<p class="bfd-h">Your first month is free<span>.</span></p>'
+  '<p class="bfd-p">The big chains give you one free cleanup or $25 off. We give you a whole month.</p></div>'
+  '<div><p class="bfd-ends">Deal ends Monday, November 30</p>'
+  '<div class="bfd-clock" aria-hidden="true"><span><b data-u="d">00</b><i>days</i></span><span><b data-u="h">00</b><i>hrs</i></span><span><b data-u="m">00</b><i>min</i></span><span><b data-u="s">00</b><i>sec</i></span></div></div>'
+  '<p class="bfd-fine">No contract. Keep your plan after your free month and it stays free. If you cancel during your free month, we charge you for that month.</p>'
+  '</div>')
