@@ -27,7 +27,6 @@ import longform  # noqa: E402  (imports the patched faq)
 OUT = '/home/claude/apw-site/src/boards/'
 os.makedirs(OUT, exist_ok=True)
 
-POOP_GOES = 'We bag it and put it in your trash can.'
 LINKS = {
     'Booking.dc.html': '/book/',
     'Main.dc.html': '/',
@@ -98,7 +97,6 @@ def common(html):
     html = html.replace('https://arizonapetwaste.com/start/login', '/account/')
     for k, v in BLOBS.items():
         html = html.replace('/_blob/' + k, v)
-    html = html.replace(parts.FAQ_ITEMS[5][1], POOP_GOES)
     if '/_blob/' in html:
         sys.exit('a design image is not mapped: %s' % re.findall(r'/_blob/\w+', html)[:3])
     if COPY_LINE in html:
@@ -162,7 +160,6 @@ def write(board_id, html):
 def prod_faq(items):
     out = []
     for q, a in items:
-        a = a.replace(parts.FAQ_ITEMS[5][1], POOP_GOES)
         if '[' in a:
             sys.exit('placeholder left in FAQ: %s' % a)
         out.append({'q': strip_tags(q), 'a': strip_tags(a)})
