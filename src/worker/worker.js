@@ -998,7 +998,7 @@ async function nightBefore(env, date) {
   const stops = await db(env, 'GET', 'stops?day=eq.' + day + '&status=eq.scheduled&select=id,code,customer:customers(id,phone,texts_visit)');
   let queued = 0;
   for (const st of stops) if (await queueText(env, st.customer, st.id, 'night_before', st.code)) queued++;
-  await db(env, 'DELETE', 'positions?at=lt.' + new Date(Date.now() - 30 * 86400e3).toISOString(), null, 'return=minimal');
+  await db(env, 'DELETE', 'positions?at=lt.' + enc(new Date(Date.now() - 30 * 86400e3).toISOString()), null, 'return=minimal');
   return ok({ ok: true, day, stops: stops.length, queued, added: plan.added });
 }
 async function officeMoney(env) {
@@ -1103,7 +1103,7 @@ async function track(raw, env) {
       const mi = miles(p, home);
       out.miles = Math.round(mi * 10) / 10;
       out.eta = new Date(now + driveMin(mi) * 60e3).toISOString();
-      const startP = st.on_way_at && (await db(env, 'GET', 'positions?route_id=eq.' + st.route_id + '&at=gte.' + st.on_way_at + '&select=lat,lng&order=at&limit=1'))[0];
+      const startP = st.on_way_at && (await db(env, 'GET', 'positions?route_id=eq.' + st.route_id + '&at=gte.' + enc(st.on_way_at) + '&select=lat,lng&order=at&limit=1'))[0];
       const startMi = startP ? miles(startP, home) : mi;
       out.progress = startMi > 0.05 ? Math.max(0, Math.min(1, 1 - mi / startMi)) : 0.9;
       out.seen = p.at;

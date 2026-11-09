@@ -18,8 +18,10 @@ if (!url) { console.log('skip: set DATABASE_URL to an empty test database'); pro
 
 pg.types.setTypeParser(1082, (v) => v); // dates as YYYY-MM-DD, like PostgREST
 pg.types.setTypeParser(20, (v) => Number(v)); // bigint ids as numbers, like PostgREST
+pg.types.setTypeParser(1184, (v) => { let t = v.replace(' ', 'T'); if (/[+-]\d\d$/.test(t)) t += ':00'; return t; }); // timestamps like PostgREST: 2026-11-09T19:08:46.01592+00:00
 const db = new pg.Client({ connectionString: url });
 await db.connect();
+await db.query("set timezone = 'UTC'");
 await db.query('drop schema if exists public cascade; create schema public; drop schema if exists auth cascade; drop schema if exists storage cascade;');
 await db.query(`create schema auth; create schema storage;
   create table auth.users (id uuid primary key default gen_random_uuid(), email text);
@@ -84,7 +86,8 @@ function orderSql(o, alias) {
 }
 async function rest(method, rel, body, prefer) {
   const [table, qs] = rel.split('?');
-  const params = [...new URLSearchParams((qs || '').replace(/\+/g, '%2B'))].map(([k, v]) => [k, encodeURIComponent(v)]);
+  // Like PostgREST, a raw + in the query string means a space, so an unencoded timestamp fails here too.
+  const params = [...new URLSearchParams(qs || '')].map(([k, v]) => [k, encodeURIComponent(v)]);
   const get = (k) => { const p = params.find((x) => x[0] === k); return p ? decodeURIComponent(p[1]) : null; };
   if (!cols[table]) throw new Error('no table ' + table);
   const vals = [];
