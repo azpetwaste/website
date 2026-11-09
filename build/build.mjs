@@ -641,8 +641,7 @@ fs.writeFileSync(path.join(DIST, '_headers'), `/*
   Cache-Control: no-cache
   Referrer-Policy: no-referrer
 `);
-fs.writeFileSync(path.join(DIST, '_redirects'), `/t/* /t/index.html 200
-/staff /crew/ 301
+fs.writeFileSync(path.join(DIST, '_redirects'), `/staff /crew/ 301
 /login /account/ 301
 /login/ /account/ 301
 /start/login /account/ 301
@@ -689,7 +688,7 @@ fs.writeFileSync(path.join(DIST, '_redirects'), `/t/* /t/index.html 200
 /questions /faq/ 301
 `);
 fs.copyFileSync(path.join(SRC, 'worker/worker.js'), path.join(DIST, '_worker.js'));
-fs.writeFileSync(path.join(DIST, '_routes.json'), JSON.stringify({ version: 1, include: ['/api/*'], exclude: [] }));
+fs.writeFileSync(path.join(DIST, '_routes.json'), JSON.stringify({ version: 1, include: ['/api/*', '/t/*'], exclude: ['/t/'] }));
 fs.writeFileSync(path.join(DIST, 'site.webmanifest'), JSON.stringify({
   name: cfg.name, short_name: 'AZ Pet Waste', start_url: '/', display: 'standalone', background_color: '#0A0F24', theme_color: '#0A0F24',
   icons: [{ src: '/assets/img/icon-192.png', sizes: '192x192', type: 'image/png' }, { src: '/assets/img/icon-512.png', sizes: '512x512', type: 'image/png' }]

@@ -332,6 +332,12 @@ await worker.fetch(new Request('https://arizonapetwaste.com/api/stripe-webhook',
 const left = (await db.query(`select count(*)::int n from public.stops where customer_id = $1 and day > $2`, [cid, today])).rows[0].n;
 ok('future stops removed after cancel', left === 0, left);
 
+console.log('\nShort truck link loads the /t/ page');
+let asked = null;
+env.ASSETS = { fetch: async (req) => { asked = new URL(req.url).pathname; return new Response('truck page', { status: 200 }); } };
+const pageRes = await worker.fetch(new Request('https://arizonapetwaste.com/t/' + samStop.code), env, ctx);
+ok('/t/CODE serves /t/ with noindex', pageRes.status === 200 && asked === '/t/' && /noindex/.test(pageRes.headers.get('x-robots-tag') || ''), { status: pageRes.status, asked });
+
 console.log('\nMy Yard visits');
 users['cust_tok'] = { id: cid, email: 'sam@example.com' };
 r = await call('/api/me/visits', 'GET', null, 'cust_tok');

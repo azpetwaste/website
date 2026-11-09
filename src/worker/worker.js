@@ -37,6 +37,15 @@ const CALL_US = 'Call or text 623.309.6104 and we will help.';
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    // Customer truck links: arizonapetwaste.com/t/CODE all load the one /t/ page, which reads the code from the address.
+    if (/^\/t\/[0-9A-Za-z]{4,10}\/?$/.test(url.pathname)) {
+      const page = await env.ASSETS.fetch(new Request(new URL('/t/', url), request));
+      const res = new Response(page.body, page);
+      res.headers.set('x-robots-tag', 'noindex, nofollow');
+      res.headers.set('referrer-policy', 'no-referrer');
+      res.headers.set('cache-control', 'no-cache');
+      return res;
+    }
     if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
     try {
       const res = await route(url.pathname, request, env, ctx);
