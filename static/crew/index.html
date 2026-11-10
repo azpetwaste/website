@@ -693,8 +693,41 @@ table.t tr.click:hover td{background:var(--bg2)}
     }).join('') + '</tbody></table></div></div>';
     return out;
   }
+  // One color for each day of the week (index 0 is Sunday), used in the planner table and on its map.
+  var DAYCOL = ['#9aa0ae', '#FF4A1C', '#4DA3FF', '#7BD88F', '#F4C542', '#C792EA', '#5EEAD4'];
+  var wkGm = { ready: null };
+  function wkMapsReady(key) {
+    if (wkGm.ready) return wkGm.ready;
+    wkGm.ready = new Promise(function (resolve, reject) {
+      window.__apwWk = function () { resolve(); };
+      var sc = document.createElement('script');
+      sc.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) + '&v=weekly&loading=async&callback=__apwWk';
+      sc.async = true; sc.onerror = function () { wkGm.ready = null; reject(new Error('map')); };
+      document.head.appendChild(sc);
+    });
+    return wkGm.ready;
+  }
+  // Draws the week (every yard, colored by day) or one day (numbered in driving order with the road line).
+  async function wkMap(w) {
+    var el = document.getElementById('wkmap'); if (!el || !w || !w.mapsKey || !w.slots) return;
+    try { await wkMapsReady(w.mapsKey); var maps = await google.maps.importLibrary('maps'); await google.maps.importLibrary('marker'); } catch (e) { el.outerHTML = '<p class="empty">The map did not load. The list still works.</p>'; return; }
+    if (!document.body.contains(el)) return;
+    var map = new maps.Map(el, { center: { lat: 33.45, lng: -112.45 }, zoom: 10, disableDefaultUI: true, zoomControl: true, gestureHandling: 'cooperative', clickableIcons: false, backgroundColor: '#0b0d14', styles: [
+      { elementType: 'geometry', stylers: [{ color: '#0b0d14' }] }, { elementType: 'labels.text.fill', stylers: [{ color: '#8a8f9c' }] }, { elementType: 'labels.text.stroke', stylers: [{ color: '#0b0d14' }] },
+      { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1c2030' }] }, { featureType: 'poi', stylers: [{ visibility: 'off' }] }, { featureType: 'transit', stylers: [{ visibility: 'off' }] }, { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#05070c' }] }] });
+    var box = new google.maps.LatLngBounds(), sel = S.wk && S.wk.sel != null ? w.slots[S.wk.sel] : null;
+    var dot = function (p, col, n, title) { box.extend({ lat: p[0], lng: p[1] }); return new google.maps.Marker({ map: map, position: { lat: p[0], lng: p[1] }, title: title || '', label: n ? { text: String(n), color: '#0b0d14', fontSize: '10px', fontWeight: '700' } : undefined, icon: { path: google.maps.SymbolPath.CIRCLE, scale: n ? 9 : 4.5, fillColor: col, fillOpacity: 1, strokeColor: '#0b0d14', strokeWeight: 1 } }); };
+    if (sel) {
+      (sel.pts || []).forEach(function (p, i) { dot(p, DAYCOL[sel.day], i + 1, p[2]); });
+      var line = (sel.pts || []).map(function (p) { return { lat: p[0], lng: p[1] }; });
+      if (w.start) { line = [w.start].concat(line, [w.start]); }
+      new google.maps.Polyline({ map: map, path: line, strokeColor: DAYCOL[sel.day], strokeOpacity: 0.7, strokeWeight: 2 });
+    } else w.slots.forEach(function (x) { (x.pts || []).forEach(function (p) { dot(p, DAYCOL[x.day], 0, x.name + ', ' + x.dayName); }); });
+    if (w.start) { box.extend(w.start); new google.maps.Marker({ map: map, position: w.start, title: 'Truck start', icon: { path: 'M -6 -6 L 6 -6 L 6 6 L -6 6 Z', fillColor: '#fff', fillOpacity: 1, strokeColor: '#0b0d14', strokeWeight: 1 } }); }
+    if (!box.isEmpty()) map.fitBounds(box, 28);
+  }
   function officeWeek(w) {
-    var o = S.wk || (S.wk = { cap: 30, days: '1,2,3,4,5', n: 500 });
+    var o = S.wk || (S.wk = { cap: 30, days: '1,2,3,4,5', n: DEMO ? 100 : 500 });
     var caps = [20, 25, 30, 35, 40]; if (caps.indexOf(o.cap) < 0) caps.push(o.cap);
     var out = '<div class="daynav"><button class="chip" data-plan="0">‹ Back to the schedule</button></div><div class="daynav" style="margin-top:14px"><h2>Plan the week</h2></div>' +
       '<p style="color:var(--mute);font-size:14px;max-width:70ch">This picks the day and the scooper for every yard.</p>' +
@@ -718,8 +751,14 @@ table.t tr.click:hover td{background:var(--bg2)}
     var order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     dayNames.sort(function (a, b) { return order.indexOf(a) - order.indexOf(b); });
     out += '<div class="sec" style="overflow-x:auto"><table class="t"><thead><tr><th style="text-align:left">Scooper</th>' + dayNames.map(function (d) { return '<th style="text-align:left">' + d.slice(0, 3) + '</th>'; }).join('') + '</tr></thead><tbody>' + names.map(function (n) {
-      return '<tr><td><b>' + h(n) + '</b></td>' + dayNames.map(function (d) { var x = w.slots.filter(function (z) { return z.name === n && z.dayName === d; })[0]; return '<td class="mono" style="font-size:13px;white-space:nowrap">' + (x ? '<b>' + x.yards + '</b> yards<br><span style="color:var(--mute)">' + x.miles + ' mi</span>' + (x.towns ? '<br><span style="color:var(--mute);white-space:normal;font-size:11px">' + h(x.towns) + '</span>' : '') : '<span style="color:var(--mute)">off</span>') + '</td>'; }).join('') + '</tr>';
+      return '<tr><td><b>' + h(n) + '</b></td>' + dayNames.map(function (d) { var x = w.slots.filter(function (z) { return z.name === n && z.dayName === d; })[0]; var xi = x ? w.slots.indexOf(x) : -1; return '<td class="mono" style="font-size:13px;white-space:nowrap;padding:4px">' + (x ? '<button data-slot="' + xi + '" style="display:block;width:100%;text-align:left;background:transparent;color:inherit;font:inherit;cursor:pointer;padding:8px;min-height:44px;border:1px solid ' + (o.sel === xi ? 'var(--accent)' : 'var(--line)') + '"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:' + DAYCOL[x.day] + '"></span><b>' + x.yards + '</b> yards<br><span style="color:var(--mute)">' + x.miles + ' mi</span>' + (x.towns ? '<br><span style="color:var(--mute);white-space:normal;font-size:11px">' + h(x.towns) + '</span>' : '') + '</button>' : '<span style="color:var(--mute)">off</span>') + '</td>'; }).join('') + '</tr>';
     }).join('') + '</tbody></table></div>';
+    var sel = o.sel != null ? w.slots[o.sel] : null;
+    out += '<div class="sec"><div class="daynav"><h3 style="margin:0">' + (sel ? h(sel.name) + ', ' + h(sel.dayName) : 'The whole week on the map') + '</h3>' + (sel ? '<button class="chip" data-slot="-1">Show the whole week</button>' : '') + '</div>' +
+      '<p style="color:var(--mute);font-size:14px;margin:6px 0 10px">' + (sel ? '<b style="color:var(--ink)">' + sel.yards + '</b> yards, ' + sel.miles + ' miles, ' + h(sel.towns || '') + '. The numbers are the driving order.' : 'Each dot is a yard. The color is its day. Tap a box in the table to see that day in driving order.') + '</p>' +
+      (w.mapsKey ? '<div id="wkmap" style="height:360px;background:#0b0d14;border:1px solid var(--line)"></div>' : '') +
+      (sel ? '' : '<div class="chips" style="margin-top:10px">' + dayNames.map(function (d) { return '<span class="mono" style="font-size:11px;letter-spacing:.1em;color:var(--mute);margin-right:12px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;background:' + DAYCOL[order.indexOf(d) === 6 ? 0 : order.indexOf(d) + 1] + '"></span>' + d.slice(0, 3).toUpperCase() + '</span>'; }).join('') + '</div>') +
+      (sel && sel.pts ? '<ol style="list-style:none;padding:0;margin:14px 0 0">' + sel.pts.map(function (p, i) { return '<li style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)"><span class="mono" style="color:var(--mute);min-width:26px">' + (i < 9 ? '0' : '') + (i + 1) + '</span><span>' + h(p[2]) + '</span></li>'; }).join('') + '</ol>' : '') + '</div>';
     if (w.applied) out += '<p class="tag ok" style="display:inline-block;margin-top:14px">Saved' + (w.emailed ? '. ' + w.emailed + ' customers got an email with their day' : '') + '</p>';
     else if (!w.sample && w.changes) out += '<div style="max-width:640px;margin-top:16px"><button class="btn" data-wk="save">Save this week' + (w.moved ? ' and email ' + w.changes + ' customers' : '') + '</button></div>';
     if (w.sample) out += '<p style="color:var(--mute);font-size:13px;margin-top:14px">Sample only. Nothing is saved. Sign in at /crew to plan your real customers.</p>';
@@ -811,6 +850,8 @@ table.t tr.click:hover td{background:var(--bg2)}
       render(); window.scrollTo(0, 0);
     }; });
     var saveSet = function () { if (!DEMO) api('POST', '/api/office/settings', { cap: S.wk.cap, days: S.wk.days }).then(function () { toast('Saved'); }).catch(function (e) { toast(e.message); }); S.data.week = null; render(); };
+    app.querySelectorAll('[data-slot]').forEach(function (b) { b.onclick = function () { var n = +b.dataset.slot; S.wk.sel = n < 0 || S.wk.sel === n ? null : n; render(); var m = document.getElementById('wkmap'); if (m && S.wk.sel != null) m.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }; });
+    if (S.plan && document.getElementById('wkmap')) wkMap(S.data.week);
     app.querySelectorAll('[data-wkstart]').forEach(function (b) { b.onclick = function () { var v = (document.getElementById('wk_start') || {}).value || ''; api('POST', '/api/office/settings', { start: v }).then(function (r) { S.wk.start = r.start || ''; S.data.week = null; toast(r.start ? 'Start saved' : 'Start cleared'); render(); }).catch(function (e) { toast(e.message); }); }; });
     app.querySelectorAll('[data-cap]').forEach(function (b) { b.onclick = function () { S.wk.cap = +b.dataset.cap; saveSet(); }; });
     app.querySelectorAll('[data-wdays]').forEach(function (b) { b.onclick = function () { S.wk.days = b.dataset.wdays; saveSet(); }; });
@@ -819,7 +860,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       if (g('wk_n')) o.n = +g('wk_n');
       var save = b.dataset.wk === 'save';
       if (!save) o.mode = b.dataset.wk;
-      var keep = S.data.week; S.data.week = { loading: true }; render();
+      var keep = S.data.week; S.data.week = { loading: true }; o.sel = null; render();
       try { S.data.week = await api('POST', '/api/office/week', { mode: o.mode || 'all', cap: o.cap, days: o.days, n: o.n, apply: save }); if (save) toast('Week saved'); }
       catch (e) { S.data.week = keep; toast(e.message); }
       render();

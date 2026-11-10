@@ -154,3 +154,8 @@ Joe asked for this: "if you have 20 houses in Buckeye, today is a Buckeye day", 
 - Plan the week has four plain steps at the top.
 - Security pass, all read only on the live site: 30 staff, office and customer addresses refuse a visitor with no sign in. Every table has row security on with no public policy. The gate photo bucket is private and photo links last 2 hours. Truck link codes are 6 characters from 30 (729 million) and stop working 2 hours after the visit. A scooper can only touch stops on their own route today. The staff code form gives the same answer for any email. The crash log takes 60 rows an hour at most. No keys in the repo.
 - Not done, needs Joe: real road miles (Google Routes API on every plan costs money, and saving the number needs a new column a person has to add), and the `skips` column.
+
+### Nov 9, 2026, 8 pm. Plan the week has a map.
+- Under the table there is a Google map. Whole week: every yard is a dot colored by its day. Tap a box in the table: that one day, numbered in driving order with the road line, and the list of yards under it. "Show the whole week" goes back. Works in `/crew/?demo` and in the real planner.
+- The plan answer now carries `slots[].pts` ([lat, lng, words] in driving order), `mapsKey` (the browser Maps key the truck link already uses) and `start`.
+- The demo planner opens at 100 sample yards. Joe asked for 100 test yards. No fake yards were put in the live database. The demo covers it.

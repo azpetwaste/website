@@ -110,6 +110,15 @@ console.log('\nWhere the truck starts');
   ok('100 random weeks with a start: none breaks a rule', broke === 0, broke + ' broke');
 }
 
+console.log('\nThe map data for each day');
+{
+  seed = 9;
+  const list = mix(100), p = W.weekPlan(list, [], 30, WEEK);
+  const seen = {}; for (const s of p.slots) for (const pt of s.pts) seen[pt[2]] = (seen[pt[2]] || 0) + 1;
+  ok('every day lists its yards in driving order for the map', p.slots.every((s) => Array.isArray(s.pts) && s.pts.length === s.homes));
+  ok('every yard shows up on the map, twice a week yards on two days', list.every((c) => seen[c.id] === (c.plan === 'twice' ? 2 : 1)));
+}
+
 console.log('\nA new sign up joins close yards only while the day has room');
 {
   seed = 21;

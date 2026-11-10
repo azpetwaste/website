@@ -1043,6 +1043,15 @@ const DAY_COST = 6;
 const MIX_COST = 8;
 // A day needs at least this many yards to be worth the drive, unless the whole week is smaller than that.
 const DAY_MIN = 5;
+// One day's yards in driving order, as [lat, lng, id]. The planner screen draws these on the map and lists them.
+function slotPts(here, start) { return shortOrder(here, start || null).filter(pinned).map((c) => [Math.round(c.lat * 1e5) / 1e5, Math.round(c.lng * 1e5) / 1e5, c.id]); }
+// Swaps each yard id for the words the office reads, and adds what the map needs.
+function weekView(env, out, label) {
+  for (const x of out.slots) if (x.pts) x.pts = x.pts.map((p) => [p[0], p[1], label[p[2]] || '']);
+  if (env.GOOGLE_MAPS_BROWSER_KEY) out.mapsKey = env.GOOGLE_MAPS_BROWSER_KEY;
+  out.start = routeStart(env);
+  return out;
+}
 // The towns in a group of yards, biggest first: "Buckeye" or "Buckeye, Goodyear".
 function townsOf(list) {
   const n = {};
@@ -1153,7 +1162,7 @@ function weekPlan(list, staff, cap, days, start) {
       if (!here.length) continue;
       const who = staff[t];
       slots.push({ day: use[k], dayName: DAYS[use[k]], tech: t + 1, staffId: who ? who.id : null, name: who ? who.name : 'Open route ' + (t + 1 - staff.length),
-        yards: weekYards(here.map((c) => ({ plan: c.plan, eow_week: set[c.id].eow_week }))), homes: here.length, towns: townsOf(here), miles: Math.round(dayMiles(here) * 10) / 10 });
+        yards: weekYards(here.map((c) => ({ plan: c.plan, eow_week: set[c.id].eow_week }))), homes: here.length, towns: townsOf(here), miles: Math.round(dayMiles(here) * 10) / 10, pts: slotPts(here, start) });
     }
   }
   for (const c of tour) set[c.id].scooper_id = (staff[set[c.id].t] || {}).id || null;
@@ -1217,11 +1226,12 @@ async function officeWeek(env, b) {
     const final = all.map((c) => { const hit = change.find((x) => x[0].id === c.id); return hit ? Object.assign({}, c, hit[1]) : c; }).filter((c) => c.service_day != null && pinned(c));
     const keys = [...new Set(final.flatMap((c) => [c.service_day + '|' + (c.scooper_id || '')].concat(c.service_day2 != null ? [c.service_day2 + '|' + (c.scooper_id || '')] : [])))];
     const slots = keys.map((k) => { const [d, sid] = k.split('|'); const mine = final.filter((c) => (c.scooper_id || '') === sid && (String(c.service_day) === d || String(c.service_day2) === d)); const who = team.find((t) => t.id === sid);
-      return { day: Number(d), dayName: DAYS[Number(d)], staffId: sid || null, name: who ? who.name : 'No scooper yet', yards: weekYards(mine), homes: mine.length, towns: townsOf(mine), miles: Math.round(pathMiles(shortOrder(mine, null)) * 10) / 10 }; })
+      return { day: Number(d), dayName: DAYS[Number(d)], staffId: sid || null, name: who ? who.name : 'No scooper yet', yards: weekYards(mine), homes: mine.length, towns: townsOf(mine), pts: slotPts(mine, routeStart(env)), miles: Math.round(pathMiles(shortOrder(mine, null)) * 10) / 10 }; })
       .sort((x, y) => String(x.name).localeCompare(String(y.name)) || x.day - y.day);
     plan = { slots, techs: new Set(slots.map((x) => x.staffId)).size, noPin: all.filter((c) => !pinned(c)).length, cap, days };
   }
   const out = Object.assign(weekSummary(plan, staff.length, all.length), { mode, applied: false, changes: change.length, moved: change.filter((x) => x[0].service_day != null).length, overCap: plan.slots.filter((x) => x.yards > cap).length });
+  weekView(env, out, Object.fromEntries(all.map((c) => [c.id, [c.name, c.address].filter(Boolean).join(' · ')])));
   if (!b.apply || !change.length) return ok(out);
   const now = new Date().toISOString();
   for (let i = 0; i < change.length; i += 500) {
@@ -1250,7 +1260,9 @@ function demoWeek(env, q) {
   p.slots.forEach((x) => { x.name = 'Tech ' + x.tech; });
   const oneDay = {};
   for (const c of list) { const a = (ZIPS[c.zip] || {}).area; (oneDay[a] = oneDay[a] || []).push(c); }
-  return ok(Object.assign(weekSummary(p, 0, list.length), { sample: true, mode: 'all', oldWay: { biggestDay: Math.max(...Object.values(oneDay).map((x) => x.length)), note: 'One day for each area, one scooper' } }));
+  const names = {};
+  list.forEach((c, k) => { names[c.id] = 'Yard ' + (k + 1) + ' · ' + ((ZIPS[c.zip] || {}).name || c.zip) + (c.plan === 'twice' ? ' · twice a week' : c.plan === 'eow' ? ' · every other week' : ''); });
+  return ok(Object.assign(weekView(env, weekSummary(p, 0, list.length), names), { sample: true, mode: 'all', oldWay: { biggestDay: Math.max(...Object.values(oneDay).map((x) => x.length)), note: 'One day for each area, one scooper' } }));
 }
 
 async function defaultScooper(env) {
