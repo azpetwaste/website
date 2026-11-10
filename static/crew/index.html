@@ -102,7 +102,11 @@ table.t tr.click:hover td{background:var(--bg2)}
 .fl .lbl{display:block;margin-bottom:6px}
 .empty{padding:28px 0;color:var(--mute);font-size:15px}
 .scroll{overflow-x:auto}
-@media (max-width:640px){.stats{grid-template-columns:repeat(2,1fr)}.stat:nth-child(2){border-right:0}.stat:nth-child(-n+2){border-bottom:1px solid var(--line)}.hide-s{display:none}.grid2{grid-template-columns:1fr}}
+.tcard{border-top:1px solid var(--line);padding:16px 0}
+.tcard p{margin:8px 0 12px;font-size:15px;line-height:1.45}
+.tcard .acts{display:grid;grid-template-columns:2fr 1fr;gap:8px;max-width:420px}
+.sendrow{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px;padding:0 16px;margin-top:14px;border:1px solid var(--accent);color:var(--accent);text-decoration:none;font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
+@media (max-width:640px){header.bar .in{flex-wrap:wrap;height:auto;padding-top:6px}header.bar .brand{flex:1;line-height:36px}header.bar .out{min-height:36px}header.bar .tabs{order:3;flex:0 0 100%;margin:0 -4px}.tab{height:46px;padding:0 11px}.ib{min-height:44px;min-width:44px}.chip{min-height:44px}.link{padding:14px 0}.daynav{flex-wrap:wrap}.stats{grid-template-columns:repeat(2,1fr)}.stat:nth-child(2){border-right:0}.stat:nth-child(-n+2){border-bottom:1px solid var(--line)}.hide-s{display:none}.grid2{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -365,8 +369,12 @@ table.t tr.click:hover td{background:var(--bg2)}
     var pct = stops.length ? Math.round(done / stops.length * 100) : 0;
     var cur = current();
     var out = '<div class="prog"><i style="width:' + pct + '%"></i></div><div class="narrow">';
-    var showTexts = S.role !== 'scooper' && (d.texts || []).length;
-    if (showTexts) out += '<button class="texts" data-a="texts"><span>' + d.texts.length + ' text' + (d.texts.length > 1 ? 's' : '') + ' to send</span><span>Open ›</span></button>';
+    // One tap per text: it opens Messages with the text filled in and marks it sent.
+    var KINDS = { on_the_way: 'on the way', done: 'yard is done', cant: 'could not service' };
+    (d.texts || []).filter(function (t) { return KINDS[t.kind]; }).slice(0, 3).forEach(function (t) {
+      var st = stops.filter(function (x) { return x.id === t.stop_id; })[0], nm = st && st.customer && st.customer.name ? st.customer.name.split(' ')[0] : 'customer';
+      out += '<a class="sendrow" href="' + h(sms(t.to_addr, t.body)) + '" data-send="' + t.id + '"><span>Text ' + h(nm) + ': ' + KINDS[t.kind] + '</span><span>Send ›</span></a>';
+    });
     if (!r || !stops.length) return out + '<div style="padding:60px 0"><div class="lbl">' + h(d.dayName) + '</div><p class="big">No route today.</p><p style="color:var(--mute)">The office builds routes from each yard\'s service day.</p></div></div>';
     if (r.status === 'planned') {
       out += '<div style="padding:28px 0 0"><div class="lbl">' + h(d.dayName) + ' · ' + stops.length + ' yards</div><p class="big">Ready to roll.</p></div>' + stopList(stops) +
@@ -474,7 +482,16 @@ table.t tr.click:hover td{background:var(--bg2)}
     }
     document.body.appendChild(el); draw();
   }
+  function bindSend(root, crew, after) {
+    root.querySelectorAll('[data-send]').forEach(function (a) {
+      a.addEventListener('click', function () {
+        var id = a.dataset.send;
+        setTimeout(function () { api('POST', crew ? '/api/crew/text' : '/api/office/text', { id: id, status: 'sent' }).then(function () { toast('Marked sent'); after(); }).catch(function (e) { toast(e.message); }); }, 600);
+      });
+    });
+  }
   function bindRoute() {
+    bindSend(app, true, refreshRoute);
     app.querySelectorAll('[data-ck]').forEach(function (b) { b.onclick = function () { S.check[b.dataset.ck] = !S.check[b.dataset.ck]; render(); }; });
     app.querySelectorAll('[data-a]').forEach(function (b) {
       b.onclick = function () {
@@ -580,13 +597,13 @@ table.t tr.click:hover td{background:var(--bg2)}
       }).join('') + '</tbody></table></div>';
   }
   function officeTexts(d) {
-    var out = '<div class="daynav"><h2>Texts to send</h2></div><p style="color:var(--mute);font-size:15px;line-height:1.5;max-width:640px">Twilio is not approved yet, so nothing goes out on its own. Open each text on the business phone (623.309.6104), send it, then tap Sent. Once Twilio is approved, these send themselves.</p>';
+    var out = '<div class="daynav"><h2>Texts to send</h2></div><p style="color:var(--mute);font-size:15px;line-height:1.5;max-width:640px">Twilio is not approved yet, so nothing goes out on its own. Tap Send on the business phone (623.309.6104). It opens Messages with the text filled in and marks it sent here. Once Twilio is approved, these send themselves.</p>';
     if (!d) return out + '<p class="empty">Loading…</p>';
     if (!d.texts.length) return out + '<p class="empty">All caught up.</p>';
-    return out + '<div class="scroll"><table class="t"><thead><tr><th>Kind</th><th>To</th><th>Text</th><th></th></tr></thead><tbody>' + d.texts.map(function (t) {
-      return '<tr><td class="lbl" style="white-space:nowrap">' + h(t.kind.replace(/_/g, ' ')) + '</td><td style="white-space:nowrap"><b>' + h(t.customer ? t.customer.name : '') + '</b><div class="mono" style="font-size:12px;color:var(--mute)">' + h(phone(t.to_addr)) + '</div></td>' +
-        '<td style="font-size:14px;max-width:420px">' + h(t.body) + '</td><td style="white-space:nowrap;text-align:right"><a class="ib" style="display:inline-grid;place-items:center;text-decoration:none" href="' + h(sms(t.to_addr, t.body)) + '">Open</a> <button class="ib" data-text="' + t.id + '" data-st="sent">Sent</button> <button class="ib" data-text="' + t.id + '" data-st="skipped">Skip</button></td></tr>';
-    }).join('') + '</tbody></table></div>';
+    return out + d.texts.map(function (t) {
+      return '<div class="tcard"><div class="lbl">' + h(t.kind.replace(/_/g, ' ')) + ' · ' + h(t.customer ? t.customer.name : '') + ' · ' + h(phone(t.to_addr)) + '</div><p>' + h(t.body) + '</p>' +
+        '<div class="acts"><a class="btn sm" style="width:100%" href="' + h(sms(t.to_addr, t.body)) + '" data-send="' + t.id + '">Send</a><button class="btn ghost sm" style="width:100%" data-text="' + t.id + '" data-st="skipped">Skip</button></div></div>';
+    }).join('');
   }
   function officeTeam(d, a) {
     var out = '<div class="daynav"><h2>Team</h2></div>';
@@ -691,6 +708,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     var q = document.getElementById('q'); if (q) { var tm; q.oninput = function () { clearTimeout(tm); tm = setTimeout(function () { S.q = q.value; loadTab(); }, 300); }; }
     app.querySelectorAll('[data-lead]').forEach(function (s) { s.onchange = async function () { try { S.data.leads = await api('POST', '/api/office/lead', { id: s.dataset.lead, status: s.value }); toast('Saved'); } catch (e) { toast(e.message); } }; });
     app.querySelectorAll('[data-leadnote]').forEach(function (b) { b.onclick = async function () { var l = S.data.leads.leads.filter(function (x) { return String(x.id) === b.dataset.leadnote; })[0]; var n = window.prompt('Note', (l && l.notes) || ''); if (n == null) return; try { S.data.leads = await api('POST', '/api/office/lead', { id: b.dataset.leadnote, notes: n }); render(); } catch (e) { toast(e.message); } }; });
+    bindSend(app, false, loadTab);
     app.querySelectorAll('[data-text]').forEach(function (b) { b.onclick = async function () { try { await api('POST', '/api/office/text', { id: b.dataset.text, status: b.dataset.st }); loadTab(); } catch (e) { toast(e.message); } }; });
     app.querySelectorAll('[data-role]').forEach(function (s) { s.onchange = async function () { try { S.data.team = await api('POST', '/api/office/team', { id: s.dataset.role, role: s.value }); toast('Saved'); render(); } catch (e) { toast(e.message); loadTab(); } }; });
     app.querySelectorAll('[data-active]').forEach(function (b) { b.onclick = async function () { try { S.data.team = await api('POST', '/api/office/team', { id: b.dataset.active, active: b.dataset.on === '1' }); render(); } catch (e) { toast(e.message); } }; });

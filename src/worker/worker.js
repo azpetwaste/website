@@ -803,7 +803,9 @@ async function myRoute(s, env) {
 }
 async function crewToday(s, env) {
   const day = azToday();
-  const r = await myRoute(s, env);
+  let r = await myRoute(s, env);
+  // No route yet today: build it now, so nobody has to press Build routes first.
+  if (!r) { try { await planDay(env, day); r = await myRoute(s, env); } catch (e) { console.error('auto plan', e); } }
   if (!r) return ok({ day, dayName: DAYS[weekday(day)], route: null, stops: [], texts: [], me: { name: s.name, role: s.role } });
   const stops = await db(env, 'GET', 'stops?route_id=eq.' + r.id + '&select=' + CREW_STOP + '&order=position,id');
   const ids = stops.map((x) => x.id);
