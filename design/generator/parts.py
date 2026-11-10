@@ -282,7 +282,7 @@ FAQ_ITEMS = [
     ('What if it storms?', 'Light rain is fine. If there is lightning, we wait until it is safe. We text you if your time changes.'),
     ('Do you clean artificial turf?', 'Yes. We pick up every pile and spray the spots your dogs use most. Turf can smell in the heat. For a deep clean, add a turf odor treatment for $35.'),
     ('Where does the poop go?', 'We bag it, tie it shut and put it in your trash can.'),
-    ('Are you licensed, bonded and insured?', 'Yes. Arizona Pet Waste is licensed, bonded and insured.'),
+    ('Are you bonded and insured?', 'Yes. We carry a $50,000 business service bond and $1,000,000 in general liability insurance.[[ins: Our insurance policy starts November 16, 2026.||]] See the proof on our bonded and insured page.'),
     ('Do you clean your tools?', 'Yes. We clean our boots and tools after every yard. That keeps germs from going from yard to yard.'),
     ('Can I pick my day?', 'No. We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window.'),
     ('Can you come today? We have a party.', 'Yes. Text us and we can come the same day for $49. It goes on your next bill on the 1st.'),
@@ -651,8 +651,9 @@ def _footer(pre):
             '      <p class="fpay">Stripe keeps your card. We never see the number. We never sell your info. <a href="/privacy/">Read our Privacy Policy</a>.</p>\n'
             '    </div>\n'
             '  </div>\n'
-            '  <div class="fseals" role="group" aria-label="Licensed, bonded and insured. Family owned and operated.">\n'
-            + ''.join('    <p class="fseal">' + F_SEAL + '<b>%s</b></p>\n' % x for x in ['Licensed', 'Bonded', 'Insured']) +
+            '  <div class="fseals" role="group" aria-label="Bonded and insured. Family owned and operated.">\n'
+            + ''.join('    <p class="fseal">' + F_SEAL + '<span><b>%s</b><small>%s</small></span></p>\n' % x for x in [('Bonded', '$50,000 bond'), ('Insured', '$1,000,000 liability[[ins:, starts Nov 16||]]')]) +
+            '    <p class="fproof"><a href="/bonded-and-insured/">See the proof</a></p>\n'
             '    <p class="ffam">' + F_FAM + '<span>Family owned and operated</span></p>\n'
             '  </div>\n'
             '  <p style="margin: 26px 0 0; font-size: 14px; line-height: 1.6; color: #AEB5D8;">© 2026 Arizona Pet Waste. All rights reserved.</p>\n'
@@ -670,12 +671,12 @@ FOOTER_CITY = _footer('Main.dc.html')
 
 # ---------- Redesign layer (Nov 2026): dark stage heroes, spec ticker, numbered sections, specs grid, motion ----------
 TICK_ITEMS = ['Gate photo every visit', 'Free deodorizer spray', 'Live truck map', 'First month $0', 'No contract',
-              '4 free skips a year', 'Free return in 24 hours', 'Licensed, bonded and insured']
+              '4 free skips a year', 'Free return in 24 hours', 'Bonded and insured']
 _tick_li = ''.join('<li>%s</li>' % x for x in TICK_ITEMS)
 TRUST_SVG = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"></path><path d="M9 12l2 2 4-4.5"></path></svg>'
-TICKER = ('<div class="tb" role="region" aria-label="Licensed, bonded and insured">\n'
+TICKER = ('<div class="tb" role="region" aria-label="Bonded and insured">\n'
           '  <ul class="tb-l">'
-          + ''.join('<li>' + TRUST_SVG + '<b>%s</b></li>' % x for x in ['Licensed', 'Bonded', 'Insured'])
+          + ''.join('<li>' + TRUST_SVG + '<b>%s</b></li>' % x for x in ['Bonded', 'Insured', 'Family owned'])
           + '</ul>\n</div>')
 
 SPEC_ITEMS = [('30', 'MIN', 'Your time window. We text it the night before.'),
@@ -692,7 +693,7 @@ SPECS = ('<section id="specs" class="sec spec">\n  <div class="in">\n'
          '  <dl class="sgrid">\n' +
          ''.join('    <div class="scell"><dt><b>%s</b><small>%s</small></dt><dd>%s</dd></div>\n' % s for s in SPEC_ITEMS) +
          '  </dl>\n'
-         '  <p class="mono sfoot">Licensed, bonded and insured · No contract · No sign up fee</p>\n'
+         '  <p class="mono sfoot">Bonded and insured · No contract · No sign up fee</p>\n'
          '  </div>\n</section>')
 
 REVAMP_CSS = r"""
@@ -823,6 +824,16 @@ REVAMP_CSS += r"""
 .apw .fseal{flex-direction:row;gap:12px}
 .apw .ffam{grid-column:auto;justify-content:flex-end;margin:0;font-size:22px}
 }
+"""
+REVAMP_CSS += r"""
+.apw .fseals{grid-template-columns:repeat(2,minmax(0,1fr))}
+.apw .fseal span{display:flex;flex-direction:column;gap:3px}
+.apw .fseal b{font-size:20px}
+.apw .fseal small{font-size:14px;font-weight:600;color:#D5DAF0}
+.apw .fseal-i{width:56px;height:63px}
+.apw .fproof{grid-column:1 / -1;margin:0;text-align:center}
+.apw .fproof a{display:inline-flex;align-items:center;min-height:44px;color:#FF8A66;font-size:16px;font-weight:800;text-decoration:underline}
+@media (min-width:900px){.apw .fseals{grid-template-columns:auto auto auto 1fr}.apw .fproof{grid-column:auto;text-align:left}}
 """
 PAGE_CSS += REVAMP_CSS
 PAGE_CSS += r"""

@@ -99,7 +99,7 @@ export function stepsBlock() {
   return '<ol class="bxsteps">' + STEPS.map(([a, b], i) => `<li><span class="bxn">${i + 1}</span><h3>${esc(a)}</h3><p>${esc(b)}</p></li>`).join('') + '</ol>';
 }
 export const ASK = [
-  ['Are you licensed, bonded and insured?', 'Yes. Ask and we send a certificate of insurance.'],
+  ['Are you bonded and insured?', 'Yes. We carry a $50,000 business service bond and $1,000,000 in general liability insurance.[[ins: Our insurance policy starts November 16, 2026.||]] Ask and we send a certificate of insurance.'],
   ['Do you send proof after every visit?', 'Yes. You get a photo report after each visit.'],
   ['Are bags and liners included?', 'Yes. They are part of your price.'],
   ['Do we have to sign a contract?', 'No. Plans are month to month with 30 days notice.'],
@@ -159,8 +159,8 @@ export function hero(pg, trail) {
   return '<section class="bxh"><div class="bxw"><div class="bxh-in"><div class="bxh-copy">' + crumbsNav(trail) +
     `<p class="eb">${esc(pg.eyebrow || 'Commercial')}</p><h1>${esc(pg.h1)}${dot}</h1><p class="lead">${h.lead || ''}</p>` +
     (h.ctaHtml || ctaButtons(h.cta)) +
-    '<ul class="bxbadges" aria-label="Licensed, bonded and insured">' + ['Licensed', 'Bonded', 'Insured'].map((x) => `<li>${ICONS.shield}<b>${x}</b></li>`).join('') + '</ul>' +
-    ((h.trust || 'Free site walk').replace(/^Licensed, bonded and insured · /, '') ? `<p class="bxtrust">${esc((h.trust || 'Free site walk').replace(/^Licensed, bonded and insured · /, ''))}</p>` : '') +
+    '<ul class="bxbadges" aria-label="Bonded and insured">' + ['Bonded', 'Insured'].map((x) => `<li>${ICONS.shield}<b>${x}</b></li>`).join('') + '</ul>' +
+    ((h.trust || 'Free site walk').replace(/^Bonded and insured · /, '') ? `<p class="bxtrust">${esc((h.trust || 'Free site walk').replace(/^Bonded and insured · /, ''))}</p>` : '') +
     '<ul class="bxh-stats">' + stats.map(([n, u, t]) => `<li><b>${esc(n)}<small>${esc(u)}</small></b><span>${esc(t)}</span></li>`).join('') + '</ul>' +
     '</div><div class="bxh-side">' + (h.side || reportCard(h.site)) + '</div></div></div></section>';
 }

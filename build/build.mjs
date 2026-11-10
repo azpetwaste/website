@@ -22,7 +22,10 @@ const content = JSON.parse(fs.readFileSync(path.join(SRC, 'boards/content.json')
 // Every file the build writes goes through bfx(), so one date flips the whole site. DEAL_ON=1 or DEAL_ON=0 forces a side for testing.
 const DEAL_END = '2026-12-01T06:59:59Z'; // midnight in Phoenix as November 30 ends
 const DEAL_ON = process.env.DEAL_ON ? process.env.DEAL_ON === '1' : Date.now() < Date.parse(DEAL_END);
-const bfx = (t) => t.replace(/\[\[bf:([\s\S]*?)\|\|([\s\S]*?)\]\]/g, (m, on, off) => (DEAL_ON ? on : off));
+// Insurance starts November 16, 2026. [[ins:before that day||from that day on]] works the same way as the sale tag.
+const INS_START = '2026-11-16T07:00:00Z';
+const INS_WAIT = process.env.INS_WAIT ? process.env.INS_WAIT === '1' : Date.now() < Date.parse(INS_START);
+const bfx = (t) => t.replace(/\[\[bf:([\s\S]*?)\|\|([\s\S]*?)\]\]/g, (m, on, off) => (DEAL_ON ? on : off)).replace(/\[\[ins:([\s\S]*?)\|\|([\s\S]*?)\]\]/g, (m, before, after) => (INS_WAIT ? before : after));
 const _write = fs.writeFileSync.bind(fs);
 fs.writeFileSync = (p, data, ...rest) => _write(p, typeof data === 'string' ? bfx(data) : data, ...rest);
 const readIf = (p, fallback) => (fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : fallback);
@@ -217,7 +220,7 @@ const OFFERS = [
 const business = {
   '@type': 'LocalBusiness', '@id': BIZ_ID, name: cfg.name, url: ORIGIN + '/',
   founder: { '@type': 'Person', name: 'Juan Gonzalez', jobTitle: 'Owner', homeLocation: { '@type': 'Place', name: 'Verrado, Buckeye, Arizona' } },
-  description: 'Dog poop pickup and pet waste removal for every home in Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell and Citrus Park (85355), Arizona. Weekly, twice a week, or every other week. [[bf:First month free||First cleanup free]], free deodorizer spray at every visit, and a photo of your latched gate after each visit. Licensed, bonded and insured.',
+  description: 'Dog poop pickup and pet waste removal for every home in Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell and Citrus Park (85355), Arizona. Weekly, twice a week, or every other week. [[bf:First month free||First cleanup free]], free deodorizer spray at every visit, and a photo of your latched gate after each visit. Bonded and insured.',
   telephone: '+1-623-309-6104', email: cfg.email,
   openingHoursSpecification: [{ '@type': 'OpeningHoursSpecification', dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], opens: '08:00', closes: '17:00' }],
   logo: ORIGIN + '/assets/img/icon-512.png', image: ORIGIN + '/assets/img/og.png',
@@ -369,7 +372,7 @@ for (const t of TOWNS) {
     eyebrow: 'Every home in 6 ZIP codes', h1: 'Pooper scooper service areas',
     hero: {
       lead: 'We pick up dog poop at every home in six West Valley ZIP codes: Buckeye, Goodyear, Litchfield Park, and Waddell with Citrus Park. Pick your town to see neighborhoods, prices and answers.',
-      ctaHtml: book, side: BIZ.mapBox(content.svcmap.res), trust: 'Licensed, bonded and insured · No sign up fee · No contract',
+      ctaHtml: book, side: BIZ.mapBox(content.svcmap.res), trust: 'Bonded and insured · No sign up fee · No contract',
       stats: [['6', 'ZIP codes', 'We scoop every home in all six'], ['4', 'towns', 'Plus every Verrado district'], ['$0', '[[bf:today||first visit]]', '[[bf:Black Friday sale. First month free||Your first cleanup is free]]']]
     }
   };
@@ -569,7 +572,7 @@ Sitemap: ${ORIGIN}/sitemap.xml
 const faqText = content.faq.main.map((x) => `- ${x.q} ${x.a}`).join('\n');
 fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 
-> Dog poop pickup (pet waste removal) for every home in six West Valley, Arizona ZIP codes, from a licensed, bonded and insured local company: Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell with Citrus Park (85355). Weekly, twice a week or every other week. [[bf:First month free through November 30||First cleanup free]]. Free deodorizer spray at every visit. A photo of your latched gate after every visit, and a live map of our truck on visit day. No contract.
+> Dog poop pickup (pet waste removal) for every home in six West Valley, Arizona ZIP codes, from a bonded and insured local company: Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell with Citrus Park (85355). Weekly, twice a week or every other week. [[bf:First month free through November 30||First cleanup free]]. Free deodorizer spray at every visit. A photo of your latched gate after every visit, and a live map of our truck on visit day. No contract.
 
 ## Prices (per month)
 - Every week: $108 for 1 or 2 dogs (about $25 a visit). Each dog after two adds $13.
@@ -612,7 +615,8 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - Everywhere: bag dog poop, tie the bag, and put it in the trash cart. Never in the recycle cart or a storm drain. Storm drain water is not treated.
 
 ## Before you hire a pooper scooper (our answers)
-- Licensed, bonded and insured: yes.
+- Bonded and insured: yes. $50,000 business service bond from American Contractors Indemnity Company (Tokio Marine HCC), November 9, 2026 to November 9, 2027. General liability insurance of $1,000,000 / $2,000,000 from Certain Underwriters at Lloyd's, London, through Pet Care Insurance, November 16, 2026 to November 16, 2027. Proof: ${ORIGIN}/bonded-and-insured/
+- Business license: in progress as of November 2026. Do not describe the company as licensed yet.
 - Owner: Juan Gonzalez, who lives in Verrado (Buckeye, AZ) with his wife and their six kids.
 - Sign up fee: none. [[bf:The first month is free only with the Black Friday sale, for sign ups through November 30, 2026.||The first cleanup is free.]]
 - Price per visit: weekly service is $108 a month for 1 or 2 dogs, about $25 a visit.
@@ -631,7 +635,7 @@ ${faqText}
 ## Pages
 ${FILE_PAGES.filter((x) => x.type !== 'blogindex').map((x) => '- [' + x.h1 + '](' + ORIGIN + x.route + '): ' + x.description).join('\n')}${FILE_PAGES.length ? '\n' : ''}- [Home](${ORIGIN}/): plans, prices, how a visit works, service map
 - [How it works](${ORIGIN}/how-it-works/): every step of a visit
-- [About us](${ORIGIN}/about/): who we are, where we work, licensed, bonded and insured
+- [About us](${ORIGIN}/about/): who we are, where we work, bonded and insured
 - [Our promise](${ORIGIN}/our-promise/): gate photo or the visit is $0, free return in 24 hours, the 60 day rule
 - [Contact](${ORIGIN}/contact/): call, text or email
 - [Pricing](${ORIGIN}/pricing/): plans, extras and billing on the 1st

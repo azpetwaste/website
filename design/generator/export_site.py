@@ -172,7 +172,7 @@ def write(board_id, html):
 def prod_faq(items):
     out = []
     for q, a in items:
-        if '[' in a.replace('[[bf:', '').replace(']]', ''):  # [[bf:sale||after]] is the Black Friday switch, the site build fills it
+        if '[' in a.replace('[[bf:', '').replace('[[ins:', '').replace(']]', ''):  # [[bf:sale||after]] is the Black Friday switch, the site build fills it
             sys.exit('placeholder left in FAQ: %s' % a)
         out.append({'q': strip_tags(q), 'a': strip_tags(a)})
     return out

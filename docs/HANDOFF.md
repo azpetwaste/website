@@ -121,6 +121,15 @@ This lane is website edits and AEO (showing up in Google and in AI answers). It 
 - **Logos:** Joe wants real brand logos in color for Facebook, Instagram, TikTok and Nextdoor (Yelp later), plus card marks. They are slots filled from files in `static/assets/img/brands/` (see the README there). Use the official files only, never redraw one. Nothing shows until the files are in.
 - Not on the site and why: HSA and FSA (this is not a health service), LegitScript, BBB and Trustpilot (wait for the real listings).
 
+### Bonded and insured, Nov 10, 2026. Read before you write any trust copy.
+- **Do not say "licensed."** Joe confirmed Nov 10 the business license is still in progress. Every "Licensed, bonded and insured" on the site is now "Bonded and insured". Put "licensed" back only when Joe sends the license.
+- **Facts from the documents Joe sent (bond papers and insurance card):**
+  - Bond: business service bond, $50,000, American Contractors Indemnity Company (Tokio Marine HCC), November 9, 2026 to November 9, 2027. It pays a customer back for theft or fraud by the company or an employee, and it needs a conviction.
+  - Insurance: general liability $1,000,000 / $2,000,000, broadened property damage $10,000 / $25,000, Certain Underwriters at Lloyd's, London, through Pet Care Insurance, November 16, 2026 to November 16, 2027.
+- **Insurance is not in force until November 16.** Copy that depends on it uses `[[ins:before||after]]` (same idea as the sale tag, `INS_START` in `build.mjs`, test with `INS_WAIT=1` or `0`). The GitHub job pushes a rebuild that morning.
+- **Never publish the bond number, the insurance certificate number, or the documents.** They are not in the repo on purpose. The site shows who backs us, amounts and dates, and says to ask for the certificate.
+- New page `/bonded-and-insured/` (46 indexed pages). The footer seals (Bonded, $50,000 bond. Insured, $1,000,000 liability) link to it. Home strip is Bonded, Insured, Family owned.
+
 ### Rules for this lane
 - Copy: no dashes, short plain words, third grade for customers, seventh grade for SEO pages, one h1 per page. `npm run check` enforces it.
 - Do not claim what we cannot prove. "No one in the industry offers this" stays off the site. The line in use is "The big chains give you one free cleanup or $25 off. We give you a whole month."
