@@ -51,6 +51,32 @@ Read this before you change `src/worker/worker.js`, `static/crew/index.html` or 
 - Ideas not built yet: lock a customer to a day so a rebuild cannot move them, a map view of the week, real road miles from the Routes API (miles are straight line times 1.35 today), texts for day changes once Twilio is approved.
 - Always `git fetch origin main` and rebase before you push. Both sessions push to main.
 
+## Website and AEO: where things stand (Nov 9, 2026)
+
+This lane is website edits and AEO (showing up in Google and in AI answers). It does not touch route code, the crew app or `crm.sql`.
+
+### Live now
+- 38 indexed pages. Sitemap, robots.txt (AI bots welcome) and llms.txt are current.
+- Schema: WebSite, LocalBusiness (with office hours 8 to 5 every day), Service, FAQPage, BreadcrumbList, BlogPosting.
+- Pages: home, 5 town pages, areas, how it works, pricing, FAQ, about, contact, our promise, commercial hub with 5 service pages and 4 town pages, blog, policies.
+- Black Friday deal: first month free through Monday, November 30, 2026. The bar, deal panel and chips hide on their own at the deadline.
+- Search Console on Nov 9: commercial pages and areas page are on Google. Indexing was requested for `/faq/` and `/blog/`. Not requested yet: `/about/`, `/contact/`, `/our-promise/`.
+
+### Open
+1. December 1: the deal bar hides itself, but static copy still says first month free and November 30 in places (FAQ, terms, waitlist lines, llms.txt). Joe has to decide if the free month stays after the deal. Ask him by November 28.
+2. About page: Joe is sending the owner name and a short story. Photos, video and reviews are coming from Joe.
+3. Schema `sameAs` and the footer social buttons wait on real profile links: Google Business Profile, Bing Places, Yelp, Apple Maps, BBB, Nextdoor, Facebook, Instagram. The footer buttons point at the home page reviews section until then.
+4. Reviews: no review schema until real reviews exist. Never write a review.
+5. The live truck link demo (`/t/DEMO01`) is not linked from the site yet. Link it from How it works once it looks good on a phone.
+6. Request indexing for `/about/`, `/contact/`, `/our-promise/`.
+7. Ideas not started: more blog posts for AI answers (cost, how often, turf smell, HOA rules by town), a page for each ZIP, a comparison page against the big chains using only facts from their own sites.
+
+### Rules for this lane
+- Copy: no dashes, short plain words, third grade for customers, seventh grade for SEO pages, one h1 per page. `npm run check` enforces it.
+- Do not claim what we cannot prove. "No one in the industry offers this" stays off the site. The line in use is "The big chains give you one free cleanup or $25 off. We give you a whole month."
+- Edit the generator in `design/generator` and content in `content/`, never the boards in `src/boards`. `export_site.py` writes to a path set at the top of the file (`OUT`): point it at this repo's `src/boards/` for the run, then put it back.
+- Before every push: `npm run build`, `npm run check`, `node build/worker.test.mjs`, then `git fetch origin main` and rebase.
+
 ## Notes from the field desk session
 
 ### Nov 9, 2026, evening. The field desk session owns routes, the week planner and the crew app from here.
