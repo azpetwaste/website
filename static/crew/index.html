@@ -257,7 +257,16 @@ table.t tr.click:hover td{background:var(--bg2)}
     await new Promise(function (r) { setTimeout(r, 120); });
     var q = new URLSearchParams(path.split('?')[1] || ''), p = path.split('?')[0], st = D.stops.filter(function (x) { return x.id === (b.stopId || b.id); })[0];
     var queued = function () { return D.texts.filter(function (t) { return t.status === 'queued'; }); };
-    if (p === '/api/crew/today') { if (D.mapsKey === undefined) { try { D.mapsKey = (await (await fetch('/api/demo/week?n=20')).json()).mapsKey || null; } catch (e) { D.mapsKey = null; } } return demoToday(); }
+    if (p === '/api/crew/today') {
+      // The demo route uses a real planned day: yards from one part of town, in the planner's own driving order.
+      if (D.mapsKey === undefined) { try {
+        var wk = await (await fetch('/api/demo/week?n=250&cap=40')).json(), my = mine();
+        var day1 = wk.slots.slice().sort(function (x, y) { return y.pts.length - x.pts.length; })[0];
+        my.forEach(function (st, i) { var q = day1.pts[i % day1.pts.length]; st.customer.lat = q[0] + (i >= day1.pts.length ? 0.002 : 0); st.customer.lng = q[1]; });
+        D.mapsKey = wk.mapsKey || null;
+      } catch (e) { D.mapsKey = null; } }
+      return demoToday();
+    }
     if (p === '/api/crew/start') { D.route.status = 'live'; D.ping = new Date().toISOString(); if (!mine().some(function (x) { return x.status === 'on_the_way' || x.status === 'here'; })) demoNext(); return demoToday(); }
     if (p === '/api/crew/arrive') { st.status = 'here'; st.arrived_at = new Date().toISOString(); D.ping = st.arrived_at; return demoToday(); }
     if (p === '/api/crew/photo') { st.photo_path = 'demo'; return { ok: true }; }
@@ -728,9 +737,24 @@ table.t tr.click:hover td{background:var(--bg2)}
   // A map is built once and kept while what it shows stays the same, so a screen refresh does not load a new map.
   var MAPS = {};
   function keepMap(id, sig, build) { var ph = document.getElementById(id); if (!ph) return; var m = MAPS[id]; if (m && m.sig === sig) { ph.replaceWith(m.el); return; } MAPS[id] = { sig: sig, el: ph }; build(ph); }
-  function mapOpts() { return { center: { lat: 33.45, lng: -112.45 }, zoom: 10, disableDefaultUI: true, zoomControl: true, gestureHandling: 'cooperative', clickableIcons: false, backgroundColor: '#0b0d14', styles: [
-      { elementType: 'geometry', stylers: [{ color: '#0b0d14' }] }, { elementType: 'labels.text.fill', stylers: [{ color: '#8a8f9c' }] }, { elementType: 'labels.text.stroke', stylers: [{ color: '#0b0d14' }] },
-      { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1c2030' }] }, { featureType: 'poi', stylers: [{ visibility: 'off' }] }, { featureType: 'transit', stylers: [{ visibility: 'off' }] }, { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#05070c' }] }] }; }
+  // Same dark map look as the customer truck link.
+  var MAPDARK = [
+    { elementType: 'geometry', stylers: [{ color: '#0b0d14' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#6b7186' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#0b0d14' }] },
+    { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+    { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+    { featureType: 'landscape.man_made', stylers: [{ visibility: 'off' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1a1f2e' }] },
+    { featureType: 'road.local', elementType: 'labels', stylers: [{ visibility: 'simplified' }] },
+    { featureType: 'road', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
+    { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#232a3d' }] },
+    { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#2c3450' }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#05070f' }] },
+    { featureType: 'administrative', elementType: 'geometry', stylers: [{ visibility: 'off' }] },
+    { featureType: 'administrative.neighborhood', stylers: [{ visibility: 'off' }] }
+  ];
+  function mapOpts() { return { center: { lat: 33.45, lng: -112.45 }, zoom: 10, disableDefaultUI: true, zoomControl: true, gestureHandling: 'cooperative', clickableIcons: false, backgroundColor: '#0b0d14', styles: MAPDARK }; }
   // The scooper's day on a map before they start: every yard numbered in driving order, with the line between them.
   async function routeMap(d, el) {
     try { await wkMapsReady(d.mapsKey); var maps = await google.maps.importLibrary('maps'); await google.maps.importLibrary('marker'); } catch (e) { el.style.display = 'none'; return; }
