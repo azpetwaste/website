@@ -8,6 +8,7 @@ Read this first. `README.md` has how the site is built. `GO_LIVE.md` has account
 - The field desk: `static/crew/index.html` (staff), `static/t/index.html` (customer truck link), `supabase/crm.sql` (tables).
 - Demo, no sign in: `/crew/?demo` (made up yards, lives in the browser tab only) and `/t/DEMO01` (a made up visit that loops every 3 minutes, served by `trackDemo`).
 - Crash log: server errors and crashes in the crew app or on a truck link go to the `errors` table. The office reads them on the Health tab (`/api/office/health`).
+- Staff training page: `static/staff-73d752e4/` (video and steps). Not indexed, not in the sitemap, not linked from any page. Keep it out of `robots.txt` too, since listing it there would show the address.
 - One Supabase database for everything. The Stripe webhook keeps `customers` in sync, so every sign up shows up in the office on its own.
 
 ## Rules

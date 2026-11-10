@@ -649,6 +649,9 @@ fs.writeFileSync(path.join(DIST, '_headers'), `/*
   X-Robots-Tag: noindex, nofollow
   Cache-Control: no-cache
   Referrer-Policy: no-referrer
+/staff-73d752e4/*
+  X-Robots-Tag: noindex, nofollow, noarchive
+  Referrer-Policy: no-referrer
 `);
 fs.writeFileSync(path.join(DIST, '_redirects'), `/staff /crew/ 301
 /login /account/ 301
