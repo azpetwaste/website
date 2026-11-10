@@ -213,6 +213,7 @@ table.t tr.click:hover td{background:var(--bg2)}
   /* ---------- demo: made up data that lives in this browser tab only ---------- */
   var D = null;
   function demoSeed() {
+    setTimeout(function () { if (D) D.photoFail = parseInt(new URLSearchParams(location.search).get('photofail'), 10) || 0; }, 0); // test hook: ?demo&photofail=4 makes the first 4 photo saves fail
     var today = new Date(Date.now() - 7 * 3600e3).toISOString().slice(0, 10), wd = new Date(today + 'T19:00:00Z').getUTCDay();
     var FN = ['Dana', 'Chris', 'Lee', 'Pat', 'Sky', 'Remy', 'Alex', 'Jo', 'Sam', 'Kai', 'Drew', 'Robin', 'Jesse', 'Casey', 'Morgan', 'Avery', 'Quinn', 'Reese', 'Blake', 'Toni'];
     var LN = ['Ruiz', 'Park', 'Morgan', 'Quinn', 'Bell', 'Cole', 'Hart', 'Lane', 'Reed', 'Stone', 'Shaw', 'Wells', 'Cruz', 'Frost', 'Boyd', 'Marsh', 'Hale', 'Rowe', 'Voss', 'Nash', 'Pike', 'Dunn', 'Kerr', 'Lowe', 'Tate'];
@@ -267,7 +268,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (p === '/api/crew/today') return demoToday();
     if (p === '/api/crew/start') { D.route.status = 'live'; D.ping = new Date().toISOString(); if (!mine().some(function (x) { return x.status === 'on_the_way' || x.status === 'here'; })) demoNext(); return demoToday(); }
     if (p === '/api/crew/arrive') { st.status = 'here'; st.arrived_at = new Date().toISOString(); D.ping = st.arrived_at; return demoToday(); }
-    if (p === '/api/crew/photo') { st.photo_path = 'demo'; return { ok: true }; }
+    if (p === '/api/crew/photo') { await new Promise(function (r) { setTimeout(r, 500); }); if (D.photoFail > 0) { D.photoFail--; var pe = new Error('The photo did not save. Tap Send photo again.'); pe.status = 502; throw pe; } st.photo_path = 'demo'; return { ok: true }; }
     if (p === '/api/crew/done') { st.status = 'done'; st.done_at = new Date().toISOString(); st.no_photo = !!b.noPhoto; demoText('done', st, 'Arizona Pet Waste: your yard is done and the gate is latched. Photo: arizonapetwaste.com/t/DEMO01'); demoNext(); return demoToday(); }
     if (p === '/api/crew/cant') { st.status = 'cant'; st.reason = b.reason; st.note = b.note || null; st.done_at = new Date().toISOString(); demoNext(); return demoToday(); }
     if (p === '/api/crew/end') { D.route.status = 'done'; return demoToday(); }
@@ -286,11 +287,11 @@ table.t tr.click:hover td{background:var(--bg2)}
         var here = D.stops.filter(function (x) { var r = D.routes.filter(function (y) { return y.id === x.route_id; })[0]; return (x.day || D.today) === dd && x.status !== 'skipped' && r && r.staff.id === sf; });
         var row = { day: dd, dayName: DAYS[wd], works: wd >= 1 && wd <= 5, yards: here.length };
         if (mv.length) { var before = mi(here.map(pin));
-          if (mv[0] && (mv[0].day || D.today) === dd) { var rest = mi(here.filter(function (x) { return mv.indexOf(x) < 0; }).map(pin)); sv = { miles: Math.round((before - rest) * 10) / 10, minutes: Math.round((before - rest) / 25 * 60) }; }
-          else { var after = mi(here.map(pin).concat(mvP)); row.addMiles = Math.round((after - before) * 10) / 10; row.addMinutes = Math.round((after - before) / 25 * 60); } }
+          if (mv[0] && (mv[0].day || D.today) === dd) { var rest = mi(here.filter(function (x) { return mv.indexOf(x) < 0; }).map(pin)); sv = { miles: Math.round((before - rest) * 10) / 10, minutes: Math.round((before - rest) / 30 * 60) + mv.length * 10 }; }
+          else { var after = mi(here.map(pin).concat(mvP)); row.addMiles = Math.round((after - before) * 10) / 10; row.driveMinutes = Math.round((after - before) / 30 * 60); row.yardMinutes = mv.length * 10; row.addMinutes = row.driveMinutes + row.yardMinutes; } }
         return row; });
       var fit = rows.filter(function (x) { return x.addMiles != null && x.works && x.yards + mv.length <= cp; }).sort(function (x, y) { return x.addMiles - y.addMiles; });
-      return { cap: cp, days: rows, saves: sv, best: fit.length ? fit[0].day : null, moving: mv.length };
+      return { cap: cp, days: rows, saves: sv, best: fit.length ? fit[0].day : null, moving: mv.length, firsts: 0, yardMinutes: mv.length * 10, rules: { mph: 30, yard: 10, first: 20 } };
     }
     if (p === '/api/office/move-day') {
       var wdn = DAYS[new Date(b.to + 'T19:00:00Z').getUTCDay()], n0 = 0;
@@ -343,6 +344,7 @@ table.t tr.click:hover td{background:var(--bg2)}
   var si = { step: 'email', email: '', err: '', info: '' };
   function viewSignin() {
     return '<div class="narrow signin"><img src="/assets/img/logo-horizontal-dark.svg" alt="Arizona Pet Waste" style="height:40px;width:auto;display:block;margin:0 0 22px"><div class="lbl">Staff</div><div class="stitle">Field desk</div>' +
+      (si.step === 'email' ? '<details style="margin:0 0 22px;border:1px solid var(--line)"><summary style="cursor:pointer;padding:14px;font-family:\'IBM Plex Mono\',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase">▶ Watch how it works, 2 minutes</summary><video controls playsinline preload="none" poster="/crew/how-it-works.jpg" style="width:100%;display:block;background:#000;max-height:70vh"><source src="/crew/how-it-works.mp4" type="video/mp4"></video></details>' : '') +
       (si.step === 'email'
         ? '<label class="lbl" for="em">Work email</label><input id="em" class="f" type="email" autocomplete="email" inputmode="email" value="' + h(si.email) + '" style="margin-top:8px">' +
           '<div style="height:14px"></div><button class="btn" id="go">Send code</button>'
@@ -410,7 +412,7 @@ table.t tr.click:hover td{background:var(--bg2)}
   }
   async function act(kind, body) {
     if (S.busy) return; S.busy = true; render();
-    try { S.data.today = await api('POST', '/api/crew/' + kind, body || {}); S.check = {}; S.shot = null; }
+    try { S.data.today = await api('POST', '/api/crew/' + kind, body || {}); S.check = {}; S.shot = null; S.photoFail = null; }
     catch (e) {
       if (e.code === 'location_consent') { S.busy = false; render(); return sheetAsk('Share your location?', e.message, 'I agree. Start my route', function () { act(kind, Object.assign({}, body, { locationOk: true })); }, 'Not now'); }
       if (e.code !== 'location_consent') toast(e.message);
@@ -467,11 +469,18 @@ table.t tr.click:hover td{background:var(--bg2)}
     } else {
       out += '<div style="border-top:1px solid var(--line);padding-top:14px"><span class="lbl">Checklist</span>' +
         chk('scoop', 'Scooped every pile') + (spray ? chk('spray', 'Sprayed') : '') + chk('latch', 'Latched and pulled the gate') + '<p style="color:var(--mute);font-size:14px;margin:12px 0 0">Tap each box. Take the gate photo. The next yard opens on its own.</p></div><div style="height:8px"></div>';
-      var hasPhoto = cur.photo_path || S.shot;
+      var pw = photoWait();
+      if (!S.shot && !cur.photo_path && pw && String(pw.sid) === String(cur.id) && !S.busy) { S.shot = pw.data; S.photoFail = S.photoFail || { sid: cur.id, msg: 'This photo was not sent yet.' }; }
+      var failed = S.photoFail && String(S.photoFail.sid) === String(cur.id) && !cur.photo_path;
+      var hasPhoto = cur.photo_path || (S.shot && !failed && !S.busy);
       if (S.shot) out += '<img class="shot" alt="Gate photo" src="' + S.shot + '">';
       else if (cur.photo_path) out += '<p class="ok mono" style="font-size:12px;letter-spacing:.14em;margin:14px 0 0">✓ GATE PHOTO SAVED</p>';
       out += '<input id="cam" type="file" accept="image/*" capture="environment" hidden>' +
-        '<div class="dock">' + (hasPhoto
+        (failed ? '<div style="border:1px solid var(--bad);padding:12px;margin-top:12px"><b style="color:var(--bad)">Photo not sent</b><p style="font-size:14px;margin:6px 0 0">' + h(S.photoFail.msg) + ' The picture is safe on this phone. Check your signal and send it again.</p></div>' : '') +
+        (S.busy && S.shot && !cur.photo_path ? '<p class="mono" style="font-size:12px;letter-spacing:.14em;color:var(--mute);margin:12px 0 0">SENDING PHOTO…</p>' : '') +
+        '<div class="dock">' + (failed
+          ? '<button class="btn" data-a="resend">Send photo again</button><div style="display:flex;justify-content:space-between"><button class="link" data-a="photo">Retake photo</button><button class="link" data-a="cant">Can\'t service</button></div>'
+          : hasPhoto
           ? '<button class="btn" data-a="done"' + (S.busy || !ready ? ' disabled' : '') + '>' + (ready ? 'Done, next yard' : 'Tap each box above') + '</button>' +
             '<div style="display:flex;justify-content:space-between"><button class="link" data-a="photo">Retake photo</button><button class="link" data-a="cant">Can\'t service</button></div>'
           : '<button class="btn" data-a="photo"' + (S.busy || !ready ? ' disabled' : '') + '>' + (ready ? 'Take gate photo' : 'Tap each box above') + '</button>' +
@@ -485,11 +494,30 @@ table.t tr.click:hover td{background:var(--bg2)}
       return '<li><span class="n">' + String(i + 1).padStart(2, '0') + '</span><div><div class="a">' + h(s.customer.address) + '</div><div class="s">' + h(s.customer.name) + (s.customer.gate_code ? ' · gate ' + h(s.customer.gate_code) : '') + '</div></div>' + tag(s.status) + '</li>';
     }).join('') + '</ul>';
   }
+  // The gate photo is our proof of the visit, so it is never thrown away. It is kept on the phone until the server says it
+  // is saved. A weak signal gets three tries on its own. If it still fails the picture stays on screen with Send photo again.
+  var PKEY = 'apw_photo_wait';
+  function photoWait() { try { return JSON.parse(localStorage.getItem(PKEY) || 'null'); } catch (e) { return null; } }
+  function photoKeep(v) { try { if (v) localStorage.setItem(PKEY, JSON.stringify(v)); else localStorage.removeItem(PKEY); } catch (e) { } }
+  async function sendPhoto(sid, data) {
+    if (S.busy) return;
+    S.shot = data; S.photoFail = null; S.busy = true; photoKeep({ sid: sid, data: data, day: (S.data.today || {}).day }); render();
+    var okSave = false, last = null;
+    for (var k = 0; k < 3 && !okSave; k++) {
+      try { await api('POST', '/api/crew/photo', { stopId: sid, image: data }); okSave = true; }
+      catch (e) { last = e; if (e.status === 400 || e.status === 401 || e.status === 404) break; await new Promise(function (r) { setTimeout(r, 1200 * (k + 1)); }); }
+    }
+    S.busy = false;
+    if (!okSave) { S.photoFail = { sid: sid, msg: (last && last.message) || 'The photo did not send.' }; render(); return; }
+    photoKeep(null); var cur = current(); if (cur && cur.id === sid) cur.photo_path = 'saved';
+    render();
+    photoDone(sid); // the photo is the last step: the yard is done and the next yard opens
+  }
   async function photoDone(sid) { await act('done', { stopId: sid }); toast(current() ? 'Done. Here is your next yard.' : 'Done. That was the last yard.'); }
   function photoPick() {
     var cam = document.getElementById('cam'); if (!cam) return;
     // The demo has no camera to count on, so it uses a sample gate photo and moves on the same way.
-    if (DEMO) { var id0 = current().id; S.shot = '/assets/img/gate-photo.jpg'; S.busy = true; render(); return setTimeout(async function () { await api('POST', '/api/crew/photo', { stopId: id0 }); S.busy = false; photoDone(id0); }, 900); }
+    if (DEMO) return sendPhoto(current().id, '/assets/img/gate-photo.jpg');
     cam.onchange = function () {
       var f = cam.files && cam.files[0]; if (!f) return;
       var img = new Image(), url = URL.createObjectURL(f);
@@ -499,13 +527,8 @@ table.t tr.click:hover td{background:var(--bg2)}
         cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
         URL.revokeObjectURL(url);
         var data = cv.toDataURL('image/jpeg', 0.8);
-        S.shot = data; S.busy = true; render();
-        var sid = current().id, saved = false;
-        try { await api('POST', '/api/crew/photo', { stopId: sid, image: data }); saved = true; var cur = current(); if (cur) cur.photo_path = 'saved'; }
-        catch (e) { S.shot = null; toast(e.message); }
-        S.busy = false; render();
-        // The photo is the last step. Once it is saved the yard is done and the next yard opens. No extra tap.
-        if (saved) photoDone(sid);
+        if (data.length > 2600000) data = cv.toDataURL('image/jpeg', 0.6); // keep it well under the 3 MB limit
+        sendPhoto(current().id, data);
       };
       // A file the phone cannot open as a picture: say so, never fail quietly.
       img.onerror = function () { URL.revokeObjectURL(url); toast('That photo did not open. Take it again.'); };
@@ -568,6 +591,7 @@ table.t tr.click:hover td{background:var(--bg2)}
         if (a === 'end') return act('end');
         if (a === 'arrive') return act('arrive', { stopId: cur.id, lat: gps.pos && gps.pos.latitude, lng: gps.pos && gps.pos.longitude, accuracy: gps.pos && gps.pos.accuracy });
         if (a === 'photo') return photoPick();
+        if (a === 'resend') return sendPhoto(cur.id, S.shot);
         if (a === 'done') return act('done', { stopId: cur.id });
         if (a === 'nophoto') return sheetAsk('No gate photo?', 'No gate photo means this visit is free for the customer. Take the photo if you can.', 'Done with no photo', function () { act('done', { stopId: cur.id, noPhoto: true }); }, 'Go back and take the photo');
         if (a === 'cant') return sheetCant();
@@ -669,6 +693,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (d.routes.length) out += '<div class="sec"><div class="row2" style="max-width:640px"><button class="btn ghost sm" style="width:100%" data-o="plan">Add missing yards</button><button class="btn ghost sm" style="width:100%" data-o="night">Get tomorrow\'s texts ready</button></div></div>';
     return out;
   }
+  function hm(m) { m = Math.max(0, Math.round(m || 0)); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' hr' + (m % 60 ? ' ' + (m % 60) + ' min' : ''); }
   // Move a group of yards to another day. Shows how full each of the next days is, so nobody gets overloaded.
   async function sheetMove(routeId) {
     var d = S.data.day, r = d.routes.filter(function (x) { return x.id === routeId; })[0], ids = Object.keys(S.pick.ids).filter(function (k) { return S.pick.ids[k]; });
@@ -679,14 +704,14 @@ table.t tr.click:hover td{background:var(--bg2)}
       el.innerHTML = '<div class="pane" role="dialog" aria-modal="true"><div class="lbl">' + h(r.staff ? r.staff.name : 'Route') + ', ' + h(dayLabel(d.day)) + '</div><p class="big" style="font-size:26px">Move ' + ids.length + ' yard' + (ids.length === 1 ? '' : 's') + '</p>' +
         '<span class="lbl" style="display:block;margin-top:6px">To which day?</span><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px">' +
         loads.days.filter(function (x) { return x.day !== d.day; }).map(function (x) { var after = x.yards + ids.length, bad = after > loads.cap;
-          return '<button data-to="' + x.day + '" style="text-align:left;padding:10px;min-height:64px;cursor:pointer;background:transparent;color:inherit;font:inherit;border:1px solid ' + (st.to === x.day ? 'var(--accent)' : 'var(--line)') + '"><b>' + h(dayLabel(x.day).replace(',', '')) + '</b>' + (loads.best === x.day ? ' <span class="tag ok" style="font-size:9px;padding:1px 4px">Best fit</span>' : '') + '<br><span class="mono" style="font-size:11px;color:' + (bad ? 'var(--bad)' : 'var(--mute)') + '">' + x.yards + ' now, ' + after + ' after</span>' + (x.addMiles != null ? '<br><span class="mono" style="font-size:11px;color:var(--mute)">+' + x.addMiles + ' mi, +' + x.addMinutes + ' min</span>' : '') + '</button>'; }).join('') + '</div>' +
-        '<p style="color:var(--mute);font-size:13px;margin:8px 0 0">The limit is ' + loads.cap + ' yards a day. Red means that day would go over. Miles and minutes are the extra driving that day.</p>' +
+          return '<button data-to="' + x.day + '" style="text-align:left;padding:10px;min-height:64px;cursor:pointer;background:transparent;color:inherit;font:inherit;border:1px solid ' + (st.to === x.day ? 'var(--accent)' : 'var(--line)') + '"><b>' + h(dayLabel(x.day).replace(',', '')) + '</b>' + (loads.best === x.day ? ' <span class="tag ok" style="font-size:9px;padding:1px 4px">Best fit</span>' : '') + '<br><span class="mono" style="font-size:11px;color:' + (bad ? 'var(--bad)' : 'var(--mute)') + '">' + x.yards + ' now, ' + after + ' after</span>' + (x.addMiles != null ? '<br><span class="mono" style="font-size:11px;color:var(--mute)">+' + x.addMiles + ' mi, +' + hm(x.addMinutes) + '</span>' : '') + '</button>'; }).join('') + '</div>' +
+        '<p style="color:var(--mute);font-size:13px;margin:8px 0 0">The limit is ' + loads.cap + ' yards a day. Red means that day would go over. Time is the extra driving at ' + ((loads.rules || {}).mph || 30) + ' mph plus ' + ((loads.rules || {}).yard || 10) + ' minutes a yard, ' + ((loads.rules || {}).first || 20) + ' for a first visit.</p>' +
         (function () { var t = st.to && loads.days.filter(function (x) { return x.day === st.to; })[0]; if (!t) return '';
           var over = t.yards + ids.length > loads.cap, best = loads.best && loads.best !== st.to ? loads.days.filter(function (x) { return x.day === loads.best; })[0] : null;
           return '<div style="border:1px solid ' + (over ? 'var(--bad)' : 'var(--accent)') + ';padding:12px;margin-top:14px"><b>Are you sure?</b><p style="font-size:14px;margin:6px 0 0">' +
-            (t.addMiles != null ? 'This adds <b>' + ids.length + ' yard' + (ids.length === 1 ? '' : 's') + '</b>, <b>' + t.addMiles + ' miles</b> and about <b>' + t.addMinutes + ' minutes</b> of driving to ' + h(t.dayName) + '. ' : 'This adds <b>' + ids.length + ' yard' + (ids.length === 1 ? '' : 's') + '</b> to ' + h(t.dayName) + '. ') +
+            (t.addMiles != null ? 'This adds <b>' + ids.length + ' yard' + (ids.length === 1 ? '' : 's') + '</b>, <b>' + t.addMiles + ' miles</b> and about <b>' + hm(t.addMinutes) + '</b> to ' + h(t.dayName) + ' (' + hm(t.driveMinutes || 0) + ' driving, ' + hm(t.yardMinutes || 0) + ' in the yards' + (loads.firsts ? ', ' + loads.firsts + ' first visit' + (loads.firsts === 1 ? '' : 's') : '') + '). ' : 'This adds <b>' + ids.length + ' yard' + (ids.length === 1 ? '' : 's') + '</b> to ' + h(t.dayName) + '. ') +
             h(t.dayName) + ' goes from ' + t.yards + ' to ' + (t.yards + ids.length) + ' yards' + (over ? ', which is <b style="color:var(--bad)">over the limit of ' + loads.cap + '</b>' : '') + '.' +
-            (loads.saves ? ' ' + h(DAYS[new Date(d.day + 'T19:00:00Z').getUTCDay()]) + ' gets ' + loads.saves.miles + ' miles and about ' + loads.saves.minutes + ' minutes shorter.' : '') +
+            (loads.saves ? ' ' + h(DAYS[new Date(d.day + 'T19:00:00Z').getUTCDay()]) + ' gets ' + loads.saves.miles + ' miles and about ' + hm(loads.saves.minutes) + ' shorter.' : '') +
             (best && t.addMiles != null && best.addMiles < t.addMiles ? ' <b>' + h(best.dayName) + ' is a better fit:</b> only ' + best.addMiles + ' more miles.' : '') + '</p></div>'; })() +
         '<span class="lbl" style="display:block;margin-top:16px">For how long?</span><div class="chips" style="margin-top:8px"><button class="chip' + (st.forever ? '' : ' on') + '" data-fv="0">Just this visit</button><button class="chip' + (st.forever ? ' on' : '') + '" data-fv="1">Every week from now on</button></div>' +
         '<p style="color:var(--mute);font-size:13px;margin:8px 0 0">' + (st.forever ? 'This changes the customer\'s regular day. Each one gets an email with the new day.' : 'Only this visit moves. Next week they are back on their regular day.') + '</p>' +
@@ -870,7 +895,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     var order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     dayNames.sort(function (a, b) { return order.indexOf(a) - order.indexOf(b); });
     out += '<div class="sec" style="overflow-x:auto"><table class="t"><thead><tr><th style="text-align:left">Scooper</th>' + dayNames.map(function (d) { return '<th style="text-align:left">' + d.slice(0, 3) + '</th>'; }).join('') + '</tr></thead><tbody>' + names.map(function (n) {
-      return '<tr><td><b>' + h(n) + '</b></td>' + dayNames.map(function (d) { var x = w.slots.filter(function (z) { return z.name === n && z.dayName === d; })[0]; var xi = x ? w.slots.indexOf(x) : -1; return '<td class="mono" style="font-size:13px;white-space:nowrap;padding:4px">' + (x ? '<button data-slot="' + xi + '" style="display:block;width:100%;text-align:left;background:transparent;color:inherit;font:inherit;cursor:pointer;padding:8px;min-height:44px;border:1px solid ' + (o.sel === xi ? 'var(--accent)' : 'var(--line)') + '"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:' + DAYCOL[x.day] + '"></span><b>' + x.yards + '</b> yards<br><span style="color:var(--mute)">' + x.miles + ' mi</span>' + (x.towns ? '<br><span style="color:var(--mute);white-space:normal;font-size:11px">' + h(x.towns) + '</span>' : '') + '</button>' : '<span style="color:var(--mute)">off</span>') + '</td>'; }).join('') + '</tr>';
+      return '<tr><td><b>' + h(n) + '</b></td>' + dayNames.map(function (d) { var x = w.slots.filter(function (z) { return z.name === n && z.dayName === d; })[0]; var xi = x ? w.slots.indexOf(x) : -1; return '<td class="mono" style="font-size:13px;white-space:nowrap;padding:4px">' + (x ? '<button data-slot="' + xi + '" style="display:block;width:100%;text-align:left;background:transparent;color:inherit;font:inherit;cursor:pointer;padding:8px;min-height:44px;border:1px solid ' + (o.sel === xi ? 'var(--accent)' : 'var(--line)') + '"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:' + DAYCOL[x.day] + '"></span><b>' + x.yards + '</b> yards<br><span style="color:var(--mute)">' + x.miles + ' mi' + (x.minutes ? '<br>' + hm(x.minutes) : '') + '</span>' + (x.towns ? '<br><span style="color:var(--mute);white-space:normal;font-size:11px">' + h(x.towns) + '</span>' : '') + '</button>' : '<span style="color:var(--mute)">off</span>') + '</td>'; }).join('') + '</tr>';
     }).join('') + '</tbody></table></div>';
     var sel = o.sel != null ? w.slots[o.sel] : null;
     out += '<div class="sec"><div class="daynav"><h3 style="margin:0">' + (sel ? h(sel.name) + ', ' + h(sel.dayName) : 'The whole week on the map') + '</h3>' + (sel ? '<button class="chip" data-slot="-1">Show the whole week</button>' : '') + '</div>' +

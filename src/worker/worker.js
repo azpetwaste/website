@@ -635,7 +635,10 @@ function miles(a, b) {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
-const driveMin = (mi) => Math.max(1, Math.round(mi * 1.35 / 25 * 60)); // road miles at about 25 mph through neighborhoods
+// Joe's numbers (Nov 2026): 30 mph on neighborhood roads, 10 minutes in a yard, 20 minutes the first time we service a yard.
+const MPH = 30, YARD_MIN = 10, FIRST_MIN = 20;
+const driveMin = (mi) => Math.max(1, Math.round(mi * 1.35 / MPH * 60)); // straight line miles to road minutes
+const roadMin = (roadMiles) => roadMiles / MPH * 60; // miles that are already road miles
 
 async function addLead(env, lead) {
   try { await db(env, 'POST', 'leads', [lead], 'return=minimal'); return true; } catch (e) { console.error('lead not saved', e); return false; }
@@ -922,9 +925,14 @@ async function crewPhoto(s, env, b) {
   const bin = Uint8Array.from(atob(m[2]), (ch) => ch.charCodeAt(0));
   if (bin.length > 3 * 1024 * 1024) return fail(400, 'That photo is too big. Take it again.');
   const path = st.day + '/' + st.id + '-' + newCode().toLowerCase() + '.' + (m[1] === 'image/png' ? 'png' : m[1] === 'image/webp' ? 'webp' : 'jpg');
-  await storage(env, 'POST', 'object/gate-photos/' + path, bin, m[1]);
+  // The gate photo is our proof of the visit. Save it, try once more if the save fails, then prove the file is really
+  // there by asking storage for a link to it. Only then is the stop marked as having a photo.
+  let saved = false;
+  for (let k = 0; k < 2 && !saved; k++) { try { await storage(env, 'POST', 'object/gate-photos/' + path, bin, m[1]); saved = true; } catch (e) { console.error('photo save try ' + (k + 1), e); } }
+  const proof = saved ? await photoUrl(env, path) : null;
+  if (!proof) { await logError(env, 'server', '/api/crew/photo', 'Gate photo did not save', 'stop ' + st.id).catch(() => {}); return fail(502, 'The photo did not save. Tap Send photo again.'); }
   await db(env, 'PATCH', 'stops?id=eq.' + st.id, { photo_path: path, no_photo: false }, 'return=minimal');
-  return ok({ ok: true });
+  return ok({ ok: true, bytes: bin.length });
 }
 async function crewDone(s, env, b) {
   const st = await myStop(s, env, b.stopId);
@@ -1165,7 +1173,7 @@ function weekPlan(list, staff, cap, days, start) {
       if (!here.length) continue;
       const who = staff[t];
       slots.push({ day: use[k], dayName: DAYS[use[k]], tech: t + 1, staffId: who ? who.id : null, name: who ? who.name : 'Open route ' + (t + 1 - staff.length),
-        yards: weekYards(here.map((c) => ({ plan: c.plan, eow_week: set[c.id].eow_week }))), homes: here.length, towns: townsOf(here), miles: Math.round(dayMiles(here) * 10) / 10, pts: slotPts(here, start) });
+        yards: weekYards(here.map((c) => ({ plan: c.plan, eow_week: set[c.id].eow_week }))), homes: here.length, towns: townsOf(here), miles: Math.round(dayMiles(here) * 10) / 10, minutes: Math.round(roadMin(dayMiles(here)) + weekYards(here.map((c) => ({ plan: c.plan, eow_week: set[c.id].eow_week }))) * YARD_MIN), pts: slotPts(here, start) });
     }
   }
   for (const c of tour) set[c.id].scooper_id = (staff[set[c.id].t] || {}).id || null;
@@ -1248,8 +1256,13 @@ async function officeWeek(env, b) {
   return ok(out);
 }
 // A sample week anyone can look at: made up yards across our ZIP codes, planned by the same code the office uses. Nothing is saved.
+// The sample week is the same every time for the same numbers, so each answer is worked out once and kept. A stranger
+// hammering this open address cannot make the server plan a thousand yards over and over.
+const demoMemo = new Map();
 function demoWeek(env, q) {
   const n = Math.min(1000, Math.max(20, parseInt(q.get('n'), 10) || 500)), cap = dayCap(env, q.get('cap')), days = workDays(env, q.get('days'));
+  const memoKey = [n, cap, days.join('')].join('|');
+  if (demoMemo.has(memoKey)) return new Response(demoMemo.get(memoKey), { status: 200, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'public, max-age=300' } });
   const BOX = [['85326', 0.30, 33.36, 33.44, -112.62, -112.50], ['85396', 0.16, 33.47, 33.52, -112.54, -112.47], ['85338', 0.20, 33.40, 33.46, -112.42, -112.34],
     ['85395', 0.14, 33.46, 33.50, -112.42, -112.36], ['85340', 0.10, 33.48, 33.52, -112.38, -112.33], ['85355', 0.10, 33.54, 33.60, -112.48, -112.40]];
   let seed = 7;
@@ -1265,7 +1278,9 @@ function demoWeek(env, q) {
   for (const c of list) { const a = (ZIPS[c.zip] || {}).area; (oneDay[a] = oneDay[a] || []).push(c); }
   const names = {};
   list.forEach((c, k) => { names[c.id] = 'Yard ' + (k + 1) + ' · ' + ((ZIPS[c.zip] || {}).name || c.zip) + (c.plan === 'twice' ? ' · twice a week' : c.plan === 'eow' ? ' · every other week' : ''); });
-  return ok(Object.assign(weekView(env, weekSummary(p, 0, list.length), names), { sample: true, mode: 'all', oldWay: { biggestDay: Math.max(...Object.values(oneDay).map((x) => x.length)), note: 'One day for each area, one scooper' } }));
+  const body = JSON.stringify(Object.assign(weekView(env, weekSummary(p, 0, list.length), names), { sample: true, mode: 'all', oldWay: { biggestDay: Math.max(...Object.values(oneDay).map((x) => x.length)), note: 'One day for each area, one scooper' } }));
+  if (demoMemo.size < 60) demoMemo.set(memoKey, body);
+  return new Response(body, { status: 200, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'public, max-age=300' } });
 }
 
 async function defaultScooper(env) {
@@ -1417,6 +1432,9 @@ async function officeLoads(env, from, staffId, idList) {
   const picked = ids.length ? await db(env, 'GET', 'stops?id=in.(' + ids.join(',') + ')&select=id,day,customer_id,customer:customers(lat,lng)') : [];
   const movePts = picked.map((x) => ({ id: x.customer_id, lat: x.customer && x.customer.lat, lng: x.customer && x.customer.lng })).filter(pinned);
   const moveSet = new Set(picked.map((x) => x.customer_id)), fromDay = (picked[0] || {}).day || null, home = routeStart(env);
+  // Time in the yards being moved: 10 minutes each, 20 for a yard we have never finished a visit at.
+  const served = new Set(picked.length ? (await db(env, 'GET', 'stops?status=eq.done&customer_id=in.(' + [...moveSet].join(',') + ')&select=customer_id')).map((x) => x.customer_id) : []);
+  const firsts = [...moveSet].filter((id) => !served.has(id)).length, yardMin = (moveSet.size - firsts) * YARD_MIN + firsts * FIRST_MIN;
   // Road miles for one scooper's day, from the truck start and back when we know it.
   const dayMi = (list) => {
     const pins = shortOrder(list.filter(pinned), home).filter(pinned);
@@ -1433,14 +1451,14 @@ async function officeLoads(env, from, staffId, idList) {
     if (movePts.length) {
       const pts = mine.map((x) => ({ id: x.customer_id, lat: x.customer && x.customer.lat, lng: x.customer && x.customer.lng })).concat(due.map((c) => ({ id: c.id, lat: c.lat, lng: c.lng })));
       const before = dayMi(pts);
-      if (d === fromDay) { const rest = dayMi(pts.filter((x) => !moveSet.has(x.id))); saves = { miles: Math.round((before - rest) * 10) / 10, minutes: Math.round((before - rest) / 25 * 60) }; row.miles = Math.round(before * 10) / 10; }
-      else { const seen = new Set(pts.map((x) => x.id)), after = dayMi(pts.concat(movePts.filter((x) => !seen.has(x.id)))); row.miles = Math.round(before * 10) / 10; row.addMiles = Math.round((after - before) * 10) / 10; row.addMinutes = Math.round((after - before) / 25 * 60); }
+      if (d === fromDay) { const rest = dayMi(pts.filter((x) => !moveSet.has(x.id))); saves = { miles: Math.round((before - rest) * 10) / 10, driveMinutes: Math.round(roadMin(before - rest)), minutes: Math.round(roadMin(before - rest) + yardMin) }; row.miles = Math.round(before * 10) / 10; }
+      else { const seen = new Set(pts.map((x) => x.id)), after = dayMi(pts.concat(movePts.filter((x) => !seen.has(x.id)))); row.miles = Math.round(before * 10) / 10; row.addMiles = Math.round((after - before) * 10) / 10; row.driveMinutes = Math.round(roadMin(after - before)); row.yardMinutes = yardMin; row.addMinutes = Math.round(roadMin(after - before) + yardMin); }
     }
     return row;
   });
   // The day that takes these yards for the least extra driving and stays under the limit.
   const fits = out.filter((x) => x.addMiles != null && x.works && x.yards + movePts.length <= dayCap(env)).sort((x, y) => x.addMiles - y.addMiles);
-  return ok({ cap: dayCap(env), days: out, saves, best: fits.length ? fits[0].day : null, moving: movePts.length });
+  return ok({ cap: dayCap(env), days: out, saves, best: fits.length ? fits[0].day : null, moving: movePts.length, firsts, yardMinutes: yardMin, rules: { mph: MPH, yard: YARD_MIN, first: FIRST_MIN } });
 }
 // Office: move a group of yards to another day in one go. "forever" also changes the customer's regular day.
 // The old stop stays on its day as skipped with a note, so the day builder does not put the yard back.

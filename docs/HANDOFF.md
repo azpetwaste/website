@@ -203,3 +203,15 @@ Joe: "our brain on this app needs to always be optimizing routes." A move must a
 - Minutes are driving only, at 25 mph on straight line miles times 1.35. Time in the yard is not counted. Joe has not given a minutes per yard number.
 - **New customers.** A sign up still just gets added. When the day builder adds a yard to a route that already has yards and has not started, the whole waiting route is put back in the best order (`reorderRoute` from `planDay`), so the new yard is not tacked on the end. A yard with an office set stop order keeps it and goes first. A live route is left alone.
 - Tests: desk 82, signup10 38 (3 new for the late yard: 31.9 miles in order against 41.5 tacked on the end).
+
+### Nov 9, 2026, 10 pm. Time rules, the photo cannot be lost, video on the sign in screen.
+- **Joe's time rules:** 30 mph on neighborhood roads, 10 minutes in a yard, 20 minutes for a first service (`MPH`, `YARD_MIN`, `FIRST_MIN` in the worker). The move sheet shows total time added (driving plus yard time, first visits counted at 20). Plan the week shows time for each day. The truck link fallback arrival time uses 30 mph too.
+- **No gate photo means the visit is free.** Joe: we do not charge it, the refund is $22 to $25 depending on the plan. It is done by hand by the office. No code refunds anyone. Do not hard code an amount.
+- **The photo is the one thing that must work.** Joe wants one photo for now, not two.
+  - Phone: the picture is kept on the phone (`localStorage` key `apw_photo_wait`) until the server confirms it. Three tries on its own. If it still fails the picture stays on screen with a red "Photo not sent" box and "Send photo again". It survives a reload. Only when it is saved does the yard finish.
+  - Server (`crewPhoto`): saves, tries once more if the save fails, then proves the file is in storage by asking for a signed link. Only then is `photo_path` set. If not, it answers 502 and writes a row in the crash log.
+  - Test hook: `/crew/?demo&photofail=4` makes the first 4 photo saves fail.
+  - Live storage on Nov 9: bucket `gate-photos` is private, 3 MB limit, jpeg, png and webp only. It holds 0 files. No real photo has ever been uploaded on the live site. The first real proof is the signed in staff test.
+- **Video before sign in.** The `/crew` sign in screen has "Watch how it works, 2 minutes" (`static/crew/how-it-works.mp4`, narrated with a computer voice, built from live demo screens).
+- The open sample week address keeps each answer in memory, so it cannot be used to make the server plan 1,000 yards over and over.
+- Tests: desk 92 (10 new for the photo).

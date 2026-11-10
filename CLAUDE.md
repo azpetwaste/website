@@ -15,7 +15,8 @@ Read this first. New to the field desk (Joe calls it the Field App)? Read `docs/
 - Never paste or commit a key, token or password. Keys live in Cloudflare and Supabase settings only.
 - Do not send texts or place calls. Twilio is not approved. Texts wait in the `messages` table as `queued` and staff send them by hand.
 - Do not create Stripe products, prices, webhooks or charges by hand. Prices are made by the site from lookup keys.
-- Do not invent the missed photo credit amount. A visit with no gate photo is flagged `no_photo` for the office.
+- A visit with no gate photo is free for the customer. Joe's refund is $22 to $25 depending on the plan, done by hand by the office. Do not hard code an amount and do not refund by code. The visit is flagged `no_photo` for the office.
+- The gate photo must never be lost. Keep the three parts: the phone keeps the picture until the server confirms it, the server proves the file is in storage before it marks the stop, and a failed save shows "Send photo again".
 - Keep `623.309.6104` as the call and text line on the site.
 - The truck link map is Google Maps Platform: Maps JavaScript API in the browser, Routes API on the server for the road line and traffic arrival time. Do not switch to Mapbox (its terms need a separate license for apps used in vehicles) or OpenStreetMap tiles.
 - The scooper agrees to location sharing once, on the first Start route (`staff.location_ok_at`). Keep that step.

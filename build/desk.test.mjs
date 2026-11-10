@@ -136,6 +136,7 @@ async function authUser(email) {
 const reply = (data, status = 200) => new Response(data == null ? '' : JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
 const realFetch = globalThis.fetch;
 const mailBodies = [];
+let failUploads = 0;
 globalThis.fetch = async (u, init = {}) => {
   u = String(u);
   const m = init.method || 'GET';
@@ -154,8 +155,8 @@ globalThis.fetch = async (u, init = {}) => {
     return reply({ access_token: t, refresh_token: 'r_' + t, expires_in: 3600, user: { id, email: b.email } });
   }
   if (u === SB + '/auth/v1/user') { const t = String((init.headers || {}).authorization || '').slice(7); return users[t] ? reply(users[t]) : reply({ msg: 'bad' }, 401); }
-  if (u.startsWith(SB + '/storage/v1/object/sign/')) return reply({ signedURL: '/object/sign/' + u.split('/object/sign/')[1] + '?token=x' });
-  if (u.startsWith(SB + '/storage/v1/object/')) { files[u.split('/object/')[1]] = init.body.length; return reply({ Key: 'ok' }); }
+  if (u.startsWith(SB + '/storage/v1/object/sign/')) { const k = u.split('/object/sign/')[1]; return files[k] != null ? reply({ signedURL: '/object/sign/' + k + '?token=x' }) : reply({ error: 'Object not found' }, 404); }
+  if (u.startsWith(SB + '/storage/v1/object/')) { if (failUploads > 0) { failUploads--; return reply({ error: 'storage is down' }, 500); } files[u.split('/object/')[1]] = init.body.length; return reply({ Key: 'ok' }); }
   if (u === 'https://routes.googleapis.com/directions/v2:computeRoutes') { routesCalls++; return reply({ routes: [{ duration: '420s', distanceMeters: 2500, polyline: { encodedPolyline: '_p~iF~ps|U_ulLnnqC' } }] }); }
   if (u.startsWith('https://geocoding.geo.census.gov/')) return reply({ result: { addressMatches: [{ coordinates: { x: -112.5501, y: 33.4801 } }] } });
   if (u.startsWith('https://api.resend.com/')) { mailBodies.push(String(init.body || '')); return reply({ id: 'm1' }); }
@@ -305,8 +306,35 @@ ok('done without photo refused', r.status === 400 && /photo/.test(r.d.error), r)
 r = await call('/api/crew/arrive', 'POST', { stopId: samStop.id }, mt);
 ok('arrived', r.d.stops.find((s) => s.id === samStop.id).status === 'here');
 const jpg = 'data:image/jpeg;base64,' + Buffer.from('fake jpeg bytes').toString('base64');
+// The gate photo is the proof of the visit. These checks are the ones that must never fail.
+const photoOf = async () => (await db.query('select photo_path, no_photo from public.stops where id = $1', [samStop.id])).rows[0];
+r = await call('/api/crew/photo', 'POST', { stopId: samStop.id, image: 'data:text/html;base64,' + Buffer.from('<b>hi</b>').toString('base64') }, mt);
+ok('a file that is not a picture is refused', r.status === 400 && !(await photoOf()).photo_path, r.d);
+r = await call('/api/crew/photo', 'POST', { stopId: samStop.id, image: 'data:image/jpeg;base64,' + Buffer.alloc(3 * 1024 * 1024 + 10, 1).toString('base64') }, mt);
+ok('a photo over 3 MB is refused with a plain message', r.status === 400 && /too big/.test(r.d.error || ''), r.d.error);
+r = await call('/api/crew/photo', 'POST', { stopId: samStop.id, image: jpg }, null);
+ok('nobody can send a photo without signing in', r.status === 401);
+failUploads = 2;
 r = await call('/api/crew/photo', 'POST', { stopId: samStop.id, image: jpg }, mt);
+ok('storage down twice: the app is told the photo did not save', r.status === 502 && /did not save/.test(r.d.error || ''), r.d);
+ok('and the stop is NOT marked as having a photo', !(await photoOf()).photo_path);
+r = await call('/api/crew/done', 'POST', { stopId: samStop.id }, mt);
+ok('and the yard still cannot be finished without the photo', r.status === 400);
+failUploads = 1;
+r = await call('/api/crew/photo', 'POST', { stopId: samStop.id, image: jpg }, mt);
+ok('storage fails once: the server tries again and the photo saves', r.status === 200 && !!(await photoOf()).photo_path && r.d.bytes > 0, r.d);
+await db.query('update public.stops set photo_path = null where id = $1', [samStop.id]);
+for (const k of Object.keys(files)) delete files[k];
+r = await call('/api/crew/photo', 'POST', { stopId: samStop.id, image: jpg }, mt);
+ok('the saved photo is proven to be in storage before the stop is marked', r.status === 200 && Object.keys(files).some((k) => k.startsWith('gate-photos/')));
 ok('gate photo saved to private bucket', r.status === 200 && Object.keys(files).some((k) => k.startsWith('gate-photos/')), r.d);
+{
+  const row = await photoOf(), big = 'data:image/jpeg;base64,' + Buffer.alloc(600 * 1024, 7).toString('base64');
+  ok('the stop points at the exact file that was saved', files['gate-photos/' + row.photo_path] != null && row.no_photo === false, row.photo_path);
+  r = await call('/api/crew/photo', 'POST', { stopId: samStop.id, image: big }, mt);
+  const row2 = await photoOf();
+  ok('a retake of a real size photo (600 KB) saves and replaces the link', r.status === 200 && r.d.bytes === 600 * 1024 && row2.photo_path !== row.photo_path && files['gate-photos/' + row2.photo_path] === 600 * 1024, r.d);
+}
 r = await call('/api/crew/done', 'POST', { stopId: samStop.id, note: 'Gate sticks' }, mt);
 const after = r.d.stops;
 ok('done, next stop on the way', after.find((s) => s.id === samStop.id).status === 'done' && after.find((s) => s.id === patStop.id).status === 'on_the_way');
