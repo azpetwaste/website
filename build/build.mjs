@@ -28,6 +28,18 @@ const INS_WAIT = process.env.INS_WAIT ? process.env.INS_WAIT === '1' : Date.now(
 const bfx = (t) => t.replace(/\[\[bf:([\s\S]*?)\|\|([\s\S]*?)\]\]/g, (m, on, off) => (DEAL_ON ? on : off)).replace(/\[\[ins:([\s\S]*?)\|\|([\s\S]*?)\]\]/g, (m, before, after) => (INS_WAIT ? before : after));
 const _write = fs.writeFileSync.bind(fs);
 fs.writeFileSync = (p, data, ...rest) => _write(p, typeof data === 'string' ? bfx(data) : data, ...rest);
+// Google Tag Manager (for Google Ads). Google's own install: the script high in <head>, the noscript frame right after <body>.
+// It is left off My Yard (/account/), where a signed in customer's own details are on screen.
+const GTM_ID = 'GTM-T8GX2H6D';
+const gtmOn = (p) => !!GTM_ID && !/^\/account\//.test(p.route || '');
+const gtmHead = (p) => (gtmOn(p) ? `<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${GTM_ID}');</script>
+<!-- End Google Tag Manager -->
+` : '');
+const gtmBody = (p) => (gtmOn(p) ? `<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${GTM_ID}" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+` : '');
 const readIf = (p, fallback) => (fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : fallback);
 const policyMeta = JSON.parse(readIf(path.join(ROOT, 'content/policies/meta.json'), '{}'));
 const hoods = JSON.parse(readIf(path.join(ROOT, 'research/neighborhoods.json'), '{}'));
@@ -253,7 +265,7 @@ function page(p) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(p.title)}</title>
+${gtmHead(p)}<title>${esc(p.title)}</title>
 <meta name="description" content="${esc(p.description)}">
 <meta name="robots" content="${robots}">
 ${p.index ? `<link rel="canonical" href="${url}">` : ''}
@@ -281,7 +293,7 @@ ${p.fonts}
 ${graph ? `<script type="application/ld+json">${ldjson({ '@context': 'https://schema.org', '@graph': graph })}</script>` : ''}
 </head>
 <body${p.bodyClass ? ` class="${p.bodyClass}"` : ''}>
-<a class="skip" href="#app">Skip to content</a>
+${gtmBody(p)}<a class="skip" href="#app">Skip to content</a>
 ${BF_SKIP.has(p.route) ? '' : '[[bf:' + BF_BAR + '||]]'}
 <div id="app" data-board="${p.board}">${p.body}</div>
 <a class="stf" href="/crew/" rel="nofollow">staff</a>

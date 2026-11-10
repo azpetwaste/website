@@ -133,6 +133,11 @@ This lane is website edits and AEO (showing up in Google and in AI answers). It 
 - **Card marks:** the plain name tiles are gone (Joe did not like them). Payment marks only show when official logo files are in `static/assets/img/brands/`. Joe sent an Adobe Stock preview link as the look he wants. Do not hotlink or copy that preview: it needs a license or the official brand files.
 - New page `/bonded-and-insured/` (46 indexed pages). The footer seals (Bonded, $50,000 bond. Insured, $1,000,000 liability) link to it. Home strip is Bonded, Insured, Family owned.
 
+### Google Tag Manager, Nov 10, 2026
+- Joe asked for Google Tag Manager `GTM-T8GX2H6D` for Google Ads. It is in `build/build.mjs` (`GTM_ID`, `gtmHead`, `gtmBody`): Google's standard container script high in the head and the noscript frame right after the body tag, on every built page except My Yard (`/account/`). The crew app, truck links and staff page do not load it.
+- The privacy policy used to say "No ad trackers." It now says we use Google Tag Manager and Google Ads, what Google gets, and how to opt out. Keep the policy true if more tags are added in the container (for example remarketing or a Meta pixel).
+- Never push a name, address, gate code or card detail into `dataLayer`. Sign up conversion events are not wired yet: the container only sees page views until an event is added on the sign up done step.
+
 ### Rules for this lane
 - Copy: no dashes, short plain words, third grade for customers, seventh grade for SEO pages, one h1 per page. `npm run check` enforces it.
 - Do not claim what we cannot prove. "No one in the industry offers this" stays off the site. The line in use is "The big chains give you one free cleanup or $25 off. We give you a whole month."
