@@ -321,6 +321,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       ['pause_from', 'pause_until', 'scooper_id'].forEach(function (k) { if (k in b) c[k] = b[k] || null; });
       return demoCust(b.id);
     }
+    if (p === '/api/office/photo' && method === 'POST') { var us = D.stops.filter(function (x) { return String(x.id) === String(b.stopId); })[0]; if (us) { us.photo_path = 'demo'; us.no_photo = false; if (us.status !== 'done') { us.status = 'done'; us.done_at = b.takenAt || new Date().toISOString(); } } return demoDay(); }
     if (p === '/api/office/photo') return { url: '/assets/img/gate-photo.jpg' };
     if (p === '/api/office/leads') return { leads: D.leads };
     if (p === '/api/office/lead') {
@@ -475,15 +476,16 @@ table.t tr.click:hover td{background:var(--bg2)}
       var hasPhoto = cur.photo_path || (S.shot && !failed && !S.busy);
       if (S.shot) out += '<img class="shot" alt="Gate photo" src="' + S.shot + '">';
       else if (cur.photo_path) out += '<p class="ok mono" style="font-size:12px;letter-spacing:.14em;margin:14px 0 0">✓ GATE PHOTO SAVED</p>';
-      out += '<input id="cam" type="file" accept="image/*" capture="environment" hidden>' +
+      out += '<input id="cam" type="file" accept="image/*" capture="environment" hidden><input id="lib" type="file" accept="image/*" hidden>' +
         (failed ? '<div style="border:1px solid var(--bad);padding:12px;margin-top:12px"><b style="color:var(--bad)">Photo not sent</b><p style="font-size:14px;margin:6px 0 0">' + h(S.photoFail.msg) + ' The picture is safe on this phone. Check your signal and send it again.</p></div>' : '') +
         (S.busy && S.shot && !cur.photo_path ? '<p class="mono" style="font-size:12px;letter-spacing:.14em;color:var(--mute);margin:12px 0 0">SENDING PHOTO…</p>' : '') +
         '<div class="dock">' + (failed
-          ? '<button class="btn" data-a="resend">Send photo again</button><div style="display:flex;justify-content:space-between"><button class="link" data-a="photo">Retake photo</button><button class="link" data-a="cant">Can\'t service</button></div>'
+          ? '<button class="btn" data-a="resend">Send photo again</button><div style="text-align:center"><button class="link" data-a="upload">Or upload a photo from this phone</button></div><div style="display:flex;justify-content:space-between"><button class="link" data-a="photo">Retake photo</button><button class="link" data-a="cant">Can\'t service</button></div>'
           : hasPhoto
           ? '<button class="btn" data-a="done"' + (S.busy || !ready ? ' disabled' : '') + '>' + (ready ? 'Done, next yard' : 'Tap each box above') + '</button>' +
             '<div style="display:flex;justify-content:space-between"><button class="link" data-a="photo">Retake photo</button><button class="link" data-a="cant">Can\'t service</button></div>'
           : '<button class="btn" data-a="photo"' + (S.busy || !ready ? ' disabled' : '') + '>' + (ready ? 'Take gate photo' : 'Tap each box above') + '</button>' +
+            '<div style="text-align:center"><button class="link" data-a="upload"' + (ready ? '' : ' disabled style="opacity:.4"') + '>Or upload a photo from this phone</button></div>' +
             '<div style="display:flex;justify-content:space-between"><button class="link" data-a="nophoto">No photo</button><button class="link" data-a="cant">Can\'t service</button></div>') + '</div>';
     }
     return out + '</div>';
@@ -499,12 +501,12 @@ table.t tr.click:hover td{background:var(--bg2)}
   var PKEY = 'apw_photo_wait';
   function photoWait() { try { return JSON.parse(localStorage.getItem(PKEY) || 'null'); } catch (e) { return null; } }
   function photoKeep(v) { try { if (v) localStorage.setItem(PKEY, JSON.stringify(v)); else localStorage.removeItem(PKEY); } catch (e) { } }
-  async function sendPhoto(sid, data) {
+  async function sendPhoto(sid, data, takenAt, typed) {
     if (S.busy) return;
-    S.shot = data; S.photoFail = null; S.busy = true; photoKeep({ sid: sid, data: data, day: (S.data.today || {}).day }); render();
+    S.shot = data; S.photoFail = null; S.busy = true; takenAt = takenAt || new Date().toISOString(); photoKeep({ sid: sid, data: data, takenAt: takenAt, typed: !!typed, day: (S.data.today || {}).day }); render();
     var okSave = false, last = null;
     for (var k = 0; k < 3 && !okSave; k++) {
-      try { await api('POST', '/api/crew/photo', { stopId: sid, image: data }); okSave = true; }
+      try { await api('POST', '/api/crew/photo', { stopId: sid, image: data, takenAt: takenAt, manual: !!typed }); okSave = true; }
       catch (e) { last = e; if (e.status === 400 || e.status === 401 || e.status === 404) break; await new Promise(function (r) { setTimeout(r, 1200 * (k + 1)); }); }
     }
     S.busy = false;
@@ -514,28 +516,83 @@ table.t tr.click:hover td{background:var(--bg2)}
     photoDone(sid); // the photo is the last step: the yard is done and the next yard opens
   }
   async function photoDone(sid) { await act('done', { stopId: sid }); toast(current() ? 'Done. Here is your next yard.' : 'Done. That was the last yard.'); }
-  function photoPick() {
-    var cam = document.getElementById('cam'); if (!cam) return;
-    // The demo has no camera to count on, so it uses a sample gate photo and moves on the same way.
-    if (DEMO) return sendPhoto(current().id, '/assets/img/gate-photo.jpg');
+  // Arizona time, written on every gate photo: "Mon, Nov 9, 2026 10:49 AM".
+  function stampText(when) { return new Date(when).toLocaleString('en-US', { timeZone: 'America/Phoenix', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }); }
+  // Reads a picture file, shrinks it to 1600 on the long side, writes the time on it and hands back a JPEG.
+  // Used by the camera, by Upload a photo, and by the office. `typed` means a person set the time, and the photo says so.
+  function readPhoto(f, when, typed, done) {
+    if (!f) return;
+    var img = new Image(), url = URL.createObjectURL(f);
+    img.onload = function () {
+      var max = 1600, sc = Math.min(1, max / Math.max(img.width, img.height));
+      var cv = document.createElement('canvas'); cv.width = Math.round(img.width * sc); cv.height = Math.round(img.height * sc);
+      var g = cv.getContext('2d'); g.drawImage(img, 0, 0, cv.width, cv.height);
+      URL.revokeObjectURL(url);
+      // The time stamp, burned into the picture so it travels with it everywhere.
+      var fs = Math.max(16, Math.round(cv.width / 44)), pad = Math.round(fs * 0.6), line = stampText(when) + (typed ? '  (time entered by staff)' : '');
+      g.font = '600 ' + fs + 'px system-ui, -apple-system, Segoe UI, sans-serif'; g.textBaseline = 'middle';
+      var bh = fs + pad * 2; g.fillStyle = 'rgba(0,0,0,.62)'; g.fillRect(0, cv.height - bh, cv.width, bh);
+      g.fillStyle = '#fff'; g.fillText(line, pad, cv.height - bh / 2);
+      g.textAlign = 'right'; g.fillStyle = '#FF4A1C'; g.fillText('ARIZONA PET WASTE', cv.width - pad, cv.height - bh / 2); g.textAlign = 'left';
+      var data = cv.toDataURL('image/jpeg', 0.8);
+      if (data.length > 2600000) data = cv.toDataURL('image/jpeg', 0.6); // keep it well under the 3 MB limit
+      done(data);
+    };
+    // A file the phone cannot open as a picture: say so, never fail quietly.
+    img.onerror = function () { URL.revokeObjectURL(url); toast('That photo did not open. Try another one.'); };
+    img.src = url;
+  }
+  // Asks what time an uploaded photo was taken. It starts at the time saved in the photo file, which the phone set when
+  // the picture was taken. The person can change it. A changed time is marked as typed by staff.
+  function sheetPhotoTime(f, day, onOk) {
+    var guess = f && f.lastModified ? new Date(f.lastModified) : new Date();
+    var dayOf = function (x) { return new Date(x.getTime() - 7 * 3600e3).toISOString().slice(0, 10); };
+    if (dayOf(guess) !== day) guess = dayOf(new Date()) === day ? new Date() : new Date(day + 'T12:00:00-07:00');
+    var hhmm = new Date(guess.getTime() - 7 * 3600e3).toISOString().slice(11, 16);
+    var el = document.createElement('div'); el.className = 'sheet';
+    el.innerHTML = '<div class="pane" role="dialog" aria-modal="true"><div class="lbl">Gate photo, ' + h(dayLabel(day)) + '</div><p class="big" style="font-size:26px">What time was this photo taken?</p>' +
+      '<p style="color:var(--mute);font-size:14px">We filled in the time saved in the photo. Change it if it is wrong. If you change it, the photo says the time was entered by staff.</p>' +
+      '<label class="fl"><span class="lbl">Time</span><input class="f" id="pt" type="time" value="' + hhmm + '" style="font-size:24px"></label>' +
+      '<div style="height:12px"></div><button class="btn" id="py">Use this time and send</button><button class="btn ghost" id="pn" style="margin-top:8px">Back</button></div>';
+    document.body.appendChild(el);
+    el.querySelector('#pn').onclick = function () { el.remove(); };
+    el.querySelector('#py').onclick = function () {
+      var v = el.querySelector('#pt').value || hhmm, when = new Date(day + 'T' + v + ':00-07:00');
+      if (when.getTime() > Date.now() + 5 * 60e3) return toast('That time has not happened yet.');
+      el.remove(); onOk(when, v !== hhmm);
+    };
+  }
+  // fromLibrary: pick a picture already on the phone (taken with the phone's own camera) in place of the in app camera.
+  function photoPick(fromLibrary) {
+    var cam = document.getElementById(fromLibrary ? 'lib' : 'cam'); if (!cam) return;
+    // The demo has no camera to count on, so the camera button uses a sample gate photo and moves on the same way.
+    if (DEMO && !fromLibrary) return sendPhoto(current().id, '/assets/img/gate-photo.jpg', new Date().toISOString(), false);
     cam.onchange = function () {
       var f = cam.files && cam.files[0]; if (!f) return;
-      var img = new Image(), url = URL.createObjectURL(f);
-      img.onload = async function () {
-        var max = 1600, sc = Math.min(1, max / Math.max(img.width, img.height));
-        var cv = document.createElement('canvas'); cv.width = Math.round(img.width * sc); cv.height = Math.round(img.height * sc);
-        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
-        URL.revokeObjectURL(url);
-        var data = cv.toDataURL('image/jpeg', 0.8);
-        if (data.length > 2600000) data = cv.toDataURL('image/jpeg', 0.6); // keep it well under the 3 MB limit
-        sendPhoto(current().id, data);
-      };
-      // A file the phone cannot open as a picture: say so, never fail quietly.
-      img.onerror = function () { URL.revokeObjectURL(url); toast('That photo did not open. Take it again.'); };
-      img.src = url;
-      cam.value = ''; // so taking a second photo always fires again
+      var sid = current().id, day = (S.data.today || {}).day;
+      // In app camera: the time is right now, set by the app. Upload: ask, starting from the time in the photo file.
+      if (!fromLibrary) { var now = new Date(); readPhoto(f, now, false, function (data) { sendPhoto(sid, data, now.toISOString(), false); }); }
+      else sheetPhotoTime(f, day, function (when, typed) { readPhoto(f, when, typed, function (data) { sendPhoto(sid, data, when.toISOString(), typed); }); });
+      cam.value = ''; // so picking a second photo always fires again
     };
     cam.click();
+  }
+  // Office backup: add a gate photo to a visit by hand, for the day the app did not send one from the yard.
+  function officeUpload(stopId, day) {
+    var inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.hidden = true; document.body.appendChild(inp); // in the page, so every phone opens the picker
+    inp.onchange = function () {
+      var f = inp.files && inp.files[0]; inp.remove(); if (!f) return;
+      sheetPhotoTime(f, day, function (when, typed) {
+        readPhoto(f, when, typed, async function (data) {
+          toast('Sending photo…');
+          for (var k = 0; k < 3; k++) {
+            try { S.data.day = await api('POST', '/api/office/photo', { stopId: stopId, image: data, takenAt: when.toISOString(), manual: typed }); render(); return toast('Gate photo saved, ' + stampText(when)); }
+            catch (e) { if (k === 2 || e.status === 400 || e.status === 404) return toast(e.message); await new Promise(function (r) { setTimeout(r, 1200 * (k + 1)); }); }
+          }
+        });
+      });
+    };
+    inp.click();
   }
   function sheetCant() {
     var cur = current(); if (!cur) return;
@@ -591,7 +648,8 @@ table.t tr.click:hover td{background:var(--bg2)}
         if (a === 'end') return act('end');
         if (a === 'arrive') return act('arrive', { stopId: cur.id, lat: gps.pos && gps.pos.latitude, lng: gps.pos && gps.pos.longitude, accuracy: gps.pos && gps.pos.accuracy });
         if (a === 'photo') return photoPick();
-        if (a === 'resend') return sendPhoto(cur.id, S.shot);
+        if (a === 'upload') return photoPick(true);
+        if (a === 'resend') { var kept = photoWait() || {}; return sendPhoto(cur.id, S.shot, kept.takenAt, kept.typed); }
         if (a === 'done') return act('done', { stopId: cur.id });
         if (a === 'nophoto') return sheetAsk('No gate photo?', 'No gate photo means this visit is free for the customer. Take the photo if you can.', 'Done with no photo', function () { act('done', { stopId: cur.id, noPhoto: true }); }, 'Go back and take the photo');
         if (a === 'cant') return sheetCant();
@@ -738,6 +796,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     el.innerHTML = '<div class="pane acts1"><div class="lbl">' + h(s.customer.name) + ' · ' + h((STATUS[s.status] || [s.status])[0]) + '</div><p class="big" style="font-size:26px;margin-bottom:10px">' + h(s.customer.address) + '</p>' +
       b('see', 'See what the customer sees') + b('copy', 'Copy the customer\'s link') + b('cust', 'Open customer details') +
       (s.photo_path ? b('photo', 'See the gate photo') : '') +
+      (s.status !== 'skipped' && d.day <= d.today ? b('upload', s.photo_path ? 'Upload a new gate photo' : 'Upload a gate photo') : '') +
       (open ? b('skip', 'Skip this visit') + b('up', 'Move earlier in the route') + b('down', 'Move later in the route') +
         team.filter(function (m) { return m.active && (!r || !r.staff || m.id !== r.staff.id); }).map(function (m) { return b('to:' + m.id, 'Give this yard to ' + m.name); }).join('') : '') +
       (s.status === 'skipped' ? b('unskip', 'Put this visit back') : '') +
@@ -751,6 +810,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       if (k === 'see') return window.open('/t/' + s.code, '_blank', 'noopener');
       if (k === 'copy') { try { await navigator.clipboard.writeText(link); toast('Link copied'); } catch (err) { sheetForm('Copy this link', [{ id: 'l', label: 'Link', value: link, readonly: true }]); } return; }
       if (k === 'cust') { el.remove(); return openCustomer(s.customer.id); }
+      if (k === 'upload') { el.remove(); return officeUpload(s.id, d.day); }
       if (k === 'photo') { try { var ph = await api('GET', '/api/office/photo?stop=' + s.id); window.open(ph.url, '_blank', 'noopener'); } catch (err) { toast(err.message); } return; }
       var body = k.indexOf('to:') === 0 ? { id: s.id, action: 'move', staffId: k.slice(3) } : { id: s.id, action: k };
       try { S.data.day = await api('POST', '/api/office/stop', body); toast({ skip: 'Skipped. Tap the yard to put it back.', unskip: 'Visit is back on the route', up: 'Moved earlier', down: 'Moved later' }[k] || 'Moved to the other route'); el.remove(); render(); }

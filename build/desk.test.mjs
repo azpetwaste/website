@@ -305,11 +305,15 @@ r = await call('/api/crew/done', 'POST', { stopId: samStop.id }, mt);
 ok('done without photo refused', r.status === 400 && /photo/.test(r.d.error), r);
 r = await call('/api/crew/arrive', 'POST', { stopId: samStop.id }, mt);
 ok('arrived', r.d.stops.find((s) => s.id === samStop.id).status === 'here');
-const jpg = 'data:image/jpeg;base64,' + Buffer.from('fake jpeg bytes').toString('base64');
+const JPEG = Buffer.from([0xFF, 0xD8, 0xFF, 0xE0]); // every real JPEG starts with these bytes
+const jpg = 'data:image/jpeg;base64,' + Buffer.concat([JPEG, Buffer.from('fake jpeg bytes')]).toString('base64');
 // The gate photo is the proof of the visit. These checks are the ones that must never fail.
 const photoOf = async () => (await db.query('select photo_path, no_photo from public.stops where id = $1', [samStop.id])).rows[0];
 r = await call('/api/crew/photo', 'POST', { stopId: samStop.id, image: 'data:text/html;base64,' + Buffer.from('<b>hi</b>').toString('base64') }, mt);
 ok('a file that is not a picture is refused', r.status === 400 && !(await photoOf()).photo_path, r.d);
+r = await call('/api/crew/photo', 'POST', { stopId: samStop.id, image: 'data:image/jpeg;base64,' + Buffer.alloc(3 * 1024 * 1024 + 10, 1).toString('base64') }, mt);
+r = await call('/api/crew/photo', 'POST', { stopId: samStop.id, image: 'data:image/jpeg;base64,' + Buffer.from('<html>not a real picture, only labeled as one</html>').toString('base64') }, mt);
+ok('a file labeled as a picture that is not one is refused', r.status === 400 && /not a photo/.test(r.d.error || '') && !(await photoOf()).photo_path, r.d.error);
 r = await call('/api/crew/photo', 'POST', { stopId: samStop.id, image: 'data:image/jpeg;base64,' + Buffer.alloc(3 * 1024 * 1024 + 10, 1).toString('base64') }, mt);
 ok('a photo over 3 MB is refused with a plain message', r.status === 400 && /too big/.test(r.d.error || ''), r.d.error);
 r = await call('/api/crew/photo', 'POST', { stopId: samStop.id, image: jpg }, null);
@@ -329,11 +333,23 @@ r = await call('/api/crew/photo', 'POST', { stopId: samStop.id, image: jpg }, mt
 ok('the saved photo is proven to be in storage before the stop is marked', r.status === 200 && Object.keys(files).some((k) => k.startsWith('gate-photos/')));
 ok('gate photo saved to private bucket', r.status === 200 && Object.keys(files).some((k) => k.startsWith('gate-photos/')), r.d);
 {
-  const row = await photoOf(), big = 'data:image/jpeg;base64,' + Buffer.alloc(600 * 1024, 7).toString('base64');
+  const row = await photoOf(), big = 'data:image/jpeg;base64,' + Buffer.concat([JPEG, Buffer.alloc(600 * 1024 - 4, 7)]).toString('base64');
   ok('the stop points at the exact file that was saved', files['gate-photos/' + row.photo_path] != null && row.no_photo === false, row.photo_path);
   r = await call('/api/crew/photo', 'POST', { stopId: samStop.id, image: big }, mt);
   const row2 = await photoOf();
   ok('a retake of a real size photo (600 KB) saves and replaces the link', r.status === 200 && r.d.bytes === 600 * 1024 && row2.photo_path !== row.photo_path && files['gate-photos/' + row2.photo_path] === 600 * 1024, r.d);
+  // Time stamps. Every photo carries the time it was taken.
+  ok('a photo with no time sent still gets one, from the server clock', /-t\d{10}\.jpg$/.test(row.photo_path) && Math.abs(Date.parse(r.d.photoAt) - Date.now()) < 60e3 && r.d.timeTyped === false, row.photo_path);
+  const at1049 = today + 'T10:49:00-07:00', okTime = Date.parse(at1049) <= Date.now();
+  const typed = okTime ? at1049 : new Date(Date.now() - 20 * 60e3).toISOString();
+  r = await call('/api/crew/photo', 'POST', { stopId: samStop.id, image: jpg, takenAt: typed, manual: true }, mt);
+  const row3 = await photoOf();
+  ok('an uploaded photo keeps the time the scooper set, and is marked as typed', r.status === 200 && Date.parse(r.d.photoAt) === Math.floor(Date.parse(typed) / 1000) * 1000 && r.d.timeTyped === true && /-t\d{10}m\.jpg$/.test(row3.photo_path), { photoAt: r.d.photoAt, path: row3.photo_path });
+  r = await call('/api/crew/photo', 'POST', { stopId: samStop.id, image: jpg, takenAt: new Date(Date.now() + 3 * 3600e3).toISOString(), manual: true }, mt);
+  ok('a time in the future is not believed: the server clock is used and it is not marked typed', r.status === 200 && Math.abs(Date.parse(r.d.photoAt) - Date.now()) < 60e3 && r.d.timeTyped === false, r.d.photoAt);
+  r = await call('/api/crew/photo', 'POST', { stopId: samStop.id, image: jpg, takenAt: '2020-01-01T10:00:00-07:00', manual: true }, mt);
+  ok('a time from another day is not believed either', r.status === 200 && Math.abs(Date.parse(r.d.photoAt) - Date.now()) < 60e3 && r.d.timeTyped === false, r.d.photoAt);
+  r = await call('/api/crew/photo', 'POST', { stopId: samStop.id, image: jpg, takenAt: typed, manual: true }, mt);
 }
 r = await call('/api/crew/done', 'POST', { stopId: samStop.id, note: 'Gate sticks' }, mt);
 const after = r.d.stops;
@@ -341,6 +357,7 @@ ok('done, next stop on the way', after.find((s) => s.id === samStop.id).status =
 ok('done text queued for Sam, none for Pat (no texts)', r.d.texts.some((x) => x.kind === 'done') && !r.d.texts.some((x) => x.stop_id === patStop.id), r.d.texts.map((x) => x.kind));
 r = await call('/api/track/' + samStop.code, 'GET');
 ok('truck link: done with gate photo link', r.d.status === 'done' && /\/storage\/v1\/object\/sign\/gate-photos\//.test(r.d.photo || ''), r.d);
+ok('truck link: the customer sees when the photo was taken, and that the time was typed', !!r.d.photoAt && r.d.timeTyped === true, { photoAt: r.d.photoAt, timeTyped: r.d.timeTyped });
 r = await call('/api/crew/cant', 'POST', { stopId: patStop.id, reason: 'gate_locked', note: 'Padlock' }, mt);
 ok('can\'t service recorded', r.d.stops.find((s) => s.id === patStop.id).status === 'cant');
 r = await call('/api/crew/end', 'POST', {}, mt);
@@ -381,6 +398,33 @@ const moved = r.d.stops.find((s) => s.id === st1.id);
 ok('moved to James with a new link', moved && moved.code !== st1.code && r.d.routes.some((x) => x.staff.name === 'James Ortiz'));
 r = await call('/api/track/' + st1.code, 'GET');
 ok('old link is dead', r.status === 404);
+
+console.log('\nOffice uploads a gate photo by hand (the backup when the app was down)');
+{
+  // A visit for today that the app never finished: the scooper was there, the app was down.
+  await db.query(`update public.stops set status = 'scheduled', done_at = null, photo_path = null, no_photo = false
+    where id = (select id from public.stops where day = $1 and status <> 'skipped' order by (status = 'done') desc, id desc limit 1)`, [today]);
+  r = await call('/api/office/day?date=' + today, 'GET', null, owner);
+  const open = r.d.stops.find((x) => ['scheduled', 'on_the_way', 'here'].includes(x.status));
+  if (!open) ok('there is an open visit today to test with', false);
+  else {
+    const at = new Date(Date.now() - 20 * 60e3).toISOString();
+    r = await call('/api/office/photo', 'POST', { stopId: open.id, image: jpg, takenAt: at, manual: true }, mt);
+    ok('a scooper cannot use the office upload', r.status === 403);
+    r = await call('/api/office/photo', 'POST', { stopId: open.id, image: 'data:image/jpeg;base64,AAAA', takenAt: at }, owner);
+    ok('the office upload refuses a file that is not a picture', r.status === 400);
+    r = await call('/api/office/photo', 'POST', { stopId: open.id, image: jpg, takenAt: at, manual: true }, owner);
+    const row = (await db.query('select status, done_at, photo_path, no_photo from public.stops where id = $1', [open.id])).rows[0];
+    ok('the office uploads a photo for a visit the app never finished', r.status === 200 && !!row.photo_path && row.no_photo === false && files['gate-photos/' + row.photo_path] != null, row.photo_path);
+    ok('that visit is marked done at the time on the photo', row.status === 'done' && Math.abs(new Date(row.done_at) - Math.floor(Date.parse(at) / 1000) * 1000) < 1000, row.done_at);
+    r = await call('/api/office/photo?stop=' + open.id, 'GET', null, owner);
+    ok('the office sees the photo time and that it was typed', !!r.d.url && r.d.timeTyped === true && Date.parse(r.d.photoAt) === Math.floor(Date.parse(at) / 1000) * 1000, r.d.photoAt);
+  }
+  const old = (await db.query(`insert into public.stops (route_id, customer_id, day, code) select route_id, customer_id, $1, 'OLD999' from public.stops limit 1 returning id`, [new Date(Date.now() - 40 * 864e5).toISOString().slice(0, 10)])).rows[0];
+  r = await call('/api/office/photo', 'POST', { stopId: old.id, image: jpg }, owner);
+  ok('a visit older than 14 days cannot get a photo added', r.status === 400, r.d.error);
+  await db.query('delete from public.stops where id = $1', [old.id]);
+}
 
 console.log('\nMove a group of yards to another day');
 {
@@ -434,6 +478,16 @@ console.log('\nMy Yard visits');
 users['cust_tok'] = { id: cid, email: 'sam@example.com' };
 r = await call('/api/me/visits', 'GET', null, 'cust_tok');
 ok('customer sees their visit with photo', r.d.visits.length === 1 && r.d.visits[0].photo, r.d);
+
+console.log('\nA brake on guessing and floods');
+{
+  const hit = async (p, ip, body) => (await worker.fetch(new Request('https://arizonapetwaste.com' + p, { method: body ? 'POST' : 'GET', headers: { 'cf-connecting-ip': ip, 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }), env, ctx)).status;
+  const codes = []; for (let i = 0; i < 12; i++) codes.push(await hit('/api/staff/verify', '203.0.113.9', { email: 'x@example.com', token: '000000' }));
+  ok('guessing sign in codes is cut off after 10 tries from one address', codes.slice(0, 10).every((x) => x !== 429) && codes[10] === 429 && codes[11] === 429, codes.join(','));
+  ok('another address is not blocked by that', (await hit('/api/staff/verify', '203.0.113.10', { email: 'x@example.com', token: '000000' })) !== 429);
+  const tr = []; for (let i = 0; i < 125; i++) tr.push(await hit('/api/track/ZZZZZ' + (i % 9), '203.0.113.11'));
+  ok('guessing truck link codes is cut off after 120 a minute', tr[119] === 404 && tr[120] === 429, tr.slice(118, 122).join(','));
+}
 
 console.log('\n' + pass + ' passed, ' + failN + ' failed');
 await db.end();

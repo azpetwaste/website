@@ -26,6 +26,9 @@ Read this first. New to the field desk (Joe calls it the Field App)? Read `docs/
 - Week plan: the Schedule tab in `/crew` has Plan the week (`/api/office/week`). It picks the day and scooper for every yard. Yards per scooper per day and the days we scoop are saved from that screen (`/api/office/settings`, table `settings`) and win over the optional Cloudflare settings `STOPS_PER_DAY` and `WORK_DAYS`. Where the truck starts is typed in that screen too (settings `route_start`, which wins over the Cloudflare `ROUTE_START`). `/crew/?demo` plans made up yards with the same code (`/api/demo/week`) and saves nothing.
 - Bot check on sign in codes: set `TURNSTILE_SITE_KEY` in Cloudflare Pages and put the Turnstile secret in Supabase (Auth, Bot and Abuse Protection, Turnstile). Set the site key first. Test customer and staff sign in right after.
 
+## The training video is part of every change
+Joe's standing rule (Nov 9, 2026): scoopers watch the video before they use the app, so it must always match the app. Any change a scooper or the office can see is not finished until the video is rebuilt and pushed. The video lives in two places with the same file: `static/crew/how-it-works.mp4` (the sign in screen) and `static/staff-73d752e4/training.mp4` (the training page, update its written steps too). How to rebuild it is in `docs/video/README.md`.
+
 ## Checks
 ```
 npm install

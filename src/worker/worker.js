@@ -47,6 +47,15 @@ export default {
       return res;
     }
     if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
+    // A simple brake on floods and guessing. It counts per visitor address inside this server. It is a first line:
+    // a Cloudflare rate limit rule on /api/* is the real wall.
+    const ip = request.headers.get('cf-connecting-ip');
+    if (ip) {
+      const p = url.pathname;
+      const hit = p === '/api/staff/code' ? hitLimit('code|' + ip, 8, 600e3) : p === '/api/staff/verify' ? hitLimit('verify|' + ip, 10, 600e3)
+        : p.startsWith('/api/track/') ? hitLimit('track|' + ip, 120, 60e3) : p === '/api/demo/week' ? hitLimit('demo|' + ip, 40, 60e3) : false;
+      if (hit || hitLimit('all|' + ip, 400, 60e3)) return fail(429, 'Too many tries. Wait a minute, then try again.');
+    }
     try {
       const res = await route(url.pathname, request, env, ctx);
       res.headers.set('cache-control', 'no-store');
@@ -84,6 +93,16 @@ async function route(path, request, env, ctx) {
 }
 
 /* ---------- helpers ---------- */
+// Counts requests for a key in a time window. Kept in memory, so it is per server and resets when the server restarts.
+const HITS = new Map();
+function hitLimit(key, max, windowMs) {
+  const now = Date.now();
+  let h = HITS.get(key);
+  if (!h || now - h.t > windowMs) { h = { t: now, n: 0 }; HITS.set(key, h); }
+  h.n++;
+  if (HITS.size > 5000) for (const [k, v] of HITS) if (now - v.t > 600e3) HITS.delete(k);
+  return h.n > max;
+}
 function ok(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8' } });
 }
@@ -794,6 +813,7 @@ async function desk(path, request, env, ctx) {
   if (path === '/api/office/customer' && m === 'GET') return officeCustomer(env, q.get('id'));
   if (path === '/api/office/customer' && m === 'POST') return officeCustomerSave(env, b);
   if (path === '/api/office/photo' && m === 'GET') return officePhoto(env, q.get('stop'));
+  if (path === '/api/office/photo' && m === 'POST') return officePhotoUpload(env, b);
   if (path === '/api/office/leads' && m === 'GET') return ok({ leads: await db(env, 'GET', 'leads?select=*&order=created_at.desc&limit=500') });
   if (path === '/api/office/lead' && m === 'POST') return officeLead(env, b);
   if (path === '/api/office/texts' && m === 'GET') return officeTexts(env);
@@ -920,19 +940,61 @@ async function photoUrl(env, p) {
 async function crewPhoto(s, env, b) {
   const st = await myStop(s, env, b.stopId);
   if (!st) return fail(404, 'That stop is not on your route today.');
-  const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(b.image || ''));
+  return savePhoto(env, st, b.image, '/api/crew/photo', b.takenAt, b.manual);
+}
+// One place saves every gate photo, from the scooper's phone or from the office.
+// When a photo was taken, read back from its file name. The time is part of the name, so it needs no table change and
+// cannot drift from the file. "m" at the end means a person typed the time, and we say so wherever the time is shown.
+function photoWhen(path) {
+  const m = /-t(\d{9,11})(m?)\.[a-z]+$/.exec(String(path || ''));
+  return m ? { at: new Date(Number(m[1]) * 1000).toISOString(), manual: m[2] === 'm' } : null;
+}
+// Every gate photo gets a time. The app sends the moment it was taken. A typed time is allowed for the backup upload
+// (the app was down, the scooper used the phone's own camera) and is marked as typed. A time in the future, or from
+// before the day of the visit, is not believed: the server's own clock is used in its place.
+function photoTime(st, takenAt, manual) {
+  const now = Date.now(), t = Date.parse(String(takenAt || ''));
+  const dayStart = Date.parse(st.day + 'T00:00:00-07:00');
+  const good = Number.isFinite(t) && t <= now + 5 * 60e3 && t >= dayStart && t < dayStart + 86400e3 + 6 * 3600e3;
+  return { sec: Math.floor((good ? t : now) / 1000), manual: !!(good && manual) };
+}
+async function savePhoto(env, st, image, from, takenAt, manual) {
+  const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(String(image || ''));
   if (!m) return fail(400, 'That photo did not come through. Take it again.');
   const bin = Uint8Array.from(atob(m[2]), (ch) => ch.charCodeAt(0));
   if (bin.length > 3 * 1024 * 1024) return fail(400, 'That photo is too big. Take it again.');
-  const path = st.day + '/' + st.id + '-' + newCode().toLowerCase() + '.' + (m[1] === 'image/png' ? 'png' : m[1] === 'image/webp' ? 'webp' : 'jpg');
+  // The file has to really be a picture: check the first bytes, not just the label it came with.
+  const sig = (m[1] === 'image/jpeg' && bin[0] === 0xFF && bin[1] === 0xD8) || (m[1] === 'image/png' && bin[0] === 0x89 && bin[1] === 0x50 && bin[2] === 0x4E && bin[3] === 0x47) ||
+    (m[1] === 'image/webp' && bin[0] === 0x52 && bin[1] === 0x49 && bin[2] === 0x46 && bin[3] === 0x46);
+  if (!sig) return fail(400, 'That file is not a photo. Take it again.');
+  const when = photoTime(st, takenAt, manual);
+  const path = st.day + '/' + st.id + '-' + newCode().toLowerCase() + '-t' + when.sec + (when.manual ? 'm' : '') + '.' + (m[1] === 'image/png' ? 'png' : m[1] === 'image/webp' ? 'webp' : 'jpg');
   // The gate photo is our proof of the visit. Save it, try once more if the save fails, then prove the file is really
   // there by asking storage for a link to it. Only then is the stop marked as having a photo.
   let saved = false;
   for (let k = 0; k < 2 && !saved; k++) { try { await storage(env, 'POST', 'object/gate-photos/' + path, bin, m[1]); saved = true; } catch (e) { console.error('photo save try ' + (k + 1), e); } }
   const proof = saved ? await photoUrl(env, path) : null;
-  if (!proof) { await logError(env, 'server', '/api/crew/photo', 'Gate photo did not save', 'stop ' + st.id).catch(() => {}); return fail(502, 'The photo did not save. Tap Send photo again.'); }
+  if (!proof) { await logError(env, 'server', from, 'Gate photo did not save', 'stop ' + st.id).catch(() => {}); return fail(502, 'The photo did not save. Tap Send photo again.'); }
   await db(env, 'PATCH', 'stops?id=eq.' + st.id, { photo_path: path, no_photo: false }, 'return=minimal');
-  return ok({ ok: true, bytes: bin.length });
+  return ok({ ok: true, bytes: bin.length, photoAt: new Date(when.sec * 1000).toISOString(), timeTyped: when.manual });
+}
+// Office: add a gate photo to a visit by hand. This is the backup when the app did not send one from the yard:
+// the scooper takes the picture with the phone's own camera and it is uploaded here. Visits up to 14 days back.
+async function officePhotoUpload(env, b) {
+  const id = parseInt(b.stopId, 10);
+  const st = id && (await db(env, 'GET', 'stops?id=eq.' + id + '&select=id,day,status,arrived_at,route:routes(id,status)'))[0];
+  if (!st) return fail(404, 'Stop not found.');
+  if (st.day < addDays(azToday(), -14) || st.day > azToday()) return fail(400, 'A photo can be added for a visit from the last 14 days.');
+  if (st.status === 'skipped') return fail(400, 'That visit was skipped. There is no visit to add a photo to.');
+  const res = await savePhoto(env, st, b.image, '/api/office/photo', b.takenAt, b.manual);
+  if (res.status !== 200) return res;
+  // The app was down in the yard, so the visit was never tapped done. The photo proves it: finish the visit at the photo's time.
+  if (['scheduled', 'on_the_way', 'here'].includes(st.status)) {
+    const at = JSON.parse(await res.text()).photoAt;
+    await db(env, 'PATCH', 'stops?id=eq.' + st.id, { status: 'done', done_at: at, arrived_at: st.arrived_at || at, no_photo: false }, 'return=minimal');
+    if (st.route && st.route.status === 'live') await advance(env, st.route.id);
+  }
+  return officeDay(env, st.day);
 }
 async function crewDone(s, env, b) {
   const st = await myStop(s, env, b.stopId);
@@ -1619,7 +1681,8 @@ async function officePhoto(env, stopId) {
   const id = parseInt(stopId, 10);
   const st = id && (await db(env, 'GET', 'stops?id=eq.' + id + '&select=photo_path'))[0];
   if (!st || !st.photo_path) return fail(404, 'No photo for that visit.');
-  return ok({ url: await photoUrl(env, st.photo_path) });
+  const w = photoWhen(st.photo_path);
+  return ok({ url: await photoUrl(env, st.photo_path), photoAt: w ? w.at : null, timeTyped: w ? w.manual : false });
 }
 async function officeLead(env, b) {
   const now = new Date().toISOString();
@@ -1769,7 +1832,7 @@ async function track(raw, env) {
     if (env.GOOGLE_MAPS_BROWSER_KEY) out.mapsKey = env.GOOGLE_MAPS_BROWSER_KEY;
   }
   if (st.status === 'here') out.arrivedAt = st.arrived_at;
-  if (st.status === 'done') { out.doneAt = st.done_at; out.photo = await photoUrl(env, st.photo_path); out.noPhoto = !!st.no_photo; }
+  if (st.status === 'done') { out.doneAt = st.done_at; out.photo = await photoUrl(env, st.photo_path); out.noPhoto = !!st.no_photo; const w = photoWhen(st.photo_path); if (w) { out.photoAt = w.at; out.timeTyped = w.manual; } }
   if (st.status === 'cant') { out.reason = REASONS[st.reason] || REASONS.other; out.doneAt = st.done_at; }
   return ok(out);
 }
@@ -1884,7 +1947,7 @@ async function meVisits(request, env) {
   if (!u) return fail(401, 'Please sign in again.');
   const rows = await db(env, 'GET', 'stops?customer_id=eq.' + u.id + '&day=lte.' + azToday() + '&status=in.(done,cant,skipped)&select=day,status,reason,note,photo_path,done_at&order=day.desc&limit=12');
   const visits = [];
-  for (const r of rows) visits.push({ day: r.day, status: r.status, reason: r.reason ? REASONS[r.reason] : null, note: r.note, doneAt: r.done_at, photo: await photoUrl(env, r.photo_path) });
+  for (const r of rows) visits.push({ day: r.day, status: r.status, reason: r.reason ? REASONS[r.reason] : null, note: r.note, doneAt: r.done_at, photo: await photoUrl(env, r.photo_path), photoAt: (photoWhen(r.photo_path) || {}).at || null, timeTyped: !!(photoWhen(r.photo_path) || {}).manual });
   return ok({ visits });
 }
 

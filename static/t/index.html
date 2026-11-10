@@ -110,7 +110,7 @@ h1{font-size:40px;line-height:1;letter-spacing:-.045em;font-weight:800;margin:56
       v.innerHTML = top() + '<h1>' + who + ' is in your yard.</h1><p class="sub">Since ' + h(t(d.arrivedAt)) + '. We latch the gate and send a photo when we finish.</p>' + steps(2) + foot();
     } else if (d.status === 'done') {
       v.innerHTML = top() + '<h1>Your yard is done.</h1><p class="sub">Finished at ' + h(t(d.doneAt)) + '. ' + (d.photo ? 'Here is your latched gate.' : 'No gate photo this time, so this visit is free.') + '</p>' +
-        (d.photo ? '<img class="photo" src="' + h(d.photo) + '" alt="Your latched gate">' : '') + steps(3) +
+        (d.photo ? '<img class="photo" src="' + h(d.photo) + '" alt="Your latched gate">' + (d.photoAt ? '<p class="sub" style="margin-top:8px">Photo taken at ' + h(t(d.photoAt)) + (d.timeTyped ? '. Our scooper typed this time in by hand.' : '.') + '</p>' : '') : '') + steps(3) +
         '<p class="sub">Missed a pile? Text us and we come back within 24 hours.</p>' + foot();
     } else if (d.status === 'cant') {
       v.innerHTML = top() + '<h1>We could not get in today.</h1><p class="sub">The reason: ' + h(d.reason) + '. Text us and we will set a time.</p>' + foot();
