@@ -47,11 +47,10 @@ with sync_playwright() as p:
     page.wait_for_timeout(400)
     assert page.evaluate("document.documentElement.classList.contains('book-open')"), 'sheet did not open'
     shot(page, 'm_book_0')
-    page.fill('#b-zip', '85396')
+    page.get_by_role('radio', name='Verrado').click()  # step 1 is a city pick now, no ZIP box
     page.wait_for_timeout(150)
     dock = page.locator('#book-dock')
-    dock.get_by_role('button', name='Continue').click()
-    page.wait_for_timeout(200)
+    page.wait_for_timeout(200)  # tapping a city goes to the next step on its own
     shot(page, 'm_book_1')
     dock.get_by_role('radio', name='3 dogs').click()
     dock.get_by_role('button', name='Continue').click()

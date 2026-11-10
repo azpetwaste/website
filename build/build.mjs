@@ -105,7 +105,7 @@ function zipsHtml(area, name) {
   return '<div class="zipgs">' + groups.map((g) =>
     '<div class="zipg"><h3><span class="mono">ZIP ' + g.zip + '</span> ' + esc(g.label) + '</h3>' +
     '<ul class="hoods">' + g.names.map((n) => '<li>' + esc(n) + '</li>').join('') + '</ul></div>').join('') +
-    '<p style="margin: 14px 0 0; font-size: 15px; line-height: 1.55; color: var(--ink2);">Not sure about your street? Type your ZIP when you book and we will tell you right away.</p></div>';
+    '<p style="margin: 14px 0 0; font-size: 15px; line-height: 1.55; color: var(--ink2);">Not sure about your street? Call or text 623.309.6104 and we will tell you right away.</p></div>';
 }
 function hoodNames(area) {
   return townZips(area).flatMap((g) => g.names);
@@ -365,7 +365,7 @@ for (const t of TOWNS) {
     sec('towns', 'Pick your town', 'Towns we serve', 'Each town page shows the neighborhoods we cover, local dog poop rules and answers to common questions.', cards) +
     sec('zip-codes', 'ZIP codes', 'Every ZIP code we serve', 'If your address is in one of these ZIP codes, we come to you.',
       '<div class="bxtable-wrap"><table class="bxtable bxzipt"><thead><tr><th scope="col">ZIP</th><th scope="col">Town</th><th scope="col">Page</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
-      '<p class="bxnote">Not sure about your street? Type your ZIP when you book and we will tell you right away.</p>', true) +
+      '<p class="bxnote">Not sure about your street? Call or text 623.309.6104 and we will tell you right away.</p>', true) +
     sec('not-listed', 'Coming soon', 'Not on the list? Join the waitlist', 'We don’t come to you yet? Tap the button, type your ZIP, and add your name, phone and address. We will tell you when we start in your area.',
       '<ul class="bxsoon">' + ['Surprise', 'Peoria', 'Glendale', 'Laveen', 'Central Valley', 'East Valley', 'Tucson', 'Flagstaff', 'Kingman', 'Lake Havasu City'].map((x) => '<li>' + x + '</li>').join('') + '</ul>' +
       '<p class="bxl"><strong>[[bf:Join by November 30 and your first month is free when we start in your area.||Your first cleanup is free when we start in your area.]]</strong></p>' +

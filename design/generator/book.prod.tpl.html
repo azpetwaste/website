@@ -50,20 +50,20 @@
   <sc-if value="{{ s0 }}" hint-placeholder-val="{{ true }}">
     <h1 class="bh1" tabindex="-1">Where is your yard?</h1>
     <p class="bf-chip" data-deal-end="2026-12-01T06:59:59Z"><span>Black Friday</span>First month free. Ends Mon, Nov 30.</p>
-    <p class="lead" style="font-size: 16px;">Type your ZIP code. We will see if we come to you.</p>
-    <label for="b-zip" class="flab" style="margin-top: 22px;">ZIP code</label>
-    <input id="b-zip" class="mono" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="5" placeholder="85396" value="{{ zip }}" onChange="{{ onZip }}" onKeyDown="{{ enter }}" style="display: block; width: 100%; height: 60px; margin-top: 8px; padding: 0 18px; border-radius: 16px; border: 1.6px solid var(--field); background: var(--card); color: var(--ink); font-size: 24px; letter-spacing: .1em;">
-    <sc-if value="{{ zipOk }}" hint-placeholder-val="{{ false }}">
-      <div aria-live="polite" style="display: flex; gap: 12px; align-items: center; margin-top: 12px; padding: 14px 16px; border-radius: 16px; background: var(--ok-soft); border: 1.6px solid var(--ok);">
-        <span style="width: 28px; height: 28px; flex: 0 0 28px; border-radius: 50%; background: var(--ok); color: #FFFFFF; display: grid; place-items: center;">@@ICON_CHECK@@</span>
-        <p style="margin: 0; font-size: 16px; line-height: 1.45;"><strong>Yes! We scoop in {{ zipPlace }}.</strong></p>
-      </div>
-    </sc-if>
+    <p class="lead" style="font-size: 16px;">Tap your city.</p>
+    <div role="radiogroup" aria-label="Your city" style="display: flex; flex-direction: column; gap: 8px; margin-top: 18px;">
+      <sc-for list="{{ cityOpts }}" as="c" hint-placeholder-count="5">
+        <button type="button" role="radio" aria-checked="{{ c.on }}" onClick="{{ c.pick }}" style="display: flex; align-items: center; gap: 10px; width: 100%; min-height: 60px; padding: 0 18px; border-radius: 16px; border: 1.6px solid {{ c.border }}; background: {{ c.bg }}; color: var(--ink); font: inherit; text-align: left; cursor: pointer;"><span style="font-size: 18px; font-weight: 800;">{{ c.label }}</span><span style="font-size: 14px; color: var(--mute);">{{ c.note }}</span><span aria-hidden="true" style="margin-left: auto; font-size: 20px; color: var(--accent-text);">›</span></button>
+      </sc-for>
+      <button type="button" onClick="{{ pickOther }}" style="display: flex; align-items: center; width: 100%; min-height: 52px; padding: 0 18px; border-radius: 16px; border: 1.6px dashed var(--field); background: transparent; color: var(--ink2); font: inherit; font-size: 16px; font-weight: 700; text-align: left; cursor: pointer;">My city is not here</button>
+    </div>
     <sc-if value="{{ zipNo }}" hint-placeholder-val="{{ false }}">
       <div aria-live="polite" style="margin-top: 12px; padding: 16px; border-radius: 16px; background: var(--bg2); border: 1px solid var(--line);">
-        <p style="margin: 0; font-size: 16px; line-height: 1.5;"><strong>We don’t come to {{ zip }} yet.</strong> Join the waitlist and we will tell you when we do.</p>
+        <p style="margin: 0; font-size: 16px; line-height: 1.5;"><strong>We are not in your city yet.</strong> Join the waitlist and we will tell you when we are.</p>
         <p style="margin: 8px 0 0; font-size: 15px; line-height: 1.5; font-weight: 700; color: var(--ok);">Join by November 30 and your first month is free when we start in your area.</p>
         <sc-if value="{{ waitOpen }}" hint-placeholder-val="{{ true }}">
+          <label for="w-city" class="flab">Your city</label>
+          <input id="w-city" class="fin" type="text" autocomplete="address-level2" value="{{ wCity }}" onChange="{{ onWCity }}">
           <label for="w-name" class="flab">Full name</label>
           <input id="w-name" class="fin" type="text" autocomplete="name" value="{{ wName }}" onChange="{{ onWName }}">
           <label for="w-phone" class="flab">Mobile phone</label>
@@ -81,13 +81,6 @@
         </sc-if>
       </div>
     </sc-if>
-    <p class="mono" style="margin: 26px 0 8px; font-size: 13px; font-weight: 600; letter-spacing: .09em; color: var(--mute);">WE SCOOP IN</p>
-    <div style="display: flex; flex-direction: column; gap: 6px;">
-      <a href="/pooper-scooper/buckeye-az/" style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2); color: var(--ink); text-decoration: none;"><span style="font-size: 16px; font-weight: 700;">Buckeye</span><span style="font-size: 14px; color: var(--mute);">with Verrado</span><span class="mono" style="margin-left: auto; font-size: 15px; font-weight: 600; color: var(--accent-text);">85326 · 85396</span></a>
-      <a href="/pooper-scooper/goodyear-az/" style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2); color: var(--ink); text-decoration: none;"><span style="font-size: 16px; font-weight: 700;">Goodyear</span><span class="mono" style="margin-left: auto; font-size: 15px; font-weight: 600; color: var(--accent-text);">85338 · 85395</span></a>
-      <a href="/pooper-scooper/litchfield-park-az/" style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2); color: var(--ink); text-decoration: none;"><span style="font-size: 16px; font-weight: 700;">Litchfield Park</span><span class="mono" style="margin-left: auto; font-size: 15px; font-weight: 600; color: var(--accent-text);">85340</span></a>
-      <a href="/pooper-scooper/citrus-park-az/" style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 0 16px; border-radius: 14px; background: var(--bg2); color: var(--ink); text-decoration: none;"><span style="font-size: 16px; font-weight: 700;">Citrus Park</span><span style="font-size: 14px; color: var(--mute);">Waddell</span><span class="mono" style="margin-left: auto; font-size: 15px; font-weight: 600; color: var(--accent-text);">85355</span></a>
-    </div>
   </sc-if>
 
   <sc-if value="{{ s1 }}" hint-placeholder-val="{{ false }}">
@@ -126,6 +119,15 @@
     <label for="b-addr" class="flab">Street address</label>
     <input id="b-addr" class="fin" type="text" autocomplete="address-line1" value="{{ addr }}" onChange="{{ onAddr }}" onKeyDown="{{ enter }}">
     <p class="mono" style="margin: 8px 0 0; font-size: 13px; color: var(--mute);">{{ cityLine }}</p>
+    <sc-if value="{{ zipAsk }}" hint-placeholder-val="{{ false }}">
+      <p class="flab" id="b-zip-l">Which ZIP code is your home in?</p>
+      <div role="radiogroup" aria-labelledby="b-zip-l" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px;">
+        <sc-for list="{{ zipOpts }}" as="z" hint-placeholder-count="2">
+          <button type="button" role="radio" aria-checked="{{ z.on }}" onClick="{{ z.pick }}" class="mono" style="min-height: 56px; border-radius: 14px; border: 1.6px solid {{ z.border }}; background: {{ z.bg }}; color: var(--ink); font-size: 18px; font-weight: 700; cursor: pointer;">{{ z.label }}</button>
+        </sc-for>
+      </div>
+      <sc-if value="{{ eZip }}" hint-placeholder-val="{{ false }}"><p class="ferr">{{ eZip }}</p></sc-if>
+    </sc-if>
     <sc-if value="{{ eAddr }}" hint-placeholder-val="{{ false }}"><p class="ferr">{{ eAddr }}</p></sc-if>
     <p class="flab" style="margin-top: 24px;">Texts from us</p>
     <label class="cbx" for="b-tv"><input id="b-tv" type="checkbox" checked="{{ txtVisit }}" onChange="{{ onTxtVisit }}"><span><b>Text me about my visits.</b><small>Setting your day, night before reminders, on the way, and your gate photo. About 2 to 4 texts a visit.</small></span></label>
@@ -229,11 +231,11 @@ class Component extends DCLogic {
   constructor(props) {
     super(props);
     this.state = Object.assign({
-      dark: this._themeFromProps(), step: 0, zip: '', dogs: 2, plan: 'week',
+      dark: this._themeFromProps(), step: 0, zip: '', city: '', zipSet: true, other: false, dogs: 2, plan: 'week',
       name: '', phone: '', email: '', addr: '', txtVisit: false, txtDeals: false, tried: false,
       wait: '', waitDone: false, waitBusy: false, waitErr: '',
       code: '', codeErr: '', resent: false, busy: false, err: '',
-      payState: 'idle', payErr: '', wName: '', wPhone: '', wAddr: '', wTexts: false, req: false
+      payState: 'idle', payErr: '', wName: '', wPhone: '', wAddr: '', wCity: '', wTexts: false, req: false
     }, this._initial());
   }
   componentDidMount() { this._themeInit(); }
@@ -254,13 +256,23 @@ class Component extends DCLogic {
   _demo() { const a = this._apw(); return !a || !a.live; }
   _closed() { const a = this._apw(); return !!(a && a.closed); }
   _zips() { return { '85326': 'Buckeye', '85396': 'Buckeye', '85338': 'Goodyear', '85395': 'Goodyear', '85340': 'Litchfield Park', '85355': 'Citrus Park' }; }
+  // Step 1 asks for the city, never the ZIP. Towns with two ZIP codes ask which one on the address step.
+  _cities() { return [
+    { id: 'buckeye', label: 'Buckeye', note: '', zips: ['85326', '85396'] },
+    { id: 'verrado', label: 'Verrado', note: 'Buckeye', zips: ['85396'] },
+    { id: 'goodyear', label: 'Goodyear', note: '', zips: ['85338', '85395'] },
+    { id: 'litchfield', label: 'Litchfield Park', note: '', zips: ['85340'] },
+    { id: 'citrus', label: 'Citrus Park', note: 'and Waddell', zips: ['85355'] }
+  ]; }
+  _city(id) { return this._cities().filter((c) => c.id === id)[0] || null; }
+  _pickCity(c) { this.setState({ city: c.id, zip: c.zips[0], zipSet: c.zips.length === 1, other: false, waitDone: false, waitErr: '', step: 1, err: '', busy: false }); }
   _initial() {
     if (typeof window === 'undefined') return {};
     const out = {};
     try { Object.assign(out, JSON.parse(sessionStorage.getItem('apw.book') || '{}')); } catch (e) { }
     if (this.props.mode === 'page') {
       const q = new URLSearchParams(location.search);
-      if (/^\d{5}$/.test(q.get('zip') || '')) out.zip = q.get('zip');
+      if (/^\d{5}$/.test(q.get('zip') || '')) { out.zip = q.get('zip'); out.city = ''; out.zipSet = true; }
       if (['week', 'twice', 'eow'].indexOf(q.get('plan')) >= 0) out.plan = q.get('plan');
       const n = parseInt(q.get('dogs'), 10);
       if (n >= 1 && n <= 6) out.dogs = n;
@@ -273,7 +285,7 @@ class Component extends DCLogic {
   _save() {
     if (typeof window === 'undefined') return;
     const s = this.state;
-    const keep = { step: Math.min(s.step, 2), zip: s.zip, dogs: s.dogs, plan: s.plan, name: s.name, phone: s.phone, email: s.email, addr: s.addr, txtVisit: s.txtVisit, txtDeals: s.txtDeals };
+    const keep = { step: Math.min(s.step, 2), zip: s.zip, city: s.city, zipSet: s.zipSet, dogs: s.dogs, plan: s.plan, name: s.name, phone: s.phone, email: s.email, addr: s.addr, txtVisit: s.txtVisit, txtDeals: s.txtDeals };
     try { sessionStorage.setItem('apw.book', JSON.stringify(keep)); } catch (e) { }
   }
   _clearDraft() { try { sessionStorage.removeItem('apw.book'); } catch (e) { } }
@@ -320,7 +332,8 @@ class Component extends DCLogic {
       name: s.name.trim().length < 2 ? 'Type your full name.' : '',
       phone: this._phone10().length === 10 ? '' : 'Type your 10 digit mobile number.',
       email: /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s.email.trim()) ? '' : 'Type your email, like you@email.com.',
-      addr: s.addr.trim().length < 5 ? 'Type your street address.' : ''
+      addr: s.addr.trim().length < 5 ? 'Type your street address.' : '',
+      zip: s.zipSet === false ? 'Tap your ZIP code.' : ''
     };
   }
   _go(step) { this.setState({ step: step, err: '', busy: false }); }
@@ -331,7 +344,7 @@ class Component extends DCLogic {
     if (s.step === 1) return this._go(2);
     if (s.step === 2) {
       const e = this._errs();
-      if (e.name || e.phone || e.email || e.addr) { this.setState({ tried: true }); return; }
+      if (e.name || e.phone || e.email || e.addr || e.zip) { this.setState({ tried: true }); return; }
       if (this._closed()) return this._request();
       return this._signIn();
     }
@@ -375,6 +388,7 @@ class Component extends DCLogic {
     const s = this.state;
     const ph = String(s.wPhone || '').replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '');
     const em = s.wait.trim();
+    if (String(s.wCity || '').trim().length < 2) { this.setState({ waitErr: 'Type your city.' }); return; }
     if (s.wName.trim().length < 2) { this.setState({ waitErr: 'Type your full name.' }); return; }
     if (ph.length !== 10) { this.setState({ waitErr: 'Type your 10 digit mobile number.' }); return; }
     if (s.wAddr.trim().length < 5) { this.setState({ waitErr: 'Type your street address.' }); return; }
@@ -382,7 +396,7 @@ class Component extends DCLogic {
     if (this._demo() && !this._closed()) { this.setState({ waitDone: true, waitErr: '' }); return; }
     this.setState({ waitBusy: true, waitErr: '' });
     try {
-      await this._apw().post('/api/waitlist', { name: s.wName.trim(), phone: ph, address: s.wAddr.trim(), email: em, zip: s.zip, texts: !!s.wTexts, website: '' });
+      await this._apw().post('/api/waitlist', { name: s.wName.trim(), phone: ph, address: s.wAddr.trim() + ', ' + String(s.wCity || '').trim(), email: em, zip: '', texts: !!s.wTexts, website: '' });
       this.setState({ waitBusy: false, waitDone: true });
     } catch (e) { this.setState({ waitBusy: false, waitErr: this._apw().msg(e) }); }
   }
@@ -445,7 +459,7 @@ class Component extends DCLogic {
     if (s.step <= 1 || s.step === 5) {
       if (o.plan) next.plan = o.plan;
       if (o.dogs) next.dogs = o.dogs;
-      if (o.zip && this._zips()[o.zip]) next.zip = o.zip;
+      if (o.zip && this._zips()[o.zip]) { next.zip = o.zip; next.city = ''; next.zipSet = true; next.other = false; }
       const zip = next.zip || s.zip;
       if (s.step === 5) { next.step = 0; next.req = false; }
       if ((s.step === 0 || s.step === 5) && this._zips()[zip]) next.step = 1;
@@ -463,7 +477,9 @@ class Component extends DCLogic {
     const bill = this._bill(price);
     const inFlow = s.step > 0 && s.step < 5;
     const demo = this._demo();
-    const errs = s.tried ? this._errs() : { name: '', phone: '', email: '', addr: '' };
+    const errs = s.tried ? this._errs() : { name: '', phone: '', email: '', addr: '', zip: '' };
+    const cityNow = this._city(s.city);
+    const pickStyle = (on) => ({ on: on ? 'true' : 'false', border: on ? 'var(--accent)' : 'var(--line)', bg: on ? 'var(--accent-soft)' : 'var(--bg2)' });
     const tone = (on) => ({ border: on ? 'var(--ink)' : 'var(--field)', bg: on ? 'var(--ink)' : 'var(--card)', fg: on ? 'var(--bg)' : 'var(--ink)' });
     const field = (k) => (e) => { const o = {}; o[k] = e.target.value; this.setState(o); };
     const dock = this.props.mode === 'dock';
@@ -490,7 +506,13 @@ class Component extends DCLogic {
       zip: s.zip,
       onZip: (e) => this.setState({ zip: this._digits(e.target.value, 5), waitDone: false, waitErr: '' }),
       zipOk: zipOk,
-      zipNo: s.zip.length === 5 && !zipOk,
+      zipNo: !!s.other,
+      cityOpts: this._cities().map((c) => Object.assign({ label: c.label, note: c.note, pick: () => this._pickCity(c) }, pickStyle(s.city === c.id))),
+      pickOther: () => this.setState({ other: true, city: '', zip: '', waitDone: false, waitErr: '' }),
+      zipAsk: !!(cityNow && cityNow.zips.length > 1),
+      zipOpts: (cityNow ? cityNow.zips : []).map((z) => Object.assign({ label: z, pick: () => this.setState({ zip: z, zipSet: true }) }, pickStyle(s.zipSet !== false && s.zip === z))),
+      eZip: errs.zip,
+      wCity: s.wCity, onWCity: field('wCity'),
       zipPlace: zips[s.zip] || '',
       wait: s.wait,
       onWait: field('wait'),
@@ -520,7 +542,7 @@ class Component extends DCLogic {
       txtVisit: !!s.txtVisit, onTxtVisit: (e) => this.setState({ txtVisit: !!e.target.checked }),
       txtDeals: !!s.txtDeals, onTxtDeals: (e) => this.setState({ txtDeals: !!e.target.checked }),
       err: s.err,
-      cityLine: cities[s.zip] || 'Buckeye, AZ 85396',
+      cityLine: s.zipSet === false && cityNow ? cityNow.label + ', AZ' : (cities[s.zip] || 'Buckeye, AZ 85396'),
       code: s.code,
       onCode: (e) => { const v = this._digits(e.target.value, 6); this.setState({ code: v, codeErr: '' }); if (v.length === 6) setTimeout(() => this._verify(), 60); },
       codeErr: s.codeErr,
