@@ -53,6 +53,9 @@ Not run yet:
 - A test mode sign up by a person, start to finish.
 - A real phone road test with a scooper driving.
 
+## Nov 10, 2026: simple pass
+The scooper screen is three steps for every yard: Drive, Scoop, Photo. Buttons read Directions, I'm here, Take gate photo, I can't do this yard. "Photo trouble?" holds the upload and the no photo path. Details and test counts are at the bottom of `docs/HANDOFF.md`.
+
 ## Open items
 1. Staff test: someone signs in at /crew inside the Claude browser pane, then Claude runs a test yard through a route. A test customer "TEST Yard (delete me)" sits in the live database for this. Delete it after.
 2. Test sign up at `/book/?test=1` with card 4242 4242 4242 4242.

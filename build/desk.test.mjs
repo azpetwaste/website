@@ -365,10 +365,11 @@ ok('route closed', r.d.route.status === 'done');
 
 console.log('\nTexts and office');
 r = await call('/api/office/texts', 'GET', null, owner);
-ok('two texts waiting for the business phone', r.d.texts.length === 2 && r.d.twilio === false, r.d.texts.map((x) => x.kind));
+ok('one text waiting for the business phone: the unsent on the way text left the list when the yard was done', r.d.texts.length === 1 && r.d.texts[0].kind === 'done' && r.d.twilio === false, r.d.texts.map((x) => x.kind));
+{ const old = await db.query("select status from public.messages where kind = 'on_the_way' and stop_id = $1", [samStop.id]); ok('that on the way text is kept as skipped, not deleted', old.rows.length === 1 && old.rows[0].status === 'skipped', old.rows); }
 r = await call('/api/office/text', 'POST', { id: r.d.texts[0].id, status: 'sent' }, owner);
 r = await call('/api/office/texts', 'GET', null, owner);
-ok('mark sent', r.d.texts.length === 1);
+ok('mark sent', r.d.texts.length === 0);
 r = await call('/api/office/customer?id=' + cid, 'GET', null, owner);
 ok('customer page shows visit and texts', r.d.visits.length === 1 && r.d.texts.length === 2 && r.d.monthly === 10800, { v: r.d.visits.length, t: r.d.texts.length, m: r.d.monthly });
 r = await call('/api/office/customer', 'POST', { id: cid, gate_code: '4471#', pause_from: '2026-12-20', pause_until: '2027-01-03', office_notes: 'Side gate' }, owner);

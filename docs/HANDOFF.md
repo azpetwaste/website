@@ -266,3 +266,19 @@ Joe: "our brain on this app needs to always be optimizing routes." A move must a
 - **Tight boxes fixed** (Joe: words too close to the inside of the box): plan choices on a phone are three full width rows (name, per visit, price), the sale clock no longer runs out of its box at 320 wide, more room in the specs grid, the sale chip in sign up, and the town price table header.
 - No dashed borders left in the sign up flow or the coming soon box. Map key reads "We scoop every home inside the orange lines."
 - Phone sizes checked with no sideways scroll: 320, 360, 375, 390, 412, 430 wide, on home, a town page, the areas page and sign up.
+
+### Nov 10, 2026, 3 pm. Simple pass on the whole Field App (Joe: "simplicity is more", a high school graduate must know what to do)
+- **Every yard is three steps, shown at the top: 1 Drive, 2 Scoop, 3 Photo.** One line under it says what to do now. "Stop 1 / 33" is "Yard 1 of 30".
+- **New words on the route screen.** Navigate is Directions. Arrived is I'm here. Can't service is I can't do this yard (tag reads Not done). Gate is Gate code, Spots is Watch for, Office is From the office. End route is End my route. Checklist box 3 is "Closed and latched the gate".
+- **Photo step has one big button.** "No photo" is no longer a link next to it. "Photo trouble?" opens a sheet: upload first, "I have no photo at all" last. The no photo check now makes "Go back and take the photo" the orange button (`sheetAsk` has a `safe` flag). The rule is the same: no photo still means the visit is free and is flagged `no_photo`.
+- **After I'm here the screen scrolls to the gate code and the boxes.** Before, the sticky button hid two of the three boxes on a phone.
+- **Old on the way texts drop off.** When a yard is done or can not be done, a queued on the way text for that yard is marked `skipped` (`dropOnWayText`). The scooper used to be asked to text the last customer "on the way" while standing at the next yard. The orange bar reads "Tell Alex the yard is done · Send text".
+- **Schedule tab.** Yards still to do carry no tag (every row used to say Scheduled). Planned is Not started, Live is On the road, Here is At the yard. "Add missing yards" is "Add new sign ups to this day". The route header wraps on a phone, it ran off the side when a truck was live.
+- **Yard menu is in groups:** Customer, Gate photo, This visit, Give this yard to (names as chips).
+- **Sign in.** One plain line says how it works, the button is "Email me a code". Fixed: the sign in screen had no side padding on a phone (`.signin` wiped out the `.narrow` padding).
+- **Demo** has 30 yards a route, so it no longer opens with three red "Over the limit" tags.
+- Texts tab intro and "Add a lead" are in plain words. No money rule, route rule or photo safety rule changed.
+- **Training page steps and the video were rebuilt** (2 min 41 s) with the new words. Ten clips are frames kept from the last video (planner, maps, move sheet, truck link, title cards). Eight are new screenshots from a local build. The route map on "The scooper's route" clip is the map picture from the last video set into the new screen, because the build machine can not reach Google Maps. Retake that one frame from the live demo after the push if it matters.
+- Tests: build and check pass, worker test clean, week 76, desk 108 (one check rewritten for the dropped text, one added), signup10 38, signup50 102, at 500 117, at 1,000 137. All pass.
+- Walked at phone size (375 by 812) in a headless Chrome on a local build: sign in, Schedule, open route, yard menu, Texts, Leads, My route, Start, I can't do this yard, I'm here, boxes, Photo trouble, no photo check, photo, next yard, and the photo fail path with `photofail=4`. No page errors, no sideways scroll.
+- Not run: the live site with this code, a real phone, the signed in app with real data.

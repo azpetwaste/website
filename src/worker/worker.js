@@ -844,6 +844,10 @@ async function queueText(env, customer, stopId, kind, code, reason) {
   await db(env, 'POST', 'messages', [{ customer_id: customer.id, stop_id: stopId, kind, channel: 'sms', to_addr: customer.phone, body: textBody(env, kind, code, reason) }], 'return=minimal');
   return true;
 }
+// The yard is finished. An "on the way" text nobody sent is old news now, so it leaves the list. A sent one is left alone.
+async function dropOnWayText(env, stopId) {
+  try { await db(env, 'PATCH', 'messages?stop_id=eq.' + stopId + '&kind=eq.on_the_way&status=eq.queued', { status: 'skipped', sent_at: new Date().toISOString() }, 'return=minimal'); } catch (e) { }
+}
 async function markText(s, env, b, crewOnly) {
   const id = parseInt(b.id, 10);
   if (!id || !['sent', 'skipped'].includes(b.status)) return fail(400, 'Pick sent or skip.');
@@ -1005,6 +1009,7 @@ async function crewDone(s, env, b) {
     status: 'done', done_at: new Date().toISOString(), arrived_at: st.arrived_at || new Date().toISOString(),
     note: clean(b.note, 500) || st.note, no_photo: !st.photo_path
   }, 'return=minimal');
+  await dropOnWayText(env, st.id);
   await queueText(env, st.customer, st.id, 'done', st.code);
   await advance(env, st.route.id);
   return crewToday(s, env);
@@ -1014,6 +1019,7 @@ async function crewCant(s, env, b) {
   if (!st) return fail(404, 'That stop is not on your route today.');
   const reason = REASONS[b.reason] ? b.reason : 'other';
   await db(env, 'PATCH', 'stops?id=eq.' + st.id, { status: 'cant', reason, note: clean(b.note, 500) || null, done_at: new Date().toISOString() }, 'return=minimal');
+  await dropOnWayText(env, st.id);
   await queueText(env, st.customer, st.id, 'cant', st.code, reason);
   await advance(env, st.route.id);
   return crewToday(s, env);

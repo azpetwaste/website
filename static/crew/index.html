@@ -49,17 +49,18 @@ input.f:focus,select.f:focus,textarea.f:focus{border-color:var(--ink)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 /* sign in */
-.signin{min-height:100dvh;display:flex;flex-direction:column;justify-content:center;padding:40px 0}
+.signin{min-height:100dvh;display:flex;flex-direction:column;justify-content:center;padding:40px 20px}
 .signin .stitle{font-size:40px;line-height:1;letter-spacing:-.04em;margin:14px 0 30px;font-weight:800}
 
 /* route */
 .big{font-size:34px;line-height:1.02;letter-spacing:-.035em;font-weight:800;margin:6px 0 0}
 .gate{font-family:"IBM Plex Mono",monospace;font-size:44px;font-weight:600;letter-spacing:.06em;line-height:1;margin-top:6px}
-.kv{display:grid;grid-template-columns:96px 1fr;gap:10px 14px;margin:0;padding:18px 0;border-top:1px solid var(--line)}
+.kv{scroll-margin-top:112px;display:grid;grid-template-columns:96px 1fr;gap:10px 14px;margin:0;padding:18px 0;border-top:1px solid var(--line)}
 .kv dt{margin:0}
 .kv dd{margin:0;font-size:17px;line-height:1.4}
-.tag{display:inline-block;padding:3px 8px;border:1px solid currentColor;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.tag{display:inline-block;white-space:nowrap;padding:3px 8px;border:1px solid currentColor;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
 .tag.warn{color:var(--warn)}.tag.ok{color:var(--ok)}.tag.bad{color:var(--bad)}.tag.acc{color:var(--accent)}.tag.dim{color:var(--mute)}
+.steps{display:flex;gap:6px;margin:10px 0 14px}.steps span{flex:1;display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid var(--line);color:var(--dim);font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.1em;text-transform:uppercase}.steps b{display:inline-flex;width:22px;height:22px;align-items:center;justify-content:center;border:1px solid currentColor;border-radius:50%;font-size:12px}.steps .on{border-color:var(--accent);color:var(--accent)}.steps .on b{background:var(--accent);color:#000;border-color:var(--accent)}.steps .was{color:var(--ok)}.todo{font-size:17px;line-height:1.4;margin:0 0 14px;font-weight:600}
 .dock{position:sticky;bottom:0;background:linear-gradient(transparent,#000 24%);padding:28px 0 calc(18px + env(safe-area-inset-bottom))}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .check{display:flex;align-items:center;gap:14px;width:100%;min-height:62px;padding:0 16px;margin-top:8px;background:transparent;border:1px solid var(--line);border-radius:2px;cursor:pointer;text-align:left;font-size:18px;font-weight:700}
@@ -111,7 +112,7 @@ table.t tr.click:hover td{background:var(--bg2)}
 .list li.tap{cursor:pointer}
 .list li.tap:hover{background:var(--bg2)}
 .list .r{text-align:right}
-.rhead{display:flex;align-items:center;gap:10px;width:100%;background:transparent;border:0;border-bottom:1px solid var(--line);padding:14px 0;cursor:pointer;text-align:left;min-height:56px}
+.rhead{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;width:100%;background:transparent;border:0;border-bottom:1px solid var(--line);padding:14px 0;cursor:pointer;text-align:left;min-height:56px}
 .rhead b{font-size:18px;letter-spacing:-.01em}
 .rhead .c{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--mute);white-space:nowrap}
 .acts1 .btn{margin-top:8px}
@@ -154,7 +155,7 @@ table.t tr.click:hover td{background:var(--bg2)}
   var KEY = 'apw.staff';
   var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   var PLAN = { week: 'Weekly', twice: '2x week', eow: 'Every other wk' };
-  var REASONS = [['gate_locked', 'Gate locked'], ['dog_out', 'Dog in the yard'], ['weather', 'Weather'], ['other', 'Other']];
+  var REASONS = [['gate_locked', 'The gate is locked'], ['dog_out', 'A dog is loose in the yard'], ['weather', 'Bad weather'], ['other', 'Something else']];
   var S = { view: null, tab: 'today', day: null, data: {}, sel: null, check: {}, busy: false };
   var DEMO = /[?&]demo\b/.test(location.search);
   // Crashes in this app go to the Health tab so the office sees them.
@@ -175,9 +176,9 @@ table.t tr.click:hover td{background:var(--bg2)}
   function maps(addr) { return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(addr + ', AZ'); }
   function toast(msg) { var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(function () { t.remove(); }, msg.length > 60 ? 5200 : 2600); }
   var STATUS = {
-    scheduled: ['Scheduled', 'dim'], on_the_way: ['On the way', 'acc'], here: ['Here', 'warn'], done: ['Done', 'ok'], skipped: ['Skipped', 'dim'], cant: ["Can't service", 'bad'],
+    scheduled: ['To do', 'dim'], on_the_way: ['On the way', 'acc'], here: ['At the yard', 'warn'], done: ['Done', 'ok'], skipped: ['Skipped', 'dim'], cant: ['Not done', 'bad'],
     trialing: ['Free month', 'ok'], active: ['Paying', 'ok'], past_due: ['Past due', 'bad'], paused: ['Paused', 'warn'], canceled: ['Canceled', 'dim'], checkout: ['Started', 'warn'], new: ['New', 'dim'],
-    contacted: ['Contacted', 'warn'], quoted: ['Quoted', 'warn'], won: ['Won', 'ok'], lost: ['Lost', 'dim'], planned: ['Planned', 'dim'], live: ['Live', 'acc']
+    contacted: ['Contacted', 'warn'], quoted: ['Quoted', 'warn'], won: ['Won', 'ok'], lost: ['Lost', 'dim'], planned: ['Not started', 'dim'], live: ['On the road', 'acc']
   };
   function tag(st) { var x = STATUS[st] || [st, 'dim']; return '<span class="tag ' + x[1] + '">' + h(x[0]) + '</span>'; }
 
@@ -237,6 +238,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     var stops = cs.filter(function (c) { return c.service_day === runDay && c.status !== 'past_due'; }).map(function (c, k) {
       return { id: 'st' + (k + 1), route_id: 'r' + (+c.scooper_id.slice(1) - 1), day: today, position: k + 1, status: 'scheduled', code: 'DEMO01', note: null, reason: null, photo_path: null, no_photo: false, on_way_at: null, arrived_at: null, done_at: null, customer: c };
     });
+    var perRoute = {}; stops = stops.filter(function (x) { perRoute[x.route_id] = (perRoute[x.route_id] || 0) + 1; return perRoute[x.route_id] <= 30; });
     D = {
       today: today, wd: wd, customers: cs, stops: stops, routes: routes, route: routes[0], ping: null, n: 1, team: team,
       leads: [{ id: 1, kind: 'waitlist', name: 'Jo Hart', phone: '6235550120', email: 'jo@example.com', address: '707 Sample St', zip: '85379', details: 'Text when we start there', status: 'new', notes: '', created_at: new Date().toISOString() },
@@ -270,6 +272,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (p === '/api/crew/start') { D.route.status = 'live'; D.ping = new Date().toISOString(); if (!mine().some(function (x) { return x.status === 'on_the_way' || x.status === 'here'; })) demoNext(); return demoToday(); }
     if (p === '/api/crew/arrive') { st.status = 'here'; st.arrived_at = new Date().toISOString(); D.ping = st.arrived_at; return demoToday(); }
     if (p === '/api/crew/photo') { await new Promise(function (r) { setTimeout(r, 500); }); if (D.photoFail > 0) { D.photoFail--; var pe = new Error('The photo did not save. Tap Send photo again.'); pe.status = 502; throw pe; } st.photo_path = 'demo'; return { ok: true }; }
+    if (p === '/api/crew/done' || p === '/api/crew/cant') D.texts.forEach(function (t) { if (t.stop_id === st.id && t.kind === 'on_the_way' && t.status === 'queued') t.status = 'skipped'; });
     if (p === '/api/crew/done') { st.status = 'done'; st.done_at = new Date().toISOString(); st.no_photo = !!b.noPhoto; demoText('done', st, 'Arizona Pet Waste: your yard is done and the gate is latched. Photo: arizonapetwaste.com/t/DEMO01'); demoNext(); return demoToday(); }
     if (p === '/api/crew/cant') { st.status = 'cant'; st.reason = b.reason; st.note = b.note || null; st.done_at = new Date().toISOString(); demoNext(); return demoToday(); }
     if (p === '/api/crew/end') { D.route.status = 'done'; return demoToday(); }
@@ -345,11 +348,12 @@ table.t tr.click:hover td{background:var(--bg2)}
   /* ---------- sign in ---------- */
   var si = { step: 'email', email: '', err: '', info: '' };
   function viewSignin() {
-    return '<div class="narrow signin"><img src="/assets/img/logo-horizontal-dark.svg" alt="Arizona Pet Waste" style="height:40px;width:auto;display:block;margin:0 0 22px"><div class="lbl">Staff</div><div class="stitle">Field desk</div>' +
-      (si.step === 'email' ? '<details style="margin:0 0 22px;border:1px solid var(--line)"><summary style="cursor:pointer;padding:14px;font-family:\'IBM Plex Mono\',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase">▶ Watch how it works, 2 and a half minutes</summary><video controls playsinline preload="none" poster="/crew/how-it-works.jpg" style="width:100%;display:block;background:#000;max-height:70vh"><source src="/crew/how-it-works.mp4" type="video/mp4"></video></details>' : '') +
+    return '<div class="narrow signin"><img src="/assets/img/logo-horizontal-dark.svg" alt="Arizona Pet Waste" style="height:40px;width:auto;display:block;margin:0 0 22px"><div class="lbl">Staff only</div><div class="stitle">Sign in</div>' +
+      (si.step === 'email' ? '<p style="color:var(--mute);margin:0 0 18px;font-size:15px;line-height:1.5">Type your work email. We email you a 6 digit code. No password.</p>' : '') +
+      (si.step === 'email' ? '<details style="margin:0 0 22px;border:1px solid var(--line)"><summary style="cursor:pointer;padding:14px;font-family:\'IBM Plex Mono\',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase">New here? Watch this first, under 3 minutes</summary><video controls playsinline preload="none" poster="/crew/how-it-works.jpg" style="width:100%;display:block;background:#000;max-height:70vh"><source src="/crew/how-it-works.mp4" type="video/mp4"></video></details>' : '') +
       (si.step === 'email'
         ? '<label class="lbl" for="em">Work email</label><input id="em" class="f" type="email" autocomplete="email" inputmode="email" value="' + h(si.email) + '" style="margin-top:8px">' +
-          '<div style="height:14px"></div><button class="btn" id="go">Send code</button>'
+          '<div style="height:14px"></div><button class="btn" id="go">Email me a code</button>'
         : '<p style="color:var(--mute);margin:0 0 18px;font-size:15px;line-height:1.5">' + h(si.info) + '<br>' + h(si.email) + '</p>' +
           '<label class="lbl" for="cd">6 digit code</label><input id="cd" class="f mono" inputmode="numeric" autocomplete="one-time-code" maxlength="8" style="margin-top:8px;font-size:28px;letter-spacing:.3em">' +
           '<div style="height:14px"></div><button class="btn" id="go">Sign in</button><button class="link" id="back">Use a different email</button>') +
@@ -422,6 +426,8 @@ table.t tr.click:hover td{background:var(--bg2)}
     S.busy = false;
     var r = route().route; if (r && r.status === 'live') startGps(); else stopGps();
     render();
+    // At the yard the gate code and the boxes are what matter. A new yard starts at the top.
+    try { var kv = kind === 'arrive' && app.querySelector('.kv'); if (kv) kv.scrollIntoView({ block: 'start' }); else if (kind !== 'arrive') window.scrollTo(0, 0); } catch (e) { }
   }
   function viewRoute() {
     var d = route(), r = d.route, stops = d.stops || [];
@@ -431,46 +437,53 @@ table.t tr.click:hover td{background:var(--bg2)}
     var cur = current();
     var out = '<div class="prog"><i style="width:' + pct + '%"></i></div><div class="narrow">';
     // One tap per text: it opens Messages with the text filled in and marks it sent.
-    var KINDS = { on_the_way: 'on the way', done: 'yard is done', cant: 'could not service' };
-    var waiting = (d.texts || []).filter(function (t) { return KINDS[t.kind]; });
+    var KINDS = { on_the_way: 'you are on the way', done: 'the yard is done', cant: 'we could not do the yard' };
+    var FIN = ['done', 'cant', 'skipped'];
+    // An on the way text for a yard that is already finished is old news. Do not ask the scooper to send it.
+    var waiting = (d.texts || []).filter(function (t) { if (!KINDS[t.kind]) return false; if (t.kind !== 'on_the_way') return true; var ts = stops.filter(function (x) { return x.id === t.stop_id; })[0]; return !ts || FIN.indexOf(ts.status) < 0; });
     waiting.slice(0, 1).forEach(function (t) {
       var st = stops.filter(function (x) { return x.id === t.stop_id; })[0], nm = st && st.customer && st.customer.name ? st.customer.name.split(' ')[0] : 'customer';
-      out += '<a class="sendrow" href="' + h(sms(t.to_addr, t.body)) + '" data-send="' + t.id + '"><span>Text ' + h(nm) + ': ' + KINDS[t.kind] + '</span><span>Send' + (waiting.length > 1 ? ' 1 of ' + waiting.length : '') + ' ›</span></a>';
+      out += '<a class="sendrow" href="' + h(sms(t.to_addr, t.body)) + '" data-send="' + t.id + '"><span>Tell ' + h(nm) + ' ' + KINDS[t.kind] + '</span><span>Send text ›</span></a>';
     });
-    if (!r || !stops.length) return out + '<div style="padding:60px 0"><div class="lbl">' + h(d.dayName) + '</div><p class="big">No route today.</p><p style="color:var(--mute)">The office builds routes from each yard\'s service day.</p></div></div>';
+    if (!r || !stops.length) return out + '<div style="padding:60px 0"><div class="lbl">' + h(d.dayName) + '</div><p class="big">No yards for you today.</p><p style="color:var(--mute)">Think that is wrong? Call the office.</p></div></div>';
     if (r.status === 'planned') {
-      out += '<div style="padding:28px 0 0"><div class="lbl">' + h(d.dayName) + ' · ' + stops.length + ' yards</div><p class="big">Ready to roll.</p><p style="color:var(--mute);font-size:14px;margin:6px 0 12px">Your yards are in the best driving order. Yard 1 is first.</p>' + (d.mapsKey ? '<div id="rtmap" style="height:260px;background:#0b0d14;border:1px solid var(--line);margin-bottom:8px"></div>' : '') + '</div>' + stopList(stops) +
+      out += '<div style="padding:28px 0 0"><div class="lbl">' + h(d.dayName) + ' · ' + stops.length + ' yards</div><p class="big">Ready to roll.</p><p style="color:var(--mute);font-size:14px;margin:6px 0 12px">Your yards are in the best driving order. Yard 1 is first. Tap Start route when you are in the truck.</p>' + (d.mapsKey ? '<div id="rtmap" style="height:260px;background:#0b0d14;border:1px solid var(--line);margin-bottom:8px"></div>' : '') + '</div>' + stopList(stops) +
         '<div class="dock"><button class="btn" data-a="start"' + (S.busy ? ' disabled' : '') + '>Start route</button></div>';
       return out + '</div>';
     }
     if (!cur) {
       var left = stops.filter(function (x) { return x.status === 'scheduled'; }).length;
-      if (left && r.status === 'live') { out += '<div style="padding:28px 0"><p class="big">Next stop loading…</p></div><div class="dock"><button class="btn" data-a="start">Continue</button></div>'; return out + '</div>'; }
+      if (left && r.status === 'live') { out += '<div style="padding:28px 0"><p class="big">Getting your next yard…</p></div><div class="dock"><button class="btn" data-a="start">Show my next yard</button></div>'; return out + '</div>'; }
       var cant = stops.filter(function (x) { return x.status === 'cant'; }).length;
-      out += '<div style="padding:40px 0 0"><div class="lbl">' + h(d.dayName) + '</div><p class="big">Route ' + (r.status === 'done' ? 'closed' : 'done') + '.</p>' +
+      out += '<div style="padding:40px 0 0"><div class="lbl">' + h(d.dayName) + '</div><p class="big">' + (r.status === 'done' ? 'You are done for today.' : 'All yards done.') + '</p>' + (r.status === 'live' ? '<p style="color:var(--mute);font-size:14px;margin:6px 0 0">Tap End my route. That turns off your location.</p>' : '') +
         '<div class="stats" style="grid-template-columns:repeat(3,1fr)"><div class="stat"><span class="lbl">Done</span><b>' + stops.filter(function (x) { return x.status === 'done'; }).length + '</b></div>' +
-        '<div class="stat"><span class="lbl">Issues</span><b>' + cant + '</b></div><div class="stat"><span class="lbl">Skipped</span><b>' + stops.filter(function (x) { return x.status === 'skipped'; }).length + '</b></div></div></div>' +
-        stopList(stops) + (r.status === 'live' ? '<div class="dock"><button class="btn" data-a="end">End route</button></div>' : '');
+        '<div class="stat"><span class="lbl">Not done</span><b>' + cant + '</b></div><div class="stat"><span class="lbl">Skipped</span><b>' + stops.filter(function (x) { return x.status === 'skipped'; }).length + '</b></div></div></div>' +
+        stopList(stops) + (r.status === 'live' ? '<div class="dock"><button class="btn" data-a="end">End my route</button></div>' : '');
       return out + '</div>';
     }
     var c = cur.customer, idx = stops.indexOf(cur) + 1;
     var spray = !c.skip_spray;
     var ck = S.check;
     var ready = ck.scoop && (ck.spray || !spray) && ck.latch;
-    out += '<div style="padding:22px 0 0;display:flex;justify-content:space-between;align-items:center"><span class="lbl">Stop ' + idx + ' / ' + stops.length + '</span>' + tag(cur.status) + '</div>' +
+    // Three steps for every yard. The scooper always sees which one he is on and what to do next.
+    var step = cur.status === 'on_the_way' ? 1 : ready ? 3 : 2;
+    var todo = step === 1 ? 'Drive to the yard. Tap I am here when you park.' : step === 2 ? 'Do the yard. Tap each box when it is done.' : 'Close the gate. Take a photo of the closed gate.';
+    out += '<div style="padding:22px 0 0"><span class="lbl">Yard ' + idx + ' of ' + stops.length + '</span></div>' +
+      '<div class="steps">' + [[1, 'Drive'], [2, 'Scoop'], [3, 'Photo']].map(function (x) { return '<span class="' + (x[0] === step ? 'on' : x[0] < step ? 'was' : '') + '"><b>' + (x[0] < step ? '✓' : x[0]) + '</b>' + x[1] + '</span>'; }).join('') + '</div>' +
+      '<p class="todo">' + todo + '</p>' +
       '<p class="big">' + h(c.address) + '</p><div style="color:var(--mute);margin-top:6px">' + h(c.name) + ' · ' + h(c.dogs) + (c.dogs == 1 ? ' dog' : ' dogs') + (c.dog_names ? ' · ' + h(c.dog_names) : '') + '</div>' +
-      '<div class="row2" style="margin-top:16px"><a class="btn ghost sm" style="width:100%" href="' + h(maps(c.address + ' ' + (c.zip || ''))) + '" target="_blank" rel="noopener">Navigate</a>' +
+      '<div class="row2" style="margin-top:16px"><a class="btn ghost sm" style="width:100%" href="' + h(maps(c.address + ' ' + (c.zip || ''))) + '" target="_blank" rel="noopener">Directions</a>' +
       '<a class="btn ghost sm" style="width:100%" href="tel:+1' + h(String(c.phone || '').replace(/\D/g, '')) + '">Call</a></div>' +
-      '<dl class="kv" style="margin-top:18px"><dt class="lbl">Gate</dt><dd><div class="gate">' + (c.gate_code ? h(c.gate_code) : '<span style="color:var(--dim);font-size:22px">NO CODE</span>') + '</div></dd>' +
+      '<dl class="kv" style="margin-top:18px"><dt class="lbl">Gate code</dt><dd><div class="gate">' + (c.gate_code ? h(c.gate_code) : '<span style="color:var(--dim);font-size:22px">No code needed</span>') + '</div></dd>' +
       (c.gate_notes ? '<dt class="lbl">Gate note</dt><dd>' + h(c.gate_notes) + '</dd>' : '') +
-      (c.problem_spots ? '<dt class="lbl">Spots</dt><dd>' + h(c.problem_spots) + '</dd>' : '') +
-      (c.office_notes ? '<dt class="lbl">Office</dt><dd>' + h(c.office_notes) + '</dd>' : '') +
-      '<dt class="lbl">Spray</dt><dd>' + (spray ? 'Yes, spray' : '<span class="tag warn">No spray</span>') + '</dd></dl>';
+      (c.problem_spots ? '<dt class="lbl">Watch for</dt><dd>' + h(c.problem_spots) + '</dd>' : '') +
+      (c.office_notes ? '<dt class="lbl">From the office</dt><dd>' + h(c.office_notes) + '</dd>' : '') +
+      '<dt class="lbl">Spray</dt><dd>' + (spray ? 'Yes' : '<span class="tag warn">Do not spray</span>') + '</dd></dl>';
     if (cur.status === 'on_the_way') {
-      out += '<div class="dock"><button class="btn" data-a="arrive"' + (S.busy ? ' disabled' : '') + '>Arrived</button><div style="text-align:center"><button class="link" data-a="cant">Can\'t service</button></div></div>';
+      out += '<div class="dock"><button class="btn" data-a="arrive"' + (S.busy ? ' disabled' : '') + '>I\'m here</button><div style="text-align:center"><button class="link" data-a="cant">I can\'t do this yard</button></div></div>';
     } else {
-      out += '<div style="border-top:1px solid var(--line);padding-top:14px"><span class="lbl">Checklist</span>' +
-        chk('scoop', 'Scooped every pile') + (spray ? chk('spray', 'Sprayed') : '') + chk('latch', 'Latched and pulled the gate') + '<p style="color:var(--mute);font-size:14px;margin:12px 0 0">Tap each box. Take the gate photo. The next yard opens on its own.</p></div><div style="height:8px"></div>';
+      out += '<div style="border-top:1px solid var(--line);padding-top:14px"><span class="lbl">Tap each box when it is done</span>' +
+        chk('scoop', 'Scooped every pile') + (spray ? chk('spray', 'Sprayed') : '') + chk('latch', 'Closed and latched the gate') + '<p style="color:var(--mute);font-size:14px;margin:12px 0 0">The photo finishes this yard. Your next yard opens on its own.</p></div><div style="height:8px"></div>';
       var pw = photoWait();
       if (pw && pw.day && pw.day !== d.day) { photoKeep(null); pw = null; } // a picture kept from another day is not for this visit
       if (!S.shot && !cur.photo_path && pw && String(pw.sid) === String(cur.id) && !S.busy) { S.shot = pw.data; S.photoFail = S.photoFail || { sid: cur.id, msg: 'This photo was not sent yet.' }; }
@@ -482,20 +495,19 @@ table.t tr.click:hover td{background:var(--bg2)}
         (failed ? '<div style="border:1px solid var(--bad);padding:12px;margin-top:12px"><b style="color:var(--bad)">Photo not sent</b><p style="font-size:14px;margin:6px 0 0">' + h(S.photoFail.msg) + ' The picture is safe on this phone. Check your signal and send it again.</p></div>' : '') +
         (S.busy && S.shot && !cur.photo_path ? '<p class="mono" style="font-size:12px;letter-spacing:.14em;color:var(--mute);margin:12px 0 0">SENDING PHOTO…</p>' : '') +
         '<div class="dock">' + (failed
-          ? '<button class="btn" data-a="resend">Send photo again</button><div style="text-align:center"><button class="link" data-a="upload">Or upload a photo from this phone</button></div><div style="display:flex;justify-content:space-between"><button class="link" data-a="photo">Retake photo</button><button class="link" data-a="cant">Can\'t service</button></div>'
+          ? '<button class="btn" data-a="resend">Send photo again</button><div style="display:flex;justify-content:space-between"><button class="link" data-a="photo">Take it again</button><button class="link" data-a="help">Photo trouble?</button></div>'
           : hasPhoto
-          ? '<button class="btn" data-a="done"' + (S.busy || !ready ? ' disabled' : '') + '>' + (ready ? 'Done, next yard' : 'Tap each box above') + '</button>' +
-            '<div style="display:flex;justify-content:space-between"><button class="link" data-a="photo">Retake photo</button><button class="link" data-a="cant">Can\'t service</button></div>'
-          : '<button class="btn" data-a="photo"' + (S.busy || !ready ? ' disabled' : '') + '>' + (ready ? 'Take gate photo' : 'Tap each box above') + '</button>' +
-            '<div style="text-align:center"><button class="link" data-a="upload"' + (ready ? '' : ' disabled style="opacity:.4"') + '>Or upload a photo from this phone</button></div>' +
-            '<div style="display:flex;justify-content:space-between"><button class="link" data-a="nophoto">No photo</button><button class="link" data-a="cant">Can\'t service</button></div>') + '</div>';
+          ? '<button class="btn" data-a="done"' + (S.busy || !ready ? ' disabled' : '') + '>' + (ready ? 'Done, next yard' : 'Tap the boxes first') + '</button>' +
+            '<div style="text-align:center"><button class="link" data-a="photo">Take the photo again</button></div>'
+          : '<button class="btn" data-a="photo"' + (S.busy || !ready ? ' disabled' : '') + '>' + (ready ? 'Take gate photo' : 'Tap the boxes first') + '</button>' +
+            '<div style="display:flex;justify-content:space-between">' + (ready ? '<button class="link" data-a="help">Photo trouble?</button>' : '<span></span>') + '<button class="link" data-a="cant">I can\'t do this yard</button></div>') + '</div>';
     }
     return out + '</div>';
   }
   function chk(k, label) { return '<button class="check' + (S.check[k] ? ' on' : '') + '" data-ck="' + k + '"><i>' + (S.check[k] ? '✓' : '') + '</i>' + h(label) + '</button>'; }
   function stopList(stops) {
     return '<ul class="list" style="margin-top:18px;border-top:1px solid var(--line)">' + stops.map(function (s, i) {
-      return '<li><span class="n">' + String(i + 1).padStart(2, '0') + '</span><div><div class="a">' + h(s.customer.address) + '</div><div class="s">' + h(s.customer.name) + (s.customer.gate_code ? ' · gate ' + h(s.customer.gate_code) : '') + '</div></div>' + tag(s.status) + '</li>';
+      return '<li><span class="n">' + String(i + 1).padStart(2, '0') + '</span><div><div class="a">' + h(s.customer.address) + '</div><div class="s">' + h(s.customer.name) + (s.customer.gate_code ? ' · gate ' + h(s.customer.gate_code) : '') + '</div></div>' + (s.status === 'scheduled' ? '' : tag(s.status)) + '</li>';
     }).join('') + '</ul>';
   }
   // The gate photo is our proof of the visit, so it is never thrown away. It is kept on the phone until the server says it
@@ -599,11 +611,11 @@ table.t tr.click:hover td{background:var(--bg2)}
   function sheetCant() {
     var cur = current(); if (!cur) return;
     var el = document.createElement('div'); el.className = 'sheet';
-    el.innerHTML = '<div class="pane"><div class="lbl">Can\'t service</div><p class="big" style="font-size:26px">' + h(cur.customer.address) + '</p>' +
+    el.innerHTML = '<div class="pane"><div class="lbl">' + h(cur.customer.address) + '</div><p class="big" style="font-size:26px">Why can\'t you do this yard?</p>' +
       REASONS.map(function (r, i) { return '<button class="check" data-r="' + r[0] + '"><i></i>' + h(r[1]) + '</button>'; }).join('') +
-      '<label class="fl"><span class="lbl">Note (optional)</span><textarea class="f" id="cn"></textarea></label>' +
-      '<p style="color:var(--mute);font-size:14px">Take a photo of the locked gate first if you can (Gate photo button).</p>' +
-      '<div style="height:12px"></div><button class="btn" id="cs" disabled>Send</button><button class="btn ghost" id="cx" style="margin-top:8px">Back</button></div>';
+      '<label class="fl"><span class="lbl">Want to say more? You can skip this.</span><textarea class="f" id="cn"></textarea></label>' +
+      '<p style="color:var(--mute);font-size:14px">Pick one. The office is told and your next yard opens.</p>' +
+      '<div style="height:12px"></div><button class="btn" id="cs" disabled>Tell the office</button><button class="btn ghost" id="cx" style="margin-top:8px">Go back</button></div>';
     document.body.appendChild(el);
     var pick = null;
     el.querySelectorAll('[data-r]').forEach(function (b) { b.onclick = function () { el.querySelectorAll('[data-r]').forEach(function (x) { x.classList.remove('on'); x.querySelector('i').textContent = ''; }); b.classList.add('on'); b.querySelector('i').textContent = '✓'; pick = b.dataset.r; el.querySelector('#cs').disabled = false; }; });
@@ -653,7 +665,7 @@ table.t tr.click:hover td{background:var(--bg2)}
         if (a === 'upload') return photoPick(true);
         if (a === 'resend') { var kept = photoWait() || {}; return sendPhoto(cur.id, S.shot, kept.takenAt, kept.typed); }
         if (a === 'done') return act('done', { stopId: cur.id });
-        if (a === 'nophoto') return sheetAsk('No gate photo?', 'No gate photo means this visit is free for the customer. Take the photo if you can.', 'Done with no photo', function () { act('done', { stopId: cur.id, noPhoto: true }); }, 'Go back and take the photo');
+        if (a === 'help') return sheetPhotoHelp(cur);
         if (a === 'cant') return sheetCant();
         if (a === 'texts') return sheetTexts(route().texts.map(function (t) { var s = route().stops.filter(function (x) { return x.id === t.stop_id; })[0]; return Object.assign({ customer: s && s.customer }, t); }), refreshRoute);
       };
@@ -671,10 +683,22 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (yes) el.querySelector('#fy').onclick = function () { var v = {}; el.querySelectorAll('[data-f]').forEach(function (x) { v[x.dataset.f] = x.value; }); el.remove(); onSave(v); };
   }
   // A yes or no question in our own look. No browser pop up.
-  function sheetAsk(title, msg, yes, onYes, no) {
+  // The camera will not work, or there is no way to get a photo. Upload is first. No photo is last, and it asks twice.
+  function sheetPhotoHelp(cur) {
+    var el = document.createElement('div'); el.className = 'sheet';
+    el.innerHTML = '<div class="pane" role="dialog" aria-modal="true"><div class="lbl">Photo trouble</div><p class="big" style="font-size:26px">Camera not working?</p><p style="color:var(--mute);font-size:15px">Take the gate photo with your phone\'s own camera. Then upload it here.</p>' +
+      '<div style="height:12px"></div><button class="btn" id="hu">Upload a photo from this phone</button><button class="btn ghost" id="hb" style="margin-top:8px">Go back</button>' +
+      '<div style="text-align:center;margin-top:6px"><button class="link" id="hn">I have no photo at all</button></div></div>';
+    document.body.appendChild(el);
+    el.querySelector('#hb').onclick = function () { el.remove(); };
+    el.querySelector('#hu').onclick = function () { el.remove(); photoPick(true); };
+    el.querySelector('#hn').onclick = function () { el.remove(); sheetAsk('Finish with no photo?', 'No gate photo means this visit is free for the customer. Take the photo if you can.', 'Finish with no photo', function () { act('done', { stopId: cur.id, noPhoto: true }); }, 'Go back and take the photo', true); };
+  }
+  // safe: the "no" answer is the big orange button, for a yes that costs money.
+  function sheetAsk(title, msg, yes, onYes, no, safe) {
     var el = document.createElement('div'); el.className = 'sheet';
     el.innerHTML = '<div class="pane" role="dialog" aria-modal="true"><div class="lbl">Check</div><p class="big" style="font-size:26px">' + h(title) + '</p><p style="color:var(--mute);font-size:15px">' + h(msg) + '</p>' +
-      '<div style="height:12px"></div><button class="btn ghost" id="qn">' + h(no || 'Back') + '</button><button class="btn" id="qy" style="margin-top:8px">' + h(yes) + '</button></div>';
+      '<div style="height:12px"></div><button class="btn' + (safe ? '' : ' ghost') + '" id="qn">' + h(no || 'Back') + '</button><button class="btn' + (safe ? ' ghost' : '') + '" id="qy" style="margin-top:8px">' + h(yes) + '</button></div>';
     document.body.appendChild(el);
     el.querySelector('#qn').onclick = function () { el.remove(); };
     el.querySelector('#qy').onclick = function () { el.remove(); onYes(); };
@@ -734,7 +758,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       var ping = d.pings[r.id], fin = st.filter(function (s) { return ['done', 'cant', 'skipped'].indexOf(s.status) >= 0; }).length;
       var open = d.routes.length === 1 || S.open[r.id];
       out += '<div class="sec"><button class="rhead" data-open="' + r.id + '" aria-expanded="' + (open ? 'true' : 'false') + '"><b>' + h(r.staff ? r.staff.name : 'Route') + '</b>' + tag(r.status) + (d.cap && st.filter(function (s) { return s.status !== 'skipped'; }).length > d.cap ? '<span class="tag bad">Over the limit of ' + d.cap + '</span>' : '') +
-        '<span class="c">' + fin + ' of ' + st.length + ' done' + (ping ? ' · seen ' + h(ago(ping.at)) : '') + ' ' + (open ? '▾' : '▸') + '</span></button>';
+        '<span class="c">' + fin + ' of ' + st.length + ' done' + (ping ? ' · truck seen ' + h(ago(ping.at)) : '') + ' ' + (open ? '▾' : '▸') + '</span></button>';
       var pk = S.pick && S.pick.route === r.id ? S.pick : null, movable = st.filter(function (s) { return s.status === 'scheduled'; });
       if (open && movable.length && d.day >= d.today) out += pk
         ? '<p style="color:var(--mute);font-size:14px;margin:12px 0 8px">Tap the yards to move, or pick a group from the end of the route.</p><div class="chips">' +
@@ -745,12 +769,12 @@ table.t tr.click:hover td{background:var(--bg2)}
         return '<li class="tap" ' + (pk ? (can ? 'data-pickstop="' + s.id + '"' : 'style="opacity:.4"') : 'data-menu="' + s.id + '"') + '>' +
           '<span class="n">' + (pk ? '<span style="display:inline-flex;width:24px;height:24px;border:1px solid ' + (on ? 'var(--accent)' : 'var(--mute)') + ';background:' + (on ? 'var(--accent)' : 'transparent') + ';color:#000;align-items:center;justify-content:center;font-weight:800;font-size:14px">' + (on ? '✓' : '') + '</span>' : String(i + 1).padStart(2, '0')) + '</span><div><div class="a">' + h(s.customer.address) + '</div><div class="s">' + h(s.customer.name) +
           (s.reason ? ' · ' + h(s.reason.replace(/_/g, ' ')) : '') + (s.note ? ' · ' + h(s.note) : '') + (time(s.done_at || s.arrived_at || s.on_way_at) ? ' · ' + h(time(s.done_at || s.arrived_at || s.on_way_at)) : '') + '</div></div>' +
-          '<div class="r">' + (s.status === 'skipped' && /^Moved to /.test(s.note || '') ? '<span class="tag">Moved</span>' : tag(s.status)) + (s.no_photo ? '<div style="margin-top:4px"><span class="tag bad">No photo</span></div>' : '') + '</div></li>';
+          '<div class="r">' + (s.status === 'skipped' && /^Moved to /.test(s.note || '') ? '<span class="tag">Moved</span>' : s.status === 'scheduled' ? '' : tag(s.status)) + (s.no_photo ? '<div style="margin-top:4px"><span class="tag bad">No photo</span></div>' : '') + '</div></li>';
       }).join('') + '</ul>';
       if (pk) { var np = Object.keys(pk.ids).filter(function (k) { return pk.ids[k]; }).length; out += '<div class="dock"><button class="btn" data-pickgo="' + r.id + '"' + (np ? '' : ' disabled') + '>' + (np ? 'Move ' + np + ' yard' + (np === 1 ? '' : 's') + ' to another day' : 'Pick the yards to move') + '</button></div>'; }
       out += '</div>';
     });
-    if (d.routes.length) out += '<div class="sec"><div class="row2" style="max-width:640px"><button class="btn ghost sm" style="width:100%" data-o="plan">Add missing yards</button><button class="btn ghost sm" style="width:100%" data-o="night">Get tomorrow\'s texts ready</button></div></div>';
+    if (d.routes.length) out += '<div class="sec"><div class="row2" style="max-width:640px"><button class="btn ghost sm" style="width:100%" data-o="plan">Add new sign ups to this day</button><button class="btn ghost sm" style="width:100%" data-o="night">Get tomorrow\'s texts ready</button></div></div>';
     return out;
   }
   function hm(m) { m = Math.max(0, Math.round(m || 0)); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' hr' + (m % 60 ? ' ' + (m % 60) + ' min' : ''); }
@@ -795,13 +819,16 @@ table.t tr.click:hover td{background:var(--bg2)}
     var open = s.status === 'scheduled' || s.status === 'on_the_way';
     var el = document.createElement('div'); el.className = 'sheet';
     var b = function (k, label, cls) { return '<button class="btn ' + (cls || 'ghost') + '" data-k="' + k + '">' + h(label) + '</button>'; };
+    var g = function (label) { return '<div class="lbl" style="margin:16px 0 2px">' + label + '</div>'; };
+    var others = team.filter(function (m) { return m.active && (!r || !r.staff || m.id !== r.staff.id); });
     el.innerHTML = '<div class="pane acts1"><div class="lbl">' + h(s.customer.name) + ' · ' + h((STATUS[s.status] || [s.status])[0]) + '</div><p class="big" style="font-size:26px;margin-bottom:10px">' + h(s.customer.address) + '</p>' +
-      b('see', 'See what the customer sees') + b('copy', 'Copy the customer\'s link') + b('cust', 'Open customer details') +
+      g('Customer') + b('cust', 'Open customer details') + b('see', 'See what the customer sees') + b('copy', 'Copy the customer\'s link') +
+      (s.photo_path || (s.status !== 'skipped' && d.day <= d.today) ? g('Gate photo') : '') +
       (s.photo_path ? b('photo', 'See the gate photo') : '') +
       (s.status !== 'skipped' && d.day <= d.today ? b('upload', s.photo_path ? 'Upload a new gate photo' : 'Upload a gate photo') : '') +
-      (open ? b('skip', 'Skip this visit') + b('up', 'Move earlier in the route') + b('down', 'Move later in the route') +
-        team.filter(function (m) { return m.active && (!r || !r.staff || m.id !== r.staff.id); }).map(function (m) { return b('to:' + m.id, 'Give this yard to ' + m.name); }).join('') : '') +
-      (s.status === 'skipped' ? b('unskip', 'Put this visit back') : '') +
+      (open ? g('This visit') + b('skip', 'Skip this visit') + b('up', 'Move earlier in the route') + b('down', 'Move later in the route') : '') +
+      (open && others.length ? g('Give this yard to') + '<div class="chips">' + others.map(function (m) { return '<button class="chip" data-k="to:' + m.id + '">' + h(m.name) + '</button>'; }).join('') + '</div>' : '') +
+      (s.status === 'skipped' ? g('This visit') + b('unskip', 'Put this visit back') : '') +
       '<button class="btn" data-k="x" style="margin-top:16px">Close</button></div>';
     document.body.appendChild(el);
     el.addEventListener('click', async function (e) {
@@ -834,7 +861,7 @@ table.t tr.click:hover td{background:var(--bg2)}
   }
   function officeLeads(d) {
     var list = d ? d.leads : null;
-    var out = '<div class="daynav"><h2>Leads</h2><span style="flex:1"></span><button class="btn ghost sm" data-o="addlead">Add a call</button></div>';
+    var out = '<div class="daynav"><h2>Leads</h2><span style="flex:1"></span><button class="btn ghost sm" data-o="addlead">Add a lead</button></div>';
     if (!list) return out + '<p class="empty">Loading…</p>';
     if (!list.length) return out + '<p class="empty">No leads yet. Waitlist sign ups and sign up requests land here.</p>';
     var KIND = { waitlist: 'Waitlist', signup_request: 'Sign up request', commercial: 'Commercial', phone: 'Call' };
@@ -847,7 +874,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       }).join('') + '</tbody></table></div>';
   }
   function officeTexts(d) {
-    var out = '<div class="daynav"><h2>Texts to send</h2></div><p style="color:var(--mute);font-size:15px;line-height:1.5;max-width:640px">Twilio is not approved yet, so nothing goes out on its own. Tap Send on the business phone (623.309.6104). It opens Messages with the text filled in and marks it sent here. Once Twilio is approved, these send themselves.</p>';
+    var out = '<div class="daynav"><h2>Texts to send</h2></div><p style="color:var(--mute);font-size:15px;line-height:1.5;max-width:640px">Texts do not send on their own yet. Use the business phone, 623.309.6104. Tap Send. The text opens ready to go. Hit send in Messages and it is marked sent here.</p>';
     if (!d) return out + '<p class="empty">Loading…</p>';
     if (!d.texts.length) return out + '<p class="empty">All caught up.</p>';
     return out + d.texts.map(function (t) {
