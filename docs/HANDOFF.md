@@ -106,6 +106,14 @@ This lane is website edits and AEO (showing up in Google and in AI answers). It 
   - So the two biggest levers are off the site: a Google Business Profile with real reviews, and listings on BBB, Yelp, Yellow Pages, MapQuest, Nextdoor, PetWorks, BringFido and the pooper-scooper.com directory. Joe is doing the profiles. When he sends links, fill `sameAs` and the footer.
 - Not built: neighborhood pages (Estrella, PebbleCreek, Palm Valley, Tartesso, Sundance), the chain comparison page, a page for each ZIP.
 
+### Home page pass with Joe, Nov 9, 2026, 8:30 pm
+- **H1 is now the search phrase:** "Dog Poop Pickup Service in Buckeye, Goodyear and Litchfield Park, AZ". "Dog poop pickup you can watch" moved to the small line above it.
+- **H2s:** "Dog poop pickup prices", "How our dog poop pickup works", "No photo? That visit is free", "Areas we serve in the West Valley, AZ".
+- **Photo promise is the headline promise** (Joe wants it like the old pizza delivery promise): an orange band under the badges on the home page, the proof section heading, step 6 of how it works and the footer. It only holds if the crew app always gets the gate photo, so the Field App chat must keep that tested.
+- **How it works** is six plain numbered steps. No clock times, no mini map, no report card.
+- **Yard game and the promise receipt are off the home page** and saved: see `design/archive/README.md`. The promise is one line under the prices with a link to `/our-promise/`.
+- **Footer:** big Licensed, Bonded, Insured boxes and an orange "Family owned and operated" bar on every page. Social names (Facebook, Instagram, TikTok, YouTube, Nextdoor, Google, Yelp) show as plain labels, not links, until Joe sends the links. Put real links in `src/site.config.json` `social` and they become links. Chamber, BBB and Yelp badges wait on Joe.
+
 ### Rules for this lane
 - Copy: no dashes, short plain words, third grade for customers, seventh grade for SEO pages, one h1 per page. `npm run check` enforces it.
 - Do not claim what we cannot prove. "No one in the industry offers this" stays off the site. The line in use is "The big chains give you one free cleanup or $25 off. We give you a whole month."

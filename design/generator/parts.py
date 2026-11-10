@@ -637,8 +637,10 @@ def _footer(pre):
             '    <a href="' + pre + '#reviews" ' + _fsoc + '>Instagram</a>\n'
             '    <a href="' + pre + '#reviews" ' + _fsoc + '>Nextdoor</a>\n'
             '  </div>\n'
+            '  <ul class="fbadges" aria-label="Licensed, bonded and insured">' + ''.join('<li>' + SHIELD + '<b>%s</b></li>' % x for x in ['Licensed', 'Bonded', 'Insured']) + '</ul>\n'
+            '  <p class="ffam">Family owned and operated</p>\n'
             '  <ul class="ftrust" aria-label="Why you can trust us">\n'
-            '    <li>' + SHIELD + '<span><b>Licensed, bonded and insured</b>Your home and yard are covered.</span></li>\n'
+            '    <li>' + SHIELD + '<span><b>No photo, no charge</b>A photo of your shut gate after every visit.</span></li>\n'
             '    <li>' + FLOCK + '<span><b>Secure checkout</b>Stripe keeps your card. We never see the number.</span></li>\n'
             '    <li>' + FCHECK + '<span><b>Cancel online</b>No contract and no phone call.</span></li>\n'
             '  </ul>\n'
@@ -757,6 +759,24 @@ REVAMP_CSS += r"""
 .apw .eb.nx::before{content:none}
 .apw .hero::before,.apw .chero::before,.apw .spec::before{content:none}
 .apw .hero::after,.apw .chero::after{opacity:.55}
+"""
+REVAMP_CSS += r"""
+.apw .h1-seo{font-size:clamp(30px,8.2vw,40px);line-height:1.04}
+@media (min-width:900px){.apw .h1-hero.h1-seo{font-size:clamp(40px,3.7vw,56px)}}
+.apw .gband{background:#FF4A1C;color:#0E1430}
+.apw .gband p{display:flex;flex-direction:column;gap:6px;max-width:1160px;margin:0 auto;padding:20px 20px;text-align:center}
+.apw .gband b{font-size:clamp(24px,6.4vw,38px);font-weight:800;letter-spacing:-.03em;line-height:1.05}
+.apw .gband span{font-size:16px;line-height:1.45;font-weight:600}
+.apw .snum{padding-top:0;text-align:center;font-family:inherit;font-size:30px;font-weight:800;line-height:1;color:#FF4A1C}
+.apw .stop .sbody h3{font-size:20px}
+.apw .fbadges{list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:26px 0 0;padding:0}
+.apw .fbadges li{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:84px;padding:10px 4px;border:2px solid #FF8A66;border-radius:16px;background:rgba(255,74,28,.12);color:#FF8A66;text-align:center}
+.apw .fbadges b{font-size:17px;font-weight:800;color:#FFFFFF}
+.apw .fbadges svg{width:28px;height:28px}
+.apw .ffam{display:flex;align-items:center;justify-content:center;gap:10px;margin:8px 0 0;padding:16px 14px;border-radius:16px;background:#FF4A1C;color:#0E1430;font-size:clamp(18px,5vw,22px);font-weight:800;letter-spacing:-.01em;text-align:center}
+.apw .fsoc{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}
+.apw .fsoc span,.apw .fsoc a{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border:1.5px solid rgba(255,255,255,.28);border-radius:999px;color:#F6F4EF;font-size:15px;font-weight:700;text-decoration:none}
+@media (min-width:600px){.apw .fbadges li{flex-direction:row;gap:10px;min-height:72px}.apw .fbadges b{font-size:20px}}
 """
 PAGE_CSS += REVAMP_CSS
 PAGE_CSS += r"""

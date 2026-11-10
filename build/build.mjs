@@ -91,7 +91,8 @@ function badgesHtml() {
     (x.img ? '<img src="' + esc(x.img) + '" alt="' + esc(x.name) + '" style="height: 44px; width: auto; display: block;">' : '<span class="flink">' + esc(x.name) + '</span>') + '</a>').join('') + '</div>';
 }
 function socialHtml() {
-  if (!cfg.social.length) return '';
+  // Until Joe sends the profile links, the names show as plain labels (not links), so the footer look can be judged.
+  if (!cfg.social.length) return '<div class="fsoc" aria-hidden="true">' + ['Facebook', 'Instagram', 'TikTok', 'YouTube', 'Nextdoor', 'Google', 'Yelp'].map((x) => '<span title="Link coming soon">' + x + '</span>').join('') + '</div>';
   return '<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px;">' + cfg.social.map((x) =>
     '<a href="' + esc(x.url) + '" rel="noopener" target="_blank" class="btn btn-line-n" style="min-height: 44px; padding: 0 16px; font-size: 15px;">' + esc(x.name) + '</a>').join('') + '</div>';
 }
