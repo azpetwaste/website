@@ -420,7 +420,7 @@ async function webhook(request, env, ctx) {
     const rows = await db(env, 'PATCH', 'customers?' + filter, patch, 'return=representation');
     // Canceled or paused: take them off any route that has not happened yet.
     if ((gone || patch.status === 'paused') && rows && rows[0]) {
-      await db(env, 'DELETE', 'stops?customer_id=eq.' + rows[0].id + '&status=eq.scheduled&day=gte.' + azToday(), null, 'return=minimal').catch((e) => console.error('route cleanup', e));
+      await db(env, 'DELETE', 'stops?customer_id=eq.' + rows[0].id + '&status=in.(scheduled,skipped)&day=gte.' + azToday(), null, 'return=minimal').catch((e) => console.error('route cleanup', e));
     }
     if (gone && rows && rows[0]) ctx.waitUntil(mail(env, owner(env), 'Canceled: ' + rows[0].name, 'A customer canceled.\n\nName: ' + rows[0].name + '\nAddress: ' + rows[0].address + ', ' + rows[0].zip + '\nMobile: ' + rows[0].phone));
     if (gone) await freeMonthCharge(env, ctx, o, rows && rows[0]);
@@ -429,7 +429,7 @@ async function webhook(request, env, ctx) {
   } else if (evt.type === 'invoice.payment_failed') {
     // Only a live plan goes past due. A failed early cancel charge leaves a canceled customer canceled.
     const rows = await db(env, 'PATCH', 'customers?stripe_customer_id=eq.' + encodeURIComponent(o.customer) + '&status=in.(trialing,active,past_due)', { status: 'past_due', updated_at: now }, 'return=representation');
-    if (rows && rows[0]) await db(env, 'DELETE', 'stops?customer_id=eq.' + rows[0].id + '&status=eq.scheduled&day=gt.' + azToday(), null, 'return=minimal').catch((e) => console.error('route cleanup', e));
+    if (rows && rows[0]) await db(env, 'DELETE', 'stops?customer_id=eq.' + rows[0].id + '&status=in.(scheduled,skipped)&day=gt.' + azToday(), null, 'return=minimal').catch((e) => console.error('route cleanup', e));
     if (rows && rows[0]) ctx.waitUntil(mail(env, owner(env), 'Card failed: ' + rows[0].name, 'A payment failed. Stripe will retry.\n\nName: ' + rows[0].name + '\nMobile: ' + rows[0].phone + '\nEmail: ' + rows[0].email));
   }
   return ok({ received: true });
@@ -785,6 +785,8 @@ async function desk(path, request, env, ctx) {
   if (path === '/api/office/settings' && m === 'POST') return officeSettings(env, b);
   if (path === '/api/office/plan' && m === 'POST') return ok(await planDay(env, isDay(b.date) ? b.date : azToday()));
   if (path === '/api/office/stop' && m === 'POST') return officeStop(env, b);
+  if (path === '/api/office/loads' && m === 'GET') return officeLoads(env, q.get('from'), q.get('staff'));
+  if (path === '/api/office/move-day' && m === 'POST') return officeMoveDay(env, b);
   if (path === '/api/office/customers' && m === 'GET') return officeCustomers(env, q);
   if (path === '/api/office/customer' && m === 'GET') return officeCustomer(env, q.get('id'));
   if (path === '/api/office/customer' && m === 'POST') return officeCustomerSave(env, b);
@@ -841,7 +843,8 @@ async function crewToday(s, env) {
   const day = azToday();
   let r = await myRoute(s, env);
   // No route yet today: build it now, so nobody has to press Build routes first.
-  if (!r) { try { await planDay(env, day); r = await myRoute(s, env); } catch (e) { console.error('auto plan', e); } }
+  // A route that has not started is topped up too, so a late sign up or a day the office built early is never short.
+  if (!r || r.status === 'planned') { try { await planDay(env, day); r = await myRoute(s, env); } catch (e) { console.error('auto plan', e); } }
   if (!r) return ok({ day, dayName: DAYS[weekday(day)], route: null, stops: [], texts: [], me: { name: s.name, role: s.role } });
   const stops = await db(env, 'GET', 'stops?route_id=eq.' + r.id + '&select=' + CREW_STOP + '&order=position,id');
   const ids = stops.map((x) => x.id);
@@ -1239,7 +1242,7 @@ async function officeWeek(env, b) {
       eow_week: c.plan === 'eow' ? (a.eow_week ?? 0) : null, scooper_id: a.scooper_id || null, stop_order: null, updated_at: now })), 'resolution=merge-duplicates,return=minimal');
   }
   const movedIds = change.filter((x) => x[0].service_day != null).map((x) => x[0].id);
-  for (let i = 0; i < movedIds.length; i += 100) await db(env, 'DELETE', 'stops?status=eq.scheduled&day=gt.' + azToday() + '&customer_id=in.(' + movedIds.slice(i, i + 100).join(',') + ')', null, 'return=minimal').catch((e) => console.error('week cleanup', e));
+  for (let i = 0; i < movedIds.length; i += 100) await db(env, 'DELETE', 'stops?status=in.(scheduled,skipped)&day=gt.' + azToday() + '&customer_id=in.(' + movedIds.slice(i, i + 100).join(',') + ')', null, 'return=minimal').catch((e) => console.error('week cleanup', e));
   out.emailed = await mailMany(env, change.filter((x) => x[0].email).map(([c, a]) => ({ to: c.email, subject: (c.service_day != null ? 'Your new service day is ' : 'Your service day is ') + DAYS[a.service_day], text: dayMail(c.name, a.service_day, a.service_day2, c.service_day != null) })));
   out.applied = true;
   return ok(out);
@@ -1381,6 +1384,72 @@ async function renumber(env, routeId) {
   const list = await db(env, 'GET', 'stops?route_id=eq.' + routeId + '&select=id,position&order=position,id');
   for (let i = 0; i < list.length; i++) if (list[i].position !== i + 1) await db(env, 'PATCH', 'stops?id=eq.' + list[i].id, { position: i + 1 }, 'return=minimal');
   return list.map((x, i) => ({ id: x.id, position: i + 1 }));
+}
+// Puts a route's waiting stops in the shortest driving order again. Stops already started or finished keep their place.
+async function reorderRoute(env, routeId) {
+  const list = await db(env, 'GET', 'stops?route_id=eq.' + routeId + '&select=id,route_id,customer_id,day,code,status,position,customer:customers(lat,lng,address)&order=position,id');
+  const fixed = list.filter((x) => x.status !== 'scheduled'), free = list.filter((x) => x.status === 'scheduled');
+  if (!free.length) return;
+  const order = shortOrder(free.map((x) => ({ row: x, lat: x.customer && x.customer.lat, lng: x.customer && x.customer.lng })), routeStart(env));
+  const base = fixed.reduce((n, x) => Math.max(n, x.position < 9000 ? x.position : 0), 0);
+  // One write for the whole route. A stop is found by its day and customer, which is unique.
+  await db(env, 'POST', 'stops?on_conflict=day,customer_id', order.map((o, i) => ({ route_id: o.row.route_id, customer_id: o.row.customer_id, day: o.row.day, code: o.row.code, position: base + i + 1 })), 'resolution=merge-duplicates,return=minimal');
+}
+// How many yards each of the next 7 days holds for one scooper, so the office can see where there is room before moving yards.
+// A day with routes built counts its stops. A day not built yet counts the yards whose service day it is.
+async function officeLoads(env, from, staffId) {
+  const start = isDay(from) ? from : azToday(), days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
+  const fallback = await defaultScooper(env), sid = staffId || fallback;
+  const stops = await db(env, 'GET', 'stops?day=gte.' + days[0] + '&day=lte.' + days[6] + '&select=day,status,customer_id,route:routes(staff_id)');
+  const cust = await dbAll(env, 'customers?status=in.(trialing,active)&service_day=not.is.null&select=id,plan,eow_week,scooper_id,service_day,service_day2,pause_from,pause_until,first_visit&order=id');
+  const out = days.map((d) => {
+    const built = stops.filter((x) => x.day === d), have = new Set(built.map((x) => x.customer_id)), wd = weekday(d);
+    const due = cust.filter((c) => !have.has(c.id) && (c.scooper_id || fallback) === sid && (c.service_day === wd || c.service_day2 === wd) &&
+      !(c.plan === 'eow' && weekParity(d) !== (c.eow_week || 0)) && !(c.pause_from && c.pause_from <= d && (!c.pause_until || c.pause_until >= d)) && !(c.first_visit && d < c.first_visit));
+    return { day: d, dayName: DAYS[wd], yards: built.filter((x) => x.status !== 'skipped' && x.route && x.route.staff_id === sid).length + due.length, works: workDays(env).includes(wd) };
+  });
+  return ok({ cap: dayCap(env), days: out });
+}
+// Office: move a group of yards to another day in one go. "forever" also changes the customer's regular day.
+// The old stop stays on its day as skipped with a note, so the day builder does not put the yard back.
+async function officeMoveDay(env, b) {
+  const ids = [...new Set((Array.isArray(b.ids) ? b.ids : []).map((x) => parseInt(x, 10)).filter(Boolean))].slice(0, 200);
+  const to = isDay(b.to) ? b.to : null;
+  if (!ids.length) return fail(400, 'Pick the yards to move.');
+  if (!to || to < azToday()) return fail(400, 'Pick today or a later day.');
+  const found = await db(env, 'GET', 'stops?id=in.(' + ids.join(',') + ')&select=id,day,status,customer_id,route:routes(id,staff_id,status),customer:customers(id,email,name,plan,service_day,service_day2)');
+  const from = (found[0] || {}).day;
+  const list = found.filter((x) => x.status === 'scheduled' && x.day === from && x.day !== to);
+  if (!list.length) return fail(400, 'Only yards that have not started can move, and only to a different day.');
+  await planDay(env, to); // build the whole target day first, so its own yards are all there
+  const there = new Set((await db(env, 'GET', 'stops?day=eq.' + to + '&customer_id=in.(' + list.map((x) => x.customer_id).join(',') + ')&select=customer_id')).map((x) => x.customer_id));
+  const move = list.filter((x) => !there.has(x.customer_id));
+  const label = DAYS[weekday(to)];
+  let over = [];
+  if (move.length) {
+    const staffIds = [...new Set(move.map((x) => x.route.staff_id))];
+    await db(env, 'POST', 'routes?on_conflict=day,staff_id', staffIds.map((id) => ({ day: to, staff_id: id })), 'resolution=ignore-duplicates,return=minimal');
+    const routes = await db(env, 'GET', 'routes?day=eq.' + to + '&select=id,staff_id');
+    const routeOf = Object.fromEntries(routes.map((r) => [r.staff_id, r.id]));
+    await db(env, 'PATCH', 'stops?id=in.(' + move.map((x) => x.id).join(',') + ')', { status: 'skipped', note: 'Moved to ' + label }, 'return=minimal');
+    await db(env, 'POST', 'stops?on_conflict=day,customer_id', move.map((x, i) => ({ route_id: routeOf[x.route.staff_id], customer_id: x.customer_id, day: to, position: 9000 + i, code: newCode() })), 'resolution=ignore-duplicates,return=minimal');
+    for (const id of staffIds) await reorderRoute(env, routeOf[id]);
+    if (b.forever) {
+      const oldWd = weekday(from), newWd = weekday(to), now = new Date().toISOString();
+      for (const x of move) {
+        const c = x.customer, second = c.service_day2 === oldWd && c.service_day !== oldWd;
+        if ((second ? c.service_day : c.service_day2) === newWd) continue; // a twice a week yard cannot have both visits on one day
+        await db(env, 'PATCH', 'customers?id=eq.' + c.id, Object.assign(second ? { service_day2: newWd } : { service_day: newWd }, { stop_order: null, updated_at: now }), 'return=minimal');
+      }
+      // Later visits already built on the old day are dropped. The day builder makes them on the new day.
+      await db(env, 'DELETE', 'stops?status=eq.scheduled&day=gt.' + to + '&customer_id=in.(' + move.map((x) => x.customer_id).join(',') + ')', null, 'return=minimal').catch((e) => console.error('move cleanup', e));
+      await mailMany(env, move.filter((x) => x.customer.email).map((x) => ({ to: x.customer.email, subject: 'Your new service day is ' + label, text: dayMail(x.customer.name, weekday(to), null, true) })));
+    }
+    const after = await db(env, 'GET', 'stops?day=eq.' + to + '&status=neq.skipped&select=id,route:routes(staff_id)');
+    over = staffIds.filter((id) => after.filter((x) => x.route && x.route.staff_id === id).length > dayCap(env));
+  }
+  const total = (await db(env, 'GET', 'stops?day=eq.' + to + '&status=neq.skipped&select=id')).length;
+  return ok({ moved: move.length, already: list.length - move.length, to, toName: label, toYards: total, cap: dayCap(env), over: over.length > 0, forever: !!b.forever, day: JSON.parse(await (await officeDay(env, from)).text()) });
 }
 async function officeStop(env, b) {
   const id = parseInt(b.id, 10);

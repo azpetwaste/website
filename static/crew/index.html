@@ -173,7 +173,7 @@ table.t tr.click:hover td{background:var(--bg2)}
   function shift(d, n) { return new Date(Date.parse(d + 'T19:00:00Z') + n * 864e5).toISOString().slice(0, 10); }
   function sms(to, body) { return 'sms:+1' + String(to).replace(/\D/g, '').slice(-10) + '?&body=' + encodeURIComponent(body); }
   function maps(addr) { return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(addr + ', AZ'); }
-  function toast(msg) { var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(function () { t.remove(); }, 2600); }
+  function toast(msg) { var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(function () { t.remove(); }, msg.length > 60 ? 5200 : 2600); }
   var STATUS = {
     scheduled: ['Scheduled', 'dim'], on_the_way: ['On the way', 'acc'], here: ['Here', 'warn'], done: ['Done', 'ok'], skipped: ['Skipped', 'dim'], cant: ["Can't service", 'bad'],
     trialing: ['Free month', 'ok'], active: ['Paying', 'ok'], past_due: ['Past due', 'bad'], paused: ['Paused', 'warn'], canceled: ['Canceled', 'dim'], checkout: ['Started', 'warn'], new: ['New', 'dim'],
@@ -243,12 +243,13 @@ table.t tr.click:hover td{background:var(--bg2)}
       areas: [{ area: 'buckeye', name: 'Buckeye', day: 1 }, { area: 'goodyear', name: 'Goodyear', day: 2 }, { area: 'litchfield', name: 'Litchfield Park', day: 3 }, { area: 'waddell', name: 'Citrus Park', day: null }]
     };
   }
-  function mine() { return D.stops.filter(function (x) { return x.route_id === D.route.id; }); }
+  function mine() { return D.stops.filter(function (x) { return x.route_id === D.route.id && (!x.day || x.day === D.today); }); }
   function demoText(kind, st, body) { if (st.customer.texts_visit) D.texts.push({ id: ++D.n + 10, kind: kind, to_addr: st.customer.phone, body: body, status: 'queued', stop_id: st.id, customer: { name: st.customer.name } }); }
   function demoNext() { var nx = mine().filter(function (x) { return x.status === 'scheduled'; })[0]; if (nx) { nx.status = 'on_the_way'; nx.on_way_at = new Date().toISOString(); demoText('on_the_way', nx, 'Arizona Pet Waste: We are on the way. See our truck: arizonapetwaste.com/t/DEMO01'); } }
   function demoDay() {
     var pings = {}; if (D.ping) pings.r1 = { at: D.ping };
-    return { day: S.day || D.today, today: D.today, stops: (S.day && S.day !== D.today) ? [] : D.stops, routes: (S.day && S.day !== D.today) ? [] : D.routes, pings: pings, needDay: D.customers.filter(function (c) { return c.service_day == null && c.status !== 'canceled'; }), queuedTexts: D.texts.filter(function (t) { return t.status === 'queued'; }).length };
+    var dd = S.day || D.today, ds = D.stops.filter(function (x) { return (x.day || D.today) === dd; });
+    return { day: dd, cap: (S.wk && S.wk.cap) || 30, today: D.today, stops: ds, routes: dd === D.today ? D.routes : D.routes.filter(function (r) { return ds.some(function (x) { return x.route_id === r.id; }); }), pings: pings, needDay: D.customers.filter(function (c) { return c.service_day == null && c.status !== 'canceled'; }), queuedTexts: D.texts.filter(function (t) { return t.status === 'queued'; }).length };
   }
   function demoToday() { return { mapsKey: D.mapsKey || null, day: D.today, dayName: DAYS[D.wd], route: D.route, stops: mine(), texts: D.texts.filter(function (t) { return t.status === 'queued' && t.stop_id; }) }; }
   function demoCust(id) { var c = D.customers.filter(function (x) { return x.id === id; })[0]; return { customer: c, monthly: 8000, visits: D.stops.filter(function (s) { return s.customer.id === id && s.status !== 'scheduled'; }), texts: D.texts.filter(function (t) { return t.customer && t.customer.name === c.name; }) }; }
@@ -278,6 +279,19 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (p === '/api/office/week') { var wr = await fetch('/api/demo/week?n=' + (b.n || 100) + '&cap=' + (b.cap || 30) + '&days=' + (b.days || '1,2,3,4,5')); if (!wr.ok) throw new Error('The sample week did not load. Try again.'); return wr.json(); }
     if (p === '/api/office/plan') return { added: 0 };
     if (p === '/api/office/night-before') return { queued: 0, day: D.today };
+    if (p.indexOf('/api/office/loads') === 0) {
+      var qs = new URLSearchParams(p.split('?')[1] || ''), f0 = qs.get('from') || D.today, sf = qs.get('staff');
+      return { cap: (S.wk && S.wk.cap) || 30, days: [0, 1, 2, 3, 4, 5, 6].map(function (i) { var dd = shift(f0, i), wd = new Date(dd + 'T19:00:00Z').getUTCDay();
+        return { day: dd, dayName: DAYS[wd], works: wd >= 1 && wd <= 5, yards: D.stops.filter(function (x) { var r = D.routes.filter(function (y) { return y.id === x.route_id; })[0]; return (x.day || D.today) === dd && x.status !== 'skipped' && r && r.staff.id === sf; }).length }; }) };
+    }
+    if (p === '/api/office/move-day') {
+      var wdn = DAYS[new Date(b.to + 'T19:00:00Z').getUTCDay()], n0 = 0;
+      (b.ids || []).forEach(function (id) { var x = D.stops.filter(function (y) { return String(y.id) === String(id); })[0]; if (!x || x.status !== 'scheduled') return;
+        x.status = 'skipped'; x.note = 'Moved to ' + wdn; n0++;
+        D.stops.push({ id: 'm' + (++D.n + 500), route_id: x.route_id, day: b.to, status: 'scheduled', code: 'DEMO01', customer: x.customer, position: 9000 + n0 }); });
+      var tot = D.stops.filter(function (x) { return x.day === b.to && x.status !== 'skipped'; }).length, cp = (S.wk && S.wk.cap) || 30;
+      return { moved: n0, already: 0, to: b.to, toName: wdn, toYards: tot, cap: cp, over: tot > cp, forever: !!b.forever, day: demoDay() };
+    }
     if (p === '/api/office/stop') {
       var i = D.stops.indexOf(st);
       if (b.action === 'skip') st.status = 'skipped'; if (b.action === 'unskip') st.status = 'scheduled';
@@ -444,7 +458,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       out += '<div class="dock"><button class="btn" data-a="arrive"' + (S.busy ? ' disabled' : '') + '>Arrived</button><div style="text-align:center"><button class="link" data-a="cant">Can\'t service</button></div></div>';
     } else {
       out += '<div style="border-top:1px solid var(--line);padding-top:14px"><span class="lbl">Checklist</span>' +
-        chk('scoop', 'Scooped every pile') + (spray ? chk('spray', 'Sprayed') : '') + chk('latch', 'Latched and pulled the gate') + '<p style="color:var(--mute);font-size:14px;margin:12px 0 0">Tap each box. Take the gate photo. The next yard opens on its own.</p></div>';
+        chk('scoop', 'Scooped every pile') + (spray ? chk('spray', 'Sprayed') : '') + chk('latch', 'Latched and pulled the gate') + '<p style="color:var(--mute);font-size:14px;margin:12px 0 0">Tap each box. Take the gate photo. The next yard opens on its own.</p></div><div style="height:8px"></div>';
       var hasPhoto = cur.photo_path || S.shot;
       if (S.shot) out += '<img class="shot" alt="Gate photo" src="' + S.shot + '">';
       else if (cur.photo_path) out += '<p class="ok mono" style="font-size:12px;letter-spacing:.14em;margin:14px 0 0">✓ GATE PHOTO SAVED</p>';
@@ -629,15 +643,51 @@ table.t tr.click:hover td{background:var(--bg2)}
       var open = d.routes.length === 1 || S.open[r.id];
       out += '<div class="sec"><button class="rhead" data-open="' + r.id + '" aria-expanded="' + (open ? 'true' : 'false') + '"><b>' + h(r.staff ? r.staff.name : 'Route') + '</b>' + tag(r.status) + (d.cap && st.filter(function (s) { return s.status !== 'skipped'; }).length > d.cap ? '<span class="tag bad">Over the limit of ' + d.cap + '</span>' : '') +
         '<span class="c">' + fin + ' of ' + st.length + ' done' + (ping ? ' · seen ' + h(ago(ping.at)) : '') + ' ' + (open ? '▾' : '▸') + '</span></button>';
+      var pk = S.pick && S.pick.route === r.id ? S.pick : null, movable = st.filter(function (s) { return s.status === 'scheduled'; });
+      if (open && movable.length && d.day >= d.today) out += pk
+        ? '<p style="color:var(--mute);font-size:14px;margin:12px 0 8px">Tap the yards to move, or pick a group from the end of the route.</p><div class="chips">' +
+          [5, 10, 20].map(function (n) { return '<button class="chip" data-pickn="' + n + '">Last ' + n + '</button>'; }).join('') + '<button class="chip" data-pickn="all">All</button><button class="chip" data-pickn="0">None</button><button class="chip" data-pick="">Cancel</button></div>'
+        : '<div style="margin:12px 0 4px"><button class="chip" data-pick="' + r.id + '">Move yards to another day</button></div>';
       if (open) out += '<ul class="list">' + st.map(function (s, i) {
-        return '<li class="tap" data-menu="' + s.id + '"><span class="n">' + String(i + 1).padStart(2, '0') + '</span><div><div class="a">' + h(s.customer.address) + '</div><div class="s">' + h(s.customer.name) +
+        var can = pk && s.status === 'scheduled', on = can && pk.ids[s.id];
+        return '<li class="tap" ' + (pk ? (can ? 'data-pickstop="' + s.id + '"' : 'style="opacity:.4"') : 'data-menu="' + s.id + '"') + '>' +
+          (pk ? '<span style="flex:0 0 26px;height:26px;border:1px solid ' + (on ? 'var(--accent)' : 'var(--line)') + ';background:' + (on ? 'var(--accent)' : 'transparent') + ';color:#000;display:flex;align-items:center;justify-content:center;font-weight:800;margin-right:4px">' + (on ? '✓' : '') + '</span>' : '') +
+          '<span class="n">' + String(i + 1).padStart(2, '0') + '</span><div><div class="a">' + h(s.customer.address) + '</div><div class="s">' + h(s.customer.name) +
           (s.reason ? ' · ' + h(s.reason.replace(/_/g, ' ')) : '') + (s.note ? ' · ' + h(s.note) : '') + (time(s.done_at || s.arrived_at || s.on_way_at) ? ' · ' + h(time(s.done_at || s.arrived_at || s.on_way_at)) : '') + '</div></div>' +
-          '<div class="r">' + tag(s.status) + (s.no_photo ? '<div style="margin-top:4px"><span class="tag bad">No photo</span></div>' : '') + '</div></li>';
+          '<div class="r">' + (s.status === 'skipped' && /^Moved to /.test(s.note || '') ? '<span class="tag">Moved</span>' : tag(s.status)) + (s.no_photo ? '<div style="margin-top:4px"><span class="tag bad">No photo</span></div>' : '') + '</div></li>';
       }).join('') + '</ul>';
+      if (pk) { var np = Object.keys(pk.ids).filter(function (k) { return pk.ids[k]; }).length; out += '<div class="dock"><button class="btn" data-pickgo="' + r.id + '"' + (np ? '' : ' disabled') + '>' + (np ? 'Move ' + np + ' yard' + (np === 1 ? '' : 's') + ' to another day' : 'Pick the yards to move') + '</button></div>'; }
       out += '</div>';
     });
     if (d.routes.length) out += '<div class="sec"><div class="row2" style="max-width:640px"><button class="btn ghost sm" style="width:100%" data-o="plan">Add missing yards</button><button class="btn ghost sm" style="width:100%" data-o="night">Get tomorrow\'s texts ready</button></div></div>';
     return out;
+  }
+  // Move a group of yards to another day. Shows how full each of the next days is, so nobody gets overloaded.
+  async function sheetMove(routeId) {
+    var d = S.data.day, r = d.routes.filter(function (x) { return x.id === routeId; })[0], ids = Object.keys(S.pick.ids).filter(function (k) { return S.pick.ids[k]; });
+    if (!r || !ids.length) return;
+    var loads; try { loads = await api('GET', '/api/office/loads?from=' + d.today + '&staff=' + encodeURIComponent(r.staff ? r.staff.id : '')); } catch (e) { return toast(e.message); }
+    var st = { to: null, forever: false }, el = document.createElement('div'); el.className = 'sheet';
+    var draw = function () {
+      el.innerHTML = '<div class="pane" role="dialog" aria-modal="true"><div class="lbl">' + h(r.staff ? r.staff.name : 'Route') + ', ' + h(dayLabel(d.day)) + '</div><p class="big" style="font-size:26px">Move ' + ids.length + ' yard' + (ids.length === 1 ? '' : 's') + '</p>' +
+        '<span class="lbl" style="display:block;margin-top:6px">To which day?</span><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px">' +
+        loads.days.filter(function (x) { return x.day !== d.day; }).map(function (x) { var after = x.yards + ids.length, bad = after > loads.cap;
+          return '<button data-to="' + x.day + '" style="text-align:left;padding:10px;min-height:64px;cursor:pointer;background:transparent;color:inherit;font:inherit;border:1px solid ' + (st.to === x.day ? 'var(--accent)' : 'var(--line)') + '"><b>' + h(dayLabel(x.day).replace(',', '')) + '</b><br><span class="mono" style="font-size:11px;color:' + (bad ? 'var(--bad)' : 'var(--mute)') + '">' + x.yards + ' now, ' + after + ' after</span></button>'; }).join('') + '</div>' +
+        '<p style="color:var(--mute);font-size:13px;margin:8px 0 0">The limit is ' + loads.cap + ' yards a day. Red means that day would go over.</p>' +
+        '<span class="lbl" style="display:block;margin-top:16px">For how long?</span><div class="chips" style="margin-top:8px"><button class="chip' + (st.forever ? '' : ' on') + '" data-fv="0">Just this visit</button><button class="chip' + (st.forever ? ' on' : '') + '" data-fv="1">Every week from now on</button></div>' +
+        '<p style="color:var(--mute);font-size:13px;margin:8px 0 0">' + (st.forever ? 'This changes the customer\'s regular day. Each one gets an email with the new day.' : 'Only this visit moves. Next week they are back on their regular day.') + '</p>' +
+        '<div style="height:12px"></div><button class="btn" id="mv"' + (st.to ? '' : ' disabled') + '>' + (st.to ? 'Move to ' + h(dayLabel(st.to)) : 'Pick a day') + '</button><button class="btn ghost" id="mx" style="margin-top:8px">Back</button></div>';
+      el.querySelectorAll('[data-to]').forEach(function (b) { b.onclick = function () { st.to = b.dataset.to; draw(); }; });
+      el.querySelectorAll('[data-fv]').forEach(function (b) { b.onclick = function () { st.forever = b.dataset.fv === '1'; draw(); }; });
+      el.querySelector('#mx').onclick = function () { el.remove(); };
+      el.querySelector('#mv').onclick = async function () {
+        el.querySelector('#mv').disabled = true;
+        try { var res = await api('POST', '/api/office/move-day', { ids: ids, to: st.to, forever: st.forever }); el.remove(); S.pick = null; S.data.day = res.day; render();
+          toast(res.moved ? 'Moved ' + res.moved + ' yard' + (res.moved === 1 ? '' : 's') + ' to ' + res.toName + '. ' + res.toName + ' now has ' + res.toYards + (res.over ? ', over the limit of ' + res.cap : '') + '.' : 'Those yards are already on that day.'); }
+        catch (e) { toast(e.message); draw(); }
+      };
+    };
+    draw(); document.body.appendChild(el);
   }
   // One menu per yard, in plain words. Tap a yard on the Schedule tab to open it.
   function stopMenu(id) {
@@ -924,6 +974,13 @@ table.t tr.click:hover td{background:var(--bg2)}
     app.querySelectorAll('[data-goto]').forEach(function (b) { b.onclick = function () { S.day = b.dataset.goto; S.data.day = null; render(); loadTab(); }; });
     app.querySelectorAll('[data-open]').forEach(function (b) { b.onclick = function () { S.open = S.open || {}; S.open[b.dataset.open] = !S.open[b.dataset.open]; render(); }; });
     app.querySelectorAll('[data-menu]').forEach(function (b) { b.onclick = function () { stopMenu(b.dataset.menu); }; });
+    app.querySelectorAll('[data-pick]').forEach(function (b) { b.onclick = function () { var id = b.dataset.pick; S.pick = id ? { route: isNaN(+id) ? id : +id, ids: {} } : null; render(); }; });
+    app.querySelectorAll('[data-pickstop]').forEach(function (b) { b.onclick = function () { S.pick.ids[b.dataset.pickstop] = !S.pick.ids[b.dataset.pickstop]; render(); }; });
+    app.querySelectorAll('[data-pickn]').forEach(function (b) { b.onclick = function () {
+      var free = S.data.day.stops.filter(function (x) { return x.route_id === S.pick.route && x.status === 'scheduled'; }), n = b.dataset.pickn;
+      S.pick.ids = {}; (n === 'all' ? free : n === '0' ? [] : free.slice(-(+n))).forEach(function (x) { S.pick.ids[x.id] = true; }); render();
+    }; });
+    app.querySelectorAll('[data-pickgo]').forEach(function (b) { b.onclick = function () { sheetMove(S.pick.route); }; });
     app.querySelectorAll('[data-cust]').forEach(function (b) { b.onclick = function (e) { e.preventDefault(); openCustomer(b.dataset.cust); }; });
     app.querySelectorAll('[data-stop]').forEach(function (b) { b.onclick = async function () { try { S.data.day = await api('POST', '/api/office/stop', { id: b.dataset.stop, action: b.dataset.act }); render(); } catch (e) { toast(e.message); } }; });
     app.querySelectorAll('[data-move]').forEach(function (s) { s.onchange = async function () { if (!s.value) return; try { S.data.day = await api('POST', '/api/office/stop', { id: s.dataset.move, action: 'move', staffId: s.value }); toast('Moved. The old link stopped working.'); render(); } catch (e) { toast(e.message); } }; });

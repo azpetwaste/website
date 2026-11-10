@@ -177,3 +177,14 @@ Joe ran the demo and could not tell how to get to the next yard after Arrived.
 - **Route map for the scooper.** "Ready to roll" shows a Google map with every yard numbered in driving order (`routeMap`, `crewToday` now sends `mapsKey`).
 - Maps are built once and kept across screen refreshes (`keepMap`), so a refresh does not load a new map.
 - Every browser pop up is gone from the crew app: sign out, the one time location OK, lead note, new lead and the copy link fallback all use our own sheets (`sheetAsk`, `sheetForm`). The location OK step itself is unchanged.
+
+### Nov 9, 2026, 9 pm. Move a group of yards to another day.
+Joe asked for one button to take, say, 10 of Juan's 30 Monday yards and send them to Tuesday.
+- **Schedule tab, open a route, "Move yards to another day".** Tap yards, or use Last 5, Last 10, Last 20, All. Then "Move N yards to another day" opens a sheet with the next days. Each day shows how many yards it has now and after the move, red if that passes the limit. Choose "Just this visit" or "Every week from now on".
+- Server: `POST /api/office/move-day` (`{ ids, to, forever }`) and `GET /api/office/loads?from=&staff=` (yards on each of the next 7 days for one scooper). Office only.
+- How a move is stored: the old stop stays on its day as `skipped` with the note "Moved to Tuesday" (shows a Moved tag), so the day builder does not put the yard back. A new stop is made on the new day with a new link, and that route is put back in driving order (`reorderRoute`). "Every week" also changes `service_day` (or `service_day2`), drops later built visits, and emails the new day.
+- A stop's identity column cannot be written, so position updates upsert on (day, customer_id).
+- `crewToday` now tops up any route that has not started, not only a missing one. A day the office built early still picks up late sign ups.
+- Cancel and the week rebuild now clear future `skipped` stops too, so no Moved markers are left behind.
+- Demo supports all of it. Other days in the demo start empty.
+- Tests: desk is now 80 (13 new for the group move).

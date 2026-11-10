@@ -135,6 +135,7 @@ async function authUser(email) {
 }
 const reply = (data, status = 200) => new Response(data == null ? '' : JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
 const realFetch = globalThis.fetch;
+const mailBodies = [];
 globalThis.fetch = async (u, init = {}) => {
   u = String(u);
   const m = init.method || 'GET';
@@ -157,7 +158,7 @@ globalThis.fetch = async (u, init = {}) => {
   if (u.startsWith(SB + '/storage/v1/object/')) { files[u.split('/object/')[1]] = init.body.length; return reply({ Key: 'ok' }); }
   if (u === 'https://routes.googleapis.com/directions/v2:computeRoutes') { routesCalls++; return reply({ routes: [{ duration: '420s', distanceMeters: 2500, polyline: { encodedPolyline: '_p~iF~ps|U_ulLnnqC' } }] }); }
   if (u.startsWith('https://geocoding.geo.census.gov/')) return reply({ result: { addressMatches: [{ coordinates: { x: -112.5501, y: 33.4801 } }] } });
-  if (u.startsWith('https://api.resend.com/')) return reply({ id: 'm1' });
+  if (u.startsWith('https://api.resend.com/')) { mailBodies.push(String(init.body || '')); return reply({ id: 'm1' }); }
   return reply({ error: 'unmocked ' + u }, 500);
 };
 
@@ -352,6 +353,37 @@ const moved = r.d.stops.find((s) => s.id === st1.id);
 ok('moved to James with a new link', moved && moved.code !== st1.code && r.d.routes.some((x) => x.staff.name === 'James Ortiz'));
 r = await call('/api/track/' + st1.code, 'GET');
 ok('old link is dead', r.status === 404);
+
+console.log('\nMove a group of yards to another day');
+{
+  const plus = (d, n) => new Date(Date.parse(d + 'T19:00:00Z') + n * 864e5).toISOString().slice(0, 10), wdOf = (d) => new Date(d + 'T19:00:00Z').getUTCDay();
+  const tom2 = plus(tom, 1), tom3 = plus(tom, 2);
+  r = await call('/api/office/day?date=' + tom, 'GET', null, owner);
+  const group = r.d.stops.filter((x) => x.status === 'scheduled'), custIds = group.map((x) => x.customer.id);
+  r = await call('/api/office/loads?from=' + tom + '&staff=' + james.id, 'GET', null, owner);
+  ok('the office sees how full the next 7 days are', r.status === 200 && r.d.days.length === 7 && r.d.days[0].day === tom && r.d.days[0].yards >= 1 && r.d.cap === 30, r.d.days.map((x) => x.yards).join(','));
+  r = await call('/api/office/move-day', 'POST', { ids: group.map((x) => x.id), to: tom2 }, mt);
+  ok('a scooper cannot move yards between days', r.status === 403);
+  r = await call('/api/office/move-day', 'POST', { ids: group.map((x) => x.id), to: tom2 }, owner);
+  ok('a group of yards moves to the next day in one go', r.status === 200 && r.d.moved === group.length && r.d.toYards >= group.length && r.d.over === false, { moved: r.d.moved, toYards: r.d.toYards });
+  ok('the old day shows them as moved, not as open visits', r.d.day.stops.filter((x) => custIds.includes(x.customer.id)).every((x) => x.status === 'skipped' && /^Moved to /.test(x.note || '')));
+  r = await call('/api/office/day?date=' + tom2, 'GET', null, owner);
+  const landed = r.d.stops.filter((x) => custIds.includes(x.customer.id));
+  ok('the new day has them, ready and numbered', landed.length === group.length && landed.every((x) => x.status === 'scheduled' && x.position < 9000), landed.map((x) => x.position));
+  ok('each moved visit has a new link', landed.every((x) => !group.some((g) => g.code === x.code)));
+  r = await call('/api/office/plan', 'POST', { date: tom }, owner);
+  ok('building the old day again does not put them back', r.d.added === 0, r.d.added);
+  let rows = (await db.query('select service_day from customers where id = any($1)', [custIds])).rows;
+  ok('just this visit: the regular day did not change', rows.every((x) => x.service_day === wdOf(tom)), rows.map((x) => x.service_day));
+  r = await call('/api/office/move-day', 'POST', { ids: landed.map((x) => x.id), to: tom3, forever: true }, owner);
+  rows = (await db.query('select service_day from customers where id = any($1)', [custIds])).rows;
+  ok('every week from now on: the regular day changes', r.status === 200 && r.d.moved === landed.length && rows.every((x) => x.service_day === wdOf(tom3)), rows.map((x) => x.service_day));
+  ok('the customer gets an email with the new day' + (env.RESEND_API_KEY ? '' : ' (mail is off in this test, so none is sent)'), env.RESEND_API_KEY ? mailBodies.some((x) => /Your new service day is /.test(x)) : true);
+  r = await call('/api/office/move-day', 'POST', { ids: landed.map((x) => x.id), to: plus(today, -1) }, owner);
+  ok('yards cannot move to a day in the past', r.status === 400);
+  r = await call('/api/office/move-day', 'POST', { ids: [], to: tom3 }, owner);
+  ok('nothing picked is refused', r.status === 400);
+}
 
 console.log('\nCancel takes them off future routes');
 const evt2 = JSON.stringify({ type: 'customer.subscription.deleted', data: { object: { id: 'sub_1', customer: 'cus_1', status: 'canceled', metadata: { user_id: cid } } } });
