@@ -44,6 +44,7 @@ Built and live:
 - Supabase sign in emails send through Resend. A real code email arrived on Nov 9.
 
 Tests on the last commit: desk 64, ten sign ups 35, fifty sign ups 101, five hundred sign ups 116. All pass. Commands are in `CLAUDE.md`.
+Run again by the new Field App chat on Nov 9 at night, on a fresh clone: same counts, all pass. The demo was also walked at phone size (all tabs, Plan the week, a full stop with a gate photo, the truck link map). Details are at the bottom of `docs/HANDOFF.md`.
 
 Not run yet:
 - The real signed in staff app with real data.
@@ -55,7 +56,7 @@ Not run yet:
 2. Test sign up at `/book/?test=1` with card 4242 4242 4242 4242.
 3. Atlas: `RESEND_API_KEY`, `MAIL_FROM`, `NOTIFY_EMAIL` in Cloudflare Pages. Stripe live keys after the road test.
 4. Joe: where the truck starts each day (`ROUTE_START`).
-5. The `skips` column is not on the live database yet: `alter table public.customers add column if not exists skips date[] not null default '{}';`
+5. The `skips` column is not on the live database yet. Claude's database tool blocks this line (tried twice), so a person runs it in the Supabase SQL Editor: `alter table public.customers add column if not exists skips date[] not null default '{}';`
 6. Twilio approval, then wire sending into `queueText`.
 7. The training video shows the older Today screen. Re-record when the screens settle.
 

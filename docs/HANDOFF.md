@@ -99,3 +99,12 @@ This lane is website edits and AEO (showing up in Google and in AI answers). It 
 - Tests on this commit: desk 64, signup10 35, signup50 101, signup50 at COUNT=500 116. All pass.
 - Still not run: the real signed in crew app with real data, and a real phone road test.
 - A test customer "TEST Yard (delete me)" is in the live database, tied to the info@ login. Delete it after the staff test.
+
+### Nov 9, 2026, night. A new chat owns the Field App now (project "APW (Field Tool/App)").
+The chat that built the field desk has stopped. This chat picked it up from `docs/FIELD_APP.md`. No code changed in this pass.
+- Tests run again on a fresh clone at `ae16f9b`: build and `npm run check` pass, `worker.test.mjs` exits clean, desk 64, signup10 35, signup50 101, signup50 at COUNT=500 116. All pass.
+- Live checks at phone size (375 wide) in the demo: `/api/health` says live and desk are on. All eight tabs in `/crew/?demo` load with no errors and no sideways scroll. Plan the week ran at 20 a day (6 scoopers, biggest day 20) and 40 a day (3 scoopers, biggest day 38). The scooper flow ran: Start route, Arrived, checklist, gate photo (a 3000 wide photo shrank to 1600), Done, next yard loaded with its text prompt. `/t/DEMO01` drew the Google map, the road line, the truck and the house.
+- Live database, read only: 1 customer ("TEST Yard (delete me)"), 1 staff row, 0 rows in `errors`, `settings` is empty (so the limit is the default 30 a day), and `customers.skips` is still missing.
+- The `skips` line was tried again and the tool blocked it again as a production change. It still needs a person: Supabase, SQL Editor, run the one line in `docs/FIELD_APP.md` item 5.
+- Still not run: the signed in staff test (needs a person to sign in at `/crew` in the Claude browser pane), the test sign up at `/book/?test=1` (the page loads, the rest needs a person for the code and the card), and the phone road test.
+- Small things seen, not changed: the Money tab phone links and the Leads status chips are under 36 px tall on a phone. "No photo" and other confirms use the browser's own confirm box.
