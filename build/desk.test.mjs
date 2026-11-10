@@ -75,7 +75,7 @@ function cond(col, expr, vals, alias) {
 function whereSql(table, params, vals, alias) {
   const w = [];
   for (const [k, v] of params) {
-    if (['select', 'order', 'limit', 'on_conflict'].includes(k)) continue;
+    if (['select', 'order', 'limit', 'offset', 'on_conflict'].includes(k)) continue;
     if (k === 'or') {
       const inner = decodeURIComponent(v).replace(/^\(|\)$/g, '');
       w.push('(' + splitTop(inner).map((p) => { const i = p.indexOf('.'); return cond(p.slice(0, i), p.slice(i + 1), vals, alias); }).join(' or ') + ')');
@@ -96,7 +96,7 @@ async function rest(method, rel, body, prefer) {
   const vals = [];
   const ret = /return=representation/.test(prefer || '');
   if (method === 'GET') {
-    const sql = `select ${selectSql(table, get('select'), 't0')} from ${ident(table)} t0${whereSql(table, params, vals, 't0')}${orderSql(get('order'), 't0')}${get('limit') ? ' limit ' + parseInt(get('limit'), 10) : ''}`;
+    const sql = `select ${selectSql(table, get('select'), 't0')} from ${ident(table)} t0${whereSql(table, params, vals, 't0')}${orderSql(get('order'), 't0')}${get('limit') ? ' limit ' + parseInt(get('limit'), 10) : ''}${get('offset') ? ' offset ' + parseInt(get('offset'), 10) : ''}`;
     return (await db.query(sql, vals)).rows;
   }
   if (method === 'POST') {

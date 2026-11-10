@@ -242,6 +242,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (p === '/api/crew/end') { D.route.status = 'done'; return demoToday(); }
     if (p === '/api/crew/text' || p === '/api/office/text') { D.texts.forEach(function (t) { if (String(t.id) === String(b.id)) t.status = b.status; }); return { ok: true }; }
     if (p === '/api/office/day') return demoDay();
+    if (p === '/api/office/week') { var wr = await fetch('/api/demo/week?n=' + (b.n || 500) + '&cap=' + (b.cap || 30) + '&days=' + (b.days || '1,2,3,4,5')); if (!wr.ok) throw new Error('The sample week did not load. Try again.'); return wr.json(); }
     if (p === '/api/office/plan') return { added: 0 };
     if (p === '/api/office/night-before') return { queued: 0, day: D.today };
     if (p === '/api/office/stop') {
@@ -529,6 +530,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (t === 'route') return viewRoute();
     var out = '<div class="wrap">';
     if (t === 'today') out += officeToday(d.day);
+    if (t === 'week') out += officeWeek(d.week);
     if (t === 'customers') out += officeCustomers(d.customers);
     if (t === 'leads') out += officeLeads(d.leads);
     if (t === 'texts') out += officeTexts(d.texts);
@@ -621,6 +623,35 @@ table.t tr.click:hover td{background:var(--bg2)}
     }).join('') + '</tbody></table></div></div>';
     return out;
   }
+  function officeWeek(w) {
+    var o = S.wk || (S.wk = { cap: 30, days: '1,2,3,4,5', n: 500 });
+    var out = '<div class="daynav"><h2>Week plan</h2></div>' +
+      '<p style="color:var(--mute);font-size:14px;max-width:70ch">This picks the day and the scooper for every yard, so each scooper works one part of town and no day has more yards than one person can do. The Today tab then puts each day in driving order.</p>' +
+      '<div class="grid2" style="max-width:640px"><label class="fl"><span class="lbl">Yards one scooper does in a day</span><input class="f" id="wk_cap" inputmode="numeric" value="' + h(o.cap) + '"></label>' +
+      '<label class="fl"><span class="lbl">Days we scoop</span><select class="f" id="wk_days"><option value="1,2,3,4,5"' + (o.days === '1,2,3,4,5' ? ' selected' : '') + '>Monday to Friday</option><option value="1,2,3,4,5,6"' + (o.days === '1,2,3,4,5,6' ? ' selected' : '') + '>Monday to Saturday</option></select></label></div>' +
+      (DEMO ? '<label class="fl" style="max-width:310px"><span class="lbl">Sample customers (made up, across our ZIP codes)</span><select class="f" id="wk_n">' + [100, 250, 500, 1000].map(function (n) { return '<option' + (o.n === n ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select></label>' : '') +
+      '<div class="row2" style="max-width:640px;margin-top:14px">' + (DEMO ? '' : '<button class="btn ghost" data-wk="new">Place new yards only</button>') + '<button class="btn" data-wk="all">' + (DEMO ? 'Plan the sample week' : 'Rebuild the whole week') + '</button></div>' +
+      (DEMO ? '' : '<p style="color:var(--mute);font-size:13px;max-width:70ch">Place new yards only moves nobody. Rebuild the whole week can move customers to a new day. You see the plan first. Nothing is saved until you press Save.</p>');
+    if (!w) return out;
+    if (w.loading) return out + '<p class="empty">Planning…</p>';
+    out += '<div class="stats" style="margin-top:22px"><div class="stat"><span class="lbl">Scoopers needed</span><b' + (w.hire && !w.sample ? ' style="color:var(--bad)"' : '') + '>' + w.techsNeeded + '</b><div class="mono" style="color:var(--mute);margin-top:6px">' + (w.sample ? w.customers + ' yards' : 'you have ' + w.techsHave + (w.hire ? ', hire ' + w.hire : '')) + '</div></div>' +
+      '<div class="stat"><span class="lbl">Biggest day</span><b>' + w.biggestDay + '</b><div class="mono" style="color:var(--mute);margin-top:6px">limit ' + w.cap + '</div></div>' +
+      '<div class="stat"><span class="lbl">Routes a week</span><b>' + w.routes + '</b></div>' +
+      '<div class="stat"><span class="lbl">Miles a week</span><b>' + Math.round(w.weekMiles) + '</b></div></div>';
+    if (w.oldWay) out += '<p style="font-size:14px">One day for each area with one scooper would put <b>' + w.oldWay.biggestDay + ' yards</b> on the biggest day. This plan tops out at <b>' + w.biggestDay + '</b>.</p>';
+    if (!w.sample) out += '<p style="font-size:14px">' + (w.changes ? '<b>' + w.changes + '</b> yards get a day' + (w.moved ? ', and <b>' + w.moved + '</b> of them move from the day they have now' : '') + '.' : 'Every yard already has a day. Nothing to change.') + (w.noPin ? ' <span class="tag bad">' + w.noPin + ' with no map pin</span> Open each one in Customers and press Put on the map.' : '') + (w.overCap ? ' <span class="tag bad">' + w.overCap + ' days over the limit</span> Rebuild the whole week to fix.' : '') + '</p>';
+    var names = [], dayNames = [];
+    w.slots.forEach(function (x) { if (names.indexOf(x.name) < 0) names.push(x.name); if (dayNames.indexOf(x.dayName) < 0) dayNames.push(x.dayName); });
+    var order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    dayNames.sort(function (a, b) { return order.indexOf(a) - order.indexOf(b); });
+    out += '<div class="sec" style="overflow-x:auto"><table class="t"><thead><tr><th style="text-align:left">Scooper</th>' + dayNames.map(function (d) { return '<th style="text-align:left">' + d.slice(0, 3) + '</th>'; }).join('') + '</tr></thead><tbody>' + names.map(function (n) {
+      return '<tr><td><b>' + h(n) + '</b></td>' + dayNames.map(function (d) { var x = w.slots.filter(function (z) { return z.name === n && z.dayName === d; })[0]; return '<td class="mono" style="font-size:13px;white-space:nowrap">' + (x ? '<b>' + x.yards + '</b> yards<br><span style="color:var(--mute)">' + x.miles + ' mi</span>' : '<span style="color:var(--mute)">off</span>') + '</td>'; }).join('') + '</tr>';
+    }).join('') + '</tbody></table></div>';
+    if (w.applied) out += '<p class="tag ok" style="display:inline-block;margin-top:14px">Saved' + (w.emailed ? '. ' + w.emailed + ' customers got an email with their day' : '') + '</p>';
+    else if (!w.sample && w.changes) out += '<div style="max-width:640px;margin-top:16px"><button class="btn" data-wk="save">Save this week' + (w.moved ? ' and email ' + w.changes + ' customers' : '') + '</button></div>';
+    if (w.sample) out += '<p style="color:var(--mute);font-size:13px;margin-top:14px">Sample only. Nothing is saved. Sign in at /crew to plan your real customers.</p>';
+    return out;
+  }
   function officeMoney(m) {
     var out = '<div class="daynav"><h2>Money</h2></div>';
     if (!m) return out + '<p class="empty">Loading…</p>';
@@ -700,6 +731,16 @@ table.t tr.click:hover td{background:var(--bg2)}
     root.querySelectorAll('[data-photo]').forEach(function (b) { b.onclick = async function () { try { var r = await api('GET', '/api/office/photo?stop=' + b.dataset.photo); window.open(r.url, '_blank', 'noopener'); } catch (e) { toast(e.message); } }; });
   }
   function bindOffice() {
+    app.querySelectorAll('[data-wk]').forEach(function (b) { b.onclick = async function () {
+      var o = S.wk, g = function (id) { var x = document.getElementById(id); return x ? x.value : null; };
+      o.cap = Math.min(80, Math.max(5, parseInt(g('wk_cap'), 10) || 30)); o.days = g('wk_days') || o.days; if (g('wk_n')) o.n = +g('wk_n');
+      var save = b.dataset.wk === 'save';
+      if (!save) o.mode = b.dataset.wk;
+      var keep = S.data.week; S.data.week = { loading: true }; render();
+      try { S.data.week = await api('POST', '/api/office/week', { mode: o.mode || 'all', cap: o.cap, days: o.days, n: o.n, apply: save }); if (save) toast('Week saved'); }
+      catch (e) { S.data.week = keep; toast(e.message); }
+      render();
+    }; });
     app.querySelectorAll('[data-day]').forEach(function (b) { b.onclick = function () { var n = +b.dataset.day; S.day = n === 0 ? S.data.day.today : shift(S.data.day.day, n); S.data.day = null; render(); loadTab(); }; });
     app.querySelectorAll('[data-cust]').forEach(function (b) { b.onclick = function (e) { e.preventDefault(); openCustomer(b.dataset.cust); }; });
     app.querySelectorAll('[data-stop]').forEach(function (b) { b.onclick = async function () { try { S.data.day = await api('POST', '/api/office/stop', { id: b.dataset.stop, action: b.dataset.act }); render(); } catch (e) { toast(e.message); } }; });
@@ -735,7 +776,7 @@ table.t tr.click:hover td{background:var(--bg2)}
   }
 
   /* ---------- shell ---------- */
-  var TABS = [['today', 'Today'], ['route', 'My route'], ['customers', 'Customers'], ['leads', 'Leads'], ['texts', 'Texts'], ['team', 'Team'], ['money', 'Money'], ['health', 'Health']];
+  var TABS = [['today', 'Today'], ['week', 'Week'], ['route', 'My route'], ['customers', 'Customers'], ['leads', 'Leads'], ['texts', 'Texts'], ['team', 'Team'], ['money', 'Money'], ['health', 'Health']];
   function go(t) { S.tab = t; render(); loadTab(); }
   function shell(inner) {
     var tabs = S.view === 'office' ? TABS.map(function (t) {

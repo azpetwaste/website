@@ -21,6 +21,7 @@ Read this first. `README.md` has how the site is built. `GO_LIVE.md` has account
 - The scooper agrees to location sharing once, on the first Start route (`staff.location_ok_at`). Keep that step.
 - Copy rules: no dashes in copy, short plain words, one h1 per page. `npm run check` enforces this.
 
+- Week plan: the Week tab in `/crew` (`/api/office/week`) picks the day and scooper for every yard. `STOPS_PER_DAY` (default 30) and `WORK_DAYS` (default `1,2,3,4,5`) are optional Cloudflare settings. `ROUTE_START` (`lat,lng`) is where the truck starts. `/crew/?demo` has a Week tab that plans made up yards with the same code (`/api/demo/week`) and saves nothing.
 - Bot check on sign in codes: set `TURNSTILE_SITE_KEY` in Cloudflare Pages and put the Turnstile secret in Supabase (Auth, Bot and Abuse Protection, Turnstile). Set the site key first. Test customer and staff sign in right after.
 
 ## Checks

@@ -75,7 +75,7 @@ function cond(col, expr, vals, alias) {
 function whereSql(table, params, vals, alias) {
   const w = [];
   for (const [k, v] of params) {
-    if (['select', 'order', 'limit', 'on_conflict'].includes(k)) continue;
+    if (['select', 'order', 'limit', 'offset', 'on_conflict'].includes(k)) continue;
     if (k === 'or') {
       const inner = decodeURIComponent(v).replace(/^\(|\)$/g, '');
       w.push('(' + splitTop(inner).map((p) => { const i = p.indexOf('.'); return cond(p.slice(0, i), p.slice(i + 1), vals, alias); }).join(' or ') + ')');
@@ -96,7 +96,7 @@ async function rest(method, rel, body, prefer) {
   const vals = [];
   const ret = /return=representation/.test(prefer || '');
   if (method === 'GET') {
-    const sql = `select ${selectSql(table, get('select'), 't0')} from ${ident(table)} t0${whereSql(table, params, vals, 't0')}${orderSql(get('order'), 't0')}${get('limit') ? ' limit ' + parseInt(get('limit'), 10) : ''}`;
+    const sql = `select ${selectSql(table, get('select'), 't0')} from ${ident(table)} t0${whereSql(table, params, vals, 't0')}${orderSql(get('order'), 't0')}${get('limit') ? ' limit ' + parseInt(get('limit'), 10) : ''}${get('offset') ? ' offset ' + parseInt(get('offset'), 10) : ''}`;
     return (await db.query(sql, vals)).rows;
   }
   if (method === 'POST') {
@@ -278,7 +278,7 @@ let list = r.d.customers || [];
 ok(N + ' customers in the office list', list.length === N, list.length);
 ok('all ' + N + ' are on their free month', list.every((c) => c.status === 'trialing'));
 ok('all ' + N + ' have a map pin', list.every((c) => c.lat != null && c.lng != null));
-ok('all ' + N + ' got the service day for their area', list.every((c) => c.service_day === AREA_DAY[c.area]));
+ok('all ' + N + ' got a service day', list.every((c) => c.service_day != null));
 ok('office got ' + N + ' booking emails', mails.filter((x) => /^New booking/.test(x.subject)).length === N);
 ok('every sign up saved its text consent records', (await count('select count(distinct user_id)::int n from consent_log')) === N);
 ok('double tap on Pay made no double customers', (await count('select count(*)::int n from customers')) === N);
@@ -426,6 +426,54 @@ ok('a scooper cannot change the bill', r.status === 403, r.status);
   await hook({ type: 'checkout.session.completed', data: { object: { mode: 'subscription', client_reference_id: s.user.id, subscription: sub, customer: 'cus_' + sub.slice(4) } } });
   await Promise.all(waits.splice(0));
   ok('a prepaid card is flagged to the office', mails.some((x) => /^Prepaid card: Pat Prepaid/.test(x.subject)), mails.map((x) => x.subject)); }
+
+console.log('\nWeek planner: ' + N + ' customers, 30 yards a scooper a day, Monday to Friday');
+const CAP = 30;
+let tw = Date.now();
+r = await call('/api/office/week', 'POST', { mode: 'all', cap: CAP }, owner);
+console.log('  Preview took ' + (Date.now() - tw) + ' ms. It says: ' + r.d.techsNeeded + ' scoopers needed, you have ' + r.d.techsHave + ', hire ' + r.d.hire + '. Biggest day ' + r.d.biggestDay + ' yards. ' + r.d.routes + ' routes a week, ' + r.d.weekMiles + ' miles.');
+ok('preview saves nothing', r.status === 200 && r.d.applied === false && (await count('select count(*)::int n from customers where scooper_id is not null')) === 0, r.d.applied);
+const need = r.d.techsNeeded;
+for (let i = 1; i < need; i++) await call('/api/office/team', 'POST', { name: 'Tech ' + (i + 1), email: 'tech' + (i + 1) + '@example.com', phone: '623-555-02' + String(10 + i), role: 'scooper' }, owner);
+mails.length = 0; tw = Date.now();
+r = await call('/api/office/week', 'POST', { mode: 'all', cap: CAP, apply: true }, owner);
+const wk = r.d;
+console.log('  Apply took ' + (Date.now() - tw) + ' ms. ' + wk.changes + ' customers got a day or a new day.');
+ok('the week is saved', wk.applied === true && wk.hire === 0, { applied: wk.applied, hire: wk.hire });
+const load = (await db.query(`select scooper_id, d, sum(case when plan = 'eow' then 0 else 1 end)::int + max(e0)::int as wk0, sum(case when plan = 'eow' then 0 else 1 end)::int + max(e1)::int as wk1 from (
+  select c.scooper_id, c.plan, x.d, count(*) filter (where c.plan = 'eow' and coalesce(c.eow_week, 0) = 0) over (partition by c.scooper_id, x.d) e0, count(*) filter (where c.plan = 'eow' and c.eow_week = 1) over (partition by c.scooper_id, x.d) e1
+  from customers c cross join lateral (values (c.service_day), (c.service_day2)) x(d) where x.d is not null and c.status in ('trialing', 'active', 'past_due', 'paused')) q group by scooper_id, d order by 1, 2`)).rows;
+const worst = Math.max(...load.map((x) => Math.max(x.wk0, x.wk1)));
+ok('no scooper has more than ' + CAP + ' yards on any day, in either week', worst <= CAP, worst);
+ok('every yard with a map pin has a scooper and a day (' + wk.noPin + ' with no pin are listed for the office)', (await count("select count(*)::int n from customers where lat is not null and status in ('trialing','active','past_due','paused') and (scooper_id is null or service_day is null)")) === 0);
+ok('only Monday to Friday is used', (await count('select count(*)::int n from customers where service_day not between 1 and 5 or service_day2 not between 1 and 5')) === 0);
+ok('twice a week yards get two different days with a gap', (await count("select count(*)::int n from customers where plan = 'twice' and status <> 'canceled' and status <> 'checkout' and (service_day2 is null or service_day2 = service_day or abs(service_day2 - service_day) < 2)")) === 0);
+const eo = (await db.query("select count(*) filter (where eow_week = 0)::int a, count(*) filter (where eow_week = 1)::int b from customers where plan = 'eow' and status in ('trialing','active')")).rows[0];
+ok('every other week yards are split between the two weeks', Math.abs(eo.a - eo.b) <= need * 5 + 1, eo);
+ok('each scooper works one part of town: ' + (wk.weekMiles / wk.slots.reduce((n, x) => n + x.homes, 0)).toFixed(2) + ' miles a yard', N < 200 || wk.slots.every((x) => x.miles < 45), Math.max(...wk.slots.map((x) => x.miles)));
+ok('every customer whose day changed got an email', wk.emailed === wk.changes && mails.length === Math.ceil(wk.changes / 100), { emailed: wk.emailed, batches: mails.length });
+console.log('  Scooper by day (yards / miles):');
+for (const t of [...new Set(wk.slots.map((x) => x.name))]) console.log('    ' + t.padEnd(12) + wk.slots.filter((x) => x.name === t).map((x) => x.dayName.slice(0, 3) + ' ' + String(x.yards).padStart(2) + ' / ' + String(x.miles).padStart(4)).join('   '));
+console.log('  Week: ' + wk.routes + ' routes, ' + wk.weekMiles + ' miles, biggest day ' + wk.biggestDay + ' yards. Before: one day per area, biggest day ' + Math.round(N * 0.46) + ' yards for one scooper.');
+let most = 0, dayMiles = 0, routesBuilt = 0;
+for (let i = 1; i <= 7; i++) {
+  const d = new Date(Date.parse(today + 'T19:00:00Z') + (7 + i) * 86400e3).toISOString().slice(0, 10);
+  r = await call('/api/office/plan', 'POST', { date: d }, owner);
+  dayMiles += r.d.routeMiles || 0;
+  const per = (await db.query('select count(*)::int n from stops where day = $1 group by route_id', [d])).rows.map((x) => x.n);
+  routesBuilt += per.length; most = Math.max(most, ...per, 0);
+  if (r.d.overCap) most = Math.max(most, CAP + 1);
+}
+ok('daily routes for a full week: ' + routesBuilt + ' routes, none over ' + CAP + ' stops, ' + dayMiles.toFixed(0) + ' miles driven', most <= CAP && routesBuilt > 0, most);
+await db.query("update customers set service_day = null, service_day2 = null, scooper_id = null where id in (select id from customers where status = 'trialing' and plan = 'week' and lat is not null order by id limit 6)");
+r = await call('/api/office/week', 'POST', { mode: 'new', cap: CAP, apply: true }, owner);
+ok('new yards are placed without moving anyone else', r.d.mode === 'new' && r.d.changes === 6 && r.d.moved === 0 && r.d.overCap === 0, { changes: r.d.changes, moved: r.d.moved, overCap: r.d.overCap });
+r = await call('/api/office/week', 'POST', { mode: 'all', cap: 20 }, owner);
+ok('at 20 yards a day the plan asks for more scoopers', (N < 200 ? r.d.techsNeeded >= need : r.d.techsNeeded > need) && r.d.biggestDay <= 20, { need20: r.d.techsNeeded, need30: need });
+r = await call('/api/office/week', 'POST', { mode: 'all', cap: CAP }, maria);
+ok('a scooper cannot plan the week', r.status === 403, r.status);
+r = await call('/api/demo/week?n=500&cap=30', 'GET');
+ok('the sample week page works with no sign in and saves nothing', r.status === 200 && r.d.sample && r.d.biggestDay <= 30, { techs: r.d.techsNeeded, biggest: r.d.biggestDay });
 
 console.log('\nOpen forms');
 for (let k = 0; k < 45; k++) r = await call('/api/waitlist', 'POST', { name: 'Bot ' + k, phone: '6025550' + String(100 + k), address: k + ' Bot St', zip: '85001' });

@@ -76,6 +76,7 @@ async function route(path, request, env, ctx) {
   if (path === '/api/me/skip' && m === 'POST') return meSkip(request, env, ctx);
   if (path === '/api/me/pause' && m === 'POST') return mePause(request, env, ctx);
   if (path === '/api/me/resume' && m === 'POST') return meResume(request, env, ctx);
+  if (path === '/api/demo/week' && m === 'GET') return demoWeek(env, new URL(request.url).searchParams);
   if (path === '/api/health' && m === 'GET') return ok({ ok: true, live: live(env), desk: sbLive(env) });
   if (path === '/api/log' && m === 'POST') return clientLog(request, env);
   if (/^\/api\/(staff|crew|office|track)\//.test(path)) return desk(path, request, env, ctx);
@@ -280,7 +281,7 @@ async function checkout(request, env, ctx) {
   if (row && row.stripe_subscription_id && ['trialing', 'active', 'past_due', 'paused'].includes(row.status)) return ok({ already: true });
 
   // One free month per home. A home or phone that already had a plan has to reach us to start again.
-  const had = row && row.stripe_subscription_id ? [row] : await db(env, 'GET', 'customers?id=neq.' + u.id + '&stripe_subscription_id=not.is.null&or=(phone.eq.' + phone + ',zip.eq.' + zip + ')&select=phone,address,zip&limit=1000');
+  const had = row && row.stripe_subscription_id ? [row] : await dbAll(env, 'customers?id=neq.' + u.id + '&stripe_subscription_id=not.is.null&or=(phone.eq.' + phone + ',zip.eq.' + zip + ')&select=phone,address,zip&order=id');
   if (had.some((x) => x === row || x.phone === phone || (x.zip === zip && sameHome(x.address, address)))) {
     return fail(409, 'This home has had a free month with us before. Call or text 623.309.6104 and we will start you again today.', 'had_free_month');
   }
@@ -655,11 +656,18 @@ async function placeCustomer(env, c) {
   try {
     const patch = {};
     if (c.lat == null) { const g = await geocode(c.address, c.zip); if (g) Object.assign(patch, g); }
-    if (c.service_day == null && c.area) {
-      const a = (await db(env, 'GET', 'area_days?area=eq.' + enc(c.area) + '&select=day'))[0];
-      if (a) { patch.service_day = a.day; if (c.plan === 'eow') patch.eow_week = 0; }
+    if (c.service_day == null) {
+      // First choice: the day and scooper of the closest yards that still have room. Then the area's day.
+      const pin = patch.lat != null ? patch : (c.lat != null ? c : null);
+      const near = pin ? nearSlot(await weekRows(env, '&service_day=not.is.null&lat=not.is.null&id=neq.' + c.id), pin, c.plan, dayCap(env), workDays(env)) : null;
+      if (near) Object.assign(patch, near);
+      else if (c.area) {
+        const a = (await db(env, 'GET', 'area_days?area=eq.' + enc(c.area) + '&select=day'))[0];
+        if (a) { patch.service_day = a.day; if (c.plan === 'eow') patch.eow_week = 0; }
+      }
     }
     if (Object.keys(patch).length) await db(env, 'PATCH', 'customers?id=eq.' + c.id, patch, 'return=minimal');
+    if (patch.service_day != null && c.email) await mail(env, c.email, 'Your service day is ' + DAYS[patch.service_day], dayMail(c.name, patch.service_day, patch.service_day2, false));
     if (c.phone) await db(env, 'PATCH', 'leads?phone=eq.' + enc(c.phone) + '&status=in.(new,contacted,quoted)', { status: 'won', updated_at: new Date().toISOString() }, 'return=minimal');
   } catch (e) { console.error('place customer', e); }
 }
@@ -747,6 +755,7 @@ async function desk(path, request, env, ctx) {
   // Office: owner and office only.
   if (s.role === 'scooper') return fail(403, 'Only the office can open this.');
   if (path === '/api/office/day' && m === 'GET') return officeDay(env, q.get('date'));
+  if (path === '/api/office/week' && m === 'POST') return officeWeek(env, b);
   if (path === '/api/office/plan' && m === 'POST') return ok(await planDay(env, isDay(b.date) ? b.date : azToday()));
   if (path === '/api/office/stop' && m === 'POST') return officeStop(env, b);
   if (path === '/api/office/customers' && m === 'GET') return officeCustomers(env, q);
@@ -916,6 +925,217 @@ async function crewEnd(s, env) {
 }
 
 /* ---------- office ---------- */
+/* =====================================================================================================
+   Week planner. A day's route is put in driving order by planDay. This part decides WHICH day and WHICH scooper
+   each yard gets, so every scooper has a full, tight day and nobody gets more yards than they can do.
+   STOPS_PER_DAY (default 30) is how many yards one scooper does in a day. WORK_DAYS (default 1,2,3,4,5) are the days we scoop.
+   ===================================================================================================== */
+function dayCap(env, v) { const n = Math.round(Number(v) || Number(env.STOPS_PER_DAY) || 30); return Math.min(80, Math.max(5, n)); }
+function workDays(env, v) {
+  const d = [...new Set(String(v || env.WORK_DAYS || '1,2,3,4,5').split(',').map((x) => parseInt(x, 10)).filter((x) => x >= 0 && x <= 6))].sort();
+  return d.length ? d : [1, 2, 3, 4, 5];
+}
+// Supabase hands back 1,000 rows at most, so big lists are read a page at a time.
+async function dbAll(env, pathq) {
+  const out = [];
+  for (let off = 0; off < 50000; off += 1000) {
+    const rows = await db(env, 'GET', pathq + '&limit=1000&offset=' + off);
+    out.push(...rows);
+    if (rows.length < 1000) break;
+  }
+  return out;
+}
+const WEEK_FIELDS = 'id,email,name,plan,address,zip,lat,lng,service_day,service_day2,eow_week,scooper_id,status';
+const weekRows = (env, more) => dbAll(env, 'customers?status=in.(trialing,active,past_due,paused)&select=' + WEEK_FIELDS + (more || '') + '&order=id');
+const visitLoad = (c) => (c.plan === 'eow' ? 0.5 : 1);
+// The second day for a twice a week yard: about half a week after the first.
+// Yards a scooper really visits on one day: every other week yards only come up on their own week.
+const weekYards = (mine) => { const e = mine.filter((c) => c.plan === 'eow'); const odd = e.filter((c) => c.eow_week === 1).length; return mine.length - e.length + Math.max(odd, e.length - odd); };
+const pairDay = (days, i) => days[(i + Math.ceil(days.length / 2)) % days.length];
+
+// A new yard joins the closest yards (within 4 miles) whose day still has room.
+function nearSlot(others, pin, plan, cap, days) {
+  if (!others.length) return null;
+  const load = {};
+  const key = (d, s) => d + '|' + (s || '');
+  for (const o of others) {
+    load[key(o.service_day, o.scooper_id)] = (load[key(o.service_day, o.scooper_id)] || 0) + visitLoad(o);
+    if (o.service_day2 != null) load[key(o.service_day2, o.scooper_id)] = (load[key(o.service_day2, o.scooper_id)] || 0) + 1;
+  }
+  const w = plan === 'eow' ? 0.5 : 1;
+  const close = others.map((o) => [miles(pin, o), o]).filter((x) => x[0] <= 4).sort((a, b) => a[0] - b[0]);
+  const seen = new Set();
+  for (const [, o] of close) {
+    const k = key(o.service_day, o.scooper_id);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    if ((load[k] || 0) + w > cap) continue;
+    const out = { service_day: o.service_day, scooper_id: o.scooper_id || null };
+    if (plan === 'eow') { const same = others.filter((x) => x.plan === 'eow' && key(x.service_day, x.scooper_id) === k); out.eow_week = same.filter((x) => !x.eow_week).length <= same.length / 2 ? 0 : 1; }
+    if (plan === 'twice' && days.length > 1) {
+      const i = days.indexOf(o.service_day);
+      out.service_day2 = i < 0 ? days.find((d) => d !== o.service_day) : pairDay(days, i);
+      if (out.service_day2 === out.service_day) delete out.service_day2;
+    }
+    return out;
+  }
+  return null;
+}
+
+// The whole week from scratch.
+// 1. One long drive is drawn through every yard.
+// 2. That drive is cut into one part of town for each scooper, each with the same amount of work.
+// 3. Inside a part of town the yards are dealt out to days, so every day is about the same size and never over `cap`.
+// Twice a week yards get two days with a gap (Monday and Thursday, Tuesday and Friday, and so on).
+function weekPlan(list, staff, cap, days) {
+  const pins = list.filter(pinned), noPin = list.filter((c) => !pinned(c));
+  const tour = shortOrder(pins, null);
+  const D = days.length;
+  const need = (c) => (c.plan === 'twice' && D > 1 ? 2 : visitLoad(c));
+  const total = pins.reduce((n, c) => n + need(c), 0);
+  const techs0 = Math.max(1, Math.ceil(total / Math.max(1, D * cap - 2)));
+  const share = total / techs0;
+  const lands = [[]];
+  let acc = 0;
+  for (const c of tour) {
+    if (acc + need(c) > share + 1e-9 && lands.length < techs0) { lands.push([]); acc = 0; }
+    lands[lands.length - 1].push(c);
+    acc += need(c);
+  }
+  const gap = (a, b) => Math.min(Math.abs(a - b), 7 - Math.abs(a - b));
+  const set = {}, slots = [];
+  for (let t = 0; t < lands.length; t++) {
+    const mine = lands[t];
+    if (!mine.length) continue;
+    const work = mine.reduce((n, c) => n + need(c), 0), twice = mine.filter((c) => need(c) === 2), single = mine.filter((c) => need(c) !== 2);
+    // A small part of town gets a few full days instead of five thin ones.
+    const n = Math.min(D, Math.max(Math.ceil(work / cap), twice.length ? 2 : 1));
+    const use = n === 1 ? [days[0]] : Array.from({ length: n }, (_, k) => days[Math.round(k * (D - 1) / (n - 1))]);
+    let pairs = [];
+    for (let k = 0; k < n; k++) { const a = k, b = (k + Math.ceil(n / 2)) % n; if (a !== b && gap(use[a], use[b]) >= 2 && !pairs.some((p) => (p[0] === b && p[1] === a) || (p[0] === a && p[1] === b))) pairs.push([a, b]); }
+    if (!pairs.length && n > 1) pairs = [[0, n - 1]];
+    const load = new Array(n).fill(0), eow = new Array(n).fill(0), spill = [];
+    const put = (c, a, b) => {
+      load[a] += b == null ? visitLoad(c) : 1;
+      if (b != null) load[b] += 1;
+      set[c.id] = { t, a, b, service_day: use[a], service_day2: b == null ? null : use[b], eow_week: c.plan === 'eow' ? (eow[a]++ % 2) : null };
+    };
+    twice.forEach((c, k) => { const p = pairs[Math.min(pairs.length - 1, Math.floor(k * pairs.length / twice.length))]; if (p && load[p[0]] + 1 <= cap && load[p[1]] + 1 <= cap) put(c, p[0], p[1]); else spill.push(c); });
+    const goal = work / n;
+    let d = 0;
+    for (const c of single) {
+      const w = visitLoad(c);
+      while (d < n - 1 && load[d] + w > goal + 0.5) d++;
+      if (load[d] + w <= cap) { put(c, d, null); continue; }
+      const free = load.map((v, k) => [v, k]).sort((x, y) => x[0] - y[0])[0];
+      if (free[0] + w <= cap) put(c, free[1], null); else spill.push(c);
+    }
+    if (spill.length) lands.push(spill); // more work than this scooper's week holds: it becomes one more route
+    for (let k = 0; k < n; k++) {
+      const here = mine.filter((c) => set[c.id] && set[c.id].t === t && (set[c.id].a === k || set[c.id].b === k));
+      if (!here.length) continue;
+      const who = staff[t];
+      slots.push({ day: use[k], dayName: DAYS[use[k]], tech: t + 1, staffId: who ? who.id : null, name: who ? who.name : 'Open route ' + (t + 1 - staff.length),
+        yards: weekYards(here.map((c) => ({ plan: c.plan, eow_week: set[c.id].eow_week }))), homes: here.length, miles: Math.round(pathMiles(shortOrder(here, null)) * 10) / 10 });
+    }
+  }
+  for (const c of tour) set[c.id].scooper_id = (staff[set[c.id].t] || {}).id || null;
+  return { set, slots, techs: lands.filter((x) => x.length).length, noPin: noPin.length, cap, days };
+}
+function weekSummary(p, staffCount, rows) {
+  const most = p.slots.reduce((n, x) => Math.max(n, x.yards), 0);
+  return { cap: p.cap, days: p.days.map((d) => DAYS[d]), customers: rows, techsNeeded: p.techs, techsHave: staffCount, hire: Math.max(0, p.techs - staffCount),
+    routes: p.slots.length, biggestDay: most, weekMiles: Math.round(p.slots.reduce((n, x) => n + x.miles, 0) * 10) / 10, noPin: p.noPin, slots: p.slots };
+}
+function dayMail(name, d1, d2, moved) {
+  return ['Hi ' + first(name) + ',', '',
+    (moved ? 'We changed our routes to save drive time. Your new service day is ' : 'Your service day is ') + DAYS[d1] + (d2 != null ? ' and ' + DAYS[d2] : '') + '.',
+    'We text you the night before each visit with a 30 minute window.',
+    'You can see your next visits any time in My Yard: https://arizonapetwaste.com/account/', '',
+    'Questions? Call or text 623.309.6104.', '', 'Arizona Pet Waste'].join('\n');
+}
+async function mailMany(env, list) {
+  if (!env.RESEND_API_KEY) return 0;
+  const from = env.MAIL_FROM || 'Arizona Pet Waste <info@arizonapetwaste.com>';
+  let sent = 0;
+  for (let i = 0; i < list.length; i += 100) {
+    try {
+      const r = await fetch('https://api.resend.com/emails/batch', { method: 'POST', headers: { authorization: 'Bearer ' + env.RESEND_API_KEY, 'content-type': 'application/json' },
+        body: JSON.stringify(list.slice(i, i + 100).map((x) => ({ from, to: [x.to], subject: x.subject, text: x.text, reply_to: env.NOTIFY_EMAIL || 'info@arizonapetwaste.com' }))) });
+      if (r.ok) sent += Math.min(100, list.length - i); else console.error('batch mail failed', r.status);
+    } catch (e) { console.error('batch mail failed', e); }
+  }
+  return sent;
+}
+// Office: plan the week. mode "new" only places yards that have no day yet (nobody moves). mode "all" rebuilds the whole
+// week, which moves people, so every moved customer gets an email with the new day. apply: false only shows the result.
+async function officeWeek(env, b) {
+  const cap = dayCap(env, b.cap), days = workDays(env, Array.isArray(b.days) ? b.days.join(',') : b.days);
+  const all = await weekRows(env);
+  const team = await db(env, 'GET', 'staff?active=is.true&select=id,name,role&order=created_at');
+  const staff = team.filter((t) => t.role === 'scooper').length ? team.filter((t) => t.role === 'scooper') : team.slice(0, 1);
+  const placed = all.filter((c) => c.service_day != null && pinned(c));
+  const mode = b.mode === 'all' || !placed.length ? 'all' : 'new';
+  const change = [];
+  let plan;
+  if (mode === 'all') {
+    plan = weekPlan(all, staff, cap, days);
+    for (const c of all) { const a = plan.set[c.id]; if (a && (a.service_day !== c.service_day || (a.service_day2 ?? null) !== (c.service_day2 ?? null) || (a.scooper_id || null) !== (c.scooper_id || null) || (c.plan === 'eow' && a.eow_week !== c.eow_week))) change.push([c, a]); }
+  } else {
+    const have = placed.slice();
+    for (const c of all.filter((x) => x.service_day == null && pinned(x))) {
+      let a = nearSlot(have, c, c.plan, cap, days);
+      if (!a) { // no close day has room: open the lightest day for the closest scooper
+        const near = have.slice().sort((x, y) => miles(c, x) - miles(c, y))[0];
+        const sid = near ? near.scooper_id || null : (staff[0] || {}).id || null;
+        const count = (d) => have.filter((x) => (x.scooper_id || null) === sid && (x.service_day === d || x.service_day2 === d)).length;
+        const d = days.slice().sort((x, y) => count(x) - count(y))[0];
+        a = { service_day: d, scooper_id: sid };
+        if (c.plan === 'eow') a.eow_week = 0;
+        if (c.plan === 'twice' && days.length > 1) a.service_day2 = pairDay(days, days.indexOf(d));
+      }
+      change.push([c, a]);
+      have.push(Object.assign({}, c, a));
+    }
+    const final = all.map((c) => { const hit = change.find((x) => x[0].id === c.id); return hit ? Object.assign({}, c, hit[1]) : c; }).filter((c) => c.service_day != null && pinned(c));
+    const keys = [...new Set(final.flatMap((c) => [c.service_day + '|' + (c.scooper_id || '')].concat(c.service_day2 != null ? [c.service_day2 + '|' + (c.scooper_id || '')] : [])))];
+    const slots = keys.map((k) => { const [d, sid] = k.split('|'); const mine = final.filter((c) => (c.scooper_id || '') === sid && (String(c.service_day) === d || String(c.service_day2) === d)); const who = team.find((t) => t.id === sid);
+      return { day: Number(d), dayName: DAYS[Number(d)], staffId: sid || null, name: who ? who.name : 'No scooper yet', yards: weekYards(mine), homes: mine.length, miles: Math.round(pathMiles(shortOrder(mine, null)) * 10) / 10 }; })
+      .sort((x, y) => String(x.name).localeCompare(String(y.name)) || x.day - y.day);
+    plan = { slots, techs: new Set(slots.map((x) => x.staffId)).size, noPin: all.filter((c) => !pinned(c)).length, cap, days };
+  }
+  const out = Object.assign(weekSummary(plan, staff.length, all.length), { mode, applied: false, changes: change.length, moved: change.filter((x) => x[0].service_day != null).length, overCap: plan.slots.filter((x) => x.yards > cap).length });
+  if (!b.apply || !change.length) return ok(out);
+  const now = new Date().toISOString();
+  for (let i = 0; i < change.length; i += 500) {
+    await db(env, 'POST', 'customers?on_conflict=id', change.slice(i, i + 500).map(([c, a]) => ({ id: c.id, email: c.email, service_day: a.service_day, service_day2: a.service_day2 ?? null,
+      eow_week: c.plan === 'eow' ? (a.eow_week ?? 0) : null, scooper_id: a.scooper_id || null, stop_order: null, updated_at: now })), 'resolution=merge-duplicates,return=minimal');
+  }
+  const movedIds = change.filter((x) => x[0].service_day != null).map((x) => x[0].id);
+  for (let i = 0; i < movedIds.length; i += 100) await db(env, 'DELETE', 'stops?status=eq.scheduled&day=gt.' + azToday() + '&customer_id=in.(' + movedIds.slice(i, i + 100).join(',') + ')', null, 'return=minimal').catch((e) => console.error('week cleanup', e));
+  out.emailed = await mailMany(env, change.filter((x) => x[0].email).map(([c, a]) => ({ to: c.email, subject: (c.service_day != null ? 'Your new service day is ' : 'Your service day is ') + DAYS[a.service_day], text: dayMail(c.name, a.service_day, a.service_day2, c.service_day != null) })));
+  out.applied = true;
+  return ok(out);
+}
+// A sample week anyone can look at: made up yards across our ZIP codes, planned by the same code the office uses. Nothing is saved.
+function demoWeek(env, q) {
+  const n = Math.min(1000, Math.max(20, parseInt(q.get('n'), 10) || 500)), cap = dayCap(env, q.get('cap')), days = workDays(env, q.get('days'));
+  const BOX = [['85326', 0.30, 33.36, 33.44, -112.62, -112.50], ['85396', 0.16, 33.47, 33.52, -112.54, -112.47], ['85338', 0.20, 33.40, 33.46, -112.42, -112.34],
+    ['85395', 0.14, 33.46, 33.50, -112.42, -112.36], ['85340', 0.10, 33.48, 33.52, -112.38, -112.33], ['85355', 0.10, 33.54, 33.60, -112.48, -112.40]];
+  let seed = 7;
+  const rnd = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
+  const list = [];
+  for (const [zip, share, la0, la1, lo0, lo1] of BOX) for (let i = 0; i < Math.round(n * share); i++) {
+    const k = list.length;
+    list.push({ id: 'd' + k, zip, plan: ['week', 'week', 'week', 'eow', 'twice'][k % 5], lat: la0 + rnd() * (la1 - la0), lng: lo0 + rnd() * (lo1 - lo0) });
+  }
+  const p = weekPlan(list, [], cap, days);
+  p.slots.forEach((x) => { x.name = 'Tech ' + x.tech; });
+  const oneDay = {};
+  for (const c of list) { const a = (ZIPS[c.zip] || {}).area; (oneDay[a] = oneDay[a] || []).push(c); }
+  return ok(Object.assign(weekSummary(p, 0, list.length), { sample: true, mode: 'all', oldWay: { biggestDay: Math.max(...Object.values(oneDay).map((x) => x.length)), note: 'One day for each area, one scooper' } }));
+}
+
 async function defaultScooper(env) {
   const team = await db(env, 'GET', 'staff?active=is.true&select=id,role&order=created_at');
   return (team.find((t) => t.role === 'scooper') || team.find((t) => t.role === 'owner') || team[0] || {}).id || null;
@@ -1007,7 +1227,8 @@ async function planDay(env, day) {
     })), 'resolution=ignore-duplicates,return=minimal');
   }
   return { ok: true, day, added: sorted.length, due: due.length, noScooper: due.filter((c) => !have.has(c.id) && !c.scooper_id && !fallback).length,
-    routeMiles: Math.round(routeMiles * 10) / 10, milesSaved: Math.round(milesSaved * 10) / 10, unpaid };
+    routeMiles: Math.round(routeMiles * 10) / 10, milesSaved: Math.round(milesSaved * 10) / 10, unpaid,
+    overCap: staffIds.filter((sid) => sorted.filter((c) => (c.scooper_id || fallback) === sid).length > dayCap(env)).length };
 }
 async function lastPings(env, routeIds) {
   const out = {};
@@ -1073,7 +1294,7 @@ async function officeCustomers(env, q) {
   if (f === 'canceled') filter = '&status=eq.canceled';
   const term = clean(q.get('q'), 60).replace(/[^A-Za-z0-9 @.\-]/g, '');
   if (term) filter += '&or=(name.ilike.*' + enc(term) + '*,address.ilike.*' + enc(term) + '*,phone.ilike.*' + enc(term.replace(/\D/g, '') || term) + '*,email.ilike.*' + enc(term) + '*)';
-  const customers = await db(env, 'GET', 'customers?select=' + LIST_FIELDS + filter + '&order=service_day.nullsfirst,stop_order.nullslast,name&limit=1000');
+  const customers = await dbAll(env, 'customers?select=' + LIST_FIELDS + filter + '&order=service_day.nullsfirst,stop_order.nullslast,name,id');
   return ok({ customers });
 }
 async function officeCustomer(env, id) {
