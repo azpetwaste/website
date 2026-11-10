@@ -52,4 +52,17 @@ Read this before you change `src/worker/worker.js`, `static/crew/index.html` or 
 - Always `git fetch origin main` and rebase before you push. Both sessions push to main.
 
 ## Notes from the field desk session
-(add here)
+
+### Nov 9, 2026, evening. The field desk session owns routes, the week planner and the crew app from here.
+- **One flow for the week.** The Week tab is gone. The first tab is now **Schedule** (key is still `today` in the code). It has a strip of seven days to pick a day, the day's routes, and one button, **Plan the week**, that opens the planner (`officeWeek`, same `POST /api/office/week`). "Back to the schedule" returns. `S.plan` holds which of the two is showing.
+- **Yards per scooper per day is a saved setting.** Chips for 20, 25, 30, 35, 40 in the planner, and Monday to Friday or Monday to Saturday. A tap saves it (`GET` and `POST /api/office/settings`, table `public.settings`, keys `stops_per_day` and `work_days`). `withSettings(env)` lays the saved values over `STOPS_PER_DAY` and `WORK_DAYS`, so `planDay`, `placeCustomer` and the planner all use them. The table is applied to the live database.
+- **Schedule tab rows.** Each route folds open. Tap a yard for one menu in plain words: see what the customer sees, copy the customer's link, open customer details, skip this visit, put this visit back, move earlier, move later, give this yard to another scooper. The old Link, Skip, Undo, arrow and Move controls are gone.
+- **Texts are one tap.** Send opens Messages with the text filled in and marks it sent. The scooper gets the same Send bar at the top of the route screen (one at a time, "Send 1 of 3").
+- **The route builds itself.** `crewToday` runs `planDay` when the scooper has no route yet today.
+- **Demo.** `/crew/?demo` has 500 made up yards and three scoopers. `/t/DEMO01` is a made up visit that loops.
+- **Crash log and Health tab.** Table `errors`, `POST /api/log`, `GET /api/office/health`.
+- **Staff training page.** `/staff-73d752e4/`, not indexed, not linked. The video still shows the older Today screen.
+- **Money rules were not touched.**
+- Tests on this commit: desk 64, signup10 35, signup50 101, signup50 at COUNT=500 116. All pass.
+- Still not run: the real signed in crew app with real data, and a real phone road test.
+- A test customer "TEST Yard (delete me)" is in the live database, tied to the info@ login. Delete it after the staff test.

@@ -279,6 +279,15 @@ ok('demo truck link works with no real visit', r.status === 200 && r.d.demo === 
 r = await call('/api/log', 'POST', { source: 'crew', path: '/crew route', message: 'Test crash', detail: 'stack' });
 ok('crew app crash is logged', r.status === 200);
 r = await call('/api/log', 'POST', { source: 'nope', message: 'x' });
+r = await call('/api/office/settings', 'GET', null, owner);
+ok('yard limit starts at 30, Monday to Friday', r.status === 200 && r.d.cap === 30 && r.d.days === '1,2,3,4,5', r.d);
+r = await call('/api/office/settings', 'POST', { cap: 25, days: '1,2,3,4,5,6' }, owner);
+ok('office saves 25 yards a day and Saturday', r.d.cap === 25 && r.d.days === '1,2,3,4,5,6', r.d);
+r = await call('/api/office/week', 'POST', { mode: 'new' }, owner);
+ok('the week plan uses the saved limit', r.status === 200 && r.d.cap === 25, { cap: r.d.cap });
+r = await call('/api/office/settings', 'POST', { cap: 30, days: '1,2,3,4,5' }, owner);
+r = await call('/api/office/settings', 'POST', { cap: 25 }, mt);
+ok('scooper cannot change the yard limit', r.status === 403);
 r = await call('/api/office/health', 'GET', null, mt);
 ok('scooper cannot open health', r.status === 403);
 r = await call('/api/office/health', 'GET', null, owner);

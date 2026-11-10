@@ -157,3 +157,11 @@ create table if not exists public.errors (
 );
 create index if not exists errors_at_idx on public.errors (at desc);
 alter table public.errors enable row level security;
+
+-- Office settings saved from the Schedule tab: yards one scooper does in a day, and the days we scoop.
+create table if not exists public.settings (
+  key text primary key,
+  value text not null,
+  updated_at timestamptz not null default now()
+);
+alter table public.settings enable row level security;

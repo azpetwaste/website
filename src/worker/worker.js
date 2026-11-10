@@ -653,6 +653,7 @@ async function geocode(address, zip) {
   } catch (e) { return null; }
 }
 async function placeCustomer(env, c) {
+  env = await withSettings(env);
   try {
     const patch = {};
     if (c.lat == null) { const g = await geocode(c.address, c.zip); if (g) Object.assign(patch, g); }
@@ -737,6 +738,7 @@ async function desk(path, request, env, ctx) {
 
   const s = await staffFor(env, await signedIn(request, env));
   if (!s) return fail(401, 'Please sign in again.');
+  env = await withSettings(env);
   const b = m === 'POST' ? (await body(request)) || {} : {};
   const q = new URL(request.url).searchParams;
   if (path === '/api/staff/me' && m === 'GET') return ok({ staff: { name: s.name, role: s.role, email: s.email } });
@@ -756,6 +758,8 @@ async function desk(path, request, env, ctx) {
   if (s.role === 'scooper') return fail(403, 'Only the office can open this.');
   if (path === '/api/office/day' && m === 'GET') return officeDay(env, q.get('date'));
   if (path === '/api/office/week' && m === 'POST') return officeWeek(env, b);
+  if (path === '/api/office/settings' && m === 'GET') return officeSettings(env, null);
+  if (path === '/api/office/settings' && m === 'POST') return officeSettings(env, b);
   if (path === '/api/office/plan' && m === 'POST') return ok(await planDay(env, isDay(b.date) ? b.date : azToday()));
   if (path === '/api/office/stop' && m === 'POST') return officeStop(env, b);
   if (path === '/api/office/customers' && m === 'GET') return officeCustomers(env, q);
@@ -930,6 +934,25 @@ async function crewEnd(s, env) {
    each yard gets, so every scooper has a full, tight day and nobody gets more yards than they can do.
    STOPS_PER_DAY (default 30) is how many yards one scooper does in a day. WORK_DAYS (default 1,2,3,4,5) are the days we scoop.
    ===================================================================================================== */
+// The office saves the yard limit and the working days in the settings table. Saved values win over the Cloudflare settings.
+async function withSettings(env) {
+  try {
+    const rows = await db(env, 'GET', 'settings?select=key,value');
+    const set = Object.fromEntries((rows || []).map((r) => [r.key, r.value]));
+    if (!set.stops_per_day && !set.work_days) return env;
+    return Object.assign({}, env, set.stops_per_day ? { STOPS_PER_DAY: set.stops_per_day } : {}, set.work_days ? { WORK_DAYS: set.work_days } : {});
+  } catch (e) { return env; }
+}
+async function officeSettings(env, b) {
+  if (b) {
+    const rows = [];
+    if (b.cap != null) rows.push({ key: 'stops_per_day', value: String(dayCap({}, b.cap)), updated_at: new Date().toISOString() });
+    if (b.days != null) rows.push({ key: 'work_days', value: workDays({}, Array.isArray(b.days) ? b.days.join(',') : b.days).join(','), updated_at: new Date().toISOString() });
+    if (rows.length) await db(env, 'POST', 'settings?on_conflict=key', rows, 'resolution=merge-duplicates,return=minimal');
+    env = await withSettings(env);
+  }
+  return ok({ cap: dayCap(env), days: workDays(env).join(',') });
+}
 function dayCap(env, v) { const n = Math.round(Number(v) || Number(env.STOPS_PER_DAY) || 30); return Math.min(80, Math.max(5, n)); }
 function workDays(env, v) {
   const d = [...new Set(String(v || env.WORK_DAYS || '1,2,3,4,5').split(',').map((x) => parseInt(x, 10)).filter((x) => x >= 0 && x <= 6))].sort();
