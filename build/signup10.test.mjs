@@ -206,7 +206,7 @@ globalThis.fetch = async (u, init = {}) => {
   }
   if (u.startsWith('https://api.resend.com/')) { mails.push(JSON.parse(init.body)); return reply({ id: 'm' }); }
   if (u.startsWith('https://api.stripe.com/v1/')) {
-    const p = u.slice('https://api.stripe.com/v1/'.length);
+    const p = u.slice('https://api.stripe.com/v1/'.length).split('?')[0], query = u.split('?')[1] || '';
     if (p === 'customers' && m === 'POST') return reply({ id: 'cus_' + (++cusN) });
     if (p.startsWith('customers/') && m === 'POST') return reply({ id: p.slice(10) });
     if (p.startsWith('prices')) return reply({ data: ['week', 'twice', 'eow'].flatMap((k) => ['base', 'extra'].map((t) => ({ id: 'price_' + k + '_' + t, lookup_key: 'apw_' + k + '_' + t }))) });

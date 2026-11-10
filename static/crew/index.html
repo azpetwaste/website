@@ -655,6 +655,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       '<label class="fl"><span class="lbl">Pause from</span><input class="f" id="f_pf" type="date" value="' + h(c.pause_from || '') + '"></label><label class="fl"><span class="lbl">Pause until</span><input class="f" id="f_pu" type="date" value="' + h(c.pause_until || '') + '"></label></div>' +
       '<div class="hr" style="margin:20px 0 4px"></div><span class="lbl">Yard</span><div class="grid2"><label class="fl"><span class="lbl">Gate code</span><input class="f mono" id="f_gc" value="' + h(c.gate_code || '') + '"></label><label class="fl"><span class="lbl">Dog names</span><input class="f" id="f_dn" value="' + h(c.dog_names || '') + '"></label></div>' +
       '<label class="fl"><span class="lbl">Gate notes</span><textarea class="f" id="f_gn">' + h(c.gate_notes || '') + '</textarea></label><label class="fl"><span class="lbl">Problem spots</span><textarea class="f" id="f_ps">' + h(c.problem_spots || '') + '</textarea></label>' +
+      '<label class="fl"><span class="lbl">Dogs on the plan (1 to 6). Changing this changes the bill and emails the customer.</span><input class="f" id="f_dg" inputmode="numeric" value="' + h(c.dogs == null ? '' : c.dogs) + '"></label>' +
       '<label class="fl" style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="f_ss"' + (c.skip_spray ? ' checked' : '') + '> <span>Skip the spray</span></label>' +
       '<label class="fl"><span class="lbl">Office notes (crew sees these)</span><textarea class="f" id="f_on">' + h(c.office_notes || '') + '</textarea></label>' +
       '<div style="margin-top:16px"><button class="btn" id="fsave">Save</button></div>' +
@@ -669,6 +670,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     var val = function (id) { var x = el.querySelector('#' + id); return x ? x.value : undefined; };
     el.querySelector('#fsave').onclick = async function () {
       var b = { id: c.id, service_day: val('f_sd'), stop_order: val('f_so'), scooper_id: val('f_sc'), pause_from: val('f_pf'), pause_until: val('f_pu'), gate_code: val('f_gc'), dog_names: val('f_dn'), gate_notes: val('f_gn'), problem_spots: val('f_ps'), office_notes: val('f_on'), skip_spray: el.querySelector('#f_ss').checked };
+      if (String(val('f_dg') || '') !== String(c.dogs == null ? '' : c.dogs)) b.dogs = val('f_dg');
       if (el.querySelector('#f_sd2')) b.service_day2 = val('f_sd2');
       if (el.querySelector('#f_eow')) b.eow_week = val('f_eow');
       try { S.sel = await api('POST', '/api/office/customer', b); toast('Saved'); drawCustomer(); loadTab(); } catch (e) { toast(e.message); }

@@ -207,15 +207,18 @@ globalThis.fetch = async (u, init = {}) => {
   }
   if (u.startsWith('https://api.resend.com/')) { mails.push(JSON.parse(init.body)); return reply({ id: 'm' }); }
   if (u.startsWith('https://api.stripe.com/v1/')) {
-    const p = u.slice('https://api.stripe.com/v1/'.length);
+    const p = u.slice('https://api.stripe.com/v1/'.length).split('?')[0], query = u.split('?')[1] || '';
     const f = new URLSearchParams(String(init.body || ''));
     if (p === 'customers' && m === 'POST') return reply({ id: 'cus_' + (++cusN) });
     if (p.startsWith('customers/') && m === 'POST') return reply({ id: p.slice(10) });
     if (p.startsWith('prices')) return reply({ data: ['week', 'twice', 'eow'].flatMap((k) => ['base', 'extra'].map((t) => ({ id: 'price_' + k + '_' + t, lookup_key: 'apw_' + k + '_' + t }))) });
     if (p === 'checkout/sessions') { const sub = 'sub_' + f.get('customer').slice(4); sessions[sub] = f; return reply({ client_secret: 'cs_' + sub }); }
-    if (p.startsWith('subscriptions/') && m === 'GET') return reply({ id: p.slice(14), status: 'trialing', metadata: metaOf(p.slice(14)) });
+    if (p.startsWith('subscriptions/') && m === 'GET') return reply({ id: p.slice(14), status: 'trialing', metadata: metaOf(p.slice(14)), items: { data: subItems[p.slice(14)] || [] },
+      default_payment_method: { card: { funding: prepaidSubs.has(p.slice(14)) ? 'prepaid' : 'credit' } } });
+    if (p === 'subscription_items' && m === 'POST') { (subItems[f.get('subscription')] ||= []).push({ id: 'si_x', price: { id: f.get('price') }, quantity: Number(f.get('quantity')) }); itemCalls.push('add ' + f.get('quantity') + ' ' + f.get('proration_behavior')); return reply({ id: 'si_x' }); }
+    if (p.startsWith('subscription_items/')) { itemCalls.push((m === 'DELETE' ? 'remove' : 'set ' + f.get('quantity')) + ' ' + f.get('proration_behavior')); return reply({ id: 'si_x' }); }
     if (p.startsWith('subscriptions/') && m === 'POST') { subPosts.push(p.slice(14) + ' ' + String(init.body)); return reply({ id: p.slice(14), status: 'active' }); }
-    if (p.startsWith('invoices?')) return reply({ data: invoiceList });
+    if (p === 'invoices' && m === 'GET') return reply({ data: invoiceList });
     if (p === 'invoiceitems') { lastItem = { amount: Number(f.get('amount')), description: f.get('description') }; if (lastItem.amount > 0) charges.push(lastItem); return reply({ id: 'ii_1' }); }
     if (p === 'invoices') return reply({ id: 'in_' + (++invN), status: 'draft' });
     if (/^invoices\/in_\d+\/(finalize|pay)$/.test(p)) return reply({ id: 'in', status: 'paid' });
@@ -223,7 +226,7 @@ globalThis.fetch = async (u, init = {}) => {
   }
   return deskFetch(u, init);
 };
-const metaOverride = {};
+const metaOverride = {}, subItems = {}, itemCalls = [], prepaidSubs = new Set();
 function metaOf(sub) { const f = sessions[sub]; return Object.assign(Object.fromEntries([...f.entries()].filter(([k]) => k.startsWith('subscription_data[metadata]')).map(([k, v]) => [k.slice(28, -1), v])), metaOverride[sub] || {}); }
 const PRICE = { week: [10800, 1300], twice: [18900, 1300], eow: [7500, 900] };
 function subObj(i, extra) { const h = HOMES[i], sub = 'sub_' + ids[i].n; const items = [{ price: { unit_amount: PRICE[h[3]][0] }, quantity: 1 }]; if (h[4] > 2) items.push({ price: { unit_amount: PRICE[h[3]][1] }, quantity: h[4] - 2 });
@@ -403,6 +406,26 @@ const used = (await db.query('select coalesce(array_length(skips, 1), 0) n from 
 ok('skips stop at the limit and cannot be stacked', used <= 4 && used === mine.length, used);
 r = await call('/api/me/skip', 'POST', { date: '2031-01-01' }, ids[S].token);
 ok('a customer cannot skip a made up day', r.status === 400);
+
+console.log('\nDog count and prepaid cards');
+const Dg = HOMES.findIndex((h, i) => i > 20 && h[4] <= 2);
+mails.length = 0;
+r = await call('/api/office/customer', 'POST', { id: ids[Dg].uid, dogs: 4 }, owner);
+ok('office changes a home from ' + HOMES[Dg][4] + ' dogs to 4: Stripe gets 2 extra dogs with no charge today', r.status === 200 && itemCalls.join() === 'add 2 none', itemCalls);
+ok('the customer gets an email with the new price', mails.some((x) => /updated your plan to 4 dogs/.test(x.subject) && x.text.includes('$' + ((PRICE[HOMES[Dg][3]][0] + 2 * PRICE[HOMES[Dg][3]][1]) / 100))), mails.map((x) => x.subject));
+ok('the CRM shows 4 dogs', (await db.query('select dogs from customers where id = $1', [ids[Dg].uid])).rows[0].dogs === 4);
+r = await call('/api/office/customer', 'POST', { id: ids[Dg].uid, dogs: 2 }, owner);
+ok('back to 2 dogs removes the extra dog line', itemCalls[1] === 'remove none', itemCalls);
+r = await call('/api/office/customer', 'POST', { id: ids[Dg].uid, dogs: 40 }, owner);
+ok('40 dogs is refused', r.status === 400);
+r = await call('/api/office/customer', 'POST', { id: ids[Dg].uid, dogs: 5 }, maria);
+ok('a scooper cannot change the bill', r.status === 403, r.status);
+{ const s = await customerToken('prepaid@example.com'); mails.length = 0;
+  r = await call('/api/checkout', 'POST', { zip: '85340', plan: 'week', dogs: 1, name: 'Pat Prepaid', phone: '6235556666', address: '99 Gift Card Way', page: '/book/' }, s.access_token);
+  const sub = r.d.clientSecret.slice(3); prepaidSubs.add(sub);
+  await hook({ type: 'checkout.session.completed', data: { object: { mode: 'subscription', client_reference_id: s.user.id, subscription: sub, customer: 'cus_' + sub.slice(4) } } });
+  await Promise.all(waits.splice(0));
+  ok('a prepaid card is flagged to the office', mails.some((x) => /^Prepaid card: Pat Prepaid/.test(x.subject)), mails.map((x) => x.subject)); }
 
 console.log('\nOpen forms');
 for (let k = 0; k < 45; k++) r = await call('/api/waitlist', 'POST', { name: 'Bot ' + k, phone: '6025550' + String(100 + k), address: k + ' Bot St', zip: '85001' });

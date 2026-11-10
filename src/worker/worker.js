@@ -369,7 +369,9 @@ async function webhook(request, env, ctx) {
   if (evt.type === 'checkout.session.completed' && o.mode === 'subscription') {
     const uid = o.client_reference_id || (o.metadata || {}).user_id;
     let status = 'trialing', meta = {};
-    if (o.subscription) { try { const sub = await stripe(env, 'GET', 'subscriptions/' + o.subscription); status = sub.status; meta = sub.metadata || {}; } catch (e) { } }
+    let prepaid = false;
+    if (o.subscription) { try { const sub = await stripe(env, 'GET', 'subscriptions/' + o.subscription, { expand: ['default_payment_method'] }); status = sub.status; meta = sub.metadata || {};
+      prepaid = !!(sub.default_payment_method && sub.default_payment_method.card && sub.default_payment_method.card.funding === 'prepaid'); } catch (e) { } }
     // The first bill on the 1st is a full month; this one time credit takes off the days still inside the free month.
     const credit = Math.max(0, parseInt(meta.credit || '0', 10) || 0);
     if (o.subscription && credit > 0) {
@@ -390,7 +392,8 @@ async function webhook(request, env, ctx) {
         const firstCents = parseInt(meta.first_charge || String(total), 10) || total;
         const billLine = meta.free_label ? billText({ full: firstCents === total, firstCents, freeLabel: meta.free_label, firstLabel: meta.first_label, nextLabel: meta.next_label }, total)
           : 'Your first month is free. Then we charge ' + money(total) + ' on the 1st of each month.';
-        ctx.waitUntil(mail(env, owner(env), 'New booking: ' + c.name + ', ' + (ZIPS[c.zip] || {}).name, [
+        if (prepaid) ctx.waitUntil(mail(env, owner(env), 'Prepaid card: ' + c.name, c.name + ' signed up with a prepaid card. A prepaid card can run out of money, so a later charge may fail. Call them for a credit or debit card before the first visit.\n\nMobile: ' + c.phone + '\nEmail: ' + c.email + '\nStripe customer: ' + o.customer));
+        ctx.waitUntil(mail(env, owner(env), (prepaid ? 'PREPAID CARD. ' : '') + 'New booking: ' + c.name + ', ' + (ZIPS[c.zip] || {}).name, [
           'New customer booked online.', '',
           'Name: ' + c.name, 'Email: ' + c.email, 'Mobile: ' + c.phone, 'Address: ' + c.address + ', ' + c.zip,
           'Plan: ' + PLANS[c.plan].name + ', ' + c.dogs + ' dogs, ' + money(total) + ' a month',
@@ -1079,6 +1082,26 @@ async function officeCustomer(env, id) {
   const texts = await db(env, 'GET', 'messages?customer_id=eq.' + id + '&select=id,kind,body,status,sent_at,created_at&order=created_at.desc&limit=30');
   return ok({ customer: c, visits, texts, monthly: c.plan && c.dogs ? monthly(c.plan, c.dogs) : null });
 }
+// The office fixes the dog count when the yard has more or fewer dogs than the plan says. The Stripe plan changes
+// to match (extra dogs are their own line), with no charge today: the new price starts on the next bill. The customer gets an email.
+async function setDogs(env, c, n) {
+  if (!PLANS[c.plan]) return;
+  if (live(env) && c.stripe_subscription_id && ['trialing', 'active', 'past_due', 'paused'].includes(c.status)) {
+    const sub = await stripe(env, 'GET', 'subscriptions/' + c.stripe_subscription_id);
+    const extra = (await prices(env))['apw_' + c.plan + '_extra'];
+    const item = ((sub.items && sub.items.data) || []).find((i) => i.price && i.price.id === extra);
+    const want = Math.max(0, n - 2);
+    if (want && item) await stripe(env, 'POST', 'subscription_items/' + item.id, { quantity: want, proration_behavior: 'none' });
+    else if (want) await stripe(env, 'POST', 'subscription_items', { subscription: sub.id, price: extra, quantity: want, proration_behavior: 'none' });
+    else if (item) await stripe(env, 'DELETE', 'subscription_items/' + item.id, { proration_behavior: 'none' });
+  }
+  await mail(env, c.email, 'We updated your plan to ' + n + (n === 1 ? ' dog' : ' dogs'), [
+    'Hi ' + first(c.name) + ',', '',
+    'We counted ' + n + (n === 1 ? ' dog' : ' dogs') + ' at your home, so we updated your plan to match.',
+    'Your price is now ' + money(monthly(c.plan, n)) + ' a month, starting with your next bill. There is no charge today.', '',
+    'Questions? Call or text 623.309.6104.', '', 'Arizona Pet Waste'
+  ].join('\n'));
+}
 async function officeCustomerSave(env, b) {
   if (!/^[0-9a-f-]{36}$/i.test(String(b.id || ''))) return fail(400, 'Bad customer.');
   const p = {};
@@ -1097,6 +1120,15 @@ async function officeCustomerSave(env, b) {
   if ('skip_spray' in b) p.skip_spray = !!b.skip_spray;
   if ('address' in b && clean(b.address, 200).length >= 5) { p.address = clean(b.address, 200); p.lat = null; p.lng = null; }
   if ('phone' in b && digits(b.phone).length === 10) p.phone = digits(b.phone);
+  if ('dogs' in b && b.dogs !== '' && b.dogs != null) {
+    const n = Math.round(Number(b.dogs));
+    if (!(n >= 1 && n <= 6)) return fail(400, 'Pick 1 to 6 dogs.');
+    const c = (await db(env, 'GET', 'customers?id=eq.' + b.id + '&select=dogs,plan,name,email,status,stripe_subscription_id'))[0];
+    if (c && c.dogs !== n) {
+      try { await setDogs(env, c, n); } catch (e) { console.error('dog count', e); return fail(502, 'Stripe did not take the change. Nothing was saved. Try again.'); }
+      p.dogs = n;
+    }
+  }
   if (b.pin) {
     const c = (await db(env, 'GET', 'customers?id=eq.' + b.id + '&select=address,zip'))[0];
     const g = c && await geocode(p.address || c.address, c.zip);
