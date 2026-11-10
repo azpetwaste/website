@@ -282,6 +282,7 @@ FAQ_ITEMS = [
     ('What if it storms?', 'Light rain is fine. If there is lightning, we wait until it is safe. We text you if your time changes.'),
     ('Do you clean artificial turf?', 'Yes. We pick up every pile and spray the spots your dogs use most. Turf can smell in the heat. For a deep clean, add a turf odor treatment for $35.'),
     ('Where does the poop go?', 'We bag it, tie it shut and put it in your trash can.'),
+    ('Do you background check your team?', 'Yes. Every team member must pass a background check before they work in a yard. Your safety and our safety come first.'),
     ('Are you bonded and insured?', 'Yes. We carry a $50,000 business service bond and $1,000,000 in general liability insurance.[[ins: Our insurance policy starts November 16, 2026.||]] See the proof on our bonded and insured page.'),
     ('Do you clean your tools?', 'Yes. We clean our boots and tools after every yard. That keeps germs from going from yard to yard.'),
     ('Can I pick my day?', 'No. We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window.'),
@@ -651,8 +652,8 @@ def _footer(pre):
             '      <p class="fpay">Stripe keeps your card. We never see the number. We never sell your info. <a href="/privacy/">Read our Privacy Policy</a>.</p>\n'
             '    </div>\n'
             '  </div>\n'
-            '  <div class="fseals" role="group" aria-label="Bonded and insured. Family owned and operated.">\n'
-            + ''.join('    <p class="fseal">' + F_SEAL + '<span><b>%s</b><small>%s</small></span></p>\n' % x for x in [('Bonded', '$50,000 bond'), ('Insured', '$1,000,000 liability')]) +
+            '  <div class="fseals" role="group" aria-label="Bonded, insured and background checked. Family owned and operated.">\n'
+            + ''.join('    <p class="fseal">' + F_SEAL + '<span><b>%s</b><small>%s</small></span></p>\n' % x for x in [('Bonded', '$50,000 bond'), ('Insured', '$1,000,000 liability'), ('Background checked', 'Every team member')]) +
             '    <p class="fproof"><a href="/bonded-and-insured/">See the proof</a></p>\n'
             '    <p class="ffam">' + F_FAM + '<span>Family owned and operated</span></p>\n'
             '  </div>\n'
@@ -676,7 +677,7 @@ _tick_li = ''.join('<li>%s</li>' % x for x in TICK_ITEMS)
 TRUST_SVG = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"></path><path d="M9 12l2 2 4-4.5"></path></svg>'
 TICKER = ('<div class="tb" role="region" aria-label="Bonded and insured">\n'
           '  <ul class="tb-l">'
-          + ''.join('<li>' + TRUST_SVG + '<b>%s</b></li>' % x for x in ['Bonded', 'Insured', 'Family owned'])
+          + ''.join('<li>' + TRUST_SVG + '<b>%s</b></li>' % x for x in ['Bonded', 'Insured', 'Background checked'])
           + '</ul>\n</div>')
 
 SPEC_ITEMS = [('30', 'MIN', 'Your time window. We text it the night before.'),
@@ -834,6 +835,13 @@ REVAMP_CSS += r"""
 .apw .fproof{grid-column:1 / -1;margin:0;text-align:center}
 .apw .fproof a{display:inline-flex;align-items:center;min-height:44px;color:#FF8A66;font-size:16px;font-weight:800;text-decoration:underline}
 @media (min-width:900px){.apw .fseals{grid-template-columns:auto auto auto 1fr}.apw .fproof{grid-column:auto;text-align:left}}
+"""
+REVAMP_CSS += r"""
+.apw .fseals{grid-template-columns:repeat(3,minmax(0,1fr))}
+.apw .fseal b{font-size:15px;letter-spacing:.03em}
+.apw .fseal small{font-size:13px}
+.apw .tb-l b{font-size:16px;line-height:1.15;text-align:center}
+@media (min-width:900px){.apw .fseals{grid-template-columns:auto auto auto auto;gap:36px}.apw .fseal b{font-size:19px}.apw .fseal small{font-size:14px}.apw .ffam{grid-column:1 / -1;justify-content:flex-start}.apw .tb-l b{font-size:19px}}
 """
 PAGE_CSS += REVAMP_CSS
 PAGE_CSS += r"""

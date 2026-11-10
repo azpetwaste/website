@@ -30,6 +30,10 @@
     "a": "We bag it, tie it shut and put it in your trash can."
    },
    {
+    "q": "Do you background check your team?",
+    "a": "Yes. Every team member must pass a background check before they work in a yard. Your safety and our safety come first."
+   },
+   {
     "q": "Are you bonded and insured?",
     "a": "Yes. We carry a $50,000 business service bond and $1,000,000 in general liability insurance.[[ins: Our insurance policy starts November 16, 2026.||]] See the proof on our bonded and insured page."
    },

@@ -159,7 +159,7 @@ export function hero(pg, trail) {
   return '<section class="bxh"><div class="bxw"><div class="bxh-in"><div class="bxh-copy">' + crumbsNav(trail) +
     `<p class="eb">${esc(pg.eyebrow || 'Commercial')}</p><h1>${esc(pg.h1)}${dot}</h1><p class="lead">${h.lead || ''}</p>` +
     (h.ctaHtml || ctaButtons(h.cta)) +
-    '<ul class="bxbadges" aria-label="Bonded and insured">' + ['Bonded', 'Insured'].map((x) => `<li>${ICONS.shield}<b>${x}</b></li>`).join('') + '</ul>' +
+    '<ul class="bxbadges" aria-label="Bonded and insured">' + ['Bonded', 'Insured', 'Background checked'].map((x) => `<li>${ICONS.shield}<b>${x}</b></li>`).join('') + '</ul>' +
     ((h.trust || 'Free site walk').replace(/^Bonded and insured · /, '') ? `<p class="bxtrust">${esc((h.trust || 'Free site walk').replace(/^Bonded and insured · /, ''))}</p>` : '') +
     '<ul class="bxh-stats">' + stats.map(([n, u, t]) => `<li><b>${esc(n)}<small>${esc(u)}</small></b><span>${esc(t)}</span></li>`).join('') + '</ul>' +
     '</div><div class="bxh-side">' + (h.side || reportCard(h.site)) + '</div></div></div></section>';

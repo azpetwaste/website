@@ -106,7 +106,9 @@ function socialHtml() {
 }
 function payHtml() {
   // Card shaped tiles with the name in plain type. An official logo file in static/assets/img/brands/ replaces a tile (never redraw a brand logo).
-  const tile = (n, cls) => { const img = brandFile(n); return img ? '<img src="' + img + '" alt="' + n + '" height="38" loading="lazy">' : '<span class="fcard ' + cls + '"><i aria-hidden="true"></i><b>' + n + '</b></span>'; };
+  // Joe did not like the plain name tiles (Nov 10), so a mark only shows when its official logo file is in the folder.
+  const tile = (n, cls) => { const img = brandFile(n); return img ? '<img src="' + img + '" alt="' + n + '" height="38" loading="lazy">' : ''; };
+  if (!['Visa', 'Mastercard', 'Amex', 'Discover', 'Apple Pay', 'Google Pay'].some((n) => brandFile(n))) return '';
   return '<div class="fmarks" role="group" aria-label="Cards we take">' + ['Visa', 'Mastercard', 'Amex', 'Discover'].map((n) => tile(n, 'fc-card')).join('') + '</div>' +
     '<div class="fmarks" role="group" aria-label="Phone wallets we take">' + ['Apple Pay', 'Google Pay'].map((n) => tile(n, 'fc-pay')).join('') + '</div>';
 }
@@ -616,6 +618,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 
 ## Before you hire a pooper scooper (our answers)
 - Bonded and insured: yes. $50,000 business service bond from American Contractors Indemnity Company (Tokio Marine HCC), November 9, 2026 to November 9, 2027. General liability insurance of $1,000,000 / $2,000,000 from Certain Underwriters at Lloyd's, London, through Pet Care Insurance, November 16, 2026 to November 16, 2027. Proof: ${ORIGIN}/bonded-and-insured/
+- Background checks: every team member must pass a background check before working in a yard.
 - Business license: in progress as of November 2026. Do not describe the company as licensed yet.
 - Owner: Juan Gonzalez, who lives in Verrado (Buckeye, AZ) with his wife and their six kids.
 - Sign up fee: none. [[bf:The first month is free only with the Black Friday sale, for sign ups through November 30, 2026.||The first cleanup is free.]]
