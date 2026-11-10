@@ -651,8 +651,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       if (open) out += '<ul class="list">' + st.map(function (s, i) {
         var can = pk && s.status === 'scheduled', on = can && pk.ids[s.id];
         return '<li class="tap" ' + (pk ? (can ? 'data-pickstop="' + s.id + '"' : 'style="opacity:.4"') : 'data-menu="' + s.id + '"') + '>' +
-          (pk ? '<span style="flex:0 0 26px;height:26px;border:1px solid ' + (on ? 'var(--accent)' : 'var(--line)') + ';background:' + (on ? 'var(--accent)' : 'transparent') + ';color:#000;display:flex;align-items:center;justify-content:center;font-weight:800;margin-right:4px">' + (on ? '✓' : '') + '</span>' : '') +
-          '<span class="n">' + String(i + 1).padStart(2, '0') + '</span><div><div class="a">' + h(s.customer.address) + '</div><div class="s">' + h(s.customer.name) +
+          '<span class="n">' + (pk ? '<span style="display:inline-flex;width:24px;height:24px;border:1px solid ' + (on ? 'var(--accent)' : 'var(--mute)') + ';background:' + (on ? 'var(--accent)' : 'transparent') + ';color:#000;align-items:center;justify-content:center;font-weight:800;font-size:14px">' + (on ? '✓' : '') + '</span>' : String(i + 1).padStart(2, '0')) + '</span><div><div class="a">' + h(s.customer.address) + '</div><div class="s">' + h(s.customer.name) +
           (s.reason ? ' · ' + h(s.reason.replace(/_/g, ' ')) : '') + (s.note ? ' · ' + h(s.note) : '') + (time(s.done_at || s.arrived_at || s.on_way_at) ? ' · ' + h(time(s.done_at || s.arrived_at || s.on_way_at)) : '') + '</div></div>' +
           '<div class="r">' + (s.status === 'skipped' && /^Moved to /.test(s.note || '') ? '<span class="tag">Moved</span>' : tag(s.status)) + (s.no_photo ? '<div style="margin-top:4px"><span class="tag bad">No photo</span></div>' : '') + '</div></li>';
       }).join('') + '</ul>';
