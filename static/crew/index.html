@@ -280,7 +280,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (p === '/api/office/plan') return { added: 0 };
     if (p === '/api/office/night-before') return { queued: 0, day: D.today };
     if (p.indexOf('/api/office/loads') === 0) {
-      var qs = new URLSearchParams(p.split('?')[1] || ''), f0 = qs.get('from') || D.today, sf = qs.get('staff');
+      var f0 = q.get('from') || D.today, sf = q.get('staff');
       return { cap: (S.wk && S.wk.cap) || 30, days: [0, 1, 2, 3, 4, 5, 6].map(function (i) { var dd = shift(f0, i), wd = new Date(dd + 'T19:00:00Z').getUTCDay();
         return { day: dd, dayName: DAYS[wd], works: wd >= 1 && wd <= 5, yards: D.stops.filter(function (x) { var r = D.routes.filter(function (y) { return y.id === x.route_id; })[0]; return (x.day || D.today) === dd && x.status !== 'skipped' && r && r.staff.id === sf; }).length }; }) };
     }
