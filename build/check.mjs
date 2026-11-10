@@ -62,6 +62,7 @@ for (const file of pages) {
     if (!h.startsWith('/') || h.startsWith('//')) continue;
     const p = h.split('#')[0].split('?')[0];
     if (p.startsWith('/assets/') || p === '/favicon.ico') { if (!fs.existsSync(path.join(DIST, p))) bad(rel, 'missing file ' + p); continue; }
+    if (/^\/t\/[A-Za-z0-9]+$/.test(p)) continue; // truck links are served by the worker
     if (!routes.has(p)) bad(rel, 'link to missing page ' + h);
   }
   const ids = new Set([...doc.querySelectorAll('[id]')].map((x) => x.id));
