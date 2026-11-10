@@ -275,7 +275,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (p === '/api/crew/end') { D.route.status = 'done'; return demoToday(); }
     if (p === '/api/crew/text' || p === '/api/office/text') { D.texts.forEach(function (t) { if (String(t.id) === String(b.id)) t.status = b.status; }); return { ok: true }; }
     if (p === '/api/office/day') return demoDay();
-    if (p === '/api/office/week') { var wr = await fetch('/api/demo/week?n=' + (b.n || 500) + '&cap=' + (b.cap || 30) + '&days=' + (b.days || '1,2,3,4,5')); if (!wr.ok) throw new Error('The sample week did not load. Try again.'); return wr.json(); }
+    if (p === '/api/office/week') { var wr = await fetch('/api/demo/week?n=' + (b.n || 100) + '&cap=' + (b.cap || 30) + '&days=' + (b.days || '1,2,3,4,5')); if (!wr.ok) throw new Error('The sample week did not load. Try again.'); return wr.json(); }
     if (p === '/api/office/plan') return { added: 0 };
     if (p === '/api/office/night-before') return { queued: 0, day: D.today };
     if (p === '/api/office/stop') {
@@ -899,7 +899,7 @@ table.t tr.click:hover td{background:var(--bg2)}
   }
   function bindOffice() {
     app.querySelectorAll('[data-plan]').forEach(function (b) { b.onclick = async function () {
-      S.plan = b.dataset.plan === '1'; S.wk = S.wk || { cap: 30, days: '1,2,3,4,5', n: 500 };
+      S.plan = b.dataset.plan === '1'; S.wk = S.wk || { cap: 30, days: '1,2,3,4,5', n: DEMO ? 100 : 500 };
       if (S.plan && !DEMO && !S.wk.loaded) { try { var st = await api('GET', '/api/office/settings'); S.wk.cap = st.cap; S.wk.days = st.days; S.wk.start = st.start || ''; S.wk.loaded = true; } catch (e) { } }
       if (!S.plan) { S.data.day = null; render(); return loadTab(); }
       render(); window.scrollTo(0, 0);
