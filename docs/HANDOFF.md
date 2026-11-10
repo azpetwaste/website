@@ -128,6 +128,7 @@ This lane is website edits and AEO (showing up in Google and in AI answers). It 
   - Insurance: general liability $1,000,000 / $2,000,000, broadened property damage $10,000 / $25,000, Certain Underwriters at Lloyd's, London, through Pet Care Insurance, November 16, 2026 to November 16, 2027.
 - **Insurance is not in force until November 16.** Copy that depends on it uses `[[ins:before||after]]` (same idea as the sale tag, `INS_START` in `build.mjs`, test with `INS_WAIT=1` or `0`). The GitHub job pushes a rebuild that morning.
 - **Never publish the bond number, the insurance certificate number, or the documents.** They are not in the repo on purpose. The site shows who backs us, amounts and dates, and says to ask for the certificate.
+- Joe had the "starts Nov 16" note taken off the footer seal (Nov 10): no customers are served before that day. The proof page still shows the exact dates and the FAQ answers still carry the note until the 16th.
 - New page `/bonded-and-insured/` (46 indexed pages). The footer seals (Bonded, $50,000 bond. Insured, $1,000,000 liability) link to it. Home strip is Bonded, Insured, Family owned.
 
 ### Rules for this lane

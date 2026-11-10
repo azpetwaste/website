@@ -652,7 +652,7 @@ def _footer(pre):
             '    </div>\n'
             '  </div>\n'
             '  <div class="fseals" role="group" aria-label="Bonded and insured. Family owned and operated.">\n'
-            + ''.join('    <p class="fseal">' + F_SEAL + '<span><b>%s</b><small>%s</small></span></p>\n' % x for x in [('Bonded', '$50,000 bond'), ('Insured', '$1,000,000 liability[[ins:, starts Nov 16||]]')]) +
+            + ''.join('    <p class="fseal">' + F_SEAL + '<span><b>%s</b><small>%s</small></span></p>\n' % x for x in [('Bonded', '$50,000 bond'), ('Insured', '$1,000,000 liability')]) +
             '    <p class="fproof"><a href="/bonded-and-insured/">See the proof</a></p>\n'
             '    <p class="ffam">' + F_FAM + '<span>Family owned and operated</span></p>\n'
             '  </div>\n'
