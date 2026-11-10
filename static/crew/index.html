@@ -256,18 +256,15 @@ table.t tr.click:hover td{background:var(--bg2)}
   async function demoApi(method, path, b) {
     if (!D) demoSeed();
     await new Promise(function (r) { setTimeout(r, 120); });
+    // The demo yards sit on real planned days: each scooper gets one part of town, in the planner's own driving order.
+    if (D.mapsKey === undefined) { D.mapsKey = null; try {
+      var wk = await (await fetch('/api/demo/week?n=250&cap=40')).json(), big = wk.slots.slice().sort(function (x, y) { return y.pts.length - x.pts.length; });
+      D.routes.forEach(function (rt, k) { var day1 = big[k % big.length]; D.stops.filter(function (x) { return x.route_id === rt.id; }).forEach(function (st, i) { var g = day1.pts[i % day1.pts.length]; st.customer.lat = g[0] + (i >= day1.pts.length ? 0.002 : 0); st.customer.lng = g[1]; }); });
+      D.mapsKey = wk.mapsKey || null;
+    } catch (e) { } }
     var q = new URLSearchParams(path.split('?')[1] || ''), p = path.split('?')[0], st = D.stops.filter(function (x) { return x.id === (b.stopId || b.id); })[0];
     var queued = function () { return D.texts.filter(function (t) { return t.status === 'queued'; }); };
-    if (p === '/api/crew/today') {
-      // The demo route uses a real planned day: yards from one part of town, in the planner's own driving order.
-      if (D.mapsKey === undefined) { try {
-        var wk = await (await fetch('/api/demo/week?n=250&cap=40')).json(), my = mine();
-        var day1 = wk.slots.slice().sort(function (x, y) { return y.pts.length - x.pts.length; })[0];
-        my.forEach(function (st, i) { var q = day1.pts[i % day1.pts.length]; st.customer.lat = q[0] + (i >= day1.pts.length ? 0.002 : 0); st.customer.lng = q[1]; });
-        D.mapsKey = wk.mapsKey || null;
-      } catch (e) { D.mapsKey = null; } }
-      return demoToday();
-    }
+    if (p === '/api/crew/today') return demoToday();
     if (p === '/api/crew/start') { D.route.status = 'live'; D.ping = new Date().toISOString(); if (!mine().some(function (x) { return x.status === 'on_the_way' || x.status === 'here'; })) demoNext(); return demoToday(); }
     if (p === '/api/crew/arrive') { st.status = 'here'; st.arrived_at = new Date().toISOString(); D.ping = st.arrived_at; return demoToday(); }
     if (p === '/api/crew/photo') { st.photo_path = 'demo'; return { ok: true }; }
@@ -689,7 +686,7 @@ table.t tr.click:hover td{background:var(--bg2)}
           return '<div style="border:1px solid ' + (over ? 'var(--bad)' : 'var(--accent)') + ';padding:12px;margin-top:14px"><b>Are you sure?</b><p style="font-size:14px;margin:6px 0 0">' +
             (t.addMiles != null ? 'This adds <b>' + ids.length + ' yard' + (ids.length === 1 ? '' : 's') + '</b>, <b>' + t.addMiles + ' miles</b> and about <b>' + t.addMinutes + ' minutes</b> of driving to ' + h(t.dayName) + '. ' : 'This adds <b>' + ids.length + ' yard' + (ids.length === 1 ? '' : 's') + '</b> to ' + h(t.dayName) + '. ') +
             h(t.dayName) + ' goes from ' + t.yards + ' to ' + (t.yards + ids.length) + ' yards' + (over ? ', which is <b style="color:var(--bad)">over the limit of ' + loads.cap + '</b>' : '') + '.' +
-            (loads.saves ? ' ' + h(dayLabel(d.day).split(',')[0]) + ' gets ' + loads.saves.miles + ' miles and about ' + loads.saves.minutes + ' minutes shorter.' : '') +
+            (loads.saves ? ' ' + h(DAYS[new Date(d.day + 'T19:00:00Z').getUTCDay()]) + ' gets ' + loads.saves.miles + ' miles and about ' + loads.saves.minutes + ' minutes shorter.' : '') +
             (best && t.addMiles != null && best.addMiles < t.addMiles ? ' <b>' + h(best.dayName) + ' is a better fit:</b> only ' + best.addMiles + ' more miles.' : '') + '</p></div>'; })() +
         '<span class="lbl" style="display:block;margin-top:16px">For how long?</span><div class="chips" style="margin-top:8px"><button class="chip' + (st.forever ? '' : ' on') + '" data-fv="0">Just this visit</button><button class="chip' + (st.forever ? ' on' : '') + '" data-fv="1">Every week from now on</button></div>' +
         '<p style="color:var(--mute);font-size:13px;margin:8px 0 0">' + (st.forever ? 'This changes the customer\'s regular day. Each one gets an email with the new day.' : 'Only this visit moves. Next week they are back on their regular day.') + '</p>' +
