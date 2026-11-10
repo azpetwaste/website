@@ -10,7 +10,9 @@
 "Now the scooper. He signs in with his email and a code. No password. His route is already built in the best driving order, with a map.",
 "He works one yard at a time. He sees the address, the gate code, the notes, and buttons to navigate or call.",
 "At the yard, he taps arrived, taps each box, and takes one photo of the latched gate.",
-"That photo is the proof of the visit, so it can not get lost. If the signal is weak, the picture stays on the phone until it sends.",
+"The app writes the date and the time on every photo. That photo is our proof we were there.",
+"If the camera or the app is not working, he takes the picture with his phone and uploads it. He sets the time it was taken. If he changes the time, the photo says it was entered by staff.",
+"The photo can not get lost. If the signal is weak, the picture stays on the phone until it sends.",
 "The photo finishes the yard, and the next yard opens on its own. A text to the next customer is ready to send with one tap.",
 "The customer gets a link. No app, and no login. They watch the truck on a live map and see how many minutes away it is. When the yard is done, they get the gate photo.",
 "That is the Field App. One tool for the office, the scooper, and the customer."]

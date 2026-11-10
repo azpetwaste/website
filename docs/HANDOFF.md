@@ -232,3 +232,5 @@ Joe: "our brain on this app needs to always be optimizing routes." A move must a
 - The server now checks the first bytes of the file, so a file only labeled as a picture is refused.
 - **Brake on guessing (`hitLimit`).** Per visitor address, in memory: 8 code requests and 10 code tries per 10 minutes, 120 truck link lookups a minute, 400 requests a minute over all. It is a first line. Atlas still needs the Cloudflare rate limit rule, the Turnstile bot check and a 10 minute code life in Supabase.
 - Tests: desk 107.
+- The training video was rebuilt again (2 min 33 s) with the upload, time stamp and photo safety screens, and pushed to both places. The narration is in `docs/video/lines.json`. Joe's rule is in `CLAUDE.md`: rebuild the video with every change a scooper or the office can see.
+- A photo kept on the phone from another day is dropped, and the demo starts with none kept.

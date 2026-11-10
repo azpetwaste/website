@@ -213,6 +213,7 @@ table.t tr.click:hover td{background:var(--bg2)}
   /* ---------- demo: made up data that lives in this browser tab only ---------- */
   var D = null;
   function demoSeed() {
+    try { localStorage.removeItem('apw_photo_wait'); } catch (e) { } // the demo starts clean every time
     setTimeout(function () { if (D) D.photoFail = parseInt(new URLSearchParams(location.search).get('photofail'), 10) || 0; }, 0); // test hook: ?demo&photofail=4 makes the first 4 photo saves fail
     var today = new Date(Date.now() - 7 * 3600e3).toISOString().slice(0, 10), wd = new Date(today + 'T19:00:00Z').getUTCDay();
     var FN = ['Dana', 'Chris', 'Lee', 'Pat', 'Sky', 'Remy', 'Alex', 'Jo', 'Sam', 'Kai', 'Drew', 'Robin', 'Jesse', 'Casey', 'Morgan', 'Avery', 'Quinn', 'Reese', 'Blake', 'Toni'];
@@ -345,7 +346,7 @@ table.t tr.click:hover td{background:var(--bg2)}
   var si = { step: 'email', email: '', err: '', info: '' };
   function viewSignin() {
     return '<div class="narrow signin"><img src="/assets/img/logo-horizontal-dark.svg" alt="Arizona Pet Waste" style="height:40px;width:auto;display:block;margin:0 0 22px"><div class="lbl">Staff</div><div class="stitle">Field desk</div>' +
-      (si.step === 'email' ? '<details style="margin:0 0 22px;border:1px solid var(--line)"><summary style="cursor:pointer;padding:14px;font-family:\'IBM Plex Mono\',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase">▶ Watch how it works, 2 minutes</summary><video controls playsinline preload="none" poster="/crew/how-it-works.jpg" style="width:100%;display:block;background:#000;max-height:70vh"><source src="/crew/how-it-works.mp4" type="video/mp4"></video></details>' : '') +
+      (si.step === 'email' ? '<details style="margin:0 0 22px;border:1px solid var(--line)"><summary style="cursor:pointer;padding:14px;font-family:\'IBM Plex Mono\',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase">▶ Watch how it works, 2 and a half minutes</summary><video controls playsinline preload="none" poster="/crew/how-it-works.jpg" style="width:100%;display:block;background:#000;max-height:70vh"><source src="/crew/how-it-works.mp4" type="video/mp4"></video></details>' : '') +
       (si.step === 'email'
         ? '<label class="lbl" for="em">Work email</label><input id="em" class="f" type="email" autocomplete="email" inputmode="email" value="' + h(si.email) + '" style="margin-top:8px">' +
           '<div style="height:14px"></div><button class="btn" id="go">Send code</button>'
@@ -471,6 +472,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       out += '<div style="border-top:1px solid var(--line);padding-top:14px"><span class="lbl">Checklist</span>' +
         chk('scoop', 'Scooped every pile') + (spray ? chk('spray', 'Sprayed') : '') + chk('latch', 'Latched and pulled the gate') + '<p style="color:var(--mute);font-size:14px;margin:12px 0 0">Tap each box. Take the gate photo. The next yard opens on its own.</p></div><div style="height:8px"></div>';
       var pw = photoWait();
+      if (pw && pw.day && pw.day !== d.day) { photoKeep(null); pw = null; } // a picture kept from another day is not for this visit
       if (!S.shot && !cur.photo_path && pw && String(pw.sid) === String(cur.id) && !S.busy) { S.shot = pw.data; S.photoFail = S.photoFail || { sid: cur.id, msg: 'This photo was not sent yet.' }; }
       var failed = S.photoFail && String(S.photoFail.sid) === String(cur.id) && !cur.photo_path;
       var hasPhoto = cur.photo_path || (S.shot && !failed && !S.busy);
