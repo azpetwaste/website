@@ -30,6 +30,7 @@ npm run check
 node build/worker.test.mjs
 DATABASE_URL=postgres://... node build/desk.test.mjs   # needs a local Postgres and the pg package
 DATABASE_URL=postgres://... node build/signup10.test.mjs   # ten sign ups, the CRM list, the route order and the crew app
+DATABASE_URL=postgres://... node build/signup50.test.mjs   # fifty sign ups at once, theft and break in attempts, money rules, routes per service day
 ```
 
 ## Still open (needs Joe)

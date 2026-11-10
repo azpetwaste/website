@@ -420,8 +420,12 @@ async function webhook(request, env, ctx) {
     }
     if (gone && rows && rows[0]) ctx.waitUntil(mail(env, owner(env), 'Canceled: ' + rows[0].name, 'A customer canceled.\n\nName: ' + rows[0].name + '\nAddress: ' + rows[0].address + ', ' + rows[0].zip + '\nMobile: ' + rows[0].phone));
     if (gone) await freeMonthCharge(env, ctx, o, rows && rows[0]);
+    const was = (evt.data && evt.data.previous_attributes) || {};
+    if (!gone && was.pause_collection && !o.pause_collection && o.status === 'active') await resumeCharge(env, ctx, o, rows && rows[0]);
   } else if (evt.type === 'invoice.payment_failed') {
-    const rows = await db(env, 'PATCH', 'customers?stripe_customer_id=eq.' + encodeURIComponent(o.customer), { status: 'past_due', updated_at: now }, 'return=representation');
+    // Only a live plan goes past due. A failed early cancel charge leaves a canceled customer canceled.
+    const rows = await db(env, 'PATCH', 'customers?stripe_customer_id=eq.' + encodeURIComponent(o.customer) + '&status=in.(trialing,active,past_due)', { status: 'past_due', updated_at: now }, 'return=representation');
+    if (rows && rows[0]) await db(env, 'DELETE', 'stops?customer_id=eq.' + rows[0].id + '&status=eq.scheduled&day=gt.' + azToday(), null, 'return=minimal').catch((e) => console.error('route cleanup', e));
     if (rows && rows[0]) ctx.waitUntil(mail(env, owner(env), 'Card failed: ' + rows[0].name, 'A payment failed. Stripe will retry.\n\nName: ' + rows[0].name + '\nMobile: ' + rows[0].phone + '\nEmail: ' + rows[0].email));
   }
   return ok({ received: true });
@@ -436,7 +440,8 @@ async function freeMonthCharge(env, ctx, sub, row) {
   const askedAt = sub.canceled_at || sub.ended_at || Math.floor(Date.now() / 1000);
   if (!cutoff || askedAt >= cutoff) return;
   const item = (sub.items && sub.items.data && sub.items.data[0]) || {};
-  const price = item.price && item.price.unit_amount ? item.price.unit_amount * (item.quantity || 1) : 0;
+  // every line on the plan: the base price plus any extra dogs
+  const price = item.price && item.price.unit_amount ? sub.items.data.reduce((n, i) => n + ((i.price && i.price.unit_amount) || 0) * (i.quantity || 1), 0) : 0;
   const month = price || (row && PLANS[row.plan] ? monthly(row.plan, row.dogs) : 0);
   if (!month) return;
   const who = row ? row.name + ', ' + row.address + ', ' + row.zip : sub.customer;
@@ -458,6 +463,34 @@ async function freeMonthCharge(env, ctx, sub, row) {
   } catch (e) {
     console.error('free month charge failed', e);
     ctx.waitUntil(mail(env, owner(env), 'Check billing: free month charge failed', 'A customer canceled in the first 60 days but the ' + money(amount) + ' charge failed. Check it in Stripe.\n\nCustomer: ' + who + '\nStripe customer: ' + sub.customer));
+  }
+}
+
+// Back from a pause in the middle of a month: the bill for the 1st was voided while paused, so charge the days left
+// in this month. Without this, a short pause over the 1st would make the whole month free.
+async function resumeCharge(env, ctx, sub, row) {
+  const item = (sub.items && sub.items.data && sub.items.data[0]) || {};
+  const month = (item.price && item.price.unit_amount ? (sub.items.data || []).reduce((n, i) => n + (i.price.unit_amount || 0) * (i.quantity || 1), 0) : 0) || (row && PLANS[row.plan] ? monthly(row.plan, row.dogs) : 0);
+  if (!month) return;
+  const who = row ? row.name + ', ' + row.address + ', ' + row.zip : sub.customer;
+  const az = new Date(Date.now() - 7 * 3600e3), tag = az.toISOString().slice(0, 7);
+  let amount = 0;
+  try {
+    const list = await stripe(env, 'GET', 'invoices', { subscription: sub.id, limit: 6 });
+    const last = (list.data || []).filter((i) => i.billing_reason === 'subscription_cycle')[0];
+    if (!last || last.status !== 'void' || new Date(last.created * 1000 - 7 * 3600e3).toISOString().slice(0, 7) !== tag) return;
+    const days = new Date(Date.UTC(az.getUTCFullYear(), az.getUTCMonth() + 1, 0)).getUTCDate();
+    amount = Math.round(month * (days - az.getUTCDate() + 1) / days);
+    if (amount < 50) return;
+    const key = sub.id + '-' + tag;
+    await stripe(env, 'POST', 'invoiceitems', { customer: sub.customer, amount, currency: 'usd', description: 'Back from pause: the days left in this month' }, 'apw-resume-item-' + key);
+    const inv = await stripe(env, 'POST', 'invoices', Object.assign({ customer: sub.customer, collection_method: 'charge_automatically', auto_advance: 'true', pending_invoice_items_behavior: 'include',
+      description: 'You started again in the middle of the month, so this covers the days left in the month.' }, sub.default_payment_method ? { default_payment_method: sub.default_payment_method } : {}), 'apw-resume-inv-' + key);
+    await stripe(env, 'POST', 'invoices/' + inv.id + '/finalize', {}, 'apw-resume-fin-' + key);
+    await stripe(env, 'POST', 'invoices/' + inv.id + '/pay', {}, 'apw-resume-pay-' + key);
+  } catch (e) {
+    console.error('resume charge failed', e);
+    ctx.waitUntil(mail(env, owner(env), 'Check billing: back from pause charge failed', 'A customer came back from a pause but the ' + money(amount) + ' charge for the rest of this month failed. Check it in Stripe.\n\nCustomer: ' + who + '\nStripe customer: ' + sub.customer));
   }
 }
 
@@ -925,8 +958,11 @@ function shortOrder(list, start) {
 }
 async function planDay(env, day) {
   const wd = weekday(day);
-  const rows = await db(env, 'GET', 'customers?status=in.(' + PAYING.join(',') + ')&or=(service_day.eq.' + wd + ',service_day2.eq.' + wd + ')' +
-    '&select=id,plan,eow_week,scooper_id,stop_order,pause_from,pause_until,first_visit,address,lat,lng');
+  const all = await db(env, 'GET', 'customers?status=in.(' + PAYING.join(',') + ')&or=(service_day.eq.' + wd + ',service_day2.eq.' + wd + ')' +
+    '&select=id,status,plan,eow_week,scooper_id,stop_order,pause_from,pause_until,first_visit,address,lat,lng');
+  // A card that failed keeps the customer off new routes until Stripe gets paid. The office sees how many.
+  const rows = all.filter((c) => c.status !== 'past_due');
+  const unpaid = all.length - rows.length;
   const skipped = await skippedOn(env, day);
   const due = rows.filter((c) => {
     if (skipped.has(c.id)) return false;
@@ -960,7 +996,7 @@ async function planDay(env, day) {
     })), 'resolution=ignore-duplicates,return=minimal');
   }
   return { ok: true, day, added: sorted.length, due: due.length, noScooper: due.filter((c) => !have.has(c.id) && !c.scooper_id && !fallback).length,
-    routeMiles: Math.round(routeMiles * 10) / 10, milesSaved: Math.round(milesSaved * 10) / 10 };
+    routeMiles: Math.round(routeMiles * 10) / 10, milesSaved: Math.round(milesSaved * 10) / 10, unpaid };
 }
 async function lastPings(env, routeIds) {
   const out = {};
@@ -1353,7 +1389,7 @@ async function skippedOn(env, day) {
 }
 async function myRow(env, id) {
   const base = 'plan,status,first_visit,service_day,service_day2,eow_week,pause_from,pause_until,stripe_customer_id,stripe_subscription_id,name,address,zip';
-  try { const r = await db(env, 'GET', 'customers?id=eq.' + id + '&select=' + base + ',skips'); return r[0] ? Object.assign(r[0], { skipReady: true, skips: r[0].skips || [] }) : null; }
+  try { const r = await db(env, 'GET', 'customers?id=eq.' + id + '&select=' + base + ',skips'); return r[0] ? Object.assign(r[0], { skipReady: true, skips: [...new Set((r[0].skips || []).map((d) => String(d).slice(0, 10)))] }) : null; }
   catch (e) { const r = await db(env, 'GET', 'customers?id=eq.' + id + '&select=' + base); return r[0] ? Object.assign(r[0], { skipReady: false, skips: [] }) : null; }
 }
 function nextVisits(c, from, n) {

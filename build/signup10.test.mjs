@@ -17,6 +17,7 @@ const url = process.env.DATABASE_URL;
 if (!url) { console.log('skip: set DATABASE_URL to an empty test database'); process.exit(0); }
 
 pg.types.setTypeParser(1082, (v) => v); // dates as YYYY-MM-DD, like PostgREST
+pg.types.setTypeParser(1182, (v) => (v === '{}' ? [] : v.slice(1, -1).split(','))); // date lists too
 pg.types.setTypeParser(20, (v) => Number(v)); // bigint ids as numbers, like PostgREST
 pg.types.setTypeParser(1184, (v) => { let t = v.replace(' ', 'T'); if (/[+-]\d\d$/.test(t)) t += ':00'; return t; }); // timestamps like PostgREST: 2026-11-09T19:08:46.01592+00:00
 const db = new pg.Client({ connectionString: url });
