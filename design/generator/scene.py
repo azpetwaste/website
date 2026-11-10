@@ -210,7 +210,7 @@ SCENE = (
     '<g class="cam">' + WORLD + '</g>'
     '<rect class="flash" x="0" y="-45" width="360" height="270" fill="#FFFFFF"></rect>'
     '</svg>'
-    '<span class="chipv" style="left: 10px;"><span class="ldot"></span>{{ vClock }} · sped up</span>'
+    '<span class="chipv" style="left: 10px;"><span class="ldot"></span>{{ vClock }}<span class="spd"> · sped up</span></span>'
     '<span class="chipv" style="right: 10px;">{{ vPiles }}/14 piles</span>'
     '<p class="capv" aria-live="polite">{{ vCaption }}</p>'
     '<div class="stampv" aria-hidden="true"><div style="padding: 5px 10px; border: 1.2px solid #FF4A1C; border-radius: 5px;"><div style="font-size: 15px; font-weight: 600; letter-spacing: .04em;">GATE LATCHED ✓</div><div style="font-size: 13px; font-weight: 500;">10:19:42 AM</div></div></div>'

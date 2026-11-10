@@ -721,7 +721,7 @@ REVAMP_CSS = r"""
 .apw .spec .eb{color:#FF8A66}
 .apw .spec .h2{color:#F6F4EF}
 .apw .sgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:30px 0 0;border-top:1px solid rgba(255,255,255,.14);border-left:1px solid rgba(255,255,255,.14)}
-.apw .scell{min-width:0;padding:18px 14px 20px;border-right:1px solid rgba(255,255,255,.14);border-bottom:1px solid rgba(255,255,255,.14);transition:background-color .2s ease}
+.apw .scell{min-width:0;padding:20px 18px 22px;border-right:1px solid rgba(255,255,255,.14);border-bottom:1px solid rgba(255,255,255,.14);transition:background-color .2s ease}
 .apw .scell:hover{background:rgba(255,74,28,.09)}
 .apw .scell dt{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;margin:0}
 .apw .scell b{font-family:"Archivo","Arial Black",sans-serif;font-weight:800;font-size:46px;line-height:.95;color:#F6F4EF}

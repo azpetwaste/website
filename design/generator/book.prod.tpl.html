@@ -23,7 +23,7 @@
 .apw .fine a,.apw .tlink{color:var(--ink);font-weight:700}
 .apw .tlink{display:inline-flex;align-items:center;min-height:44px;padding:0;border:0;background:none;font:inherit;font-size:16px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .apw .note{display:flex;gap:12px;align-items:flex-start;margin-top:14px;padding:14px 16px;border-radius:16px;background:var(--bg2);font-size:15px;line-height:1.5;color:var(--ink2)}
-.apw .demo{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:6px 12px;border-radius:999px;background:var(--bg2);border:1px dashed var(--field);font-size:13px;font-weight:700;color:var(--mute)}
+.apw .demo{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:6px 12px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);font-size:13px;font-weight:700;color:var(--mute)}
 .apw .paybox{margin-top:16px;min-height:120px;border-radius:16px;overflow:hidden}
 </style>
 </helmet>
@@ -55,7 +55,7 @@
       <sc-for list="{{ cityOpts }}" as="c" hint-placeholder-count="5">
         <button type="button" role="radio" aria-checked="{{ c.on }}" onClick="{{ c.pick }}" style="display: flex; align-items: center; gap: 10px; width: 100%; min-height: 60px; padding: 0 18px; border-radius: 16px; border: 1.6px solid {{ c.border }}; background: {{ c.bg }}; color: var(--ink); font: inherit; text-align: left; cursor: pointer;"><span style="font-size: 18px; font-weight: 800;">{{ c.label }}</span><span style="font-size: 14px; color: var(--mute);">{{ c.note }}</span><span aria-hidden="true" style="margin-left: auto; font-size: 20px; color: var(--accent-text);">›</span></button>
       </sc-for>
-      <button type="button" onClick="{{ pickOther }}" style="display: flex; align-items: center; width: 100%; min-height: 52px; padding: 0 18px; border-radius: 16px; border: 1.6px dashed var(--field); background: transparent; color: var(--ink2); font: inherit; font-size: 16px; font-weight: 700; text-align: left; cursor: pointer;">My city is not here</button>
+      <button type="button" onClick="{{ pickOther }}" style="display: flex; align-items: center; width: 100%; min-height: 52px; padding: 0 18px; border-radius: 16px; border: 1.6px solid var(--line); background: transparent; color: var(--ink2); font: inherit; font-size: 16px; font-weight: 700; text-align: left; cursor: pointer;">My city is not here</button>
     </div>
     <sc-if value="{{ zipNo }}" hint-placeholder-val="{{ false }}">
       <div aria-live="polite" style="margin-top: 12px; padding: 16px; border-radius: 16px; background: var(--bg2); border: 1px solid var(--line);">
@@ -165,7 +165,7 @@
     <p class="fine">By starting your free month, you agree to our <a href="/terms/">Terms</a> and <a href="/privacy/">Privacy Policy</a>.</p>
     <sc-if value="{{ payDemo }}" hint-placeholder-val="{{ false }}">
       <p class="demo">Demo mode: no card is charged</p>
-      <div style="margin-top: 14px; padding: 14px; border-radius: 16px; border: 1.6px dashed var(--field);">
+      <div style="margin-top: 14px; padding: 14px; border-radius: 16px; border: 1.6px solid var(--line);">
         <p class="mono" style="margin: 0 0 10px; font-size: 13px; color: var(--mute);">STRIPE CARD FORM LOADS HERE</p>
         <div style="display: flex; align-items: center; height: 50px; padding: 0 14px; border-radius: 12px; border: 1.6px solid var(--line); background: var(--card); font-size: 16px; color: var(--mute);">Card number</div>
         <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px;">

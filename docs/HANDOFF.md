@@ -259,3 +259,10 @@ Joe: "our brain on this app needs to always be optimizing routes." A move must a
 - **No dashed lines.** ZIP outlines on the map are thin solid lines, the key reads "We scoop every home in the orange area. Every street.", the town chips and the "we set your day by route" chip are off the town pages. Joe did not like the dashed line key.
 - **Google review slot.** `reviews` and `googleProfile` in `src/site.config.json`. When a real review is typed in (name, town, stars, text, link to it on Google) a star row shows under the hero button on home and town pages. It is empty today, so nothing shows. Joe asked for a 5 star review up front before one exists. Not done: the rule above stands, never write a review, and a made up Google review breaks Google's and the FTC's rules. Joe plans to sign up and leave a real one. He builds the site, so if he has a stake in the company his own review needs to say so or come off.
 - Joe gave his home street as an example of the area we cover. Do not put it on the site.
+
+### Nov 10, 2026, 11:30 am. Joe looked at it: bar on town pages only, and a pass on tight boxes
+- **The bottom bar is on the town pages only now** (`dockOn` in `build/build.mjs`: routes under `/pooper-scooper/`). Joe did not like it on the rest of the site. It is three plain buttons, Book now, Call, Text. No small print in it.
+- **Home page on a phone:** the Book button sits right under the H1, above the yard scene, so it shows on first load on every phone size (checked 320 to 430 wide).
+- **Tight boxes fixed** (Joe: words too close to the inside of the box): plan choices on a phone are three full width rows (name, per visit, price), the sale clock no longer runs out of its box at 320 wide, more room in the specs grid, the sale chip in sign up, and the town price table header.
+- No dashed borders left in the sign up flow or the coming soon box. Map key reads "We scoop every home inside the orange lines."
+- Phone sizes checked with no sideways scroll: 320, 360, 375, 390, 412, 430 wide, on home, a town page, the areas page and sign up.

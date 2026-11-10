@@ -140,4 +140,4 @@ MAP_CSS = (
 @media (prefers-reduced-motion:reduce){.mtruck{animation:none;transform:translate(193px,190px)}.mplc{transition:none}}""")
 
 MAP_KEY = ('<p class="mkey"><i class="mkey-sw" aria-hidden="true"></i>'
-           '<span>We scoop every home in the orange area. Every street.</span></p>')
+           '<span>We scoop every home inside the orange lines. Every street.</span></p>')
