@@ -846,7 +846,7 @@ async function crewToday(s, env) {
   const stops = await db(env, 'GET', 'stops?route_id=eq.' + r.id + '&select=' + CREW_STOP + '&order=position,id');
   const ids = stops.map((x) => x.id);
   const texts = ids.length ? await db(env, 'GET', 'messages?status=eq.queued&stop_id=in.(' + ids.join(',') + ')&select=id,stop_id,kind,to_addr,body&order=created_at') : [];
-  return ok({ day, dayName: DAYS[weekday(day)], route: r, stops, texts, me: { name: s.name, role: s.role } });
+  return ok(Object.assign({ day, dayName: DAYS[weekday(day)], route: r, stops, texts, me: { name: s.name, role: s.role } }, env.GOOGLE_MAPS_BROWSER_KEY ? { mapsKey: env.GOOGLE_MAPS_BROWSER_KEY } : {}));
 }
 async function myStop(s, env, stopId) {
   const id = parseInt(stopId, 10);

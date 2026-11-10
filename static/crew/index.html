@@ -250,14 +250,14 @@ table.t tr.click:hover td{background:var(--bg2)}
     var pings = {}; if (D.ping) pings.r1 = { at: D.ping };
     return { day: S.day || D.today, today: D.today, stops: (S.day && S.day !== D.today) ? [] : D.stops, routes: (S.day && S.day !== D.today) ? [] : D.routes, pings: pings, needDay: D.customers.filter(function (c) { return c.service_day == null && c.status !== 'canceled'; }), queuedTexts: D.texts.filter(function (t) { return t.status === 'queued'; }).length };
   }
-  function demoToday() { return { day: D.today, dayName: DAYS[D.wd], route: D.route, stops: mine(), texts: D.texts.filter(function (t) { return t.status === 'queued' && t.stop_id; }) }; }
+  function demoToday() { return { mapsKey: D.mapsKey || null, day: D.today, dayName: DAYS[D.wd], route: D.route, stops: mine(), texts: D.texts.filter(function (t) { return t.status === 'queued' && t.stop_id; }) }; }
   function demoCust(id) { var c = D.customers.filter(function (x) { return x.id === id; })[0]; return { customer: c, monthly: 8000, visits: D.stops.filter(function (s) { return s.customer.id === id && s.status !== 'scheduled'; }), texts: D.texts.filter(function (t) { return t.customer && t.customer.name === c.name; }) }; }
   async function demoApi(method, path, b) {
     if (!D) demoSeed();
     await new Promise(function (r) { setTimeout(r, 120); });
     var q = new URLSearchParams(path.split('?')[1] || ''), p = path.split('?')[0], st = D.stops.filter(function (x) { return x.id === (b.stopId || b.id); })[0];
     var queued = function () { return D.texts.filter(function (t) { return t.status === 'queued'; }); };
-    if (p === '/api/crew/today') return demoToday();
+    if (p === '/api/crew/today') { if (D.mapsKey === undefined) { try { D.mapsKey = (await (await fetch('/api/demo/week?n=20')).json()).mapsKey || null; } catch (e) { D.mapsKey = null; } } return demoToday(); }
     if (p === '/api/crew/start') { D.route.status = 'live'; D.ping = new Date().toISOString(); if (!mine().some(function (x) { return x.status === 'on_the_way' || x.status === 'here'; })) demoNext(); return demoToday(); }
     if (p === '/api/crew/arrive') { st.status = 'here'; st.arrived_at = new Date().toISOString(); D.ping = st.arrived_at; return demoToday(); }
     if (p === '/api/crew/photo') { st.photo_path = 'demo'; return { ok: true }; }
@@ -381,7 +381,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (S.busy) return; S.busy = true; render();
     try { S.data.today = await api('POST', '/api/crew/' + kind, body || {}); S.check = {}; S.shot = null; }
     catch (e) {
-      if (e.code === 'location_consent' && window.confirm(e.message + '\n\nTap OK to agree and start.')) { S.busy = false; return act(kind, Object.assign({}, body, { locationOk: true })); }
+      if (e.code === 'location_consent') { S.busy = false; render(); return sheetAsk('Share your location?', e.message, 'I agree. Start my route', function () { act(kind, Object.assign({}, body, { locationOk: true })); }, 'Not now'); }
       if (e.code !== 'location_consent') toast(e.message);
     }
     S.busy = false;
@@ -404,7 +404,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     });
     if (!r || !stops.length) return out + '<div style="padding:60px 0"><div class="lbl">' + h(d.dayName) + '</div><p class="big">No route today.</p><p style="color:var(--mute)">The office builds routes from each yard\'s service day.</p></div></div>';
     if (r.status === 'planned') {
-      out += '<div style="padding:28px 0 0"><div class="lbl">' + h(d.dayName) + ' · ' + stops.length + ' yards</div><p class="big">Ready to roll.</p></div>' + stopList(stops) +
+      out += '<div style="padding:28px 0 0"><div class="lbl">' + h(d.dayName) + ' · ' + stops.length + ' yards</div><p class="big">Ready to roll.</p><p style="color:var(--mute);font-size:14px;margin:6px 0 12px">Your yards are in the best driving order. Yard 1 is first.</p>' + (d.mapsKey ? '<div id="rtmap" style="height:260px;background:#0b0d14;border:1px solid var(--line);margin-bottom:8px"></div>' : '') + '</div>' + stopList(stops) +
         '<div class="dock"><button class="btn" data-a="start"' + (S.busy ? ' disabled' : '') + '>Start route</button></div>';
       return out + '</div>';
     }
@@ -435,15 +435,15 @@ table.t tr.click:hover td{background:var(--bg2)}
       out += '<div class="dock"><button class="btn" data-a="arrive"' + (S.busy ? ' disabled' : '') + '>Arrived</button><div style="text-align:center"><button class="link" data-a="cant">Can\'t service</button></div></div>';
     } else {
       out += '<div style="border-top:1px solid var(--line);padding-top:14px"><span class="lbl">Checklist</span>' +
-        chk('scoop', 'Scooped every pile') + (spray ? chk('spray', 'Sprayed') : '') + chk('latch', 'Latched and pulled the gate') + '</div>';
+        chk('scoop', 'Scooped every pile') + (spray ? chk('spray', 'Sprayed') : '') + chk('latch', 'Latched and pulled the gate') + '<p style="color:var(--mute);font-size:14px;margin:12px 0 0">Tap each box. Take the gate photo. The next yard opens on its own.</p></div>';
       var hasPhoto = cur.photo_path || S.shot;
       if (S.shot) out += '<img class="shot" alt="Gate photo" src="' + S.shot + '">';
       else if (cur.photo_path) out += '<p class="ok mono" style="font-size:12px;letter-spacing:.14em;margin:14px 0 0">✓ GATE PHOTO SAVED</p>';
       out += '<input id="cam" type="file" accept="image/*" capture="environment" hidden>' +
         '<div class="dock">' + (hasPhoto
-          ? '<button class="btn" data-a="done"' + (S.busy || !ready ? ' disabled' : '') + '>' + (ready ? 'Done' : 'Finish checklist') + '</button>' +
+          ? '<button class="btn" data-a="done"' + (S.busy || !ready ? ' disabled' : '') + '>' + (ready ? 'Done, next yard' : 'Tap each box above') + '</button>' +
             '<div style="display:flex;justify-content:space-between"><button class="link" data-a="photo">Retake photo</button><button class="link" data-a="cant">Can\'t service</button></div>'
-          : '<button class="btn" data-a="photo"' + (S.busy || !ready ? ' disabled' : '') + '>' + (ready ? 'Gate photo' : 'Finish checklist') + '</button>' +
+          : '<button class="btn" data-a="photo"' + (S.busy || !ready ? ' disabled' : '') + '>' + (ready ? 'Take gate photo' : 'Tap each box above') + '</button>' +
             '<div style="display:flex;justify-content:space-between"><button class="link" data-a="nophoto">No photo</button><button class="link" data-a="cant">Can\'t service</button></div>') + '</div>';
     }
     return out + '</div>';
@@ -454,8 +454,11 @@ table.t tr.click:hover td{background:var(--bg2)}
       return '<li><span class="n">' + String(i + 1).padStart(2, '0') + '</span><div><div class="a">' + h(s.customer.address) + '</div><div class="s">' + h(s.customer.name) + (s.customer.gate_code ? ' · gate ' + h(s.customer.gate_code) : '') + '</div></div>' + tag(s.status) + '</li>';
     }).join('') + '</ul>';
   }
+  async function photoDone(sid) { await act('done', { stopId: sid }); toast(current() ? 'Done. Here is your next yard.' : 'Done. That was the last yard.'); }
   function photoPick() {
     var cam = document.getElementById('cam'); if (!cam) return;
+    // The demo has no camera to count on, so it uses a sample gate photo and moves on the same way.
+    if (DEMO) { var id0 = current().id; S.shot = '/assets/img/gate-photo.jpg'; S.busy = true; render(); return setTimeout(async function () { await api('POST', '/api/crew/photo', { stopId: id0 }); S.busy = false; photoDone(id0); }, 900); }
     cam.onchange = function () {
       var f = cam.files && cam.files[0]; if (!f) return;
       var img = new Image(), url = URL.createObjectURL(f);
@@ -466,9 +469,12 @@ table.t tr.click:hover td{background:var(--bg2)}
         URL.revokeObjectURL(url);
         var data = cv.toDataURL('image/jpeg', 0.8);
         S.shot = data; S.busy = true; render();
-        try { await api('POST', '/api/crew/photo', { stopId: current().id, image: data }); toast('Photo saved'); var cur = current(); if (cur) cur.photo_path = 'saved'; }
+        var sid = current().id, saved = false;
+        try { await api('POST', '/api/crew/photo', { stopId: sid, image: data }); saved = true; var cur = current(); if (cur) cur.photo_path = 'saved'; }
         catch (e) { S.shot = null; toast(e.message); }
         S.busy = false; render();
+        // The photo is the last step. Once it is saved the yard is done and the next yard opens. No extra tap.
+        if (saved) photoDone(sid);
       };
       // A file the phone cannot open as a picture: say so, never fail quietly.
       img.onerror = function () { URL.revokeObjectURL(url); toast('That photo did not open. Take it again.'); };
@@ -522,6 +528,7 @@ table.t tr.click:hover td{background:var(--bg2)}
   }
   function bindRoute() {
     bindSend(app, true, refreshRoute);
+    if (S.data.today && S.data.today.mapsKey) keepMap('rtmap', (S.data.today.stops || []).map(function (x) { return x.id; }).join(','), function (el) { routeMap(S.data.today, el); });
     app.querySelectorAll('[data-ck]').forEach(function (b) { b.onclick = function () { S.check[b.dataset.ck] = !S.check[b.dataset.ck]; render(); }; });
     app.querySelectorAll('[data-a]').forEach(function (b) {
       b.onclick = function () {
@@ -536,6 +543,17 @@ table.t tr.click:hover td{background:var(--bg2)}
         if (a === 'texts') return sheetTexts(route().texts.map(function (t) { var s = route().stops.filter(function (x) { return x.id === t.stop_id; })[0]; return Object.assign({ customer: s && s.customer }, t); }), refreshRoute);
       };
     });
+  }
+  // A short form in our own look. Gives back the typed values by field id.
+  function sheetForm(title, fields, yes, onSave) {
+    var el = document.createElement('div'); el.className = 'sheet';
+    el.innerHTML = '<div class="pane" role="dialog" aria-modal="true"><p class="big" style="font-size:26px">' + h(title) + '</p>' +
+      fields.map(function (f) { return '<label class="fl"><span class="lbl">' + h(f.label) + '</span>' + (f.area ? '<textarea class="f" data-f="' + f.id + '">' + h(f.value || '') + '</textarea>' : '<input class="f" data-f="' + f.id + '" value="' + h(f.value || '') + '"' + (f.type ? ' type="' + f.type + '"' : '') + (f.readonly ? ' readonly' : '') + '>') + '</label>'; }).join('') +
+      '<div style="height:12px"></div>' + (yes ? '<button class="btn" id="fy">' + h(yes) + '</button>' : '') + '<button class="btn ghost" id="fn" style="margin-top:8px">' + (yes ? 'Back' : 'Close') + '</button></div>';
+    document.body.appendChild(el);
+    var first = el.querySelector('[data-f]'); if (first) { first.focus(); if (first.readOnly) first.select(); }
+    el.querySelector('#fn').onclick = function () { el.remove(); };
+    if (yes) el.querySelector('#fy').onclick = function () { var v = {}; el.querySelectorAll('[data-f]').forEach(function (x) { v[x.dataset.f] = x.value; }); el.remove(); onSave(v); };
   }
   // A yes or no question in our own look. No browser pop up.
   function sheetAsk(title, msg, yes, onYes, no) {
@@ -633,7 +651,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       var link = location.origin + '/t/' + s.code;
       if (k === 'x') return el.remove();
       if (k === 'see') return window.open('/t/' + s.code, '_blank', 'noopener');
-      if (k === 'copy') { try { await navigator.clipboard.writeText(link); toast('Link copied'); } catch (err) { window.prompt('Copy this link', link); } return; }
+      if (k === 'copy') { try { await navigator.clipboard.writeText(link); toast('Link copied'); } catch (err) { sheetForm('Copy this link', [{ id: 'l', label: 'Link', value: link, readonly: true }]); } return; }
       if (k === 'cust') { el.remove(); return openCustomer(s.customer.id); }
       if (k === 'photo') { try { var ph = await api('GET', '/api/office/photo?stop=' + s.id); window.open(ph.url, '_blank', 'noopener'); } catch (err) { toast(err.message); } return; }
       var body = k.indexOf('to:') === 0 ? { id: s.id, action: 'move', staffId: k.slice(3) } : { id: s.id, action: k };
@@ -707,14 +725,27 @@ table.t tr.click:hover td{background:var(--bg2)}
     });
     return wkGm.ready;
   }
-  // Draws the week (every yard, colored by day) or one day (numbered in driving order with the road line).
-  async function wkMap(w) {
-    var el = document.getElementById('wkmap'); if (!el || !w || !w.mapsKey || !w.slots) return;
-    try { await wkMapsReady(w.mapsKey); var maps = await google.maps.importLibrary('maps'); await google.maps.importLibrary('marker'); } catch (e) { el.outerHTML = '<p class="empty">The map did not load. The list still works.</p>'; return; }
-    if (!document.body.contains(el)) return;
-    var map = new maps.Map(el, { center: { lat: 33.45, lng: -112.45 }, zoom: 10, disableDefaultUI: true, zoomControl: true, gestureHandling: 'cooperative', clickableIcons: false, backgroundColor: '#0b0d14', styles: [
+  // A map is built once and kept while what it shows stays the same, so a screen refresh does not load a new map.
+  var MAPS = {};
+  function keepMap(id, sig, build) { var ph = document.getElementById(id); if (!ph) return; var m = MAPS[id]; if (m && m.sig === sig) { ph.replaceWith(m.el); return; } MAPS[id] = { sig: sig, el: ph }; build(ph); }
+  function mapOpts() { return { center: { lat: 33.45, lng: -112.45 }, zoom: 10, disableDefaultUI: true, zoomControl: true, gestureHandling: 'cooperative', clickableIcons: false, backgroundColor: '#0b0d14', styles: [
       { elementType: 'geometry', stylers: [{ color: '#0b0d14' }] }, { elementType: 'labels.text.fill', stylers: [{ color: '#8a8f9c' }] }, { elementType: 'labels.text.stroke', stylers: [{ color: '#0b0d14' }] },
-      { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1c2030' }] }, { featureType: 'poi', stylers: [{ visibility: 'off' }] }, { featureType: 'transit', stylers: [{ visibility: 'off' }] }, { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#05070c' }] }] });
+      { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1c2030' }] }, { featureType: 'poi', stylers: [{ visibility: 'off' }] }, { featureType: 'transit', stylers: [{ visibility: 'off' }] }, { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#05070c' }] }] }; }
+  // The scooper's day on a map before they start: every yard numbered in driving order, with the line between them.
+  async function routeMap(d, el) {
+    try { await wkMapsReady(d.mapsKey); var maps = await google.maps.importLibrary('maps'); await google.maps.importLibrary('marker'); } catch (e) { el.style.display = 'none'; return; }
+    var pts = (d.stops || []).filter(function (x) { return x.customer && x.customer.lat != null && x.customer.lng != null; });
+    if (!pts.length) { el.style.display = 'none'; return; }
+    var map = new maps.Map(el, mapOpts()), box = new google.maps.LatLngBounds(), line = [];
+    pts.forEach(function (x, i) { var q = { lat: +x.customer.lat, lng: +x.customer.lng }; box.extend(q); line.push(q);
+      new google.maps.Marker({ map: map, position: q, title: x.customer.address || '', label: { text: String(i + 1), color: '#0b0d14', fontSize: '10px', fontWeight: '700' }, icon: { path: google.maps.SymbolPath.CIRCLE, scale: 9, fillColor: '#FF4A1C', fillOpacity: 1, strokeColor: '#0b0d14', strokeWeight: 1 } }); });
+    new google.maps.Polyline({ map: map, path: line, strokeColor: '#FF4A1C', strokeOpacity: 0.7, strokeWeight: 2 });
+    map.fitBounds(box, 24);
+  }
+  // Draws the week (every yard, colored by day) or one day (numbered in driving order with the road line).
+  async function wkMap(w, el) {
+    try { await wkMapsReady(w.mapsKey); var maps = await google.maps.importLibrary('maps'); await google.maps.importLibrary('marker'); } catch (e) { el.innerHTML = '<p class="empty">The map did not load. The list still works.</p>'; return; }
+    var map = new maps.Map(el, mapOpts());
     var box = new google.maps.LatLngBounds(), sel = S.wk && S.wk.sel != null ? w.slots[S.wk.sel] : null;
     var dot = function (p, col, n, title) { box.extend({ lat: p[0], lng: p[1] }); return new google.maps.Marker({ map: map, position: { lat: p[0], lng: p[1] }, title: title || '', label: n ? { text: String(n), color: '#0b0d14', fontSize: '10px', fontWeight: '700' } : undefined, icon: { path: google.maps.SymbolPath.CIRCLE, scale: n ? 9 : 4.5, fillColor: col, fillOpacity: 1, strokeColor: '#0b0d14', strokeWeight: 1 } }); };
     if (sel) {
@@ -851,7 +882,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     }; });
     var saveSet = function () { if (!DEMO) api('POST', '/api/office/settings', { cap: S.wk.cap, days: S.wk.days }).then(function () { toast('Saved'); }).catch(function (e) { toast(e.message); }); S.data.week = null; render(); };
     app.querySelectorAll('[data-slot]').forEach(function (b) { b.onclick = function () { var n = +b.dataset.slot; S.wk.sel = n < 0 || S.wk.sel === n ? null : n; render(); var m = document.getElementById('wkmap'); if (m && S.wk.sel != null) m.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }; });
-    if (S.plan && document.getElementById('wkmap')) wkMap(S.data.week);
+    if (S.plan && S.data.week && S.data.week.slots && S.data.week.mapsKey) keepMap('wkmap', [S.wk.sel, S.data.week.routes, S.data.week.weekMiles, S.data.week.cap, S.data.week.customers].join('|'), function (el) { wkMap(S.data.week, el); });
     app.querySelectorAll('[data-wkstart]').forEach(function (b) { b.onclick = function () { var v = (document.getElementById('wk_start') || {}).value || ''; api('POST', '/api/office/settings', { start: v }).then(function (r) { S.wk.start = r.start || ''; S.data.week = null; toast(r.start ? 'Start saved' : 'Start cleared'); render(); }).catch(function (e) { toast(e.message); }); }; });
     app.querySelectorAll('[data-cap]').forEach(function (b) { b.onclick = function () { S.wk.cap = +b.dataset.cap; saveSet(); }; });
     app.querySelectorAll('[data-wdays]').forEach(function (b) { b.onclick = function () { S.wk.days = b.dataset.wdays; saveSet(); }; });
@@ -875,7 +906,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     app.querySelectorAll('[data-show]').forEach(function (b) { b.onclick = function () { S.show = b.dataset.show; S.data.customers = null; render(); loadTab(); }; });
     var q = document.getElementById('q'); if (q) { var tm; q.oninput = function () { clearTimeout(tm); tm = setTimeout(function () { S.q = q.value; loadTab(); }, 300); }; }
     app.querySelectorAll('[data-lead]').forEach(function (s) { s.onchange = async function () { try { S.data.leads = await api('POST', '/api/office/lead', { id: s.dataset.lead, status: s.value }); toast('Saved'); } catch (e) { toast(e.message); } }; });
-    app.querySelectorAll('[data-leadnote]').forEach(function (b) { b.onclick = async function () { var l = S.data.leads.leads.filter(function (x) { return String(x.id) === b.dataset.leadnote; })[0]; var n = window.prompt('Note', (l && l.notes) || ''); if (n == null) return; try { S.data.leads = await api('POST', '/api/office/lead', { id: b.dataset.leadnote, notes: n }); render(); } catch (e) { toast(e.message); } }; });
+    app.querySelectorAll('[data-leadnote]').forEach(function (b) { b.onclick = async function () { var l = S.data.leads.leads.filter(function (x) { return String(x.id) === b.dataset.leadnote; })[0]; sheetForm('Note', [{ id: 'n', label: 'Note', value: (l && l.notes) || '', area: true }], 'Save', async function (v) { try { S.data.leads = await api('POST', '/api/office/lead', { id: b.dataset.leadnote, notes: v.n }); render(); } catch (e) { toast(e.message); } }); }; });
     bindSend(app, false, loadTab);
     app.querySelectorAll('[data-text]').forEach(function (b) { b.onclick = async function () { try { await api('POST', '/api/office/text', { id: b.dataset.text, status: b.dataset.st }); loadTab(); } catch (e) { toast(e.message); } }; });
     app.querySelectorAll('[data-role]').forEach(function (s) { s.onchange = async function () { try { S.data.team = await api('POST', '/api/office/team', { id: s.dataset.role, role: s.value }); toast('Saved'); render(); } catch (e) { toast(e.message); loadTab(); } }; });
@@ -890,9 +921,11 @@ table.t tr.click:hover td{background:var(--bg2)}
           if (o === 'night') { var n = await api('POST', '/api/office/night-before', {}); toast(n.queued + ' night before texts ready for ' + dayLabel(n.day)); }
           if (o === 'addstaff') { S.data.team = await api('POST', '/api/office/team', { name: val('tn'), email: val('te'), phone: val('tp'), role: val('tr') }); toast('Added'); }
           if (o === 'addlead') {
-            var nm = window.prompt('Name'); if (nm == null) { b.disabled = false; return; }
-            var ph = window.prompt('Mobile number') || ''; var dt = window.prompt('What do they need? (address, dogs, commercial…)') || '';
-            S.data.leads = await api('POST', '/api/office/lead', { kind: /hoa|apartment|business|commercial/i.test(dt) ? 'commercial' : 'phone', name: nm, phone: ph, details: dt });
+            b.disabled = false;
+            return sheetForm('New lead', [{ id: 'nm', label: 'Name' }, { id: 'ph', label: 'Mobile number', type: 'tel' }, { id: 'dt', label: 'What do they need? Address, dogs, commercial', area: true }], 'Add lead', async function (v) {
+              if (!v.nm.trim()) return toast('Type a name.');
+              try { S.data.leads = await api('POST', '/api/office/lead', { kind: /hoa|apartment|business|commercial/i.test(v.dt) ? 'commercial' : 'phone', name: v.nm, phone: v.ph, details: v.dt }); render(); toast('Lead added'); } catch (e) { toast(e.message); }
+            });
           }
         } catch (e) { toast(e.message); }
         b.disabled = false; loadTab();
@@ -917,7 +950,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (S.view === 'signin') { app.innerHTML = viewSignin(); return bindSignin(); }
     if (S.view === 'route') { app.innerHTML = shell(viewRoute()); bindRoute(); }
     if (S.view === 'office') { app.innerHTML = shell(viewOffice()); if (S.tab === 'route') bindRoute(); else bindOffice(); }
-    var so = document.getElementById('so'); if (so) so.onclick = function () { if (window.confirm('Sign out?')) signOut(); };
+    var so = document.getElementById('so'); if (so) so.onclick = function () { sheetAsk('Sign out?', 'You will need a new code to sign back in.', 'Sign out', signOut, 'Stay signed in'); };
     app.querySelectorAll('.tab').forEach(function (b) { b.onclick = function () { go(b.dataset.tab); }; });
     window.scrollTo(0, sx);
   }

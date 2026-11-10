@@ -159,3 +159,11 @@ Joe asked for this: "if you have 20 houses in Buckeye, today is a Buckeye day", 
 - Under the table there is a Google map. Whole week: every yard is a dot colored by its day. Tap a box in the table: that one day, numbered in driving order with the road line, and the list of yards under it. "Show the whole week" goes back. Works in `/crew/?demo` and in the real planner.
 - The plan answer now carries `slots[].pts` ([lat, lng, words] in driving order), `mapsKey` (the browser Maps key the truck link already uses) and `start`.
 - The demo planner opens at 100 sample yards. Joe asked for 100 test yards. No fake yards were put in the live database. The demo covers it.
+
+### Nov 9, 2026, 8:30 pm. The route is one flow now, and the scooper sees a map.
+Joe ran the demo and could not tell how to get to the next yard after Arrived.
+- **The gate photo is the last tap.** Arrived, tap each box, Take gate photo. When the photo saves, the yard is marked done and the next yard opens on its own (`photoDone`). The old extra Done tap is gone. "Done, next yard" only shows if a photo is already saved and the finish did not go through. A line under the checklist says what to do.
+- **Demo:** Take gate photo uses a sample photo, since a computer has no camera, then moves on the same way.
+- **Route map for the scooper.** "Ready to roll" shows a Google map with every yard numbered in driving order (`routeMap`, `crewToday` now sends `mapsKey`).
+- Maps are built once and kept across screen refreshes (`keepMap`), so a refresh does not load a new map.
+- Every browser pop up is gone from the crew app: sign out, the one time location OK, lead note, new lead and the copy link fallback all use our own sheets (`sheetAsk`, `sheetForm`). The location OK step itself is unchanged.
