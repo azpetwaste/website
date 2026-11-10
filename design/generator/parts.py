@@ -592,58 +592,69 @@ FCHECK = ('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#
           '<circle cx="12" cy="12" r="9"></circle><path d="m8.5 12 2.5 2.5 4.5-5"></path></svg>')
 
 
+F_CLOCK = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>'
+F_GLOBE = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18"></path><path d="M12 3c2.6 2.8 2.6 15.2 0 18c-2.600-2.800-2.600-15.200 0-18z"></path></svg>'
+F_SEAL = ('<svg class="fseal-i" viewBox="0 0 48 54" aria-hidden="true"><path d="M24 2l19 7v15c0 13-8 22-19 28C13 46 5 37 5 24V9z" fill="#FF4A1C"></path>'
+          '<path d="M24 7l14 5.200v11.800c0 10-6 17.500-14 22.300c-8-4.800-14-12.300-14-22.300V12.200z" fill="none" stroke="#0A0F24" stroke-width="1.6" opacity=".45"></path>'
+          '<path d="M15 26l6.500 6.500L34 19.500" fill="none" stroke="#FFFFFF" stroke-width="4.600" stroke-linecap="round" stroke-linejoin="round"></path></svg>')
+F_FAM = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#FF8A66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.500 11.500L12 4l8.500 7.500"></path><path d="M5.500 10v10h13V10"></path><path d="M12 17.500c-2.400-1.700-3.400-2.800-3.400-4.100a1.900 1.900 0 0 1 3.400-1.100a1.900 1.900 0 0 1 3.400 1.100c0 1.300-1 2.400-3.400 4.100z"></path></svg>'
+
+
 def _footer(pre):
-    """pre is '' on the home page (links stay on the page) and 'Main.dc.html' everywhere else."""
+    """pre is '' on the home page (links stay on the page) and 'Main.dc.html' everywhere else.
+    Layout (Nov 2026, Joe's pick): brand and contact, quick links, payment options. Seals, not boxes."""
     return ('<footer class="ftr">\n'
             '  <div class="in">\n'
-            '  <div class="fg">\n'
-            '    <div>\n'
+            '  <div class="fg3">\n'
+            '    <div class="fcol">\n'
             '      <img class="flogo" src="' + BLOB_LOGO_DARK + '" alt="Arizona Pet Waste" width="260" height="79">\n'
-            '      <p class="mono" style="margin: 16px 0 0; font-size: 14px; color: #AEB5D8;">You always know. Or you don’t pay.</p>\n'
-            '      <div style="display: flex; flex-direction: column; margin-top: 20px; border-top: 1px solid rgba(255,255,255,.10);">\n'
-            '        <a href="tel:+16233096104" ' + _fcon + '>' + ICON_PHONE + '623.309.6104</a>\n'
-            '        <a href="sms:+16233096104" ' + _fcon + '>' + ICON_SMS_O + 'Text us</a>\n'
-            '        <a href="mailto:info@arizonapetwaste.com" ' + _fcon + '>' + ICON_MAIL + 'info@arizonapetwaste.com</a>\n'
-            '      </div>\n'
+            '      <ul class="fcon">\n'
+            '        <li><a href="tel:+16233096104">' + ICON_PHONE + '<span>623.309.6104</span></a></li>\n'
+            '        <li><a href="sms:+16233096104">' + ICON_SMS_O + '<span>Text us</span></a></li>\n'
+            '        <li><a href="mailto:info@arizonapetwaste.com">' + ICON_MAIL + '<span>info@arizonapetwaste.com</span></a></li>\n'
+            '        <li><span class="fcon-t">' + F_CLOCK + '<span>Open 8 am to 5 pm, every day</span></span></li>\n'
+            '        <li><a href="Main.dc.html">' + F_GLOBE + '<span>arizonapetwaste.com</span></a></li>\n'
+            '      </ul>\n'
+            '      <!--SOCIAL-->\n'
             '    </div>\n'
             '    <nav class="fnav" aria-label="Footer">\n'
             '      <div>\n'
-            '        <p ' + _flab + '>AREAS WE SERVE</p>\n'
+            '        <p class="fhd">Quick links</p>\n'
+            '        <a href="HowItWorks.dc.html" class="flink">How it works</a>\n'
+            '        <a href="Pricing.dc.html" class="flink">Pricing</a>\n'
+            '        <a href="AreasWeServe.dc.html" class="flink">Areas we serve</a>\n'
             '        <a href="CityBuckeye.dc.html" class="flink">Buckeye</a>\n'
+            '        <a href="CityVerrado.dc.html" class="flink">Verrado</a>\n'
             '        <a href="CityGoodyear.dc.html" class="flink">Goodyear</a>\n'
             '        <a href="CityLitchfieldPark.dc.html" class="flink">Litchfield Park</a>\n'
             '        <a href="CityCitrusPark.dc.html" class="flink">Citrus Park</a>\n'
-            '        <a href="CityVerrado.dc.html" class="flink">Verrado</a>\n'
-            '        <a href="AreasWeServe.dc.html" class="flink">Every ZIP code</a>\n'
+            '        <a href="Commercial.dc.html" class="flink">Commercial</a>\n'
             '      </div>\n'
             '      <div>\n'
-            '        <p ' + _flab + '>MORE</p>\n'
-            '        <a href="HowItWorks.dc.html" class="flink">How it works</a>\n'
-            '        <a href="Pricing.dc.html" class="flink">Pricing</a>\n'
-            '        <a href="Commercial.dc.html" class="flink">Commercial</a>\n'
-            '        <a href="Faq.dc.html" class="flink">FAQ</a>\n'
-            '        <a href="Blog.dc.html" class="flink">Blog</a>\n'
+            '        <p class="fhd" aria-hidden="true">&nbsp;</p>\n'
             '        <a href="About.dc.html" class="flink">About us</a>\n'
             '        <a href="Promise.dc.html" class="flink">Our promise</a>\n'
+            '        <a href="Faq.dc.html" class="flink">FAQ</a>\n'
+            '        <a href="Blog.dc.html" class="flink">Blog</a>\n'
             '        <a href="Contact.dc.html" class="flink">Contact</a>\n'
             '        <a href="MyYard.dc.html" class="flink">My Yard sign in</a>\n'
+            '        <a href="/privacy/" class="flink">Privacy Policy</a>\n'
+            '        <a href="/terms/" class="flink">Terms of Service</a>\n'
             '        <a href="Booking.dc.html" class="flink">Book now</a>\n'
             '      </div>\n'
             '    </nav>\n'
+            '    <div class="fcol">\n'
+            '      <p class="fhd">Payment options</p>\n'
+            '      <p class="fpay">We take all major credit cards, Apple Pay and Google Pay. We do not take cash, Venmo or Cash App.</p>\n'
+            '      <!--PAYMARKS-->\n'
+            '      <p class="fhd" style="margin-top: 26px;">Your info is safe</p>\n'
+            '      <p class="fpay">Stripe keeps your card. We never see the number. We never sell your info. <a href="/privacy/">Read our Privacy Policy</a>.</p>\n'
+            '    </div>\n'
             '  </div>\n'
-            '  <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px;">\n'
-            '    <a href="' + pre + '#reviews" ' + _fsoc + '>Google</a>\n'
-            '    <a href="' + pre + '#reviews" ' + _fsoc + '>Facebook</a>\n'
-            '    <a href="' + pre + '#reviews" ' + _fsoc + '>Instagram</a>\n'
-            '    <a href="' + pre + '#reviews" ' + _fsoc + '>Nextdoor</a>\n'
+            '  <div class="fseals" role="group" aria-label="Licensed, bonded and insured. Family owned and operated.">\n'
+            + ''.join('    <p class="fseal">' + F_SEAL + '<b>%s</b></p>\n' % x for x in ['Licensed', 'Bonded', 'Insured']) +
+            '    <p class="ffam">' + F_FAM + '<span>Family owned and operated</span></p>\n'
             '  </div>\n'
-            '  <ul class="fbadges" aria-label="Licensed, bonded and insured">' + ''.join('<li>' + SHIELD + '<b>%s</b></li>' % x for x in ['Licensed', 'Bonded', 'Insured']) + '</ul>\n'
-            '  <p class="ffam">Family owned and operated</p>\n'
-            '  <ul class="ftrust" aria-label="Why you can trust us">\n'
-            '    <li>' + SHIELD + '<span><b>No photo, no charge</b>A photo of your shut gate after every visit.</span></li>\n'
-            '    <li>' + FLOCK + '<span><b>Secure checkout</b>Stripe keeps your card. We never see the number.</span></li>\n'
-            '    <li>' + FCHECK + '<span><b>Cancel online</b>No contract and no phone call.</span></li>\n'
-            '  </ul>\n'
             '  <p style="margin: 26px 0 0; font-size: 14px; line-height: 1.6; color: #AEB5D8;">© 2026 Arizona Pet Waste. All rights reserved.</p>\n'
             '  </div>\n'
             '</footer>')
@@ -777,6 +788,34 @@ REVAMP_CSS += r"""
 .apw .fsoc{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}
 .apw .fsoc span,.apw .fsoc a{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border:1.5px solid rgba(255,255,255,.28);border-radius:999px;color:#F6F4EF;font-size:15px;font-weight:700;text-decoration:none}
 @media (min-width:600px){.apw .fbadges li{flex-direction:row;gap:10px;min-height:72px}.apw .fbadges b{font-size:20px}}
+"""
+REVAMP_CSS += r"""
+.apw .fg3{display:grid;grid-template-columns:minmax(0,1fr);gap:34px}
+.apw .fg3 .fnav{margin-top:0}
+.apw .fhd{margin:0 0 10px;font-size:17px;font-weight:800;letter-spacing:-.01em;color:#FFFFFF}
+.apw .fcon{list-style:none;margin:20px 0 0;padding:0;display:grid;gap:4px}
+.apw .fcon a,.apw .fcon .fcon-t{display:flex;align-items:center;gap:12px;min-height:44px;color:#F6F4EF;font-size:16px;font-weight:600;text-decoration:none}
+.apw .fcon svg{flex:0 0 22px;color:#FF8A66}
+.apw .fcon a:hover span{text-decoration:underline}
+.apw .fpay{margin:0;font-size:15px;line-height:1.6;color:#D5DAF0}
+.apw .fpay a{color:#FF8A66;font-weight:700}
+.apw .fmarks{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.apw .fmarks img{height:30px;width:auto;display:block;border-radius:5px}
+.apw .fsoc{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px}
+.apw .fsoc a,.apw .fsoc span{display:block;min-height:0;padding:0;border:0;border-radius:0}
+.apw .fsoc img{width:38px;height:38px;display:block}
+.apw .fseals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 8px;margin-top:38px;padding-top:30px;border-top:1px solid rgba(255,255,255,.12)}
+.apw .fseal{display:flex;flex-direction:column;align-items:center;gap:8px;margin:0;text-align:center}
+.apw .fseal-i{width:46px;height:52px;display:block}
+.apw .fseal b{font-size:16px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#FFFFFF}
+.apw .ffam{grid-column:1 / -1;display:flex;align-items:center;justify-content:center;gap:12px;margin:6px 0 0;padding:0;border-radius:0;background:none;color:#FFFFFF;font-size:19px;font-weight:800;line-height:1.15;letter-spacing:-.01em;text-align:left}
+.apw .ffam br{display:none}
+@media (min-width:900px){
+.apw .fg3{grid-template-columns:minmax(0,1.1fr) minmax(0,1.2fr) minmax(0,1fr);gap:56px}
+.apw .fseals{grid-template-columns:repeat(3,auto) 1fr;justify-content:start;align-items:center;gap:44px}
+.apw .fseal{flex-direction:row;gap:12px}
+.apw .ffam{grid-column:auto;justify-content:flex-end;margin:0;font-size:22px}
+}
 """
 PAGE_CSS += REVAMP_CSS
 PAGE_CSS += r"""

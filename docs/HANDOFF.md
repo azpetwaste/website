@@ -114,6 +114,13 @@ This lane is website edits and AEO (showing up in Google and in AI answers). It 
 - **Yard game and the promise receipt are off the home page** and saved: see `design/archive/README.md`. The promise is one line under the prices with a link to `/our-promise/`.
 - **Footer:** big Licensed, Bonded, Insured boxes and an orange "Family owned and operated" bar on every page. Social names (Facebook, Instagram, TikTok, YouTube, Nextdoor, Google, Yelp) show as plain labels, not links, until Joe sends the links. Put real links in `src/site.config.json` `social` and they become links. Chamber, BBB and Yelp badges wait on Joe.
 
+### Footer rebuild, Nov 9, 2026, 9 pm (Joe: "the footer makes the website")
+- Modeled on a footer Joe likes: three columns (logo and contact with hours and web address, quick links, payment options), then a seal row.
+- Seals are solid orange shields with a check for Licensed, Bonded, Insured. No boxes. "Family owned and operated" is plain bold text with a small house icon, so it does not look like a button. The old tagline "You always know. Or you don't pay." is gone.
+- Payment options: all major credit cards, Apple Pay and Google Pay. No cash, Venmo or Cash App (Joe's rule). Apple Pay and Google Pay must be on in Stripe for this to be true.
+- **Logos:** Joe wants real brand logos in color for Facebook, Instagram, TikTok and Nextdoor (Yelp later), plus card marks. They are slots filled from files in `static/assets/img/brands/` (see the README there). Use the official files only, never redraw one. Nothing shows until the files are in.
+- Not on the site and why: HSA and FSA (this is not a health service), LegitScript, BBB and Trustpilot (wait for the real listings).
+
 ### Rules for this lane
 - Copy: no dashes, short plain words, third grade for customers, seventh grade for SEO pages, one h1 per page. `npm run check` enforces it.
 - Do not claim what we cannot prove. "No one in the industry offers this" stays off the site. The line in use is "The big chains give you one free cleanup or $25 off. We give you a whole month."

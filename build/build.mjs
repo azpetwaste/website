@@ -90,11 +90,20 @@ function badgesHtml() {
     '<a href="' + esc(x.url) + '" rel="noopener" target="_blank" style="display: inline-flex; align-items: center; min-height: 44px;">' +
     (x.img ? '<img src="' + esc(x.img) + '" alt="' + esc(x.name) + '" style="height: 44px; width: auto; display: block;">' : '<span class="flink">' + esc(x.name) + '</span>') + '</a>').join('') + '</div>';
 }
+// Brand logos are files Joe supplies (official logo files only, never redrawn): static/assets/img/brands/<name>.svg or .png.
+// A social logo shows once its file is there, and becomes a link once its URL is in site.config.json "social".
+const BRAND_DIR = path.join(ROOT, 'static/assets/img/brands');
+const brandFile = (name) => { const k = name.toLowerCase().replace(/[^a-z0-9]+/g, '-'); for (const ext of ['svg', 'png', 'webp']) if (fs.existsSync(path.join(BRAND_DIR, k + '.' + ext))) return '/assets/img/brands/' + k + '.' + ext; return ''; };
 function socialHtml() {
-  // Until Joe sends the profile links, the names show as plain labels (not links), so the footer look can be judged.
-  if (!cfg.social.length) return '<div class="fsoc" aria-hidden="true">' + ['Facebook', 'Instagram', 'TikTok', 'YouTube', 'Nextdoor', 'Google', 'Yelp'].map((x) => '<span title="Link coming soon">' + x + '</span>').join('') + '</div>';
-  return '<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px;">' + cfg.social.map((x) =>
-    '<a href="' + esc(x.url) + '" rel="noopener" target="_blank" class="btn btn-line-n" style="min-height: 44px; padding: 0 16px; font-size: 15px;">' + esc(x.name) + '</a>').join('') + '</div>';
+  const urls = Object.fromEntries(cfg.social.map((x) => [x.name, x.url]));
+  const items = ['Facebook', 'Instagram', 'TikTok', 'Nextdoor'].map((n) => ({ n, img: brandFile(n), url: urls[n] })).filter((x) => x.img);
+  if (!items.length) return '';
+  return '<div class="fsoc">' + items.map((x) => (x.url ? '<a href="' + esc(x.url) + '" rel="noopener" target="_blank" aria-label="' + x.n + '">' : '<span>') +
+    '<img src="' + x.img + '" alt="' + (x.url ? '' : x.n) + '" width="38" height="38" loading="lazy">' + (x.url ? '</a>' : '</span>')).join('') + '</div>';
+}
+function payHtml() {
+  const items = ['Visa', 'Mastercard', 'American Express', 'Discover', 'Apple Pay', 'Google Pay'].map((n) => ({ n, img: brandFile(n) })).filter((x) => x.img);
+  return items.length ? '<div class="fmarks">' + items.map((x) => '<img src="' + x.img + '" alt="' + x.n + '" height="30" loading="lazy">').join('') + '</div>' : '';
 }
 // Every ZIP code in each town we serve, with the neighborhoods in it. The town copy (design/generator/longform.py) is the one list.
 function townZips(area) {
@@ -112,7 +121,7 @@ function hoodNames(area) {
   return townZips(area).flatMap((g) => g.names);
 }
 const slots = (m, extra) => {
-  let out = m.replace('<!--BADGES-->', badgesHtml()).replace('<!--SOCIAL-->', socialHtml());
+  let out = m.replace('<!--BADGES-->', badgesHtml()).replace('<!--SOCIAL-->', socialHtml()).replace('<!--PAYMARKS-->', payHtml());
   if (extra) out = extra(out);
   return out;
 };
