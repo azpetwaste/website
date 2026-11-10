@@ -644,7 +644,10 @@ async function addLead(env, lead) {
 // A new booking gets a map pin (free US Census lookup, no key) and its area's service day, so it shows up on routes.
 async function geocode(address, zip) {
   if (!address) return null;
-  const q = address + ', ' + ((ZIPS[zip] || {}).city || '') + ', AZ ' + (zip || '');
+  return geocodeLine(address + ', ' + ((ZIPS[zip] || {}).city || '') + ', AZ ' + (zip || ''));
+}
+// Any full address on one line, such as where the truck starts.
+async function geocodeLine(q) {
   try {
     const r = await fetch('https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?benchmark=Public_AR_Current&format=json&address=' + enc(q));
     if (!r.ok) return null;
@@ -674,6 +677,20 @@ async function placeCustomer(env, c) {
       }
     }
     if (Object.keys(patch).length) await db(env, 'PATCH', 'customers?id=eq.' + c.id, patch, 'return=minimal');
+    // Look again after saving. Two sign ups in the same instant can both see the last open spot. The one that finds the
+    // day over the limit steps back off it and waits for the office, so a day never ends up overloaded.
+    if (patch.service_day != null) {
+      const sid = patch.scooper_id || null, fallback = sid ? null : await defaultScooper(env);
+      for (const d of [patch.service_day, patch.service_day2]) {
+        if (d == null) continue;
+        const there = (await weekRows(env, '&or=(service_day.eq.' + d + ',service_day2.eq.' + d + ')')).filter((x) => (sid ? x.scooper_id === sid : !x.scooper_id || x.scooper_id === fallback));
+        if (weekYards(there) > dayCap(env)) {
+          await db(env, 'PATCH', 'customers?id=eq.' + c.id, { service_day: null, service_day2: null, eow_week: null, scooper_id: null }, 'return=minimal');
+          patch.service_day = null;
+          break;
+        }
+      }
+    }
     if (patch.service_day != null && c.email) await mail(env, c.email, 'Your service day is ' + DAYS[patch.service_day], dayMail(c.name, patch.service_day, patch.service_day2, false));
     if (c.phone) await db(env, 'PATCH', 'leads?phone=eq.' + enc(c.phone) + '&status=in.(new,contacted,quoted)', { status: 'won', updated_at: new Date().toISOString() }, 'return=minimal');
   } catch (e) { console.error('place customer', e); }
@@ -945,8 +962,9 @@ async function withSettings(env) {
   try {
     const rows = await db(env, 'GET', 'settings?select=key,value');
     const set = Object.fromEntries((rows || []).map((r) => [r.key, r.value]));
-    if (!set.stops_per_day && !set.work_days) return env;
-    return Object.assign({}, env, set.stops_per_day ? { STOPS_PER_DAY: set.stops_per_day } : {}, set.work_days ? { WORK_DAYS: set.work_days } : {});
+    if (!set.stops_per_day && !set.work_days && !set.route_start) return env;
+    return Object.assign({}, env, set.stops_per_day ? { STOPS_PER_DAY: set.stops_per_day } : {}, set.work_days ? { WORK_DAYS: set.work_days } : {},
+      set.route_start ? { ROUTE_START: set.route_start, ROUTE_START_LABEL: set.route_start_label || '' } : {});
   } catch (e) { return env; }
 }
 async function officeSettings(env, b) {
@@ -954,10 +972,17 @@ async function officeSettings(env, b) {
     const rows = [];
     if (b.cap != null) rows.push({ key: 'stops_per_day', value: String(dayCap({}, b.cap)), updated_at: new Date().toISOString() });
     if (b.days != null) rows.push({ key: 'work_days', value: workDays({}, Array.isArray(b.days) ? b.days.join(',') : b.days).join(','), updated_at: new Date().toISOString() });
+    // Where the truck starts each day. The office types the address, we save its map pin. Routes and the week plan start there.
+    if (b.start != null) {
+      const label = clean(b.start, 200);
+      const pin = label ? await geocodeLine(/\b(AZ|Arizona)\b/i.test(label) ? label : label + ', AZ') : null;
+      if (label && !pin) return fail(400, 'We could not find that address. Type the street, the city and the ZIP.');
+      rows.push({ key: 'route_start', value: pin ? pin.lat + ',' + pin.lng : '', updated_at: new Date().toISOString() }, { key: 'route_start_label', value: label, updated_at: new Date().toISOString() });
+    }
     if (rows.length) await db(env, 'POST', 'settings?on_conflict=key', rows, 'resolution=merge-duplicates,return=minimal');
-    env = await withSettings(env);
+    env = await withSettings(Object.assign({}, env, b.start != null ? { ROUTE_START: '', ROUTE_START_LABEL: '' } : {}));
   }
-  return ok({ cap: dayCap(env), days: workDays(env).join(',') });
+  return ok({ cap: dayCap(env), days: workDays(env).join(','), start: routeStart(env) ? env.ROUTE_START_LABEL || env.ROUTE_START : '' });
 }
 function dayCap(env, v) { const n = Math.round(Number(v) || Number(env.STOPS_PER_DAY) || 30); return Math.min(80, Math.max(5, n)); }
 function workDays(env, v) {
@@ -1014,6 +1039,8 @@ function nearSlot(others, pin, plan, cap, days) {
 // What one more service day costs, in road miles: the drive out and the extra day on the road. A week only gets
 // another day when splitting saves more driving than this.
 const DAY_COST = 6;
+// Joe's rule is town days. A day that mixes two towns has to save at least this many road miles to be picked over town days.
+const MIX_COST = 8;
 // A day needs at least this many yards to be worth the drive, unless the whole week is smaller than that.
 const DAY_MIN = 5;
 // The towns in a group of yards, biggest first: "Buckeye" or "Buckeye, Goodyear".
@@ -1027,7 +1054,7 @@ function townsOf(list) {
 // 2. That drive is cut into one part of town for each scooper, each with the same amount of work.
 // 3. Inside a part of town the yards are dealt out to days, so every day is about the same size and never over `cap`.
 // Twice a week yards get two days with a gap (Monday and Thursday, Tuesday and Friday, and so on).
-function weekPlan(list, staff, cap, days) {
+function weekPlan(list, staff, cap, days, start) {
   const pins = list.filter(pinned), noPin = list.filter((c) => !pinned(c));
   const tour = shortOrder(pins, null);
   const D = days.length;
@@ -1044,6 +1071,13 @@ function weekPlan(list, staff, cap, days) {
   }
   const gap = (a, b) => Math.min(Math.abs(a - b), 7 - Math.abs(a - b));
   const set = {}, slots = [];
+  // Road miles for one day. When we know where the truck starts, the drive out and the drive home count too.
+  const dayMiles = (here) => {
+    const order = shortOrder(here, start || null), pins = order.filter(pinned);
+    return pathMiles(order) + (start && pins.length ? (miles(start, pins[0]) + miles(pins[pins.length - 1], start)) * 1.35 : 0);
+  };
+  // With a known start the real drive out and back prices an extra day, so only a small fixed cost is added on top.
+  const extra = start ? 2 : DAY_COST;
   // One try at a scooper's week with `n` days. Twice a week yards go first, on two days with a gap.
   // Then the once a week yards, which sit in driving order, are cut into days. The cuts land on the long hops
   // between towns, so a day stays in one part of town when it can ("today is a Buckeye day"). No day goes over `cap`.
@@ -1086,7 +1120,7 @@ function weekPlan(list, staff, cap, days) {
       for (let k = 0; k < n; k++) for (let i = cut[k]; i < cut[k + 1]; i++) put(single[i], k, null);
     }
     let cost = 0;
-    for (let k = 0; k < n; k++) { const here = puts.filter((x) => x[1] === k || x[2] === k).map((x) => x[0]); if (here.length) cost += pathMiles(shortOrder(here, null)) + DAY_COST; }
+    for (let k = 0; k < n; k++) { const here = puts.filter((x) => x[1] === k || x[2] === k).map((x) => x[0]); if (here.length) cost += dayMiles(here) + extra + MIX_COST * (new Set(here.map((c) => (ZIPS[c.zip] || {}).area || c.zip)).size - 1); }
     return { n, use, puts, spill, cost };
   };
   for (let t = 0; t < lands.length; t++) {
@@ -1119,7 +1153,7 @@ function weekPlan(list, staff, cap, days) {
       if (!here.length) continue;
       const who = staff[t];
       slots.push({ day: use[k], dayName: DAYS[use[k]], tech: t + 1, staffId: who ? who.id : null, name: who ? who.name : 'Open route ' + (t + 1 - staff.length),
-        yards: weekYards(here.map((c) => ({ plan: c.plan, eow_week: set[c.id].eow_week }))), homes: here.length, towns: townsOf(here), miles: Math.round(pathMiles(shortOrder(here, null)) * 10) / 10 });
+        yards: weekYards(here.map((c) => ({ plan: c.plan, eow_week: set[c.id].eow_week }))), homes: here.length, towns: townsOf(here), miles: Math.round(dayMiles(here) * 10) / 10 });
     }
   }
   for (const c of tour) set[c.id].scooper_id = (staff[set[c.id].t] || {}).id || null;
@@ -1162,7 +1196,7 @@ async function officeWeek(env, b) {
   const change = [];
   let plan;
   if (mode === 'all') {
-    plan = weekPlan(all, staff, cap, days);
+    plan = weekPlan(all, staff, cap, days, routeStart(env));
     for (const c of all) { const a = plan.set[c.id]; if (a && (a.service_day !== c.service_day || (a.service_day2 ?? null) !== (c.service_day2 ?? null) || (a.scooper_id || null) !== (c.scooper_id || null) || (c.plan === 'eow' && a.eow_week !== c.eow_week))) change.push([c, a]); }
   } else {
     const have = placed.slice();

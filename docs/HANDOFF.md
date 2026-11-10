@@ -129,3 +129,13 @@ Joe asked for this: "if you have 20 houses in Buckeye, today is a Buckeye day", 
 - **New test file:** `node build/week.test.mjs`, 47 checks, no database. Run it with the others before a push.
 - `signup50.test.mjs` changed: "all N got a service day" is now "all got a day" up to 120 sign ups, and "sign ups past the limit wait for the office" above that.
 - Not run: these planner changes on real signed in data. The live database has one test yard.
+
+### Nov 9, 2026, 7 pm. Truck start, more than one scooper, same instant sign ups, logo.
+- **Truck start is a saved setting now.** Plan the week has "Where the truck starts each day". The office types the address, the server finds the pin (Census lookup) and saves `route_start` and `route_start_label` in `settings`. It wins over the Cloudflare `ROUTE_START`. Day routes start there, and the week plan counts the drive out and the drive home in each day's miles. Joe said the start is "208 East East View Way". That exact address was not found. Eastview Way is in Buckeye 85396 (Verrado) with numbers like 20800 W. The start is NOT set yet. Joe or the office types it once in Plan the week.
+- **Town days beat one mixed day.** New `MIX_COST` (8 road miles): a day that mixes two towns has to save that much to be picked over town days.
+- **Same instant sign ups are closed in code.** `placeCustomer` looks again after it saves the day. If the day is over the limit it takes the yard back off and the yard waits for the office. The 50 at once test now holds every day at 30 or under. No database change was needed.
+- **More than one scooper is tested.** `week.test.mjs` plans 250 to 500 yards for teams of 3 and 4: even work, each scooper in one part of town, one route a scooper a day, no day over 30. With 40 yards and 3 on the team only the first scooper (Juan) is used. With 400 yards and only Juan the plan opens extra routes and says to hire.
+- **Demo:** giving a yard to someone with no route that day now makes the route (the real server already did).
+- **Crew header shows the logo** in place of "APW", and the sign in screen shows it too. Phone links, the lead status picker and chips are at least 40 px tall.
+- Tests: week 74, desk 68, signup10 35, signup50 102, at 500 117, at 1,000 137. All pass.
+- Still open: the `skips` line, the signed in staff test, the test sign up, the phone road test, real road miles (today straight line times 1.35; the Routes API would cost money per plan, ask Joe), and the browser confirm boxes.

@@ -70,6 +70,46 @@ console.log('\n300 random weeks');
   ok('300 random weeks (5 to 405 yards, limits 20 to 40, 5 and 6 day weeks): none breaks a rule', broke === 0, broke + ' broke');
 }
 
+console.log('\nMore than one scooper: each gets one part of town');
+for (const [n, team] of [[100, 1], [250, 3], [330, 3], [450, 4], [500, 4]]) {
+  seed = 7 + n;
+  const staff = Array.from({ length: team }, (_, i) => ({ id: 's' + (i + 1), name: ['Juan', 'Sam', 'Alex', 'Riley'][i] }));
+  const list = mix(n), p = W.weekPlan(list, staff, 30, WEEK), L = look(list, p, 30, WEEK);
+  const per = {}; for (const c of list) (per[p.set[c.id].scooper_id || 'open'] = per[p.set[c.id].scooper_id || 'open'] || []).push(c);
+  const names = Object.keys(per), work = names.map((k) => per[k].reduce((x, c) => x + (c.plan === 'twice' ? 2 : c.plan === 'eow' ? 0.5 : 1), 0));
+  ok(n + ' yards, ' + team + ' on the team: every yard has a scooper or an open route, no day over 30', L.bad === 0 && L.most <= 30, names.map((k, i) => k + ' ' + per[k].length).join(', '));
+  ok(n + ' yards, ' + team + ' on the team: the plan says how many scoopers it takes', p.techs === names.length && p.techs >= Math.ceil(work.reduce((a, b) => a + b, 0) / 150), p.techs + ' needed');
+  if (names.length > 1) {
+    ok(n + ' yards: the work is shared about evenly', Math.max(...work) - Math.min(...work) <= 0.25 * Math.max(...work) + 4, work.map((x) => Math.round(x)).join(' / '));
+    // Each scooper's yards sit closer to their own middle than to anyone else's middle, most of the time.
+    const mid = Object.fromEntries(names.map((k) => [k, { lat: per[k].reduce((x, c) => x + c.lat, 0) / per[k].length, lng: per[k].reduce((x, c) => x + c.lng, 0) / per[k].length }]));
+    const home = list.filter((c) => { const me = p.set[c.id].scooper_id || 'open'; return names.every((k) => W.miles(c, mid[me]) <= W.miles(c, mid[k]) + 2); }).length;
+    ok(n + ' yards: scoopers keep to their own part of town', home / list.length >= 0.85, Math.round(100 * home / list.length) + ' percent of yards sit in their own scooper\'s area');
+    const days = {}; for (const s of p.slots) days[s.name + '|' + s.day] = (days[s.name + '|' + s.day] || 0) + 1;
+    ok(n + ' yards: one route for each scooper each day', Object.values(days).every((x) => x === 1));
+  }
+}
+{
+  seed = 5;
+  const list = mix(40), p = W.weekPlan(list, [{ id: 'juan', name: 'Juan' }, { id: 's2', name: 'Sam' }, { id: 's3', name: 'Alex' }], 30, WEEK);
+  ok('40 yards with 3 on the team stays one scooper (Juan), nobody drives for a handful of yards', p.techs === 1 && list.every((c) => p.set[c.id].scooper_id === 'juan'), p.techs + ' used');
+  const q = W.weekPlan(mix(400), [{ id: 'juan', name: 'Juan' }], 30, WEEK);
+  ok('400 yards with only Juan: the plan opens extra routes and says to hire, it does not overload him', q.techs > 1 && q.slots.filter((s) => s.staffId === 'juan').every((s) => s.yards <= 30) && q.slots.some((s) => /^Open route/.test(s.name)), q.techs + ' scoopers needed');
+}
+
+console.log('\nWhere the truck starts');
+{
+  seed = 11;
+  const list = [...mk('85326', 20), ...mk('85340', 10)], start = { lat: 33.4950, lng: -112.5050 };
+  const a = W.weekPlan(list, [], 30, WEEK), b = W.weekPlan(list, [], 30, WEEK, start), sum = (p) => p.slots.reduce((x, s) => x + s.miles, 0);
+  ok('with a start, miles count the drive out and the drive home', sum(b) > sum(a), Math.round(sum(a)) + ' mi with no start, ' + Math.round(sum(b)) + ' mi from the start');
+  const L = look(list, b, 30, WEEK);
+  ok('with a start, still town days and no day over the limit', L.mixed === 0 && L.most <= 30 && L.bad === 0, L.days.length + ' days');
+  let broke = 0;
+  for (let s = 1; s <= 100; s++) { seed = s * 131; const n = 5 + Math.floor(rnd() * 300), cap = [20, 30, 40][s % 3], l2 = mix(n), L2 = look(l2, W.weekPlan(l2, [], cap, WEEK, start), cap, WEEK); if (L2.bad || L2.most > cap) broke++; }
+  ok('100 random weeks with a start: none breaks a rule', broke === 0, broke + ' broke');
+}
+
 console.log('\nA new sign up joins close yards only while the day has room');
 {
   seed = 21;

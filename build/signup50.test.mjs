@@ -283,10 +283,9 @@ ok('all ' + N + ' have a map pin', list.every((c) => c.lat != null && c.lng != n
   const LIMIT = 30, per = {};
   for (const c of list) for (const d of [c.service_day, c.service_day2]) if (d != null) { const k = d + '|' + (c.scooper_id || ''); per[k] = per[k] || [0, 0]; if (c.plan === 'eow') per[k][c.eow_week || 0]++; else { per[k][0]++; per[k][1]++; } }
   const most = Math.max(0, ...Object.values(per).map((x) => Math.max(x[0], x[1]))), waiting = list.filter((c) => c.service_day == null).length;
-  // This test fires 50 sign ups in the same instant, and each one reads the day before the others are saved. So a day can
-  // pass the limit by the sign ups that land together, and never by more. The Schedule tab flags such a day ("Over the limit").
-  ok('a day passes ' + LIMIT + ' yards only by sign ups that land in the same instant (most ' + most + ')', most <= Math.max(LIMIT, 50), most);
-  ok(N <= LIMIT * 4 ? 'all ' + N + ' got a service day' : 'sign ups past the limit wait for the office instead of overloading a day (' + waiting + ' waiting)', N <= LIMIT * 4 ? waiting === 0 : waiting > 0, waiting);
+  // 50 sign ups land in the same instant here. Each one looks again after saving and steps back if the day went over.
+  ok('no day is over ' + LIMIT + ' yards after sign up, even with 50 at the same instant (most ' + most + ')', most <= LIMIT, most);
+  ok(N > LIMIT * 4 ? 'sign ups past the limit wait for the office instead of overloading a day (' + waiting + ' waiting)' : 'every sign up has a day or waits for the office (' + waiting + ' waiting)', N > LIMIT * 4 ? waiting > 0 : waiting <= N, waiting);
 }
 ok('office got ' + N + ' booking emails', mails.filter((x) => /^New booking/.test(x.subject)).length === N);
 ok('every sign up saved its text consent records', (await count('select count(distinct user_id)::int n from consent_log')) === N);

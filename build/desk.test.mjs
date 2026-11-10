@@ -286,6 +286,13 @@ ok('office saves 25 yards a day and Saturday', r.d.cap === 25 && r.d.days === '1
 r = await call('/api/office/week', 'POST', { mode: 'new' }, owner);
 ok('the week plan uses the saved limit', r.status === 200 && r.d.cap === 25, { cap: r.d.cap });
 r = await call('/api/office/settings', 'POST', { cap: 30, days: '1,2,3,4,5' }, owner);
+r = await call('/api/office/settings', 'POST', { start: '20800 W Eastview Way, Buckeye, AZ 85396' }, owner);
+ok('office saves where the truck starts', r.status === 200 && /Eastview/.test(r.d.start || ''), r.d.start);
+ok('the start is kept with its map pin', (await db.query("select value from settings where key = 'route_start'")).rows[0]?.value === '33.4801,-112.5501');
+r = await call('/api/office/settings', 'GET', null, owner);
+ok('the start comes back when the planner opens', /Eastview/.test(r.d.start || '') && r.d.cap === 30, r.d);
+r = await call('/api/office/settings', 'POST', { start: '' }, owner);
+ok('an empty start clears it', r.status === 200 && r.d.start === '', r.d.start);
 r = await call('/api/office/settings', 'POST', { cap: 25 }, mt);
 ok('scooper cannot change the yard limit', r.status === 403);
 r = await call('/api/office/health', 'GET', null, mt);

@@ -94,7 +94,8 @@ table.t tr.click:hover td{background:var(--bg2)}
 .ib{background:transparent;border:1px solid var(--line);min-width:32px;height:30px;cursor:pointer;font-size:12px;padding:0 8px;font-family:"IBM Plex Mono",monospace;letter-spacing:.06em}
 .ib:hover{border-color:var(--ink)}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
-.chip{background:transparent;border:1px solid var(--line);padding:7px 12px;cursor:pointer;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
+.t a[href^="tel:"]{display:inline-block;padding:10px 0;min-height:40px}select.ib{min-height:40px}
+.chip{min-height:40px;background:transparent;border:1px solid var(--line);padding:7px 12px;cursor:pointer;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
 .chip.on{color:var(--ink);border-color:var(--ink)}
 .drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,100%);background:var(--bg2);border-left:1px solid var(--line);z-index:30;overflow:auto;padding:20px 22px 40px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -273,7 +274,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       if (b.action === 'skip') st.status = 'skipped'; if (b.action === 'unskip') st.status = 'scheduled';
       var same = D.stops.filter(function (x) { return x.route_id === st.route_id; }), k = same.indexOf(st), other = b.action === 'up' ? same[k - 1] : b.action === 'down' ? same[k + 1] : null;
       if (other) { var j = D.stops.indexOf(other); D.stops[i] = other; D.stops[j] = st; }
-      if (b.action === 'move') { var rt = D.routes.filter(function (x) { return x.staff.id === b.staffId; })[0]; if (rt) st.route_id = rt.id; else throw new Error('That person has no route today.'); }
+      if (b.action === 'move') { var rt = D.routes.filter(function (x) { return x.staff.id === b.staffId; })[0]; if (!rt) { var who = D.team.filter(function (m) { return m.id === b.staffId; })[0]; if (!who) throw new Error('Pick someone on the team.'); rt = { id: 'r' + (++D.n + 50), day: D.today, status: 'planned', staff: { id: who.id, name: who.name } }; D.routes.push(rt); } st.route_id = rt.id; }
       return demoDay();
     }
     if (p === '/api/office/customers') {
@@ -310,7 +311,7 @@ table.t tr.click:hover td{background:var(--bg2)}
   /* ---------- sign in ---------- */
   var si = { step: 'email', email: '', err: '', info: '' };
   function viewSignin() {
-    return '<div class="narrow signin"><div class="lbl">Arizona Pet Waste · Staff</div><div class="stitle">Field desk</div>' +
+    return '<div class="narrow signin"><img src="/assets/img/logo-horizontal-dark.svg" alt="Arizona Pet Waste" style="height:40px;width:auto;display:block;margin:0 0 22px"><div class="lbl">Staff</div><div class="stitle">Field desk</div>' +
       (si.step === 'email'
         ? '<label class="lbl" for="em">Work email</label><input id="em" class="f" type="email" autocomplete="email" inputmode="email" value="' + h(si.email) + '" style="margin-top:8px">' +
           '<div style="height:14px"></div><button class="btn" id="go">Send code</button>'
@@ -688,6 +689,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       '<p style="color:var(--mute);font-size:14px;max-width:70ch">This picks the day and the scooper for every yard. Each scooper works one part of town, and no day goes over the limit you set here.</p>' +
       '<span class="lbl" style="display:block;margin-top:18px">Yards one scooper does in a day</span><div class="chips" style="margin-top:8px">' + caps.sort(function (x, y) { return x - y; }).map(function (n) { return '<button class="chip' + (o.cap === n ? ' on' : '') + '" data-cap="' + n + '" style="min-width:56px;font-size:15px">' + n + '</button>'; }).join('') + '</div>' +
       '<span class="lbl" style="display:block;margin-top:18px">Days we scoop</span><div class="chips" style="margin-top:8px">' + [['1,2,3,4,5', 'Monday to Friday'], ['1,2,3,4,5,6', 'Monday to Saturday']].map(function (x) { return '<button class="chip' + (o.days === x[0] ? ' on' : '') + '" data-wdays="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' +
+      (DEMO ? '' : '<label class="fl" style="max-width:640px"><span class="lbl">Where the truck starts each day</span><input class="f" id="wk_start" autocomplete="off" placeholder="Street, city, ZIP" value="' + h(o.start || '') + '"></label><div style="max-width:320px"><button class="btn ghost" data-wkstart="1">Save the start</button></div>') +
       (DEMO ? '<label class="fl" style="max-width:310px"><span class="lbl">Sample customers (made up, across our ZIP codes)</span><select class="f" id="wk_n">' + [100, 250, 500, 1000].map(function (n) { return '<option' + (o.n === n ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select></label>' : '') +
       '<div class="row2" style="max-width:640px;margin-top:14px">' + (DEMO ? '' : '<button class="btn ghost" data-wk="new">Place new yards only</button>') + '<button class="btn" data-wk="all">' + (DEMO ? 'Plan the sample week' : 'Rebuild the whole week') + '</button></div>' +
       (DEMO ? '' : '<p style="color:var(--mute);font-size:13px;max-width:70ch">Place new yards only moves nobody. Rebuild the whole week can move customers to a new day. You see the plan first. Nothing is saved until you press Save.</p>');
@@ -792,11 +794,12 @@ table.t tr.click:hover td{background:var(--bg2)}
   function bindOffice() {
     app.querySelectorAll('[data-plan]').forEach(function (b) { b.onclick = async function () {
       S.plan = b.dataset.plan === '1'; S.wk = S.wk || { cap: 30, days: '1,2,3,4,5', n: 500 };
-      if (S.plan && !DEMO && !S.wk.loaded) { try { var st = await api('GET', '/api/office/settings'); S.wk.cap = st.cap; S.wk.days = st.days; S.wk.loaded = true; } catch (e) { } }
+      if (S.plan && !DEMO && !S.wk.loaded) { try { var st = await api('GET', '/api/office/settings'); S.wk.cap = st.cap; S.wk.days = st.days; S.wk.start = st.start || ''; S.wk.loaded = true; } catch (e) { } }
       if (!S.plan) { S.data.day = null; render(); return loadTab(); }
       render(); window.scrollTo(0, 0);
     }; });
     var saveSet = function () { if (!DEMO) api('POST', '/api/office/settings', { cap: S.wk.cap, days: S.wk.days }).then(function () { toast('Saved'); }).catch(function (e) { toast(e.message); }); S.data.week = null; render(); };
+    app.querySelectorAll('[data-wkstart]').forEach(function (b) { b.onclick = function () { var v = (document.getElementById('wk_start') || {}).value || ''; api('POST', '/api/office/settings', { start: v }).then(function (r) { S.wk.start = r.start || ''; S.data.week = null; toast(r.start ? 'Start saved' : 'Start cleared'); render(); }).catch(function (e) { toast(e.message); }); }; });
     app.querySelectorAll('[data-cap]').forEach(function (b) { b.onclick = function () { S.wk.cap = +b.dataset.cap; saveSet(); }; });
     app.querySelectorAll('[data-wdays]').forEach(function (b) { b.onclick = function () { S.wk.days = b.dataset.wdays; saveSet(); }; });
     app.querySelectorAll('[data-wk]').forEach(function (b) { b.onclick = async function () {
@@ -854,7 +857,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       var n = t[0] === 'texts' && S.data.day && S.data.day.queuedTexts ? '<span class="n">' + S.data.day.queuedTexts + '</span>' : '';
       return '<button class="tab' + (S.tab === t[0] ? ' on' : '') + '" data-tab="' + t[0] + '">' + t[1] + n + '</button>';
     }).join('') : '<span class="tabs"></span>';
-    return '<header class="bar"><div class="' + (S.view === 'office' ? 'wrap' : 'narrow') + ' in"><span class="brand">APW' + (DEMO ? ' <span class="tag acc" style="margin-left:6px">Demo</span>' : '') + '</span><nav class="tabs">' + tabs + '</nav><button class="out" id="so">Sign out</button></div></header>' + inner;
+    return '<header class="bar"><div class="' + (S.view === 'office' ? 'wrap' : 'narrow') + ' in"><span class="brand"><img src="/assets/img/logo-horizontal-dark.svg" alt="Arizona Pet Waste" height="26" style="height:26px;width:auto;vertical-align:middle">' + (DEMO ? ' <span class="tag acc" style="margin-left:6px">Demo</span>' : '') + '</span><nav class="tabs">' + tabs + '</nav><button class="out" id="so">Sign out</button></div></header>' + inner;
   }
   function render() {
     var sx = window.scrollY;
