@@ -85,6 +85,9 @@ This lane is website edits and AEO (showing up in Google and in AI answers). It 
 - **About page.** Owner is Juan Gonzalez (Verrado, wife and six kids, grew up in California). Joe was unsure about saying Juan was once homeless, so the page only says things were not easy. `founder` is in the LocalBusiness schema and llms.txt.
 - **Free month is a Black Friday deal only, ends November 30, 2026. Joe decided.** FAQ, pricing, terms lead and llms.txt now tie the free month to the deal. NOT done yet: the switch for December 1. About 60 lines and buttons still say free month ("Start your free month", town meta descriptions, book flow, terms section), and checkout in `worker.js` still gives every new sign up a free month. Needs Joe: what a new customer pays at sign up after the deal. Then build one `DEAL_ON` flag for copy and checkout, with the sign up tests.
 
+- **Search Console, Nov 9 night:** indexing requested for `/about/`, `/contact/`, `/our-promise/`. Google's daily limit hit after that. Still to request: the three new blog posts.
+- **Truck demo:** `/t/DEMO01` checked at phone size (map, arrival time, miles all show) and linked from How it works, step 4. The demo drive is set in Surprise, which is not a town we serve yet.
+
 ### Rules for this lane
 - Copy: no dashes, short plain words, third grade for customers, seventh grade for SEO pages, one h1 per page. `npm run check` enforces it.
 - Do not claim what we cannot prove. "No one in the industry offers this" stays off the site. The line in use is "The big chains give you one free cleanup or $25 off. We give you a whole month."
