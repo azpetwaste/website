@@ -1,6 +1,6 @@
 # Arizona Pet Waste: website and field desk
 
-Read this first. `README.md` has how the site is built. `GO_LIVE.md` has account setup.
+Read this first. Then read `docs/HANDOFF.md`: two Claude sessions push to this repo, and that file says what the other one changed and what Joe asked for. `README.md` has how the site is built. `GO_LIVE.md` has account setup.
 
 ## What is here
 - The public site (Cloudflare Pages, boards in `src/boards`, do not hand edit those).
