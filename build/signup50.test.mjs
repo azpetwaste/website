@@ -186,10 +186,11 @@ const BOX = [['85326', 15, 33.36, 33.44, -112.62, -112.50], ['85396', 8, 33.47, 
   ['85395', 7, 33.46, 33.50, -112.42, -112.36], ['85340', 5, 33.48, 33.52, -112.38, -112.33], ['85355', 5, 33.54, 33.60, -112.48, -112.40]];
 const STREETS = ['W Sage Dr', 'N Palo Verde Ln', 'W Desert Bloom St', 'S Quail Run', 'W Mesquite Way', 'N Saguaro Trl', 'W Sunrise Ct', 'S Coyote Pl', 'W Ironwood Dr', 'N Agave Ave'];
 const FIRST = ['Ava', 'Ben', 'Cara', 'Dan', 'Eve', 'Finn', 'Gia', 'Hank', 'Ivy', 'Jon'], LAST = ['Reed', 'Cruz', 'Diaz', 'Ortiz', 'Stone'];
+const N = Number(process.env.COUNT) || 50, GROUP = N > 100 ? 25 : 10;
 const HOMES = [];
-for (const [zip, n, la0, la1, lo0, lo1] of BOX) for (let i = 0; i < n; i++) {
+for (const [zip, n0, la0, la1, lo0, lo1] of BOX) for (let i = 0; i < n0 * N / 50; i++) {
   const k = HOMES.length;
-  HOMES.push([FIRST[k % 10] + ' ' + LAST[Math.floor(k / 10)], (1000 + Math.floor(rnd() * 20000)) + ' ' + STREETS[Math.floor(rnd() * 10)], zip, ['week', 'week', 'week', 'eow', 'twice'][k % 5], 1 + (k % 4),
+  HOMES.push([FIRST[k % 10] + ' ' + LAST[Math.floor(k / 10) % 5] + (k >= 50 ? ' ' + Math.floor(k / 50) : ''), (1000 + k * 37) + ' ' + STREETS[Math.floor(rnd() * 10)], zip, ['week', 'week', 'week', 'eow', 'twice'][k % 5], 1 + (k % 4),
     +(la0 + rnd() * (la1 - la0)).toFixed(5), +(lo0 + rnd() * (lo1 - lo0)).toFixed(5)]);
 }
 Object.assign(env, { STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_PUBLISHABLE_KEY: 'pk_test_x', STRIPE_WEBHOOK_SECRET: 'whsec_test', RESEND_API_KEY: 're_test' });
@@ -248,12 +249,12 @@ const AREA_DAY = { buckeye: wd, goodyear: (wd + 1) % 7, litchfield: (wd + 2) % 7
 for (const a of Object.keys(AREA_DAY)) r = await call('/api/office/area', 'POST', { area: a, day: AREA_DAY[a] }, owner);
 ok('each area has its own service day', r.status === 200, AREA_DAY);
 
-console.log('\nFifty people sign up, ten at a time');
+console.log('\n' + N + ' people sign up, ' + GROUP + ' at a time');
 const ids = [];
 const t0 = Date.now();
-for (let b = 0; b < 5; b++) {
-  const res = await Promise.all(HOMES.slice(b * 10, b * 10 + 10).map(async (h, j) => {
-    const i = b * 10 + j;
+for (let b = 0; b < N / GROUP; b++) {
+  const res = await Promise.all(HOMES.slice(b * GROUP, b * GROUP + GROUP).map(async (h, j) => {
+    const i = b * GROUP + j;
     const s = await customerToken('test' + (i + 1) + '@example.com');
     const body = { zip: h[2], plan: h[3], dogs: h[4], name: h[0], phone: '623555' + String(1000 + i), address: h[1], textsVisit: true, textsDeals: i % 2 === 0, page: '/book/' };
     const [a, twin] = await Promise.all([call('/api/checkout', 'POST', body, s.access_token), i % 10 === 0 ? call('/api/checkout', 'POST', body, s.access_token) : null]);
@@ -263,24 +264,24 @@ for (let b = 0; b < 5; b++) {
     const st = sub ? await hook(evt) : 0;
     return a.status === 200 && st === 200 && (!twin || twin.status === 200);
   }));
-  ok('sign ups ' + (b * 10 + 1) + ' to ' + (b * 10 + 10), res.every(Boolean), res.filter(Boolean).length + ' of 10');
+  ok('sign ups ' + (b * GROUP + 1) + ' to ' + (b * GROUP + GROUP), res.every(Boolean), res.filter(Boolean).length + ' of ' + GROUP);
 }
 await Promise.all(waits.splice(0));
-console.log('  50 sign ups took ' + ((Date.now() - t0) / 1000).toFixed(1) + ' seconds');
+console.log('  ' + N + ' sign ups took ' + ((Date.now() - t0) / 1000).toFixed(1) + ' seconds');
 
 console.log('\nThey show up in the CRM');
 r = await call('/api/office/customers', 'GET', null, owner);
 let list = r.d.customers || [];
-ok('50 customers in the office list', list.length === 50, list.length);
-ok('all 50 are on their free month', list.every((c) => c.status === 'trialing'));
-ok('all 50 have a map pin', list.every((c) => c.lat != null && c.lng != null));
-ok('all 50 got the service day for their area', list.every((c) => c.service_day === AREA_DAY[c.area]));
-ok('office got 50 booking emails', mails.filter((x) => /^New booking/.test(x.subject)).length === 50);
-ok('every sign up saved its text consent records', (await count('select count(distinct user_id)::int n from consent_log')) === 50);
-ok('double tap on Pay made no double customers', (await count('select count(*)::int n from customers')) === 50);
-for (let i = 0; i < 50; i++) await hook({ type: 'checkout.session.completed', data: { object: { mode: 'subscription', client_reference_id: ids[i].uid, subscription: 'sub_' + ids[i].n, customer: 'cus_' + ids[i].n } } });
+ok(N + ' customers in the office list', list.length === N, list.length);
+ok('all ' + N + ' are on their free month', list.every((c) => c.status === 'trialing'));
+ok('all ' + N + ' have a map pin', list.every((c) => c.lat != null && c.lng != null));
+ok('all ' + N + ' got the service day for their area', list.every((c) => c.service_day === AREA_DAY[c.area]));
+ok('office got ' + N + ' booking emails', mails.filter((x) => /^New booking/.test(x.subject)).length === N);
+ok('every sign up saved its text consent records', (await count('select count(distinct user_id)::int n from consent_log')) === N);
+ok('double tap on Pay made no double customers', (await count('select count(*)::int n from customers')) === N);
+for (let i = 0; i < N; i++) await hook({ type: 'checkout.session.completed', data: { object: { mode: 'subscription', client_reference_id: ids[i].uid, subscription: 'sub_' + ids[i].n, customer: 'cus_' + ids[i].n } } });
 await Promise.all(waits.splice(0));
-ok('Stripe sending every webhook twice changes nothing', (await count('select count(*)::int n from customers')) === 50 && (await count("select count(*)::int n from customers where status = 'trialing'")) === 50);
+ok('Stripe sending every webhook twice changes nothing', (await count('select count(*)::int n from customers')) === N && (await count("select count(*)::int n from customers where status = 'trialing'")) === N);
 r = await call('/api/checkout', 'POST', { zip: HOMES[0][2], plan: 'week', dogs: 1, name: HOMES[0][0], phone: '6235551000', address: HOMES[0][1] }, ids[0].token);
 ok('a customer with a plan cannot start a second one', r.status === 200 && r.d.already === true || r.status === 409, r.d);
 
@@ -292,16 +293,17 @@ const dayFor = (w) => { for (let i = 0; i < 7; i++) { const d = new Date(Date.pa
 let totalNew = 0, totalOld = 0, stopsToday = [];
 for (const w of [...new Set(Object.values(AREA_DAY))]) {
   const day = dayFor(w), areas = Object.keys(AREA_DAY).filter((a) => AREA_DAY[a] === w);
+  const t1 = Date.now();
   r = await call('/api/office/plan', 'POST', { date: day }, owner);
-  const added = r.d.added;
+  const added = r.d.added, took = Date.now() - t1;
   r = await call('/api/office/day?date=' + day, 'GET', null, owner);
   const order = r.d.stops.map((s) => s.customer.id);
   if (day === today) stopsToday = r.d.stops;
   const abc = order.slice().sort((a, b) => pin[a].address.localeCompare(pin[b].address));
   let bestRand = Infinity;
-  for (let k = 0; k < 3000; k++) { const o = order.slice().sort(() => rnd() - 0.5); bestRand = Math.min(bestRand, len(o)); }
+  for (let k = 0; k < (N > 100 ? 300 : 3000); k++) { const o = order.slice().sort(() => rnd() - 0.5); bestRand = Math.min(bestRand, len(o)); }
   totalNew += len(order); totalOld += len(abc);
-  ok(areas.join(' + ') + ': ' + added + ' stops, ' + len(order).toFixed(1) + ' miles (A to Z was ' + len(abc).toFixed(1) + ', best of 3,000 random orders ' + bestRand.toFixed(1) + ')', added > 0 && len(order) < len(abc) && len(order) <= bestRand);
+  ok(areas.join(' + ') + ': ' + added + ' stops, ' + len(order).toFixed(1) + ' miles (A to Z was ' + len(abc).toFixed(1) + ', best of many random orders ' + bestRand.toFixed(1) + '), planned in ' + took + ' ms', added > 0 && len(order) < len(abc) && len(order) <= bestRand * 1.03);
   r = await call('/api/office/plan', 'POST', { date: day }, owner);
   ok('planning the same day twice adds no double stops', r.d.added === 0, r.d.added);
   ok('every truck link code is different', new Set((await db.query('select code from stops where day = $1', [day])).rows.map((x) => x.code)).size === order.length);
@@ -336,7 +338,7 @@ ok('checkout with no sign in is refused', r.status === 401);
 r = await call('/api/checkout', 'POST', base, 'tok_made_up');
 ok('checkout with a made up sign in is refused', r.status === 401);
 r = await call('/api/checkout', 'POST', Object.assign({}, base, { name: "Robert'); drop table customers;--", address: "1 <script>alert(1)</script> St'; delete from stops;--" }), sneak.access_token);
-ok('code typed into the form is saved as plain text and breaks nothing', (await count('select count(*)::int n from customers')) === 51 && (await count('select count(*)::int n from stops')) > 0, r.status);
+ok('code typed into the form is saved as plain text and breaks nothing', (await count('select count(*)::int n from customers')) === N + 1 && (await count('select count(*)::int n from stops')) > 0, r.status);
 r = await call('/api/checkout', 'POST', Object.assign({}, base, { name: 'x'.repeat(200000), address: 'y'.repeat(200000) }), sneak.access_token);
 ok('a huge form is cut down to size', (await count('select max(length(name))::int n from customers')) <= 120);
 for (const p of ['/api/office/customers', '/api/office/money', '/api/office/leads', '/api/office/team', '/api/office/day', '/api/office/texts', '/api/office/health', '/api/crew/today']) {

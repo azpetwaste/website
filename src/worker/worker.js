@@ -932,29 +932,35 @@ function pathMiles(list) {
 function shortOrder(list, start) {
   const pins = list.filter(pinned), rest = list.filter((c) => !pinned(c));
   if (pins.length < 3 && !start) return pins.concat(rest);
+  // Point 0 is where the truck starts. Every distance is worked out once, so a day with hundreds of stops still plans fast.
   let from = start;
   if (!from) {
     const mid = { lat: pins.reduce((n, c) => n + c.lat, 0) / pins.length, lng: pins.reduce((n, c) => n + c.lng, 0) / pins.length };
     from = pins.reduce((a, c) => (miles(mid, c) > miles(mid, a) ? c : a), pins[0]);
   }
-  const left = pins.slice(), out = [];
-  let at = from;
-  while (left.length) {
-    let k = 0;
-    for (let i = 1; i < left.length; i++) if (miles(at, left[i]) < miles(at, left[k])) k = i;
-    at = left.splice(k, 1)[0];
-    out.push(at);
+  const pts = [from].concat(pins.filter((c) => c !== from)), n = pts.length;
+  const D = new Float64Array(n * n);
+  for (let a = 0; a < n; a++) for (let b = a + 1; b < n; b++) D[a * n + b] = D[b * n + a] = miles(pts[a], pts[b]);
+  const tour = [0], used = new Uint8Array(n);
+  used[0] = 1;
+  for (let k = 1; k < n; k++) {
+    const at = tour[k - 1];
+    let best = -1;
+    for (let c = 1; c < n; c++) if (!used[c] && (best < 0 || D[at * n + c] < D[at * n + best])) best = c;
+    used[best] = 1;
+    tour.push(best);
   }
-  const head = start ? [start] : [];
-  const len = (o) => { const p = head.concat(o); let n = 0; for (let i = 1; i < p.length; i++) n += miles(p[i - 1], p[i]); return n; };
-  for (let again = true, pass = 0; again && pass < 20; pass++) {
+  // 2-opt: flip a stretch of the route when that makes it shorter. The start stays first and the route does not loop back.
+  for (let again = true, pass = 0; again && pass < 60; pass++) {
     again = false;
-    for (let i = 0; i < out.length - 1; i++) for (let j = i + 1; j < out.length; j++) {
-      const t = out.slice(0, i).concat(out.slice(i, j + 1).reverse(), out.slice(j + 1));
-      if (len(t) + 1e-9 < len(out)) { out.splice(0, out.length, ...t); again = true; }
+    for (let i = 1; i < n - 1; i++) for (let j = i + 1; j < n; j++) {
+      const a = tour[i - 1], b = tour[i], c = tour[j], d = j + 1 < n ? tour[j + 1] : -1;
+      const gain = D[a * n + b] + (d < 0 ? 0 : D[c * n + d]) - D[a * n + c] - (d < 0 ? 0 : D[b * n + d]);
+      if (gain > 1e-9) { for (let x = i, y = j; x < y; x++, y--) { const t = tour[x]; tour[x] = tour[y]; tour[y] = t; } again = true; }
     }
   }
-  return out.concat(rest);
+  const out = tour.map((k) => pts[k]);
+  return (start ? out.slice(1) : out).concat(rest);
 }
 async function planDay(env, day) {
   const wd = weekday(day);
