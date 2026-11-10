@@ -470,7 +470,10 @@ table.t tr.click:hover td{background:var(--bg2)}
         catch (e) { S.shot = null; toast(e.message); }
         S.busy = false; render();
       };
+      // A file the phone cannot open as a picture: say so, never fail quietly.
+      img.onerror = function () { URL.revokeObjectURL(url); toast('That photo did not open. Take it again.'); };
       img.src = url;
+      cam.value = ''; // so taking a second photo always fires again
     };
     cam.click();
   }
@@ -528,13 +531,21 @@ table.t tr.click:hover td{background:var(--bg2)}
         if (a === 'arrive') return act('arrive', { stopId: cur.id, lat: gps.pos && gps.pos.latitude, lng: gps.pos && gps.pos.longitude, accuracy: gps.pos && gps.pos.accuracy });
         if (a === 'photo') return photoPick();
         if (a === 'done') return act('done', { stopId: cur.id });
-        if (a === 'nophoto') { if (confirmBox('No gate photo means this visit is free for the customer. Mark done without a photo?')) act('done', { stopId: cur.id, noPhoto: true }); return; }
+        if (a === 'nophoto') return sheetAsk('No gate photo?', 'No gate photo means this visit is free for the customer. Take the photo if you can.', 'Done with no photo', function () { act('done', { stopId: cur.id, noPhoto: true }); }, 'Go back and take the photo');
         if (a === 'cant') return sheetCant();
         if (a === 'texts') return sheetTexts(route().texts.map(function (t) { var s = route().stops.filter(function (x) { return x.id === t.stop_id; })[0]; return Object.assign({ customer: s && s.customer }, t); }), refreshRoute);
       };
     });
   }
-  function confirmBox(msg) { return window.confirm(msg); }
+  // A yes or no question in our own look. No browser pop up.
+  function sheetAsk(title, msg, yes, onYes, no) {
+    var el = document.createElement('div'); el.className = 'sheet';
+    el.innerHTML = '<div class="pane" role="dialog" aria-modal="true"><div class="lbl">Check</div><p class="big" style="font-size:26px">' + h(title) + '</p><p style="color:var(--mute);font-size:15px">' + h(msg) + '</p>' +
+      '<div style="height:12px"></div><button class="btn ghost" id="qn">' + h(no || 'Back') + '</button><button class="btn" id="qy" style="margin-top:8px">' + h(yes) + '</button></div>';
+    document.body.appendChild(el);
+    el.querySelector('#qn').onclick = function () { el.remove(); };
+    el.querySelector('#qy').onclick = function () { el.remove(); onYes(); };
+  }
 
   /* ---------- office ---------- */
   async function loadTab() {
@@ -686,7 +697,8 @@ table.t tr.click:hover td{background:var(--bg2)}
     var o = S.wk || (S.wk = { cap: 30, days: '1,2,3,4,5', n: 500 });
     var caps = [20, 25, 30, 35, 40]; if (caps.indexOf(o.cap) < 0) caps.push(o.cap);
     var out = '<div class="daynav"><button class="chip" data-plan="0">‹ Back to the schedule</button></div><div class="daynav" style="margin-top:14px"><h2>Plan the week</h2></div>' +
-      '<p style="color:var(--mute);font-size:14px;max-width:70ch">This picks the day and the scooper for every yard. Each scooper works one part of town, and no day goes over the limit you set here.</p>' +
+      '<p style="color:var(--mute);font-size:14px;max-width:70ch">This picks the day and the scooper for every yard.</p>' +
+      '<ol style="color:var(--mute);font-size:14px;max-width:70ch;padding-left:20px;margin:8px 0 0;line-height:1.6"><li>Pick how many yards one scooper does in a day. No day goes over that.</li><li>Tap the plan button. Yards are grouped by town, so a day stays in one area and the truck drives less.</li><li>Read the table. Each box is one scooper\'s day: yards, miles and towns.</li><li>Save. Each customer gets an email with their day.</li></ol>' +
       '<span class="lbl" style="display:block;margin-top:18px">Yards one scooper does in a day</span><div class="chips" style="margin-top:8px">' + caps.sort(function (x, y) { return x - y; }).map(function (n) { return '<button class="chip' + (o.cap === n ? ' on' : '') + '" data-cap="' + n + '" style="min-width:56px;font-size:15px">' + n + '</button>'; }).join('') + '</div>' +
       '<span class="lbl" style="display:block;margin-top:18px">Days we scoop</span><div class="chips" style="margin-top:8px">' + [['1,2,3,4,5', 'Monday to Friday'], ['1,2,3,4,5,6', 'Monday to Saturday']].map(function (x) { return '<button class="chip' + (o.days === x[0] ? ' on' : '') + '" data-wdays="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' +
       (DEMO ? '' : '<label class="fl" style="max-width:640px"><span class="lbl">Where the truck starts each day</span><input class="f" id="wk_start" autocomplete="off" placeholder="Street, city, ZIP" value="' + h(o.start || '') + '"></label><div style="max-width:320px"><button class="btn ghost" data-wkstart="1">Save the start</button></div>') +

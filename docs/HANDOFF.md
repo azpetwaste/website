@@ -139,3 +139,10 @@ Joe asked for this: "if you have 20 houses in Buckeye, today is a Buckeye day", 
 - **Crew header shows the logo** in place of "APW", and the sign in screen shows it too. Phone links, the lead status picker and chips are at least 40 px tall.
 - Tests: week 74, desk 68, signup10 35, signup50 102, at 500 117, at 1,000 137. All pass.
 - Still open: the `skips` line, the signed in staff test, the test sign up, the phone road test, real road miles (today straight line times 1.35; the Routes API would cost money per plan, ask Joe), and the browser confirm boxes.
+
+### Nov 9, 2026, 7:30 pm. Photo step, pop up, planner steps, security pass.
+- "No photo" asks in our own sheet now (`sheetAsk`). No browser pop up is left in the crew app or the truck link.
+- Gate photo: a picture the phone cannot open now shows "That photo did not open. Take it again." The camera field is cleared after each shot so Retake always fires.
+- Plan the week has four plain steps at the top.
+- Security pass, all read only on the live site: 30 staff, office and customer addresses refuse a visitor with no sign in. Every table has row security on with no public policy. The gate photo bucket is private and photo links last 2 hours. Truck link codes are 6 characters from 30 (729 million) and stop working 2 hours after the visit. A scooper can only touch stops on their own route today. The staff code form gives the same answer for any email. The crash log takes 60 rows an hour at most. No keys in the repo.
+- Not done, needs Joe: real road miles (Google Routes API on every plan costs money, and saving the number needs a new column a person has to add), and the `skips` column.
