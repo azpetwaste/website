@@ -71,6 +71,13 @@ This lane is website edits and AEO (showing up in Google and in AI answers). It 
 6. Request indexing for `/about/`, `/contact/`, `/our-promise/`.
 7. Ideas not started: more blog posts for AI answers (cost, how often, turf smell, HOA rules by town), a page for each ZIP, a comparison page against the big chains using only facts from their own sites.
 
+### Added Nov 9, 2026, evening (website and AEO chat)
+- Three new blog posts, 41 indexed pages now: `/blog/how-often-to-pick-up-dog-poop/`, `/blog/dog-poop-laws-west-valley-az/`, `/blog/pooper-scooper-service-cost-arizona/`. All have FAQ schema and a sources list.
+- The laws post only states what we could read in a city, county or state source. Where we found no rule (yard pickup schedule in Buckeye and in the county) it says so. The Goodyear code site itself (`goodyear.municipal.codes`) was not read, the city's Code Compliance page was.
+- The cost post names Pet Butler ($11.99 a week for one dog) and POOP 911 Buckeye ($19.95 weekly, with a note mark), both from their own sites, checked Nov 2026. Recheck these numbers every few months or pull the two lines.
+- Still open from the list above: 1, 2, 3, 4, 5 (the demo could not be tested on a phone from this chat) and 6 (Search Console needs Joe's sign in). Request indexing for the three new posts too.
+- Not started: a turf smell post with its own sources, a page for each ZIP, the chain comparison page.
+
 ### Rules for this lane
 - Copy: no dashes, short plain words, third grade for customers, seventh grade for SEO pages, one h1 per page. `npm run check` enforces it.
 - Do not claim what we cannot prove. "No one in the industry offers this" stays off the site. The line in use is "The big chains give you one free cleanup or $25 off. We give you a whole month."
