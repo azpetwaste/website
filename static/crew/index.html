@@ -588,7 +588,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       var st = all.filter(function (s) { return s.route_id === r.id; });
       var ping = d.pings[r.id], fin = st.filter(function (s) { return ['done', 'cant', 'skipped'].indexOf(s.status) >= 0; }).length;
       var open = d.routes.length === 1 || S.open[r.id];
-      out += '<div class="sec"><button class="rhead" data-open="' + r.id + '" aria-expanded="' + (open ? 'true' : 'false') + '"><b>' + h(r.staff ? r.staff.name : 'Route') + '</b>' + tag(r.status) +
+      out += '<div class="sec"><button class="rhead" data-open="' + r.id + '" aria-expanded="' + (open ? 'true' : 'false') + '"><b>' + h(r.staff ? r.staff.name : 'Route') + '</b>' + tag(r.status) + (d.cap && st.filter(function (s) { return s.status !== 'skipped'; }).length > d.cap ? '<span class="tag bad">Over the limit of ' + d.cap + '</span>' : '') +
         '<span class="c">' + fin + ' of ' + st.length + ' done' + (ping ? ' · seen ' + h(ago(ping.at)) : '') + ' ' + (open ? '▾' : '▸') + '</span></button>';
       if (open) out += '<ul class="list">' + st.map(function (s, i) {
         return '<li class="tap" data-menu="' + s.id + '"><span class="n">' + String(i + 1).padStart(2, '0') + '</span><div><div class="a">' + h(s.customer.address) + '</div><div class="s">' + h(s.customer.name) +
@@ -704,7 +704,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     var order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     dayNames.sort(function (a, b) { return order.indexOf(a) - order.indexOf(b); });
     out += '<div class="sec" style="overflow-x:auto"><table class="t"><thead><tr><th style="text-align:left">Scooper</th>' + dayNames.map(function (d) { return '<th style="text-align:left">' + d.slice(0, 3) + '</th>'; }).join('') + '</tr></thead><tbody>' + names.map(function (n) {
-      return '<tr><td><b>' + h(n) + '</b></td>' + dayNames.map(function (d) { var x = w.slots.filter(function (z) { return z.name === n && z.dayName === d; })[0]; return '<td class="mono" style="font-size:13px;white-space:nowrap">' + (x ? '<b>' + x.yards + '</b> yards<br><span style="color:var(--mute)">' + x.miles + ' mi</span>' : '<span style="color:var(--mute)">off</span>') + '</td>'; }).join('') + '</tr>';
+      return '<tr><td><b>' + h(n) + '</b></td>' + dayNames.map(function (d) { var x = w.slots.filter(function (z) { return z.name === n && z.dayName === d; })[0]; return '<td class="mono" style="font-size:13px;white-space:nowrap">' + (x ? '<b>' + x.yards + '</b> yards<br><span style="color:var(--mute)">' + x.miles + ' mi</span>' + (x.towns ? '<br><span style="color:var(--mute);white-space:normal;font-size:11px">' + h(x.towns) + '</span>' : '') : '<span style="color:var(--mute)">off</span>') + '</td>'; }).join('') + '</tr>';
     }).join('') + '</tbody></table></div>';
     if (w.applied) out += '<p class="tag ok" style="display:inline-block;margin-top:14px">Saved' + (w.emailed ? '. ' + w.emailed + ' customers got an email with their day' : '') + '</p>';
     else if (!w.sample && w.changes) out += '<div style="max-width:640px;margin-top:16px"><button class="btn" data-wk="save">Save this week' + (w.moved ? ' and email ' + w.changes + ' customers' : '') + '</button></div>';

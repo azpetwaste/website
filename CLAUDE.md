@@ -21,6 +21,7 @@ Read this first. New to the field desk (Joe calls it the Field App)? Read `docs/
 - The scooper agrees to location sharing once, on the first Start route (`staff.location_ok_at`). Keep that step.
 - Copy rules: no dashes in copy, short plain words, one h1 per page. `npm run check` enforces this.
 
+- Week plan rules (`weekPlan`): no scooper day goes over the limit, days are cut at the long hops between towns so a day stays in one part of town when it can, a week only gets another day when that saves more than `DAY_COST` road miles, and no day is smaller than `DAY_MIN` yards. A sign up only takes a day that has room. Past the limit it waits under "New sign ups with no day yet".
 - Week plan: the Schedule tab in `/crew` has Plan the week (`/api/office/week`). It picks the day and scooper for every yard. Yards per scooper per day and the days we scoop are saved from that screen (`/api/office/settings`, table `settings`) and win over the optional Cloudflare settings `STOPS_PER_DAY` and `WORK_DAYS`. `ROUTE_START` (`lat,lng`) is where the truck starts. `/crew/?demo` plans made up yards with the same code (`/api/demo/week`) and saves nothing.
 - Bot check on sign in codes: set `TURNSTILE_SITE_KEY` in Cloudflare Pages and put the Turnstile secret in Supabase (Auth, Bot and Abuse Protection, Turnstile). Set the site key first. Test customer and staff sign in right after.
 
@@ -30,6 +31,7 @@ npm install
 npm run build
 npm run check
 node build/worker.test.mjs
+node build/week.test.mjs   # week planner: town days, the daily limit, 300 random weeks. No database needed
 DATABASE_URL=postgres://... node build/desk.test.mjs   # needs a local Postgres and the pg package
 DATABASE_URL=postgres://... node build/signup10.test.mjs   # ten sign ups, the CRM list, the route order and the crew app
 DATABASE_URL=postgres://... node build/signup50.test.mjs   # fifty sign ups at once (COUNT=500 for five hundred), theft and break in attempts, money rules, routes per service day

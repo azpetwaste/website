@@ -36,6 +36,7 @@ One tool for a dog poop scooping company in the West Valley, Arizona. First visi
 Built and live:
 - Schedule tab: seven day strip, the day's routes, tap a yard for one plain menu, and **Plan the week** (day and scooper for every yard).
 - Yards per scooper per day: buttons for 20, 25, 30, 35, 40, saved in the `settings` table. Joe's range is 20 to 40.
+- Plan the week makes town days (a Buckeye day, a Litchfield Park day) and never puts a scooper over the daily limit. A sign up only takes a day with room. Past the limit it waits for the office.
 - Routes build themselves in the shortest driving order when the scooper opens the app.
 - One tap texts: Send opens Messages with the text filled in and marks it sent.
 - Truck link with a full screen map and a minutes away card.
@@ -44,6 +45,7 @@ Built and live:
 - Supabase sign in emails send through Resend. A real code email arrived on Nov 9.
 
 Tests on the last commit: desk 64, ten sign ups 35, fifty sign ups 101, five hundred sign ups 116. All pass. Commands are in `CLAUDE.md`.
+Later the same night the week planner changed (town days). Counts are now: week 47 (new file `build/week.test.mjs`), desk 64, ten sign ups 35, fifty 102, five hundred 117, one thousand 137. All pass.
 Run again by the new Field App chat on Nov 9 at night, on a fresh clone: same counts, all pass. The demo was also walked at phone size (all tabs, Plan the week, a full stop with a gate photo, the truck link map). Details are at the bottom of `docs/HANDOFF.md`.
 
 Not run yet:

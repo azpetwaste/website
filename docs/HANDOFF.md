@@ -108,3 +108,14 @@ The chat that built the field desk has stopped. This chat picked it up from `doc
 - The `skips` line was tried again and the tool blocked it again as a production change. It still needs a person: Supabase, SQL Editor, run the one line in `docs/FIELD_APP.md` item 5.
 - Still not run: the signed in staff test (needs a person to sign in at `/crew` in the Claude browser pane), the test sign up at `/book/?test=1` (the page loads, the rest needs a person for the code and the card), and the phone road test.
 - Small things seen, not changed: the Money tab phone links and the Leads status chips are under 36 px tall on a phone. "No photo" and other confirms use the browser's own confirm box.
+
+### Nov 9, 2026, late night. Week planner now makes town days, and sign ups cannot overload a day.
+Joe asked for this: "if you have 20 houses in Buckeye, today is a Buckeye day", best routes for gas, and never overload a scooper.
+- **Town days.** `weekPlan` used to deal a scooper's yards into even days. With 20 Buckeye yards and 10 Litchfield Park yards it put all 30 on Monday, 53 road miles. Now it cuts the days at the long hops between towns: a Litchfield Park day and a Buckeye day, 39 miles. Each cell in Plan the week shows the towns for that day (`slots[].towns`).
+- **How it picks.** For each scooper it tries every number of days from the fewest that fit up to all work days, and keeps the cheapest. An extra day must save more than `DAY_COST` (6 road miles). A day needs `DAY_MIN` (5) yards. Twice a week yards get a second pass that moves them to the two days whose yards are closest. If the cut cannot fit everyone it falls back to the old even deal.
+- **Miles on the mixed sample at 30 a day:** 250 yards 308 to 279, 500 yards 437 to 400, 1,000 yards 689 to 604. Same scooper counts. No day over the limit in any run.
+- **Sign ups cannot overfill the area day.** `placeCustomer` used to drop a sign up on the area's day with no limit check when no close day had room. Now the area day is used only while it has room. Past that the yard waits in "New sign ups with no day yet" and gets no day email until the office picks.
+- **Known gap:** two sign ups in the same instant both see the day before either is saved, so a day can pass the limit by those. Closing that needs a database lock, which is a `crm.sql` change a person has to run. The Schedule tab now flags it: a route with more stops than the limit shows "Over the limit of N" (`officeDay` returns `cap`).
+- **New test file:** `node build/week.test.mjs`, 47 checks, no database. Run it with the others before a push.
+- `signup50.test.mjs` changed: "all N got a service day" is now "all got a day" up to 120 sign ups, and "sign ups past the limit wait for the office" above that.
+- Not run: these planner changes on real signed in data. The live database has one test yard.

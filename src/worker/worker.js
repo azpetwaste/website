@@ -664,7 +664,13 @@ async function placeCustomer(env, c) {
       if (near) Object.assign(patch, near);
       else if (c.area) {
         const a = (await db(env, 'GET', 'area_days?area=eq.' + enc(c.area) + '&select=day'))[0];
-        if (a) { patch.service_day = a.day; if (c.plan === 'eow') patch.eow_week = 0; }
+        if (a) {
+          // The area's day is only used while it has room. A full day stays full: the yard waits in
+          // "New sign ups with no day yet" on the Schedule tab and the office picks the day.
+          const sid = await defaultScooper(env);
+          const there = (await weekRows(env, '&or=(service_day.eq.' + a.day + ',service_day2.eq.' + a.day + ')&id=neq.' + c.id)).filter((x) => !x.scooper_id || x.scooper_id === sid);
+          if (weekYards(there.concat([{ plan: c.plan, eow_week: 0 }])) <= dayCap(env)) { patch.service_day = a.day; if (c.plan === 'eow') patch.eow_week = 0; }
+        }
       }
     }
     if (Object.keys(patch).length) await db(env, 'PATCH', 'customers?id=eq.' + c.id, patch, 'return=minimal');
@@ -1005,6 +1011,17 @@ function nearSlot(others, pin, plan, cap, days) {
   return null;
 }
 
+// What one more service day costs, in road miles: the drive out and the extra day on the road. A week only gets
+// another day when splitting saves more driving than this.
+const DAY_COST = 6;
+// A day needs at least this many yards to be worth the drive, unless the whole week is smaller than that.
+const DAY_MIN = 5;
+// The towns in a group of yards, biggest first: "Buckeye" or "Buckeye, Goodyear".
+function townsOf(list) {
+  const n = {};
+  for (const c of list) { const z = ZIPS[c.zip]; if (z) n[z.name] = (n[z.name] || 0) + 1; }
+  return Object.keys(n).sort((a, b) => n[b] - n[a]).join(', ');
+}
 // The whole week from scratch.
 // 1. One long drive is drawn through every yard.
 // 2. That drive is cut into one part of town for each scooper, each with the same amount of work.
@@ -1027,39 +1044,82 @@ function weekPlan(list, staff, cap, days) {
   }
   const gap = (a, b) => Math.min(Math.abs(a - b), 7 - Math.abs(a - b));
   const set = {}, slots = [];
-  for (let t = 0; t < lands.length; t++) {
-    const mine = lands[t];
-    if (!mine.length) continue;
-    const work = mine.reduce((n, c) => n + need(c), 0), twice = mine.filter((c) => need(c) === 2), single = mine.filter((c) => need(c) !== 2);
-    // A small part of town gets a few full days instead of five thin ones.
-    const n = Math.min(D, Math.max(Math.ceil(work / cap), twice.length ? 2 : 1));
+  // One try at a scooper's week with `n` days. Twice a week yards go first, on two days with a gap.
+  // Then the once a week yards, which sit in driving order, are cut into days. The cuts land on the long hops
+  // between towns, so a day stays in one part of town when it can ("today is a Buckeye day"). No day goes over `cap`.
+  // `even` is the older way: days of about the same size. It is the fallback when the cut cannot fit everyone.
+  const tryDays = (twice, single, work, n, even, pick) => {
     const use = n === 1 ? [days[0]] : Array.from({ length: n }, (_, k) => days[Math.round(k * (D - 1) / (n - 1))]);
     let pairs = [];
     for (let k = 0; k < n; k++) { const a = k, b = (k + Math.ceil(n / 2)) % n; if (a !== b && gap(use[a], use[b]) >= 2 && !pairs.some((p) => (p[0] === b && p[1] === a) || (p[0] === a && p[1] === b))) pairs.push([a, b]); }
     if (!pairs.length && n > 1) pairs = [[0, n - 1]];
-    const load = new Array(n).fill(0), eow = new Array(n).fill(0), spill = [];
-    const put = (c, a, b) => {
-      load[a] += b == null ? visitLoad(c) : 1;
-      if (b != null) load[b] += 1;
-      set[c.id] = { t, a, b, service_day: use[a], service_day2: b == null ? null : use[b], eow_week: c.plan === 'eow' ? (eow[a]++ % 2) : null };
-    };
-    twice.forEach((c, k) => { const p = pairs[Math.min(pairs.length - 1, Math.floor(k * pairs.length / twice.length))]; if (p && load[p[0]] + 1 <= cap && load[p[1]] + 1 <= cap) put(c, p[0], p[1]); else spill.push(c); });
-    const goal = work / n;
-    let d = 0;
-    for (const c of single) {
-      const w = visitLoad(c);
-      while (d < n - 1 && load[d] + w > goal + 0.5) d++;
-      if (load[d] + w <= cap) { put(c, d, null); continue; }
-      const free = load.map((v, k) => [v, k]).sort((x, y) => x[0] - y[0])[0];
-      if (free[0] + w <= cap) put(c, free[1], null); else spill.push(c);
+    const load = new Array(n).fill(0), puts = [], spill = [];
+    const put = (c, a, b) => { load[a] += b == null ? visitLoad(c) : 1; if (b != null) load[b] += 1; puts.push([c, a, b]); };
+    twice.forEach((c, k) => { const p = pick ? pick(c, pairs, load) : pairs[Math.min(pairs.length - 1, Math.floor(k * pairs.length / twice.length))]; if (p && load[p[0]] + 1 <= cap && load[p[1]] + 1 <= cap) put(c, p[0], p[1]); else spill.push(c); });
+    if (even) {
+      const goal = work / n;
+      let d = 0;
+      for (const c of single) {
+        const w = visitLoad(c);
+        while (d < n - 1 && load[d] + w > goal + 0.5) d++;
+        if (load[d] + w <= cap) { put(c, d, null); continue; }
+        const free = load.map((v, k) => [v, k]).sort((x, y) => x[0] - y[0])[0];
+        if (free[0] + w <= cap) put(c, free[1], null); else spill.push(c);
+      }
+    } else {
+      const m = single.length, PW = new Float64Array(m + 1), PL = new Float64Array(m + 1);
+      for (let i = 0; i < m; i++) { PW[i + 1] = PW[i] + visitLoad(single[i]); PL[i + 1] = i ? PL[i] + miles(single[i - 1], single[i]) * 1.35 : 0; }
+      const inner = (j, i) => (i - j >= 2 ? PL[i] - PL[j + 1] : 0); // road miles inside yards j to i-1
+      const dp = [], from = [];
+      for (let k = 0; k <= n; k++) { dp.push(new Float64Array(m + 1).fill(Infinity)); from.push(new Int32Array(m + 1).fill(-1)); }
+      dp[0][0] = 0;
+      for (let k = 1; k <= n; k++) for (let i = 0; i <= m; i++) for (let j = i; j >= 0 && PW[i] - PW[j] <= cap - load[k - 1] + 1e-9; j--) {
+        if (dp[k - 1][j] === Infinity) continue;
+        if (i > j && PW[i] - PW[j] + load[k - 1] < Math.min(DAY_MIN, work) - 1e-9) continue;
+        const v = dp[k - 1][j] + inner(j, i) + (i > j || load[k - 1] > 0 ? DAY_COST : 0);
+        if (v < dp[k][i] - 1e-9) { dp[k][i] = v; from[k][i] = j; }
+      }
+      if (dp[n][m] === Infinity) return { spill: single.concat(spill), cost: Infinity };
+      const cut = new Array(n + 1).fill(0);
+      cut[n] = m;
+      for (let k = n; k >= 1; k--) cut[k - 1] = from[k][cut[k]];
+      for (let k = 0; k < n; k++) for (let i = cut[k]; i < cut[k + 1]; i++) put(single[i], k, null);
     }
+    let cost = 0;
+    for (let k = 0; k < n; k++) { const here = puts.filter((x) => x[1] === k || x[2] === k).map((x) => x[0]); if (here.length) cost += pathMiles(shortOrder(here, null)) + DAY_COST; }
+    return { n, use, puts, spill, cost };
+  };
+  for (let t = 0; t < lands.length; t++) {
+    const mine = lands[t];
+    if (!mine.length) continue;
+    const work = mine.reduce((n, c) => n + need(c), 0), twice = mine.filter((c) => need(c) === 2), single = mine.filter((c) => need(c) !== 2);
+    // The fewest days that fit the work. More days are used only when that saves real driving.
+    const least = Math.min(D, Math.max(Math.ceil(work / cap), twice.length ? 2 : 1));
+    let best = null;
+    for (let n = least; n <= D; n++) {
+      let r = tryDays(twice, single, work, n, false);
+      if (r.spill.length) continue;
+      if (twice.length) {
+        // Second pass: each twice a week yard moves to the two days whose other yards are closest to it, then the days are cut again.
+        const dayOf = (k) => r.puts.filter((x) => x[2] == null && x[1] === k).map((x) => x[0]);
+        const groups = Array.from({ length: n }, (_, k) => dayOf(k));
+        const nearTo = (c, g) => (g.length ? g.reduce((m, o) => Math.min(m, miles(c, o)), Infinity) : 3);
+        const r2 = tryDays(twice, single, work, n, false, (c, pairs, load) => pairs.filter((p) => load[p[0]] + 1 <= cap && load[p[1]] + 1 <= cap)
+          .sort((x, y) => nearTo(c, groups[x[0]]) + nearTo(c, groups[x[1]]) - nearTo(c, groups[y[0]]) - nearTo(c, groups[y[1]]))[0]);
+        if (!r2.spill.length && r2.cost < r.cost - 1e-9) r = r2;
+      }
+      if (!best || r.cost < best.cost - 1e-9) best = r;
+    }
+    if (!best) best = tryDays(twice, single, work, least, true);
+    const { n, use, puts, spill } = best, eow = new Array(n).fill(0);
+    for (const [c, a, b] of puts) set[c.id] = { t, a, b, service_day: use[a], service_day2: b == null ? null : use[b], eow_week: c.plan === 'eow' ? (eow[a]++ % 2) : null };
     if (spill.length) lands.push(spill); // more work than this scooper's week holds: it becomes one more route
     for (let k = 0; k < n; k++) {
       const here = mine.filter((c) => set[c.id] && set[c.id].t === t && (set[c.id].a === k || set[c.id].b === k));
       if (!here.length) continue;
       const who = staff[t];
       slots.push({ day: use[k], dayName: DAYS[use[k]], tech: t + 1, staffId: who ? who.id : null, name: who ? who.name : 'Open route ' + (t + 1 - staff.length),
-        yards: weekYards(here.map((c) => ({ plan: c.plan, eow_week: set[c.id].eow_week }))), homes: here.length, miles: Math.round(pathMiles(shortOrder(here, null)) * 10) / 10 });
+        yards: weekYards(here.map((c) => ({ plan: c.plan, eow_week: set[c.id].eow_week }))), homes: here.length, towns: townsOf(here), miles: Math.round(pathMiles(shortOrder(here, null)) * 10) / 10 });
     }
   }
   for (const c of tour) set[c.id].scooper_id = (staff[set[c.id].t] || {}).id || null;
@@ -1123,7 +1183,7 @@ async function officeWeek(env, b) {
     const final = all.map((c) => { const hit = change.find((x) => x[0].id === c.id); return hit ? Object.assign({}, c, hit[1]) : c; }).filter((c) => c.service_day != null && pinned(c));
     const keys = [...new Set(final.flatMap((c) => [c.service_day + '|' + (c.scooper_id || '')].concat(c.service_day2 != null ? [c.service_day2 + '|' + (c.scooper_id || '')] : [])))];
     const slots = keys.map((k) => { const [d, sid] = k.split('|'); const mine = final.filter((c) => (c.scooper_id || '') === sid && (String(c.service_day) === d || String(c.service_day2) === d)); const who = team.find((t) => t.id === sid);
-      return { day: Number(d), dayName: DAYS[Number(d)], staffId: sid || null, name: who ? who.name : 'No scooper yet', yards: weekYards(mine), homes: mine.length, miles: Math.round(pathMiles(shortOrder(mine, null)) * 10) / 10 }; })
+      return { day: Number(d), dayName: DAYS[Number(d)], staffId: sid || null, name: who ? who.name : 'No scooper yet', yards: weekYards(mine), homes: mine.length, towns: townsOf(mine), miles: Math.round(pathMiles(shortOrder(mine, null)) * 10) / 10 }; })
       .sort((x, y) => String(x.name).localeCompare(String(y.name)) || x.day - y.day);
     plan = { slots, techs: new Set(slots.map((x) => x.staffId)).size, noPin: all.filter((c) => !pinned(c)).length, cap, days };
   }
@@ -1269,7 +1329,7 @@ async function officeDay(env, date) {
   const needDay = await db(env, 'GET', 'customers?status=in.(' + PAYING.join(',') + ')&service_day=is.null&select=id,name,address,zip,area,plan,dogs,created_at&order=created_at');
   const queued = await db(env, 'GET', 'messages?status=eq.queued&select=id');
   const pings = await lastPings(env, routes.filter((r) => r.status === 'live').map((r) => r.id));
-  return ok({ day, dayName: DAYS[weekday(day)], today: azToday(), routes, stops, needDay, queuedTexts: queued.length, pings });
+  return ok({ day, dayName: DAYS[weekday(day)], today: azToday(), routes, stops, needDay, queuedTexts: queued.length, pings, cap: dayCap(await withSettings(env)) });
 }
 async function renumber(env, routeId) {
   const list = await db(env, 'GET', 'stops?route_id=eq.' + routeId + '&select=id,position&order=position,id');
