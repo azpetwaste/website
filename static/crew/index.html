@@ -102,6 +102,18 @@ table.t tr.click:hover td{background:var(--bg2)}
 .fl .lbl{display:block;margin-bottom:6px}
 .empty{padding:28px 0;color:var(--mute);font-size:15px}
 .scroll{overflow-x:auto}
+.wk{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:14px}
+.wk button{background:transparent;border:1px solid var(--line);min-height:58px;cursor:pointer;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);padding:0}
+.wk button b{display:block;font-size:17px;letter-spacing:0;color:inherit;margin-top:2px;font-weight:500}
+.wk button.on{border-color:var(--ink);color:var(--ink);background:var(--bg2)}
+.wk button.now{color:var(--accent)}
+.list li.tap{cursor:pointer}
+.list li.tap:hover{background:var(--bg2)}
+.list .r{text-align:right}
+.rhead{display:flex;align-items:center;gap:10px;width:100%;background:transparent;border:0;border-bottom:1px solid var(--line);padding:14px 0;cursor:pointer;text-align:left;min-height:56px}
+.rhead b{font-size:18px;letter-spacing:-.01em}
+.rhead .c{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--mute);white-space:nowrap}
+.acts1 .btn{margin-top:8px}
 .tcard{border-top:1px solid var(--line);padding:16px 0}
 .tcard p{margin:8px 0 12px;font-size:15px;line-height:1.45}
 .tcard .acts{display:grid;grid-template-columns:2fr 1fr;gap:8px;max-width:420px}
@@ -201,32 +213,43 @@ table.t tr.click:hover td{background:var(--bg2)}
   var D = null;
   function demoSeed() {
     var today = new Date(Date.now() - 7 * 3600e3).toISOString().slice(0, 10), wd = new Date(today + 'T19:00:00Z').getUTCDay();
-    var mk = function (id, name, address, dogs, names, gate, plan, status, extra) { return Object.assign({ id: 'c' + id, name: name, email: name.split(' ')[0].toLowerCase() + '@example.com', phone: '623555010' + id, address: address, zip: '85374', dogs: dogs, dog_names: names, gate_code: gate, gate_notes: '', problem_spots: '', office_notes: '', skip_spray: false, plan: plan, status: status, lat: 33.63, lng: -112.37, service_day: wd, service_day2: null, eow_week: 0, stop_order: id, scooper_id: 's2', texts_visit: true, texts_deals: false, pause_from: null, pause_until: null }, extra || {}); };
-    var cs = [
-      mk(1, 'Dana Ruiz', '101 Sample St', 2, 'Milo, Bean', '4417', 'week', 'active', { gate_notes: 'Side gate on the left.' }),
-      mk(2, 'Chris Park', '202 Example Ave', 1, 'Rosie', '', 'week', 'trialing', { problem_spots: 'Back corner by the shed.' }),
-      mk(3, 'Lee Morgan', '303 Demo Ln', 3, 'Ace, Duke, Pip', '9021', 'twice', 'active', { skip_spray: true }),
-      mk(4, 'Pat Quinn', '404 Test Ct', 2, 'Luna, Moose', '1180', 'eow', 'active', { office_notes: 'Dogs are friendly. Knock first.' }),
-      mk(5, 'Sky Bell', '505 Mock Rd', 1, 'Otis', '', 'week', 'trialing', { service_day: null, scooper_id: null, stop_order: null }),
-      mk(6, 'Remy Cole', '606 Placeholder Way', 2, 'Kona, Taz', '', 'week', 'past_due', {})
-    ];
-    var stops = cs.slice(0, 4).map(function (c, i) { return { id: 'st' + (i + 1), route_id: 'r1', day: today, position: i + 1, status: 'scheduled', code: 'DEMO01', note: null, reason: null, photo_path: null, no_photo: false, on_way_at: null, arrived_at: null, done_at: null, customer: c }; });
+    var FN = ['Dana', 'Chris', 'Lee', 'Pat', 'Sky', 'Remy', 'Alex', 'Jo', 'Sam', 'Kai', 'Drew', 'Robin', 'Jesse', 'Casey', 'Morgan', 'Avery', 'Quinn', 'Reese', 'Blake', 'Toni'];
+    var LN = ['Ruiz', 'Park', 'Morgan', 'Quinn', 'Bell', 'Cole', 'Hart', 'Lane', 'Reed', 'Stone', 'Shaw', 'Wells', 'Cruz', 'Frost', 'Boyd', 'Marsh', 'Hale', 'Rowe', 'Voss', 'Nash', 'Pike', 'Dunn', 'Kerr', 'Lowe', 'Tate'];
+    var ST = ['Sample St', 'Example Ave', 'Demo Ln', 'Test Ct', 'Mock Rd', 'Placeholder Way', 'Pretend Pl', 'Trial Dr'];
+    var DOGS = ['Milo', 'Bean', 'Rosie', 'Ace', 'Duke', 'Pip', 'Luna', 'Moose', 'Otis', 'Kona', 'Taz', 'Bear'];
+    var ZIP = [['85326', 'buckeye'], ['85396', 'buckeye'], ['85338', 'goodyear'], ['85395', 'goodyear'], ['85340', 'litchfield'], ['85355', 'waddell']];
+    var team = [{ id: 's1', name: 'Joe', email: 'owner@example.com', phone: '6235550100', role: 'owner', active: true }, { id: 's2', name: 'Sam', email: 'sam@example.com', phone: '6235550101', role: 'scooper', active: true },
+      { id: 's3', name: 'Alex', email: 'alex@example.com', phone: '6235550102', role: 'scooper', active: true }, { id: 's4', name: 'Riley', email: 'riley@example.com', phone: '6235550103', role: 'scooper', active: true }];
+    var cs = [];
+    for (var i = 0; i < 500; i++) {
+      var z = ZIP[i % ZIP.length], dogs = 1 + (i % 3), first = FN[i % FN.length];
+      cs.push({ id: 'c' + (i + 1), name: first + ' ' + LN[(i * 7) % LN.length], email: first.toLowerCase() + (i + 1) + '@example.com', phone: '623555' + String(1000 + i), address: (100 + i * 3) + ' ' + ST[(i * 5) % ST.length], zip: z[0], area: z[1],
+        dogs: dogs, dog_names: DOGS.slice(i % 9, i % 9 + dogs).join(', '), gate_code: i % 4 === 0 ? '' : String(1000 + (i * 37) % 9000), gate_notes: i % 6 === 0 ? 'Side gate on the left.' : '', problem_spots: i % 9 === 0 ? 'Back corner by the shed.' : '', office_notes: '', skip_spray: i % 11 === 0,
+        plan: i % 10 === 0 ? 'twice' : i % 7 === 0 ? 'eow' : 'week', status: i % 40 === 39 ? 'past_due' : i % 5 === 0 ? 'trialing' : 'active', lat: 33.43 + (i % 50) / 500, lng: -112.36 - (i % 30) / 300,
+        service_day: 1 + (i % 5), service_day2: null, eow_week: 0, stop_order: null, scooper_id: 's' + (2 + (i % 3)), texts_visit: i % 8 !== 0, texts_deals: false, pause_from: null, pause_until: null });
+    }
+    cs[4].service_day = null; cs[4].scooper_id = null; cs[17].service_day = null; cs[17].scooper_id = null; cs[33].service_day = null; cs[33].scooper_id = null;
+    var runDay = wd >= 1 && wd <= 5 ? wd : 1;
+    var routes = [2, 3, 4].map(function (n) { return { id: 'r' + (n - 1), status: 'planned', staff: { id: 's' + n, name: team[n - 1].name } }; });
+    var stops = cs.filter(function (c) { return c.service_day === runDay && c.status !== 'past_due'; }).map(function (c, k) {
+      return { id: 'st' + (k + 1), route_id: 'r' + (+c.scooper_id.slice(1) - 1), day: today, position: k + 1, status: 'scheduled', code: 'DEMO01', note: null, reason: null, photo_path: null, no_photo: false, on_way_at: null, arrived_at: null, done_at: null, customer: c };
+    });
     D = {
-      today: today, wd: wd, customers: cs, stops: stops, route: { id: 'r1', status: 'planned', staff: { id: 's2', name: 'Sam Scooper' } }, ping: null, n: 1,
-      team: [{ id: 's1', name: 'Joe', email: 'owner@example.com', phone: '6235550100', role: 'owner', active: true }, { id: 's2', name: 'Sam Scooper', email: 'sam@example.com', phone: '6235550101', role: 'scooper', active: true }],
+      today: today, wd: wd, customers: cs, stops: stops, routes: routes, route: routes[0], ping: null, n: 1, team: team,
       leads: [{ id: 1, kind: 'waitlist', name: 'Jo Hart', phone: '6235550120', email: 'jo@example.com', address: '707 Sample St', zip: '85379', details: 'Text when we start there', status: 'new', notes: '', created_at: new Date().toISOString() },
         { id: 2, kind: 'commercial', name: 'Maple HOA', phone: '6235550121', email: '', address: '', zip: '85388', details: 'Two dog parks, weekly', status: 'quoted', notes: 'Sent quote', created_at: new Date(Date.now() - 2 * 864e5).toISOString() }],
-      texts: [{ id: 1, kind: 'night_before', to_addr: '6235550101', body: 'Arizona Pet Waste: we scoop your yard tomorrow. Please unlock the gate and keep dogs inside.', status: 'queued', stop_id: 'st1', customer: { name: 'Dana Ruiz' } }],
-      areas: [{ area: 'surprise', name: 'Surprise', day: wd }, { area: 'elmirage', name: 'El Mirage', day: null }, { area: 'sun_city', name: 'Sun City', day: null }]
+      texts: [],
+      areas: [{ area: 'buckeye', name: 'Buckeye', day: 1 }, { area: 'goodyear', name: 'Goodyear', day: 2 }, { area: 'litchfield', name: 'Litchfield Park', day: 3 }, { area: 'waddell', name: 'Citrus Park', day: null }]
     };
   }
+  function mine() { return D.stops.filter(function (x) { return x.route_id === D.route.id; }); }
   function demoText(kind, st, body) { if (st.customer.texts_visit) D.texts.push({ id: ++D.n + 10, kind: kind, to_addr: st.customer.phone, body: body, status: 'queued', stop_id: st.id, customer: { name: st.customer.name } }); }
-  function demoNext() { var nx = D.stops.filter(function (x) { return x.status === 'scheduled'; })[0]; if (nx) { nx.status = 'on_the_way'; nx.on_way_at = new Date().toISOString(); demoText('on_the_way', nx, 'Arizona Pet Waste: Sam is on the way. Watch the truck: arizonapetwaste.com/t/DEMO01'); } }
+  function demoNext() { var nx = mine().filter(function (x) { return x.status === 'scheduled'; })[0]; if (nx) { nx.status = 'on_the_way'; nx.on_way_at = new Date().toISOString(); demoText('on_the_way', nx, 'Arizona Pet Waste: We are on the way. See our truck: arizonapetwaste.com/t/DEMO01'); } }
   function demoDay() {
     var pings = {}; if (D.ping) pings.r1 = { at: D.ping };
-    return { day: S.day || D.today, today: D.today, stops: (S.day && S.day !== D.today) ? [] : D.stops, routes: (S.day && S.day !== D.today) ? [] : [D.route], pings: pings, needDay: D.customers.filter(function (c) { return c.service_day == null && c.status !== 'canceled'; }), queuedTexts: D.texts.filter(function (t) { return t.status === 'queued'; }).length };
+    return { day: S.day || D.today, today: D.today, stops: (S.day && S.day !== D.today) ? [] : D.stops, routes: (S.day && S.day !== D.today) ? [] : D.routes, pings: pings, needDay: D.customers.filter(function (c) { return c.service_day == null && c.status !== 'canceled'; }), queuedTexts: D.texts.filter(function (t) { return t.status === 'queued'; }).length };
   }
-  function demoToday() { return { day: D.today, dayName: DAYS[D.wd], route: D.route, stops: D.stops, texts: D.texts.filter(function (t) { return t.status === 'queued' && t.stop_id; }) }; }
+  function demoToday() { return { day: D.today, dayName: DAYS[D.wd], route: D.route, stops: mine(), texts: D.texts.filter(function (t) { return t.status === 'queued' && t.stop_id; }) }; }
   function demoCust(id) { var c = D.customers.filter(function (x) { return x.id === id; })[0]; return { customer: c, monthly: 8000, visits: D.stops.filter(function (s) { return s.customer.id === id && s.status !== 'scheduled'; }), texts: D.texts.filter(function (t) { return t.customer && t.customer.name === c.name; }) }; }
   async function demoApi(method, path, b) {
     if (!D) demoSeed();
@@ -234,7 +257,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     var q = new URLSearchParams(path.split('?')[1] || ''), p = path.split('?')[0], st = D.stops.filter(function (x) { return x.id === (b.stopId || b.id); })[0];
     var queued = function () { return D.texts.filter(function (t) { return t.status === 'queued'; }); };
     if (p === '/api/crew/today') return demoToday();
-    if (p === '/api/crew/start') { D.route.status = 'live'; D.ping = new Date().toISOString(); if (!D.stops.some(function (x) { return x.status === 'on_the_way' || x.status === 'here'; })) demoNext(); return demoToday(); }
+    if (p === '/api/crew/start') { D.route.status = 'live'; D.ping = new Date().toISOString(); if (!mine().some(function (x) { return x.status === 'on_the_way' || x.status === 'here'; })) demoNext(); return demoToday(); }
     if (p === '/api/crew/arrive') { st.status = 'here'; st.arrived_at = new Date().toISOString(); D.ping = st.arrived_at; return demoToday(); }
     if (p === '/api/crew/photo') { st.photo_path = 'demo'; return { ok: true }; }
     if (p === '/api/crew/done') { st.status = 'done'; st.done_at = new Date().toISOString(); st.no_photo = !!b.noPhoto; demoText('done', st, 'Arizona Pet Waste: your yard is done and the gate is latched. Photo: arizonapetwaste.com/t/DEMO01'); demoNext(); return demoToday(); }
@@ -248,8 +271,9 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (p === '/api/office/stop') {
       var i = D.stops.indexOf(st);
       if (b.action === 'skip') st.status = 'skipped'; if (b.action === 'unskip') st.status = 'scheduled';
-      if (b.action === 'up' && i > 0) { D.stops.splice(i, 1); D.stops.splice(i - 1, 0, st); }
-      if (b.action === 'down' && i < D.stops.length - 1) { D.stops.splice(i, 1); D.stops.splice(i + 1, 0, st); }
+      var same = D.stops.filter(function (x) { return x.route_id === st.route_id; }), k = same.indexOf(st), other = b.action === 'up' ? same[k - 1] : b.action === 'down' ? same[k + 1] : null;
+      if (other) { var j = D.stops.indexOf(other); D.stops[i] = other; D.stops[j] = st; }
+      if (b.action === 'move') { var rt = D.routes.filter(function (x) { return x.staff.id === b.staffId; })[0]; if (rt) st.route_id = rt.id; else throw new Error('That person has no route today.'); }
       return demoDay();
     }
     if (p === '/api/office/customers') {
@@ -278,7 +302,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     }
     if (p === '/api/office/areas') return { areas: D.areas };
     if (p === '/api/office/area') { D.areas.forEach(function (a) { if (a.area === b.area) a.day = b.day === '' ? null : +b.day; }); return { areas: D.areas }; }
-    if (p === '/api/office/money') return { paying: { count: 3, monthly: 27000 }, freeMonth: { count: 2, monthly: 16000 }, pastDue: [{ name: 'Remy Cole', phone: '6235550106', monthly: 8000 }], started: 1 };
+    if (p === '/api/office/money') { var act = D.customers.filter(function (c) { return c.status === 'active'; }).length, tri = D.customers.filter(function (c) { return c.status === 'trialing'; }).length; return { paying: { count: act, monthly: act * 8000 }, freeMonth: { count: tri, monthly: tri * 8000 }, pastDue: D.customers.filter(function (c) { return c.status === 'past_due'; }).map(function (c) { return { name: c.name, phone: c.phone, monthly: 8000 }; }), started: 4 }; }
     if (p === '/api/office/health') return { checks: { desk: true, booking: true, map: true, texts: false }, liveRoutes: D.route.status === 'live' ? 1 : 0, lastPing: D.ping, queuedTexts: queued().length, errorsLastHour: 0, errors: [] };
     return {};
   }
@@ -372,9 +396,10 @@ table.t tr.click:hover td{background:var(--bg2)}
     var out = '<div class="prog"><i style="width:' + pct + '%"></i></div><div class="narrow">';
     // One tap per text: it opens Messages with the text filled in and marks it sent.
     var KINDS = { on_the_way: 'on the way', done: 'yard is done', cant: 'could not service' };
-    (d.texts || []).filter(function (t) { return KINDS[t.kind]; }).slice(0, 3).forEach(function (t) {
+    var waiting = (d.texts || []).filter(function (t) { return KINDS[t.kind]; });
+    waiting.slice(0, 1).forEach(function (t) {
       var st = stops.filter(function (x) { return x.id === t.stop_id; })[0], nm = st && st.customer && st.customer.name ? st.customer.name.split(' ')[0] : 'customer';
-      out += '<a class="sendrow" href="' + h(sms(t.to_addr, t.body)) + '" data-send="' + t.id + '"><span>Text ' + h(nm) + ': ' + KINDS[t.kind] + '</span><span>Send ›</span></a>';
+      out += '<a class="sendrow" href="' + h(sms(t.to_addr, t.body)) + '" data-send="' + t.id + '"><span>Text ' + h(nm) + ': ' + KINDS[t.kind] + '</span><span>Send' + (waiting.length > 1 ? ' 1 of ' + waiting.length : '') + ' ›</span></a>';
     });
     if (!r || !stops.length) return out + '<div style="padding:60px 0"><div class="lbl">' + h(d.dayName) + '</div><p class="big">No route today.</p><p style="color:var(--mute)">The office builds routes from each yard\'s service day.</p></div></div>';
     if (r.status === 'planned') {
@@ -541,48 +566,80 @@ table.t tr.click:hover td{background:var(--bg2)}
   }
   function officeToday(d) {
     if (!d) return '<p class="empty">Loading…</p>';
-    var all = d.stops, team = (S.data.team && S.data.team.team) || [];
+    var all = d.stops;
     var issues = all.filter(function (s) { return s.status === 'cant' || s.no_photo; }).length;
-    var out = '<div class="daynav"><button class="arrow" data-day="-1" aria-label="Day before">‹</button><h2>' + h(dayLabel(d.day)) + '</h2><button class="arrow" data-day="1" aria-label="Next day">›</button>' +
-      (d.day !== d.today ? '<button class="chip" data-day="0">Today</button>' : '') + '<span style="flex:1"></span>' +
-      '<button class="btn ghost sm" data-o="plan">Build routes</button><button class="btn ghost sm" data-o="night">Queue tomorrow\'s texts</button></div>' +
+    var wd = new Date(d.day + 'T19:00:00Z').getUTCDay(), mon = shift(d.day, -((wd + 6) % 7));
+    var out = '<div class="daynav"><button class="arrow" data-day="-7" aria-label="Week before">‹</button><h2>' + h(dayLabel(d.day)) + '</h2><button class="arrow" data-day="7" aria-label="Next week">›</button>' +
+      (d.day !== d.today ? '<button class="chip" data-day="0">Back to today</button>' : '<span class="tag acc">Today</span>') + '</div>' +
+      '<div class="wk" aria-label="Pick a day this week">' + [0, 1, 2, 3, 4, 5, 6].map(function (i) {
+        var x = shift(mon, i);
+        return '<button class="' + (x === d.day ? 'on' : '') + (x === d.today ? ' now' : '') + '" data-goto="' + x + '">' + DAYS[(i + 1) % 7].slice(0, 3) + '<b>' + (+x.slice(8)) + '</b></button>';
+      }).join('') + '</div>' +
       '<div class="stats"><div class="stat"><span class="lbl">Yards</span><b>' + all.length + '</b></div><div class="stat"><span class="lbl">Done</span><b>' + all.filter(function (s) { return s.status === 'done'; }).length + '</b></div>' +
-      '<div class="stat"><span class="lbl">Issues</span><b' + (issues ? ' style="color:var(--bad)"' : '') + '>' + issues + '</b></div><div class="stat" data-tab="texts" style="cursor:pointer"><span class="lbl">Texts to send</span><b' + (d.queuedTexts ? ' style="color:var(--accent)"' : '') + '>' + d.queuedTexts + '</b></div></div>';
+      '<div class="stat"><span class="lbl">Problems</span><b' + (issues ? ' style="color:var(--bad)"' : '') + '>' + issues + '</b></div><div class="stat" data-tab="texts" style="cursor:pointer"><span class="lbl">Texts to send</span><b' + (d.queuedTexts ? ' style="color:var(--accent)"' : '') + '>' + d.queuedTexts + '</b></div></div>';
     if (d.needDay.length) {
-      out += '<div class="sec"><h3>Needs a service day <span class="tag warn">' + d.needDay.length + '</span></h3><p style="color:var(--mute);font-size:14px;margin:0 0 6px">New sign ups. Set their day, then call or text them their day and time.</p><div class="scroll"><table class="t"><tbody>' +
-        d.needDay.map(function (c) { return '<tr class="click" data-cust="' + c.id + '"><td><b>' + h(c.name) + '</b></td><td>' + h(c.address) + '</td><td class="hide-s">' + h(c.zip) + '</td><td class="hide-s">' + h(PLAN[c.plan] || '') + ' · ' + h(c.dogs) + ' dogs</td><td style="text-align:right;color:var(--mute)">Set day ›</td></tr>'; }).join('') + '</tbody></table></div></div>';
+      out += '<div class="sec"><h3>New sign ups with no day yet <span class="tag warn">' + d.needDay.length + '</span></h3><p style="color:var(--mute);font-size:14px;margin:0 0 6px">Tap one, pick their day, then call or text them.</p><ul class="list">' +
+        d.needDay.slice(0, 20).map(function (c) { return '<li class="tap" data-cust="' + c.id + '"><span class="n">New</span><div><div class="a">' + h(c.name) + '</div><div class="s">' + h(c.address) + '</div></div><span class="lbl">Pick day ›</span></li>'; }).join('') + '</ul></div>';
     }
-    if (!d.routes.length) out += '<div class="sec"><p class="empty">No routes for this day yet. Press Build routes. Yards show up here once they have a service day.</p></div>';
+    if (!d.routes.length) out += '<div class="sec"><p class="empty">No routes for this day yet.</p><div style="max-width:320px"><button class="btn" data-o="plan">Build this day\'s routes</button></div></div>';
+    S.open = S.open || {};
     d.routes.forEach(function (r) {
       var st = all.filter(function (s) { return s.route_id === r.id; });
-      var ping = d.pings[r.id];
-      out += '<div class="sec"><h3>' + h(r.staff ? r.staff.name : 'Route') + ' ' + tag(r.status) + '<span class="lbl" style="font-size:10.5px">' + st.length + ' yards' + (ping ? ' · GPS ' + h(ago(ping.at)) : r.status === 'live' ? ' · no GPS yet' : '') + '</span></h3><div class="scroll"><table class="t"><thead><tr><th>#</th><th>Yard</th><th class="hide-s">Customer</th><th>Status</th><th class="hide-s">Time</th><th></th></tr></thead><tbody>' +
-        st.map(function (s, i) {
-          var open = s.status === 'scheduled' || s.status === 'on_the_way';
-          return '<tr><td class="mono" style="color:var(--mute)">' + String(i + 1).padStart(2, '0') + '</td><td><a href="#" data-cust="' + s.customer.id + '" style="text-decoration:none"><b>' + h(s.customer.address) + '</b></a>' + (s.note ? '<div style="color:var(--mute);font-size:13px">' + h(s.note) + '</div>' : '') + '</td>' +
-            '<td class="hide-s">' + h(s.customer.name) + '</td><td>' + tag(s.status) + (s.no_photo ? ' <span class="tag bad">No photo</span>' : '') + (s.reason ? '<div style="color:var(--mute);font-size:12px;margin-top:4px">' + h(s.reason.replace(/_/g, ' ')) + '</div>' : '') + '</td>' +
-            '<td class="hide-s mono" style="font-size:12px;color:var(--mute)">' + h(time(s.done_at || s.arrived_at || s.on_way_at)) + '</td><td style="white-space:nowrap;text-align:right">' +
-            (s.photo_path ? '<button class="ib" data-photo="' + s.id + '">Photo</button> ' : '') +
-            (open ? '<button class="ib hide-s" data-stop="' + s.id + '" data-act="up" aria-label="Move up">↑</button> <button class="ib hide-s" data-stop="' + s.id + '" data-act="down" aria-label="Move down">↓</button> <button class="ib" data-stop="' + s.id + '" data-act="skip">Skip</button>' +
-              (team.length > 1 ? ' <select class="ib hide-s" data-move="' + s.id + '" aria-label="Move to"><option value="">Move</option>' + team.filter(function (m) { return m.active && (!r.staff || m.id !== r.staff.id); }).map(function (m) { return '<option value="' + m.id + '">' + h(m.name) + '</option>'; }).join('') + '</select>' : '') : '') +
-            (s.status === 'skipped' ? '<button class="ib" data-stop="' + s.id + '" data-act="unskip">Undo</button>' : '') +
-            ' <a class="ib" style="display:inline-grid;place-items:center;text-decoration:none" href="/t/' + h(s.code) + '" target="_blank" rel="noopener">Link</a></td></tr>';
-        }).join('') + '</tbody></table></div></div>';
+      var ping = d.pings[r.id], fin = st.filter(function (s) { return ['done', 'cant', 'skipped'].indexOf(s.status) >= 0; }).length;
+      var open = d.routes.length === 1 || S.open[r.id];
+      out += '<div class="sec"><button class="rhead" data-open="' + r.id + '" aria-expanded="' + (open ? 'true' : 'false') + '"><b>' + h(r.staff ? r.staff.name : 'Route') + '</b>' + tag(r.status) +
+        '<span class="c">' + fin + ' of ' + st.length + ' done' + (ping ? ' · seen ' + h(ago(ping.at)) : '') + ' ' + (open ? '▾' : '▸') + '</span></button>';
+      if (open) out += '<ul class="list">' + st.map(function (s, i) {
+        return '<li class="tap" data-menu="' + s.id + '"><span class="n">' + String(i + 1).padStart(2, '0') + '</span><div><div class="a">' + h(s.customer.address) + '</div><div class="s">' + h(s.customer.name) +
+          (s.reason ? ' · ' + h(s.reason.replace(/_/g, ' ')) : '') + (s.note ? ' · ' + h(s.note) : '') + (time(s.done_at || s.arrived_at || s.on_way_at) ? ' · ' + h(time(s.done_at || s.arrived_at || s.on_way_at)) : '') + '</div></div>' +
+          '<div class="r">' + tag(s.status) + (s.no_photo ? '<div style="margin-top:4px"><span class="tag bad">No photo</span></div>' : '') + '</div></li>';
+      }).join('') + '</ul>';
+      out += '</div>';
     });
+    if (d.routes.length) out += '<div class="sec"><div class="row2" style="max-width:640px"><button class="btn ghost sm" style="width:100%" data-o="plan">Add missing yards</button><button class="btn ghost sm" style="width:100%" data-o="night">Get tomorrow\'s texts ready</button></div></div>';
     return out;
   }
+  // One menu per yard, in plain words. Tap a yard on the Today tab to open it.
+  function stopMenu(id) {
+    var d = S.data.day, s = d.stops.filter(function (x) { return String(x.id) === String(id); })[0]; if (!s) return;
+    var r = d.routes.filter(function (x) { return x.id === s.route_id; })[0], team = (S.data.team && S.data.team.team) || [];
+    var open = s.status === 'scheduled' || s.status === 'on_the_way';
+    var el = document.createElement('div'); el.className = 'sheet';
+    var b = function (k, label, cls) { return '<button class="btn ' + (cls || 'ghost') + '" data-k="' + k + '">' + h(label) + '</button>'; };
+    el.innerHTML = '<div class="pane acts1"><div class="lbl">' + h(s.customer.name) + ' · ' + h((STATUS[s.status] || [s.status])[0]) + '</div><p class="big" style="font-size:26px;margin-bottom:10px">' + h(s.customer.address) + '</p>' +
+      b('see', 'See what the customer sees') + b('copy', 'Copy the customer\'s link') + b('cust', 'Open customer details') +
+      (s.photo_path ? b('photo', 'See the gate photo') : '') +
+      (open ? b('skip', 'Skip this visit') + b('up', 'Move earlier in the route') + b('down', 'Move later in the route') +
+        team.filter(function (m) { return m.active && (!r || !r.staff || m.id !== r.staff.id); }).map(function (m) { return b('to:' + m.id, 'Give this yard to ' + m.name); }).join('') : '') +
+      (s.status === 'skipped' ? b('unskip', 'Put this visit back') : '') +
+      '<button class="btn" data-k="x" style="margin-top:16px">Close</button></div>';
+    document.body.appendChild(el);
+    el.addEventListener('click', async function (e) {
+      if (e.target === el) return el.remove();
+      var k = e.target && e.target.dataset && e.target.dataset.k; if (!k) return;
+      var link = location.origin + '/t/' + s.code;
+      if (k === 'x') return el.remove();
+      if (k === 'see') return window.open('/t/' + s.code, '_blank', 'noopener');
+      if (k === 'copy') { try { await navigator.clipboard.writeText(link); toast('Link copied'); } catch (err) { window.prompt('Copy this link', link); } return; }
+      if (k === 'cust') { el.remove(); return openCustomer(s.customer.id); }
+      if (k === 'photo') { try { var ph = await api('GET', '/api/office/photo?stop=' + s.id); window.open(ph.url, '_blank', 'noopener'); } catch (err) { toast(err.message); } return; }
+      var body = k.indexOf('to:') === 0 ? { id: s.id, action: 'move', staffId: k.slice(3) } : { id: s.id, action: k };
+      try { S.data.day = await api('POST', '/api/office/stop', body); toast({ skip: 'Skipped. Tap the yard to put it back.', unskip: 'Visit is back on the route', up: 'Moved earlier', down: 'Moved later' }[k] || 'Moved to the other route'); el.remove(); render(); }
+      catch (err) { toast(err.message); }
+    });
+  }
   function officeCustomers(d) {
-    var list = d ? d.customers : null, team = (S.data.team && S.data.team.team) || [];
-    var name = function (id) { var m = team.filter(function (x) { return x.id === id; })[0]; return m ? m.name : ''; };
-    var out = '<div class="daynav"><h2>Customers</h2><span style="flex:1"></span><input class="f" id="q" placeholder="Search name, street, phone" value="' + h(S.q || '') + '" style="max-width:300px;min-height:42px;font-size:15px"></div>' +
-      '<div class="chips" style="margin-top:14px">' + [['current', 'Current'], ['started', 'Started sign up'], ['canceled', 'Canceled'], ['all', 'All']].map(function (c) { return '<button class="chip' + ((S.show || 'current') === c[0] ? ' on' : '') + '" data-show="' + c[0] + '">' + c[1] + '</button>'; }).join('') + '</div>';
+    var list = d ? d.customers : null;
+    var out = '<div class="daynav"><h2>Customers</h2>' + (list ? '<span class="lbl">' + list.length + '</span>' : '') + '</div>' +
+      '<input class="f" id="q" placeholder="Search name, street or phone" value="' + h(S.q || '') + '" style="margin-top:12px;max-width:520px">' +
+      '<div class="chips" style="margin-top:12px">' + [['current', 'Current'], ['started', 'Did not finish sign up'], ['canceled', 'Canceled'], ['all', 'All']].map(function (c) { return '<button class="chip' + ((S.show || 'current') === c[0] ? ' on' : '') + '" data-show="' + c[0] + '">' + c[1] + '</button>'; }).join('') + '</div>';
     if (!list) return out + '<p class="empty">Loading…</p>';
     if (!list.length) return out + '<p class="empty">No customers here yet. Everyone who signs up on the website shows up here on their own.</p>';
-    return out + '<div class="scroll" style="margin-top:12px"><table class="t"><thead><tr><th>Name</th><th>Address</th><th class="hide-s">Plan</th><th>Day</th><th class="hide-s">Scooper</th><th>Status</th></tr></thead><tbody>' +
-      list.map(function (c) {
-        return '<tr class="click" data-cust="' + c.id + '"><td><b>' + h(c.name || c.email) + '</b></td><td>' + h(c.address || '') + (c.lat == null && c.address ? ' <span class="tag dim" title="Not on the map yet">No pin</span>' : '') + '</td><td class="hide-s">' + h(PLAN[c.plan] || '') + (c.dogs ? ' · ' + c.dogs : '') + '</td>' +
-          '<td>' + (c.service_day == null ? '<span class="tag warn">Set day</span>' : h(DAYS[c.service_day].slice(0, 3)) + (c.service_day2 != null ? ' + ' + h(DAYS[c.service_day2].slice(0, 3)) : '')) + '</td><td class="hide-s">' + h(name(c.scooper_id)) + '</td><td>' + tag(c.status) + '</td></tr>';
-      }).join('') + '</tbody></table></div>';
+    var cap = 150;
+    return out + '<ul class="list" style="margin-top:12px;border-top:1px solid var(--line)">' + list.slice(0, cap).map(function (c) {
+      var day = c.service_day == null ? '<span class="tag warn">Pick day</span>' : '<span class="lbl">' + h(DAYS[c.service_day].slice(0, 3)) + (c.service_day2 != null ? ' + ' + h(DAYS[c.service_day2].slice(0, 3)) : '') + '</span>';
+      return '<li class="tap" data-cust="' + c.id + '" style="grid-template-columns:1fr auto"><div><div class="a">' + h(c.name || c.email) + '</div><div class="s">' + h(c.address || '') + (c.lat == null && c.address ? ' · not on the map' : '') + '</div></div><div class="r">' + tag(c.status) + '<div style="margin-top:6px">' + day + '</div></div></li>';
+    }).join('') + '</ul>' + (list.length > cap ? '<p class="empty">Showing ' + cap + ' of ' + list.length + '. Search to find anyone.</p>' : '');
   }
   function officeLeads(d) {
     var list = d ? d.leads : null;
@@ -742,6 +799,9 @@ table.t tr.click:hover td{background:var(--bg2)}
       render();
     }; });
     app.querySelectorAll('[data-day]').forEach(function (b) { b.onclick = function () { var n = +b.dataset.day; S.day = n === 0 ? S.data.day.today : shift(S.data.day.day, n); S.data.day = null; render(); loadTab(); }; });
+    app.querySelectorAll('[data-goto]').forEach(function (b) { b.onclick = function () { S.day = b.dataset.goto; S.data.day = null; render(); loadTab(); }; });
+    app.querySelectorAll('[data-open]').forEach(function (b) { b.onclick = function () { S.open = S.open || {}; S.open[b.dataset.open] = !S.open[b.dataset.open]; render(); }; });
+    app.querySelectorAll('[data-menu]').forEach(function (b) { b.onclick = function () { stopMenu(b.dataset.menu); }; });
     app.querySelectorAll('[data-cust]').forEach(function (b) { b.onclick = function (e) { e.preventDefault(); openCustomer(b.dataset.cust); }; });
     app.querySelectorAll('[data-stop]').forEach(function (b) { b.onclick = async function () { try { S.data.day = await api('POST', '/api/office/stop', { id: b.dataset.stop, action: b.dataset.act }); render(); } catch (e) { toast(e.message); } }; });
     app.querySelectorAll('[data-move]').forEach(function (s) { s.onchange = async function () { if (!s.value) return; try { S.data.day = await api('POST', '/api/office/stop', { id: s.dataset.move, action: 'move', staffId: s.value }); toast('Moved. The old link stopped working.'); render(); } catch (e) { toast(e.message); } }; });
