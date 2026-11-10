@@ -49,7 +49,7 @@
 
   <sc-if value="{{ s0 }}" hint-placeholder-val="{{ true }}">
     <h1 class="bh1" tabindex="-1">Where is your yard?</h1>
-    <p class="bf-chip" data-deal-end="2026-12-01T06:59:59Z"><span>Black Friday</span>First month free. Ends Mon, Nov 30.</p>
+    [[bf:<p class="bf-chip" data-deal-end="2026-12-01T06:59:59Z"><span>Black Friday sale</span>First month free. Ends Mon, Nov 30.</p>||]]
     <p class="lead" style="font-size: 16px;">Tap your city.</p>
     <div role="radiogroup" aria-label="Your city" style="display: flex; flex-direction: column; gap: 8px; margin-top: 18px;">
       <sc-for list="{{ cityOpts }}" as="c" hint-placeholder-count="5">
@@ -60,7 +60,7 @@
     <sc-if value="{{ zipNo }}" hint-placeholder-val="{{ false }}">
       <div aria-live="polite" style="margin-top: 12px; padding: 16px; border-radius: 16px; background: var(--bg2); border: 1px solid var(--line);">
         <p style="margin: 0; font-size: 16px; line-height: 1.5;"><strong>We are not in your city yet.</strong> Join the waitlist and we will tell you when we are.</p>
-        <p style="margin: 8px 0 0; font-size: 15px; line-height: 1.5; font-weight: 700; color: var(--ok);">Join by November 30 and your first month is free when we start in your area.</p>
+        <p style="margin: 8px 0 0; font-size: 15px; line-height: 1.5; font-weight: 700; color: var(--ok);">[[bf:Join by November 30 and your first month is free when we start in your area.||Your first cleanup is free when we start in your area.]]</p>
         <sc-if value="{{ waitOpen }}" hint-placeholder-val="{{ true }}">
           <label for="w-city" class="flab">Your city</label>
           <input id="w-city" class="fin" type="text" autocomplete="address-level2" value="{{ wCity }}" onChange="{{ onWCity }}">
@@ -152,7 +152,7 @@
 
   <sc-if value="{{ s4 }}" hint-placeholder-val="{{ false }}">
     <h1 class="bh1" tabindex="-1">Start your free month.</h1>
-    <p class="bf-chip" data-deal-end="2026-12-01T06:59:59Z"><span>Black Friday</span>First month free. Ends Mon, Nov 30.</p>
+    [[bf:<p class="bf-chip" data-deal-end="2026-12-01T06:59:59Z"><span>Black Friday sale</span>First month free. Ends Mon, Nov 30.</p>||]]
     <div style="margin-top: 18px; border-radius: 20px; border: 1px solid var(--line); background: var(--card); overflow: hidden;">
       <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">Plan</span><span style="font-size: 15px; font-weight: 700; text-align: right;">{{ planName }} · {{ dogsLabel }}</span></div>
       <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">First visit</span><span style="font-size: 15px; font-weight: 700; text-align: right;">We reach out to set it</span></div>

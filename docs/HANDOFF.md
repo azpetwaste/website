@@ -96,6 +96,16 @@ This lane is website edits and AEO (showing up in Google and in AI answers). It 
 - **NOT switched yet: the sign up flow and checkout.** `book.prod.tpl.html`, `account.prod.tpl.html` and checkout in `worker.js` still give and describe a free month with no end date. Joe is choosing how billing works after the sale (see the options sent to him Nov 9). Build that before November 30, with the sign up tests.
 - Terms now say "Black Friday free month" and read true before and after the sale.
 
+### Nov 9, 2026, late night: competitor research and new pages (website and AEO chat)
+- Joe chose **monthly billing on the 1st** to stay. Still open: what a new customer pays at sign up after the sale (see the sale switch note). Sign up flow and checkout still give a free month.
+- **Sign up step 1 is a city pick now** (Joe asked): tap Buckeye, Verrado, Goodyear, Litchfield Park or Citrus Park and it goes to the next step. No ZIP box, no links to town pages. Buckeye and Goodyear have two ZIP codes, so the address step asks which one (the server needs the right ZIP for the map pin). "My city is not here" opens the waitlist with a city field. `?zip=` links still work.
+- **New pages (45 indexed now):** `/one-time-dog-poop-cleanup/`, `/turf-odor-treatment/`, `/same-day-dog-poop-pickup/`, `/blog/how-to-choose-a-pooper-scooper-service/`. Pricing links to the three service pages.
+- **What the research showed (DataForSEO, Nov 9):**
+  - Google for "pooper scooper service goodyear az" and "dog poop pickup service buckeye az": the map pack wins. In it: Doggie Doodie Services (4.9, 31 reviews), Elite Pooper Scoopers (5.0, 188), Poopy Doo (4.8, 161), The Poop Fairy (5.0, 86). Under the map it is Facebook groups, MapQuest, Yelp, Nextdoor and a few small sites (cleanpaw.com, dawgpoopremoval.com, gotpoopaz.com, doodycalls.com). No strong local site owns these searches.
+  - ChatGPT and Perplexity with web search, asked for the best service in Goodyear, Buckeye, Litchfield Park and Verrado: neither named Arizona Pet Waste. They named Dawg Poop Removal, Scoop Soldiers, Pawpaw G's, Number 2 Club, Dog Gone Duty, Arrowhead Pooper Scoopers, POOP 911, K9 Poop Busters, West Valley Pooper Scoopers. Their sources: company city pages, pricing pages, BBB, Yelp, Yellow Pages, PetWorks, BringFido, pooper-scooper.com directory, Facebook groups.
+  - So the two biggest levers are off the site: a Google Business Profile with real reviews, and listings on BBB, Yelp, Yellow Pages, MapQuest, Nextdoor, PetWorks, BringFido and the pooper-scooper.com directory. Joe is doing the profiles. When he sends links, fill `sameAs` and the footer.
+- Not built: neighborhood pages (Estrella, PebbleCreek, Palm Valley, Tartesso, Sundance), the chain comparison page, a page for each ZIP.
+
 ### Rules for this lane
 - Copy: no dashes, short plain words, third grade for customers, seventh grade for SEO pages, one h1 per page. `npm run check` enforces it.
 - Do not claim what we cannot prove. "No one in the industry offers this" stays off the site. The line in use is "The big chains give you one free cleanup or $25 off. We give you a whole month."
