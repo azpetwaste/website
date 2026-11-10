@@ -20,6 +20,8 @@ Read this first. `README.md` has how the site is built. `GO_LIVE.md` has account
 - The scooper agrees to location sharing once, on the first Start route (`staff.location_ok_at`). Keep that step.
 - Copy rules: no dashes in copy, short plain words, one h1 per page. `npm run check` enforces this.
 
+- Bot check on sign in codes: set `TURNSTILE_SITE_KEY` in Cloudflare Pages and put the Turnstile secret in Supabase (Auth, Bot and Abuse Protection, Turnstile). Set the site key first. Test customer and staff sign in right after.
+
 ## Checks
 ```
 npm install
@@ -27,6 +29,7 @@ npm run build
 npm run check
 node build/worker.test.mjs
 DATABASE_URL=postgres://... node build/desk.test.mjs   # needs a local Postgres and the pg package
+DATABASE_URL=postgres://... node build/signup10.test.mjs   # ten sign ups, the CRM list, the route order and the crew app
 ```
 
 ## Still open (needs Joe)

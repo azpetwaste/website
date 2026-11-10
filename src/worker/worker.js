@@ -255,7 +255,8 @@ function config(env) {
     supabaseAnonKey: live(env) ? env.SUPABASE_ANON_KEY : null,
     stripeKey: live(env) ? env.STRIPE_PUBLISHABLE_KEY : null,
     firstVisitFrom: env.FIRST_VISIT_FROM || '2026-11-20',
-    mail: !!env.RESEND_API_KEY
+    mail: !!env.RESEND_API_KEY,
+    turnstileKey: env.TURNSTILE_SITE_KEY || null
   });
 }
 
@@ -652,7 +653,7 @@ async function staffCode(request, env) {
   if (!emailOk(email)) return fail(400, 'Type your work email.');
   const s = (await db(env, 'GET', 'staff?email=eq.' + enc(email) + '&active=is.true&select=id'))[0];
   if (s) {
-    const r = await fetch(base(env) + '/auth/v1/otp', { method: 'POST', headers: sbHeaders(env.SUPABASE_SERVICE_ROLE_KEY), body: JSON.stringify({ email, create_user: true }) });
+    const r = await fetch(base(env) + '/auth/v1/otp', { method: 'POST', headers: sbHeaders(env.SUPABASE_SERVICE_ROLE_KEY), body: JSON.stringify(Object.assign({ email, create_user: true }, b && b.captcha ? { gotrue_meta_security: { captcha_token: clean(b.captcha, 4000) } } : {})) });
     if (r.status === 429) return fail(429, 'Please wait a minute, then try again.');
     if (!r.ok) console.error('staff code', r.status, (await r.text()).slice(0, 200));
   }
@@ -882,10 +883,50 @@ async function defaultScooper(env) {
   return (team.find((t) => t.role === 'scooper') || team.find((t) => t.role === 'owner') || team[0] || {}).id || null;
 }
 // Builds the routes for a day from each yard's service day. Safe to press again: it only adds what is missing.
+// Shortest driving order for a day's stops: start at the yard (ROUTE_START = "lat,lng") or at one end of the group,
+// always go to the closest stop next, then untangle any crossed legs (2-opt). Stops with no map pin go last.
+function routeStart(env) {
+  const m = /^\s*(-?\d+(\.\d+)?)\s*,\s*(-?\d+(\.\d+)?)\s*$/.exec(String(env.ROUTE_START || ''));
+  return m ? { lat: Number(m[1]), lng: Number(m[3]) } : null;
+}
+const pinned = (c) => c.lat != null && c.lng != null;
+function pathMiles(list) {
+  const p = list.filter(pinned);
+  let n = 0;
+  for (let i = 1; i < p.length; i++) n += miles(p[i - 1], p[i]);
+  return n * 1.35;
+}
+function shortOrder(list, start) {
+  const pins = list.filter(pinned), rest = list.filter((c) => !pinned(c));
+  if (pins.length < 3 && !start) return pins.concat(rest);
+  let from = start;
+  if (!from) {
+    const mid = { lat: pins.reduce((n, c) => n + c.lat, 0) / pins.length, lng: pins.reduce((n, c) => n + c.lng, 0) / pins.length };
+    from = pins.reduce((a, c) => (miles(mid, c) > miles(mid, a) ? c : a), pins[0]);
+  }
+  const left = pins.slice(), out = [];
+  let at = from;
+  while (left.length) {
+    let k = 0;
+    for (let i = 1; i < left.length; i++) if (miles(at, left[i]) < miles(at, left[k])) k = i;
+    at = left.splice(k, 1)[0];
+    out.push(at);
+  }
+  const head = start ? [start] : [];
+  const len = (o) => { const p = head.concat(o); let n = 0; for (let i = 1; i < p.length; i++) n += miles(p[i - 1], p[i]); return n; };
+  for (let again = true, pass = 0; again && pass < 20; pass++) {
+    again = false;
+    for (let i = 0; i < out.length - 1; i++) for (let j = i + 1; j < out.length; j++) {
+      const t = out.slice(0, i).concat(out.slice(i, j + 1).reverse(), out.slice(j + 1));
+      if (len(t) + 1e-9 < len(out)) { out.splice(0, out.length, ...t); again = true; }
+    }
+  }
+  return out.concat(rest);
+}
 async function planDay(env, day) {
   const wd = weekday(day);
   const rows = await db(env, 'GET', 'customers?status=in.(' + PAYING.join(',') + ')&or=(service_day.eq.' + wd + ',service_day2.eq.' + wd + ')' +
-    '&select=id,plan,eow_week,scooper_id,stop_order,pause_from,pause_until,first_visit,address');
+    '&select=id,plan,eow_week,scooper_id,stop_order,pause_from,pause_until,first_visit,address,lat,lng');
   const skipped = await skippedOn(env, day);
   const due = rows.filter((c) => {
     if (skipped.has(c.id)) return false;
@@ -901,13 +942,25 @@ async function planDay(env, day) {
   if (staffIds.length) await db(env, 'POST', 'routes?on_conflict=day,staff_id', staffIds.map((id) => ({ day, staff_id: id })), 'resolution=ignore-duplicates,return=minimal');
   const routes = await db(env, 'GET', 'routes?day=eq.' + day + '&select=id,staff_id');
   const routeOf = Object.fromEntries(routes.map((r) => [r.staff_id, r.id]));
-  todo.sort((a, b) => (a.stop_order ?? 9999) - (b.stop_order ?? 9999) || String(a.address).localeCompare(String(b.address)));
-  if (todo.length) {
-    await db(env, 'POST', 'stops?on_conflict=day,customer_id', todo.map((c, i) => ({
+  // Stops with a stop order set by the office keep it. Every other stop is put in the shortest driving order for its scooper.
+  const sorted = [];
+  let milesSaved = 0, routeMiles = 0;
+  for (const sid of staffIds) {
+    const mine = todo.filter((c) => (c.scooper_id || fallback) === sid);
+    const fixed = mine.filter((c) => c.stop_order != null).sort((a, b) => a.stop_order - b.stop_order);
+    const free = mine.filter((c) => c.stop_order == null).sort((a, b) => String(a.address).localeCompare(String(b.address)));
+    const best = shortOrder(free, routeStart(env));
+    milesSaved += pathMiles(free) - pathMiles(best);
+    routeMiles += pathMiles(fixed.concat(best));
+    sorted.push(...fixed, ...best);
+  }
+  if (sorted.length) {
+    await db(env, 'POST', 'stops?on_conflict=day,customer_id', sorted.map((c, i) => ({
       route_id: routeOf[c.scooper_id || fallback], customer_id: c.id, day, position: (c.stop_order ?? 9000 + i), code: newCode()
     })), 'resolution=ignore-duplicates,return=minimal');
   }
-  return { ok: true, day, added: todo.length, due: due.length, noScooper: due.filter((c) => !have.has(c.id) && !c.scooper_id && !fallback).length };
+  return { ok: true, day, added: sorted.length, due: due.length, noScooper: due.filter((c) => !have.has(c.id) && !c.scooper_id && !fallback).length,
+    routeMiles: Math.round(routeMiles * 10) / 10, milesSaved: Math.round(milesSaved * 10) / 10 };
 }
 async function lastPings(env, routeIds) {
   const out = {};

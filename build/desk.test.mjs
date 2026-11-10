@@ -66,6 +66,8 @@ function cond(col, expr, vals, alias) {
   if (op === 'gte') return `${c} >= ${add(v)}`;
   if (op === 'ilike') return `${c}::text ilike ${add(v.replace(/\*/g, '%'))}`;
   if (op === 'is') return `${c} is ${({ null: 'null', true: 'true', false: 'false' })[v]}`;
+  if (op === 'not' && v === 'is.null') return `${c} is not null`;
+  if (op === 'cs') return `${c} @> ${add(v)}`;
   if (op === 'in') return `${c}::text = any(${add(v.replace(/^\(|\)$/g, '').split(','))})`;
   throw new Error('op ' + op);
 }

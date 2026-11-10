@@ -109,6 +109,28 @@ table.t tr.click:hover td{background:var(--bg2)}
 <h1 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Arizona Pet Waste field desk</h1>
 <div id="app"></div>
 <script>
+  /* ---------- bot check (Cloudflare Turnstile). Off until TURNSTILE_SITE_KEY is set in Cloudflare. ---------- */
+  async function botCheck() {
+    var key = null;
+    try { key = (await (await fetch('/api/config')).json()).turnstileKey; } catch (e) { }
+    if (!key) return null;
+    return new Promise(function (resolve) {
+      var done = false, box = document.createElement('div');
+      box.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:9999';
+      function end(t) { if (done) return; done = true; resolve(t || null); setTimeout(function () { box.remove(); }, 300); }
+      function draw() {
+        document.body.appendChild(box);
+        try { window.turnstile.render(box, { sitekey: key, appearance: 'interaction-only', callback: end, 'error-callback': function () { end(null); } }); } catch (e) { end(null); }
+      }
+      setTimeout(end, 30000);
+      if (window.turnstile) return draw();
+      var s = document.createElement('script');
+      s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+      s.onload = draw; s.onerror = function () { end(null); };
+      document.head.appendChild(s);
+    });
+  }
+
 (function () {
   'use strict';
   var app = document.getElementById('app');
@@ -278,7 +300,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       try {
         if (si.step === 'email') {
           si.email = inp.value.trim().toLowerCase();
-          var r = await raw('POST', '/api/staff/code', { email: si.email });
+          var r = await raw('POST', '/api/staff/code', { email: si.email, captcha: await botCheck() });
           si.info = r.message; si.step = 'code';
         } else {
           var v = await raw('POST', '/api/staff/verify', { email: si.email, code: inp.value });

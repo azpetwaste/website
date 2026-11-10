@@ -92,9 +92,33 @@
     save(s);
     return s;
   }
+
+  /* ---------- bot check (Cloudflare Turnstile). Off until TURNSTILE_SITE_KEY is set in Cloudflare. ---------- */
+  function botCheck(key) {
+    if (!key) return Promise.resolve(null);
+    return new Promise(function (resolve) {
+      var done = false, box = document.createElement('div');
+      box.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:9999';
+      function end(t) { if (done) return; done = true; resolve(t || null); setTimeout(function () { box.remove(); }, 300); }
+      function draw() {
+        document.body.appendChild(box);
+        try { window.turnstile.render(box, { sitekey: key, appearance: 'interaction-only', callback: end, 'error-callback': function () { end(null); } }); } catch (e) { end(null); }
+      }
+      setTimeout(end, 30000);
+      if (window.turnstile) return draw();
+      var s = document.createElement('script');
+      s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+      s.onload = draw; s.onerror = function () { end(null); };
+      document.head.appendChild(s);
+    });
+  }
   APW.auth = {
     session: function () { var s = load(); return s && s.refresh_token ? s : null; },
-    sendCode: function (email) { return gotrue('/otp', { email: email, create_user: true }); },
+    sendCode: function (email) {
+      return botCheck(APW.cfg.turnstileKey).then(function (t) {
+        return gotrue('/otp', Object.assign({ email: email, create_user: true }, t ? { gotrue_meta_security: { captcha_token: t } } : {}));
+      });
+    },
     verifyCode: async function (email, code) { return keep(await gotrue('/verify', { type: 'email', email: email, token: code })); },
     token: async function () {
       var s = load();
