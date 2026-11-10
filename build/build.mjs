@@ -73,7 +73,7 @@ function useBoard(id, markupFix) {
   return boardCache[key];
 }
 function ssr(entry, props) {
-  return DC.renderToString(doc, entry.markup, entry.Component, Object.assign({ theme: 'light' }, props));
+  return DC.renderToString(doc, entry.markup, entry.Component, Object.assign({ theme: 'dark' }, props));
 }
 
 // ---------- slots the boards leave for the site ----------
@@ -197,6 +197,7 @@ const OFFERS = [
 ];
 const business = {
   '@type': 'LocalBusiness', '@id': BIZ_ID, name: cfg.name, url: ORIGIN + '/',
+  founder: { '@type': 'Person', name: 'Juan Gonzalez', jobTitle: 'Owner', homeLocation: { '@type': 'Place', name: 'Verrado, Buckeye, Arizona' } },
   description: 'Dog poop pickup and pet waste removal for every home in Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell and Citrus Park (85355), Arizona. Weekly, twice a week, or every other week. First month free, free deodorizer spray at every visit, and a photo of your latched gate after each visit. Licensed, bonded and insured.',
   telephone: '+1-623-309-6104', email: cfg.email,
   openingHoursSpecification: [{ '@type': 'OpeningHoursSpecification', dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], opens: '08:00', closes: '17:00' }],
@@ -252,7 +253,7 @@ ${p.index ? `<link rel="canonical" href="${url}">` : ''}
 <link rel="manifest" href="/site.webmanifest">
 ${FONTS_PRE}
 ${p.fonts}
-<script>try{if(localStorage.getItem('apw.theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}</script>
+<script>document.documentElement.classList.add('dark')</script>
 <style>${css}</style>
 ${graph ? `<script type="application/ld+json">${ldjson({ '@context': 'https://schema.org', '@graph': graph })}</script>` : ''}
 </head>
@@ -350,7 +351,7 @@ for (const t of TOWNS) {
     eyebrow: 'Every home in 6 ZIP codes', h1: 'Pooper scooper service areas',
     hero: {
       lead: 'We pick up dog poop at every home in six West Valley ZIP codes: Buckeye, Goodyear, Litchfield Park, and Waddell with Citrus Park. Pick your town to see neighborhoods, prices and answers.',
-      ctaHtml: book, side: BIZ.mapBox(content.svcmap.res), trust: 'Licensed, bonded and insured · First month free · No contract',
+      ctaHtml: book, side: BIZ.mapBox(content.svcmap.res), trust: 'Licensed, bonded and insured · No sign up fee · No contract',
       stats: [['6', 'ZIP codes', 'We scoop every home in all six'], ['4', 'towns', 'Plus every Verrado district'], ['$0', 'today', 'Your first month is free']]
     }
   };
@@ -557,7 +558,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - Twice a week: $189 for 1 or 2 dogs. Each dog after two adds $13.
 - Every other week: $75 for 1 or 2 dogs. Each dog after two adds $9.
 - Turf odor treatment: $35. One time cleanup: $95. Same day pickup for a party or guests: $49, added to the next bill.
-- Billing: everyone is billed on the 1st of each month. First month free on any plan. The first charge only covers the days after the free month, so it is smaller. Then the full price on the 1st. A card is saved at sign up and nothing is charged that day.
+- Billing: everyone is billed on the 1st of each month. During the Black Friday deal (sign up by November 30, 2026) the first month is free, and the first charge only covers the days after the free month. Then the full price on the 1st. A card is saved at sign up and nothing is charged that day.
 - Black Friday deal: sign up by Monday, November 30, 2026 and the first month is free. The free month stays free when the customer keeps the plan for 60 days. Canceling in the first 60 days is charged one month at the plan price, minus anything already paid. Canceling is done online in My Yard, with no phone call.
 
 ## Service area (every home in these ZIP codes)
@@ -594,7 +595,8 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 
 ## Before you hire a pooper scooper (our answers)
 - Licensed, bonded and insured: yes.
-- Sign up fee: none. You pay $0 today and the first month is free.
+- Owner: Juan Gonzalez, who lives in Verrado (Buckeye, AZ) with his wife and their six kids.
+- Sign up fee: none. The first month is free only with the Black Friday deal, for sign ups through November 30, 2026.
 - Price per visit: weekly service is $108 a month for 1 or 2 dogs, about $25 a visit.
 - Deodorizer spray: free at every visit.
 - Proof: a text the night before, a live truck map on visit day, and a photo of the latched gate after every visit. A visit with no gate photo costs $0.

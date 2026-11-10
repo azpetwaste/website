@@ -63,8 +63,8 @@ This lane is website edits and AEO (showing up in Google and in AI answers). It 
 - Search Console on Nov 9: commercial pages and areas page are on Google. Indexing was requested for `/faq/` and `/blog/`. Not requested yet: `/about/`, `/contact/`, `/our-promise/`.
 
 ### Open
-1. December 1: the deal bar hides itself, but static copy still says first month free and November 30 in places (FAQ, terms, waitlist lines, llms.txt). Joe has to decide if the free month stays after the deal. Ask him by November 28.
-2. About page: Joe is sending the owner name and a short story. Photos, video and reviews are coming from Joe.
+1. December 1: Joe decided the free month ends with the deal on November 30. The switch is not built yet, see the night note below.
+2. About page: owner story is live. Photos, video and reviews are coming from Joe.
 3. Schema `sameAs` and the footer social buttons wait on real profile links: Google Business Profile, Bing Places, Yelp, Apple Maps, BBB, Nextdoor, Facebook, Instagram. The footer buttons point at the home page reviews section until then.
 4. Reviews: no review schema until real reviews exist. Never write a review.
 5. The live truck link demo (`/t/DEMO01`) is not linked from the site yet. Link it from How it works once it looks good on a phone.
@@ -77,6 +77,13 @@ This lane is website edits and AEO (showing up in Google and in AI answers). It 
 - The cost post names Pet Butler ($11.99 a week for one dog) and POOP 911 Buckeye ($19.95 weekly, with a note mark), both from their own sites, checked Nov 2026. Recheck these numbers every few months or pull the two lines.
 - Still open from the list above: 1, 2, 3, 4, 5 (the demo could not be tested on a phone from this chat) and 6 (Search Console needs Joe's sign in). Request indexing for the three new posts too.
 - Not started: a turf smell post with its own sources, a page for each ZIP, the chain comparison page.
+
+### Added Nov 9, 2026, night (website and AEO chat), on Joe's word
+- **Dark look only.** The light look and the sun and moon button are gone (`THEME_BTN` is empty, `storedTheme` always returns dark, the build renders dark).
+- **Licensed, Bonded, Insured badges.** The moving ticker on home and town pages is now a three badge strip (`TICKER` in `parts.py`, class `tb`). Commercial heroes have three badge chips (`bxbadges` in `biz.mjs`).
+- **Less decoration.** No numbers on section labels, no grid lines behind the home and town heroes, softer glow.
+- **About page.** Owner is Juan Gonzalez (Verrado, wife and six kids, grew up in California). Joe was unsure about saying Juan was once homeless, so the page only says things were not easy. `founder` is in the LocalBusiness schema and llms.txt.
+- **Free month is a Black Friday deal only, ends November 30, 2026. Joe decided.** FAQ, pricing, terms lead and llms.txt now tie the free month to the deal. NOT done yet: the switch for December 1. About 60 lines and buttons still say free month ("Start your free month", town meta descriptions, book flow, terms section), and checkout in `worker.js` still gives every new sign up a free month. Needs Joe: what a new customer pays at sign up after the deal. Then build one `DEAL_ON` flag for copy and checkout, with the sign up tests.
 
 ### Rules for this lane
 - Copy: no dashes, short plain words, third grade for customers, seventh grade for SEO pages, one h1 per page. `npm run check` enforces it.

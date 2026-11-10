@@ -111,9 +111,7 @@ PRICE_METHODS = r"""  _price(id, dogs) {
 
 ICON_SUN = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"></circle><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"></path></svg>'
 ICON_MOON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"></path></svg>'
-THEME_BTN = ('<button type="button" class="ibtn" aria-label="{{ themeLabel }}" onClick="{{ toggleTheme }}">'
-             '<sc-if value="{{ isDark }}" hint-placeholder-val="{{ false }}">' + ICON_SUN + '</sc-if>'
-             '<sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}">' + ICON_MOON + '</sc-if></button>')
+THEME_BTN = ''  # dark look only since Nov 2026
 LOGO_SEAL = ('<sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}"><img src="' + BLOB_MARK + '" alt="" style="width: 40px; height: 40px; display: block;"></sc-if>'
              '<sc-if value="{{ isDark }}" hint-placeholder-val="{{ false }}"><img src="' + BLOB_MARK_DARK + '" alt="" style="width: 40px; height: 40px; display: block;"></sc-if>')
 # the full logo (Arizona state mark with the name beside it) for headers and menus
@@ -278,7 +276,7 @@ from scene import saguaro, agave, barrel  # noqa: E402
 
 FAQ_ITEMS = [
     ('What is the Black Friday deal?', 'Sign up by November 30 and your first month is free. The big chains give you one free cleanup or $25 off. We give you a whole month. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.'),
-    ('How much does it cost?', 'Weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Your first month is free when you sign up for any plan.'),
+    ('How much does it cost?', 'Weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Sign up by November 30 and your first month is free.'),
     ('Is the spray really free?', 'Yes. At every visit, we spray deodorizer on the spots your dogs use most. It costs you nothing.'),
     ('Do you come in the summer heat?', 'Yes. In summer we start early, so your yard is done before the worst heat of the day.'),
     ('What if it storms?', 'Light rain is fine. If there is lightning, we wait until it is safe. We text you if your time changes.'),
@@ -288,7 +286,7 @@ FAQ_ITEMS = [
     ('Do you clean your tools?', 'Yes. We clean our boots and tools after every yard. That keeps germs from going from yard to yard.'),
     ('Can I pick my day?', 'No. We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window.'),
     ('Can you come today? We have a party.', 'Yes. Text us and we can come the same day for $49. It goes on your next bill on the 1st.'),
-    ('When do you charge my card?', 'On the 1st of each month. Your first month is free. Your first charge only covers the days after your free month, so it is smaller. Then you pay the full price on the 1st of each month.'),
+    ('When do you charge my card?', 'On the 1st of each month. With the Black Friday deal, your first month is free. Your first charge only covers the days after your free month, so it is smaller. Then you pay the full price on the 1st of each month.'),
     ('Who sees my gate code?', 'Only your scooper, and only on your day. You add it after you sign up. If you cancel, we delete it.'),
     ('What if a dog in the yard is not safe to be near?', 'We don’t go in. We text you to bring the dog inside. We can come back the same day.'),
     ('Can I skip a week?', 'Yes. You get 4 free skips a year. Sign in to My Yard and tap Skip next to the visit, up to 24 hours before. No phone call.'),
@@ -564,7 +562,6 @@ def _menu(links):
             '        <a href="tel:+16233096104" class="btn btn-line">Call</a>\n'
             '        <a href="sms:+16233096104" class="btn btn-line">Text</a>\n'
             '      </div>\n'
-            '      <button type="button" class="btn btn-line" onClick="{{ toggleTheme }}" style="width: 100%; margin-top: 10px;">{{ themeMenuLabel }}</button>\n'
             '      <p class="mono" style="margin: 18px 0 0; text-align: center; font-size: 14px; color: var(--mute);">623.309.6104</p>\n'
             '    </div>\n'
             '  </div>\n'
@@ -662,13 +659,11 @@ FOOTER_CITY = _footer('Main.dc.html')
 TICK_ITEMS = ['Gate photo every visit', 'Free deodorizer spray', 'Live truck map', 'First month $0', 'No contract',
               '4 free skips a year', 'Free return in 24 hours', 'Licensed, bonded and insured']
 _tick_li = ''.join('<li>%s</li>' % x for x in TICK_ITEMS)
-TICKER = ('<div class="tick" role="region" aria-label="What every plan includes">\n'
-          '  <input type="checkbox" id="tick-pause" class="tick-p" aria-label="Pause the moving list">\n'
-          '  <label for="tick-pause" class="tick-b" aria-hidden="true">'
-          '<svg class="i-pause" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1"></rect><rect x="14" y="4" width="4" height="16" rx="1"></rect></svg>'
-          '<svg class="i-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"></path></svg></label>\n'
-          '  <div class="tick-in"><ul class="tick-l">' + _tick_li + '</ul><ul class="tick-l" aria-hidden="true">' + _tick_li + '</ul></div>\n'
-          '</div>')
+TRUST_SVG = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"></path><path d="M9 12l2 2 4-4.5"></path></svg>'
+TICKER = ('<div class="tb" role="region" aria-label="Licensed, bonded and insured">\n'
+          '  <ul class="tb-l">'
+          + ''.join('<li>' + TRUST_SVG + '<b>%s</b></li>' % x for x in ['Licensed', 'Bonded', 'Insured'])
+          + '</ul>\n</div>')
 
 SPEC_ITEMS = [('30', 'MIN', 'Your time window. We text it the night before.'),
               ('1', 'PHOTO', 'Of your latched gate after every visit.'),
@@ -684,7 +679,7 @@ SPECS = ('<section id="specs" class="sec spec">\n  <div class="in">\n'
          '  <dl class="sgrid">\n' +
          ''.join('    <div class="scell"><dt><b>%s</b><small>%s</small></dt><dd>%s</dd></div>\n' % s for s in SPEC_ITEMS) +
          '  </dl>\n'
-         '  <p class="mono sfoot">Licensed, bonded and insured · First month free · No sign up fee</p>\n'
+         '  <p class="mono sfoot">Licensed, bonded and insured · No contract · No sign up fee</p>\n'
          '  </div>\n</section>')
 
 REVAMP_CSS = r"""
@@ -752,6 +747,17 @@ REVAMP_CSS = r"""
 .apw .scell b{font-size:66px}
 }
 @media (prefers-reduced-motion:reduce){.apw .tick-in{animation:none}.apw .tick{overflow-x:auto}.apw .tick-b{display:none}.apw .hbk .btn-dot::after{display:none}.apw .btn{transition:none}.apw .btn:not(:disabled):hover,.apw .btn:not(:disabled):active{transform:none}}"""
+REVAMP_CSS += r"""
+.apw .tb{background:var(--bg2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.apw .tb-l{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));max-width:1160px;margin:0 auto;padding:0;list-style:none}
+.apw .tb-l li{display:flex;align-items:center;justify-content:center;gap:10px;min-width:0;padding:16px 8px;color:#FF8A66}
+.apw .tb-l li+li{border-left:1px solid var(--line)}
+.apw .tb-l b{font-size:19px;letter-spacing:.01em;line-height:1.15;font-weight:800;color:var(--ink)}
+@media (max-width:520px){.apw .tb-l li{flex-direction:column;gap:6px;padding:14px 4px;text-align:center}}
+.apw .eb.nx::before{content:none}
+.apw .hero::before,.apw .chero::before,.apw .spec::before{content:none}
+.apw .hero::after,.apw .chero::after{opacity:.55}
+"""
 PAGE_CSS += REVAMP_CSS
 PAGE_CSS += r"""
 .apw .ftrust{list-style:none;margin:26px 0 0;padding:18px 0 0;border-top:1px solid rgba(255,255,255,.10);display:grid;gap:14px}

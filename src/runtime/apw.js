@@ -12,7 +12,7 @@
 
   /* ---------- look ---------- */
   function storedTheme() {
-    try { return localStorage.getItem('apw.theme') === 'dark' ? 'dark' : 'light'; } catch (e) { return 'light'; }
+    return 'dark'; // one look only since Nov 2026
   }
   APW.setTheme = function (dark) {
     try { localStorage.setItem('apw.theme', dark ? 'dark' : 'light'); } catch (e) { }

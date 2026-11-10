@@ -159,7 +159,8 @@ export function hero(pg, trail) {
   return '<section class="bxh"><div class="bxw"><div class="bxh-in"><div class="bxh-copy">' + crumbsNav(trail) +
     `<p class="eb">${esc(pg.eyebrow || 'Commercial')}</p><h1>${esc(pg.h1)}${dot}</h1><p class="lead">${h.lead || ''}</p>` +
     (h.ctaHtml || ctaButtons(h.cta)) +
-    `<p class="bxtrust">${ICONS.shield}${esc(h.trust || 'Licensed, bonded and insured · Free site walk')}</p>` +
+    '<ul class="bxbadges" aria-label="Licensed, bonded and insured">' + ['Licensed', 'Bonded', 'Insured'].map((x) => `<li>${ICONS.shield}<b>${x}</b></li>`).join('') + '</ul>' +
+    ((h.trust || 'Free site walk').replace(/^Licensed, bonded and insured · /, '') ? `<p class="bxtrust">${esc((h.trust || 'Free site walk').replace(/^Licensed, bonded and insured · /, ''))}</p>` : '') +
     '<ul class="bxh-stats">' + stats.map(([n, u, t]) => `<li><b>${esc(n)}<small>${esc(u)}</small></b><span>${esc(t)}</span></li>`).join('') + '</ul>' +
     '</div><div class="bxh-side">' + (h.side || reportCard(h.site)) + '</div></div></div></section>';
 }
@@ -223,7 +224,7 @@ const RAW_CSS = `.apw .doc.bxdoc{max-width:none;margin:0;padding:0;background:va
 .apw .bxh h1{margin:14px 0 0;font-size:44px;font-weight:800;letter-spacing:-.05em;line-height:.98;color:#FFFFFF;text-wrap:balance}
 .apw .bxdoc .bxh .lead{margin:20px 0 0;max-width:620px;font-size:19px;line-height:1.55;color:var(--ink2)}
 .apw .bxh-cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}.apw .bxh-cta .btn{min-height:54px;padding:0 22px;font-size:17px}
-.apw .bxdoc .bxtrust{display:flex;align-items:center;gap:8px;margin:16px 0 0;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:13px;line-height:1.45;color:var(--ink2)}.apw .bxtrust .bxbi{width:18px;height:18px;flex:0 0 18px;color:#FF8A66}
+.apw .bxdoc .bxbadges{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 0;padding:0;list-style:none}.apw .bxdoc .bxbadges li{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 16px 0 12px;border:1.5px solid rgba(255,138,102,.55);border-radius:12px;background:rgba(255,74,28,.1);color:#FF8A66}.apw .bxdoc .bxbadges b{font-size:16px;font-weight:800;color:var(--ink)}.apw .bxdoc .bxbadges svg{width:20px;height:20px;flex:0 0 20px}.apw .bxdoc .bxtrust{display:flex;align-items:center;gap:8px;margin:16px 0 0;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:13px;line-height:1.45;color:var(--ink2)}.apw .bxtrust .bxbi{width:18px;height:18px;flex:0 0 18px;color:#FF8A66}
 .apw .bxh-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:34px 0 0;padding:22px 0 0;border-top:1px solid var(--line);list-style:none}
 .apw .bxh-stats li{margin:0;padding:0 12px;border-left:1px solid var(--line)}.apw .bxh-stats li:first-child{padding-left:0;border-left:0}
 .apw .bxh-stats b{display:flex;align-items:baseline;gap:6px;font-size:30px;font-weight:800;letter-spacing:-.04em;line-height:1;color:#FFFFFF}
