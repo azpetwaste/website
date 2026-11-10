@@ -1,6 +1,6 @@
 # Arizona Pet Waste: website and field desk
 
-Read this first. Then read `docs/HANDOFF.md`: two Claude sessions push to this repo, and that file says what the other one changed and what Joe asked for. `README.md` has how the site is built. `GO_LIVE.md` has account setup.
+Read this first. New to the field desk (Joe calls it the Field App)? Read `docs/FIELD_APP.md`. Then read `docs/HANDOFF.md`: two Claude sessions push to this repo, and that file says what the other one changed and what Joe asked for. `README.md` has how the site is built. `GO_LIVE.md` has account setup.
 
 ## What is here
 - The public site (Cloudflare Pages, boards in `src/boards`, do not hand edit those).
@@ -21,7 +21,7 @@ Read this first. Then read `docs/HANDOFF.md`: two Claude sessions push to this r
 - The scooper agrees to location sharing once, on the first Start route (`staff.location_ok_at`). Keep that step.
 - Copy rules: no dashes in copy, short plain words, one h1 per page. `npm run check` enforces this.
 
-- Week plan: the Week tab in `/crew` (`/api/office/week`) picks the day and scooper for every yard. `STOPS_PER_DAY` (default 30) and `WORK_DAYS` (default `1,2,3,4,5`) are optional Cloudflare settings. `ROUTE_START` (`lat,lng`) is where the truck starts. `/crew/?demo` has a Week tab that plans made up yards with the same code (`/api/demo/week`) and saves nothing.
+- Week plan: the Schedule tab in `/crew` has Plan the week (`/api/office/week`). It picks the day and scooper for every yard. Yards per scooper per day and the days we scoop are saved from that screen (`/api/office/settings`, table `settings`) and win over the optional Cloudflare settings `STOPS_PER_DAY` and `WORK_DAYS`. `ROUTE_START` (`lat,lng`) is where the truck starts. `/crew/?demo` plans made up yards with the same code (`/api/demo/week`) and saves nothing.
 - Bot check on sign in codes: set `TURNSTILE_SITE_KEY` in Cloudflare Pages and put the Turnstile secret in Supabase (Auth, Bot and Abuse Protection, Turnstile). Set the site key first. Test customer and staff sign in right after.
 
 ## Checks
