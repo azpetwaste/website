@@ -316,6 +316,18 @@ ok('customer skips a visit', r.status === 200 && r.d.plan.skipsLeft === 3, r.d.p
 r = await call('/api/office/plan', 'POST', { date: day2 }, owner);
 ok('the skipped day leaves them off the route', r.d.added === (HOMES.filter((h) => h[3] !== 'eow').length - 1) || r.d.due < 10, r.d);
 
+console.log('\nA yard added later lands in driving order, not at the end');
+{
+  r = await call('/api/me/skip', 'POST', { date: day2, undo: true }, tokens[0]);
+  r = await call('/api/office/plan', 'POST', { date: day2 }, owner);
+  ok('the day builder adds the one missing yard', r.d.added === 1, r.d.added);
+  const rows = (await db.query(`select s.position, s.customer_id, c.lat, c.lng, s.created_at from public.stops s join public.customers c on c.id = s.customer_id where s.day = $1 and s.status = 'scheduled' order by s.position, s.id`, [day2])).rows;
+  const mi = (a, b) => Math.hypot((a.lat - b.lat) * 69, (a.lng - b.lng) * 57.9), len = (l) => l.slice(1).reduce((n, x, i) => n + mi(l[i], x), 0);
+  const late = rows.slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0], atEnd = rows.filter((x) => x !== late).concat([late]);
+  ok('the route is numbered 1 to ' + rows.length + ' with no gaps', rows.every((x, i) => x.position === i + 1), rows.map((x) => x.position).join(','));
+  ok('the new yard sits where it makes the shortest drive', len(rows) <= len(atEnd) + 1e-6, Math.round(len(rows) * 10) / 10 + ' mi, against ' + Math.round(len(atEnd) * 10) / 10 + ' with it tacked on the end');
+}
+
 await Promise.all(waits.splice(0));
 console.log('\n' + pass + ' passed, ' + failN + ' failed');
 await db.end();

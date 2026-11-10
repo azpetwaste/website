@@ -785,7 +785,7 @@ async function desk(path, request, env, ctx) {
   if (path === '/api/office/settings' && m === 'POST') return officeSettings(env, b);
   if (path === '/api/office/plan' && m === 'POST') return ok(await planDay(env, isDay(b.date) ? b.date : azToday()));
   if (path === '/api/office/stop' && m === 'POST') return officeStop(env, b);
-  if (path === '/api/office/loads' && m === 'GET') return officeLoads(env, q.get('from'), q.get('staff'));
+  if (path === '/api/office/loads' && m === 'GET') return officeLoads(env, q.get('from'), q.get('staff'), q.get('ids'));
   if (path === '/api/office/move-day' && m === 'POST') return officeMoveDay(env, b);
   if (path === '/api/office/customers' && m === 'GET') return officeCustomers(env, q);
   if (path === '/api/office/customer' && m === 'GET') return officeCustomer(env, q.get('id'));
@@ -1339,7 +1339,7 @@ async function planDay(env, day) {
   const todo = due.filter((c) => !have.has(c.id) && (c.scooper_id || fallback));
   const staffIds = [...new Set(todo.map((c) => c.scooper_id || fallback))];
   if (staffIds.length) await db(env, 'POST', 'routes?on_conflict=day,staff_id', staffIds.map((id) => ({ day, staff_id: id })), 'resolution=ignore-duplicates,return=minimal');
-  const routes = await db(env, 'GET', 'routes?day=eq.' + day + '&select=id,staff_id');
+  const routes = await db(env, 'GET', 'routes?day=eq.' + day + '&select=id,staff_id,status');
   const routeOf = Object.fromEntries(routes.map((r) => [r.staff_id, r.id]));
   // Stops with a stop order set by the office keep it. Every other stop is put in the shortest driving order for its scooper.
   const sorted = [];
@@ -1357,6 +1357,13 @@ async function planDay(env, day) {
     await db(env, 'POST', 'stops?on_conflict=day,customer_id', sorted.map((c, i) => ({
       route_id: routeOf[c.scooper_id || fallback], customer_id: c.id, day, position: (c.stop_order ?? 9000 + i), code: newCode()
     })), 'resolution=ignore-duplicates,return=minimal');
+    // A new customer added to a route that already had yards: put the whole waiting route back in the best driving order,
+    // so the new yard lands where it belongs and is not tacked on the end. A route that is already live is left alone.
+    for (const r of routes) {
+      if (r.status && r.status !== 'planned') continue;
+      const mine = sorted.filter((c) => routeOf[c.scooper_id || fallback] === r.id).length;
+      if (mine && have.size) await reorderRoute(env, r.id).catch((e) => console.error('reorder', e));
+    }
   }
   return { ok: true, day, added: sorted.length, due: due.length, noScooper: due.filter((c) => !have.has(c.id) && !c.scooper_id && !fallback).length,
     routeMiles: Math.round(routeMiles * 10) / 10, milesSaved: Math.round(milesSaved * 10) / 10, unpaid,
@@ -1387,28 +1394,53 @@ async function renumber(env, routeId) {
 }
 // Puts a route's waiting stops in the shortest driving order again. Stops already started or finished keep their place.
 async function reorderRoute(env, routeId) {
-  const list = await db(env, 'GET', 'stops?route_id=eq.' + routeId + '&select=id,route_id,customer_id,day,code,status,position,customer:customers(lat,lng,address)&order=position,id');
-  const fixed = list.filter((x) => x.status !== 'scheduled'), free = list.filter((x) => x.status === 'scheduled');
-  if (!free.length) return;
-  const order = shortOrder(free.map((x) => ({ row: x, lat: x.customer && x.customer.lat, lng: x.customer && x.customer.lng })), routeStart(env));
+  const list = await db(env, 'GET', 'stops?route_id=eq.' + routeId + '&select=id,route_id,customer_id,day,code,status,position,customer:customers(lat,lng,address,stop_order)&order=position,id');
+  const fixed = list.filter((x) => x.status !== 'scheduled'), wait = list.filter((x) => x.status === 'scheduled');
+  if (!wait.length) return;
+  // A yard the office gave a set place (stop order) keeps it and goes first. Everything else is put in the shortest order.
+  const set = wait.filter((x) => x.customer && x.customer.stop_order != null).sort((x, y) => x.customer.stop_order - y.customer.stop_order);
+  const free = wait.filter((x) => !(x.customer && x.customer.stop_order != null));
+  const order = set.map((x) => ({ row: x })).concat(shortOrder(free.map((x) => ({ row: x, lat: x.customer && x.customer.lat, lng: x.customer && x.customer.lng })), routeStart(env)));
   const base = fixed.reduce((n, x) => Math.max(n, x.position < 9000 ? x.position : 0), 0);
   // One write for the whole route. A stop is found by its day and customer, which is unique.
   await db(env, 'POST', 'stops?on_conflict=day,customer_id', order.map((o, i) => ({ route_id: o.row.route_id, customer_id: o.row.customer_id, day: o.row.day, code: o.row.code, position: base + i + 1 })), 'resolution=merge-duplicates,return=minimal');
 }
 // How many yards each of the next 7 days holds for one scooper, so the office can see where there is room before moving yards.
 // A day with routes built counts its stops. A day not built yet counts the yards whose service day it is.
-async function officeLoads(env, from, staffId) {
+async function officeLoads(env, from, staffId, idList) {
   const start = isDay(from) ? from : azToday(), days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
   const fallback = await defaultScooper(env), sid = staffId || fallback;
-  const stops = await db(env, 'GET', 'stops?day=gte.' + days[0] + '&day=lte.' + days[6] + '&select=day,status,customer_id,route:routes(staff_id)');
-  const cust = await dbAll(env, 'customers?status=in.(trialing,active)&service_day=not.is.null&select=id,plan,eow_week,scooper_id,service_day,service_day2,pause_from,pause_until,first_visit&order=id');
+  const stops = await db(env, 'GET', 'stops?day=gte.' + days[0] + '&day=lte.' + days[6] + '&select=id,day,status,customer_id,route:routes(staff_id),customer:customers(lat,lng)');
+  const cust = await dbAll(env, 'customers?status=in.(trialing,active)&service_day=not.is.null&select=id,plan,eow_week,scooper_id,service_day,service_day2,pause_from,pause_until,first_visit,lat,lng&order=id');
+  // The yards the office is thinking of moving. With these we can say what the move costs in miles and drive time.
+  const ids = String(idList || '').split(',').map((x) => parseInt(x, 10)).filter(Boolean).slice(0, 200);
+  const picked = ids.length ? await db(env, 'GET', 'stops?id=in.(' + ids.join(',') + ')&select=id,day,customer_id,customer:customers(lat,lng)') : [];
+  const movePts = picked.map((x) => ({ id: x.customer_id, lat: x.customer && x.customer.lat, lng: x.customer && x.customer.lng })).filter(pinned);
+  const moveSet = new Set(picked.map((x) => x.customer_id)), fromDay = (picked[0] || {}).day || null, home = routeStart(env);
+  // Road miles for one scooper's day, from the truck start and back when we know it.
+  const dayMi = (list) => {
+    const pins = shortOrder(list.filter(pinned), home).filter(pinned);
+    if (!pins.length) return 0;
+    return pathMiles(pins) + (home ? (miles(home, pins[0]) + miles(pins[pins.length - 1], home)) * 1.35 : 0);
+  };
+  let saves = null;
   const out = days.map((d) => {
     const built = stops.filter((x) => x.day === d), have = new Set(built.map((x) => x.customer_id)), wd = weekday(d);
     const due = cust.filter((c) => !have.has(c.id) && (c.scooper_id || fallback) === sid && (c.service_day === wd || c.service_day2 === wd) &&
       !(c.plan === 'eow' && weekParity(d) !== (c.eow_week || 0)) && !(c.pause_from && c.pause_from <= d && (!c.pause_until || c.pause_until >= d)) && !(c.first_visit && d < c.first_visit));
-    return { day: d, dayName: DAYS[wd], yards: built.filter((x) => x.status !== 'skipped' && x.route && x.route.staff_id === sid).length + due.length, works: workDays(env).includes(wd) };
+    const mine = built.filter((x) => x.status !== 'skipped' && x.route && x.route.staff_id === sid);
+    const row = { day: d, dayName: DAYS[wd], yards: mine.length + due.length, works: workDays(env).includes(wd) };
+    if (movePts.length) {
+      const pts = mine.map((x) => ({ id: x.customer_id, lat: x.customer && x.customer.lat, lng: x.customer && x.customer.lng })).concat(due.map((c) => ({ id: c.id, lat: c.lat, lng: c.lng })));
+      const before = dayMi(pts);
+      if (d === fromDay) { const rest = dayMi(pts.filter((x) => !moveSet.has(x.id))); saves = { miles: Math.round((before - rest) * 10) / 10, minutes: Math.round((before - rest) / 25 * 60) }; row.miles = Math.round(before * 10) / 10; }
+      else { const seen = new Set(pts.map((x) => x.id)), after = dayMi(pts.concat(movePts.filter((x) => !seen.has(x.id)))); row.miles = Math.round(before * 10) / 10; row.addMiles = Math.round((after - before) * 10) / 10; row.addMinutes = Math.round((after - before) / 25 * 60); }
+    }
+    return row;
   });
-  return ok({ cap: dayCap(env), days: out });
+  // The day that takes these yards for the least extra driving and stays under the limit.
+  const fits = out.filter((x) => x.addMiles != null && x.works && x.yards + movePts.length <= dayCap(env)).sort((x, y) => x.addMiles - y.addMiles);
+  return ok({ cap: dayCap(env), days: out, saves, best: fits.length ? fits[0].day : null, moving: movePts.length });
 }
 // Office: move a group of yards to another day in one go. "forever" also changes the customer's regular day.
 // The old stop stays on its day as skipped with a note, so the day builder does not put the yard back.

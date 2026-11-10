@@ -188,3 +188,10 @@ Joe asked for one button to take, say, 10 of Juan's 30 Monday yards and send the
 - Cancel and the week rebuild now clear future `skipped` stops too, so no Moved markers are left behind.
 - Demo supports all of it. Other days in the demo start empty.
 - Tests: desk is now 80 (13 new for the group move).
+
+### Nov 9, 2026, 9:30 pm. Every move shows what it costs. New yards slot into the driving order.
+Joe: "our brain on this app needs to always be optimizing routes." A move must ask "are you sure, this adds X".
+- **Move yards sheet.** Each day now shows the extra miles and drive minutes the picked yards would add (`loads` takes `ids`, returns `addMiles`, `addMinutes`, `saves` for the day they leave, and `best`). The day that adds the least and stays under the limit is tagged Best fit. After a day is picked an "Are you sure?" box says: yards added, miles and minutes added, the new count, over the limit or not, how much shorter the old day gets, and a better day if there is one. The button reads "Yes, move to ...".
+- Minutes are driving only, at 25 mph on straight line miles times 1.35. Time in the yard is not counted. Joe has not given a minutes per yard number.
+- **New customers.** A sign up still just gets added. When the day builder adds a yard to a route that already has yards and has not started, the whole waiting route is put back in the best order (`reorderRoute` from `planDay`), so the new yard is not tacked on the end. A yard with an office set stop order keeps it and goes first. A live route is left alone.
+- Tests: desk 82, signup10 38 (3 new for the late yard: 31.9 miles in order against 41.5 tacked on the end).

@@ -280,9 +280,20 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (p === '/api/office/plan') return { added: 0 };
     if (p === '/api/office/night-before') return { queued: 0, day: D.today };
     if (p.indexOf('/api/office/loads') === 0) {
-      var f0 = q.get('from') || D.today, sf = q.get('staff');
-      return { cap: (S.wk && S.wk.cap) || 30, days: [0, 1, 2, 3, 4, 5, 6].map(function (i) { var dd = shift(f0, i), wd = new Date(dd + 'T19:00:00Z').getUTCDay();
-        return { day: dd, dayName: DAYS[wd], works: wd >= 1 && wd <= 5, yards: D.stops.filter(function (x) { var r = D.routes.filter(function (y) { return y.id === x.route_id; })[0]; return (x.day || D.today) === dd && x.status !== 'skipped' && r && r.staff.id === sf; }).length }; }) };
+      var f0 = q.get('from') || D.today, sf = q.get('staff'), cp = (S.wk && S.wk.cap) || 30, idl = (q.get('ids') || '').split(',').filter(Boolean);
+      var pin = function (x) { return { lat: x.customer.lat, lng: x.customer.lng }; };
+      // Road miles for a group of yards: go to the closest next yard each time, straight line times 1.35, like the server.
+      var mi = function (pts) { if (pts.length < 2) return 0; var left = pts.slice(), at = left.shift(), tot = 0; while (left.length) { var bi = 0, bd = Infinity; left.forEach(function (c, i) { var dd = meters(at, c); if (dd < bd) { bd = dd; bi = i; } }); tot += bd; at = left.splice(bi, 1)[0]; } return tot / 1609.34 * 1.35; };
+      var mv = D.stops.filter(function (x) { return idl.indexOf(String(x.id)) >= 0; }), mvP = mv.map(pin), sv = null;
+      var rows = [0, 1, 2, 3, 4, 5, 6].map(function (i) { var dd = shift(f0, i), wd = new Date(dd + 'T19:00:00Z').getUTCDay();
+        var here = D.stops.filter(function (x) { var r = D.routes.filter(function (y) { return y.id === x.route_id; })[0]; return (x.day || D.today) === dd && x.status !== 'skipped' && r && r.staff.id === sf; });
+        var row = { day: dd, dayName: DAYS[wd], works: wd >= 1 && wd <= 5, yards: here.length };
+        if (mv.length) { var before = mi(here.map(pin));
+          if (mv[0] && (mv[0].day || D.today) === dd) { var rest = mi(here.filter(function (x) { return mv.indexOf(x) < 0; }).map(pin)); sv = { miles: Math.round((before - rest) * 10) / 10, minutes: Math.round((before - rest) / 25 * 60) }; }
+          else { var after = mi(here.map(pin).concat(mvP)); row.addMiles = Math.round((after - before) * 10) / 10; row.addMinutes = Math.round((after - before) / 25 * 60); } }
+        return row; });
+      var fit = rows.filter(function (x) { return x.addMiles != null && x.works && x.yards + mv.length <= cp; }).sort(function (x, y) { return x.addMiles - y.addMiles; });
+      return { cap: cp, days: rows, saves: sv, best: fit.length ? fit[0].day : null, moving: mv.length };
     }
     if (p === '/api/office/move-day') {
       var wdn = DAYS[new Date(b.to + 'T19:00:00Z').getUTCDay()], n0 = 0;
@@ -665,17 +676,24 @@ table.t tr.click:hover td{background:var(--bg2)}
   async function sheetMove(routeId) {
     var d = S.data.day, r = d.routes.filter(function (x) { return x.id === routeId; })[0], ids = Object.keys(S.pick.ids).filter(function (k) { return S.pick.ids[k]; });
     if (!r || !ids.length) return;
-    var loads; try { loads = await api('GET', '/api/office/loads?from=' + d.today + '&staff=' + encodeURIComponent(r.staff ? r.staff.id : '')); } catch (e) { return toast(e.message); }
+    var loads; try { loads = await api('GET', '/api/office/loads?from=' + d.today + '&staff=' + encodeURIComponent(r.staff ? r.staff.id : '') + '&ids=' + ids.join(',')); } catch (e) { return toast(e.message); }
     var st = { to: null, forever: false }, el = document.createElement('div'); el.className = 'sheet';
     var draw = function () {
       el.innerHTML = '<div class="pane" role="dialog" aria-modal="true"><div class="lbl">' + h(r.staff ? r.staff.name : 'Route') + ', ' + h(dayLabel(d.day)) + '</div><p class="big" style="font-size:26px">Move ' + ids.length + ' yard' + (ids.length === 1 ? '' : 's') + '</p>' +
         '<span class="lbl" style="display:block;margin-top:6px">To which day?</span><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px">' +
         loads.days.filter(function (x) { return x.day !== d.day; }).map(function (x) { var after = x.yards + ids.length, bad = after > loads.cap;
-          return '<button data-to="' + x.day + '" style="text-align:left;padding:10px;min-height:64px;cursor:pointer;background:transparent;color:inherit;font:inherit;border:1px solid ' + (st.to === x.day ? 'var(--accent)' : 'var(--line)') + '"><b>' + h(dayLabel(x.day).replace(',', '')) + '</b><br><span class="mono" style="font-size:11px;color:' + (bad ? 'var(--bad)' : 'var(--mute)') + '">' + x.yards + ' now, ' + after + ' after</span></button>'; }).join('') + '</div>' +
-        '<p style="color:var(--mute);font-size:13px;margin:8px 0 0">The limit is ' + loads.cap + ' yards a day. Red means that day would go over.</p>' +
+          return '<button data-to="' + x.day + '" style="text-align:left;padding:10px;min-height:64px;cursor:pointer;background:transparent;color:inherit;font:inherit;border:1px solid ' + (st.to === x.day ? 'var(--accent)' : 'var(--line)') + '"><b>' + h(dayLabel(x.day).replace(',', '')) + '</b>' + (loads.best === x.day ? ' <span class="tag ok" style="font-size:9px;padding:1px 4px">Best fit</span>' : '') + '<br><span class="mono" style="font-size:11px;color:' + (bad ? 'var(--bad)' : 'var(--mute)') + '">' + x.yards + ' now, ' + after + ' after</span>' + (x.addMiles != null ? '<br><span class="mono" style="font-size:11px;color:var(--mute)">+' + x.addMiles + ' mi, +' + x.addMinutes + ' min</span>' : '') + '</button>'; }).join('') + '</div>' +
+        '<p style="color:var(--mute);font-size:13px;margin:8px 0 0">The limit is ' + loads.cap + ' yards a day. Red means that day would go over. Miles and minutes are the extra driving that day.</p>' +
+        (function () { var t = st.to && loads.days.filter(function (x) { return x.day === st.to; })[0]; if (!t) return '';
+          var over = t.yards + ids.length > loads.cap, best = loads.best && loads.best !== st.to ? loads.days.filter(function (x) { return x.day === loads.best; })[0] : null;
+          return '<div style="border:1px solid ' + (over ? 'var(--bad)' : 'var(--accent)') + ';padding:12px;margin-top:14px"><b>Are you sure?</b><p style="font-size:14px;margin:6px 0 0">' +
+            (t.addMiles != null ? 'This adds <b>' + ids.length + ' yard' + (ids.length === 1 ? '' : 's') + '</b>, <b>' + t.addMiles + ' miles</b> and about <b>' + t.addMinutes + ' minutes</b> of driving to ' + h(t.dayName) + '. ' : 'This adds <b>' + ids.length + ' yard' + (ids.length === 1 ? '' : 's') + '</b> to ' + h(t.dayName) + '. ') +
+            h(t.dayName) + ' goes from ' + t.yards + ' to ' + (t.yards + ids.length) + ' yards' + (over ? ', which is <b style="color:var(--bad)">over the limit of ' + loads.cap + '</b>' : '') + '.' +
+            (loads.saves ? ' ' + h(dayLabel(d.day).split(',')[0]) + ' gets ' + loads.saves.miles + ' miles and about ' + loads.saves.minutes + ' minutes shorter.' : '') +
+            (best && t.addMiles != null && best.addMiles < t.addMiles ? ' <b>' + h(best.dayName) + ' is a better fit:</b> only ' + best.addMiles + ' more miles.' : '') + '</p></div>'; })() +
         '<span class="lbl" style="display:block;margin-top:16px">For how long?</span><div class="chips" style="margin-top:8px"><button class="chip' + (st.forever ? '' : ' on') + '" data-fv="0">Just this visit</button><button class="chip' + (st.forever ? ' on' : '') + '" data-fv="1">Every week from now on</button></div>' +
         '<p style="color:var(--mute);font-size:13px;margin:8px 0 0">' + (st.forever ? 'This changes the customer\'s regular day. Each one gets an email with the new day.' : 'Only this visit moves. Next week they are back on their regular day.') + '</p>' +
-        '<div style="height:12px"></div><button class="btn" id="mv"' + (st.to ? '' : ' disabled') + '>' + (st.to ? 'Move to ' + h(dayLabel(st.to)) : 'Pick a day') + '</button><button class="btn ghost" id="mx" style="margin-top:8px">Back</button></div>';
+        '<div style="height:12px"></div><button class="btn" id="mv"' + (st.to ? '' : ' disabled') + '>' + (st.to ? 'Yes, move to ' + h(dayLabel(st.to)) : 'Pick a day') + '</button><button class="btn ghost" id="mx" style="margin-top:8px">Back</button></div>';
       el.querySelectorAll('[data-to]').forEach(function (b) { b.onclick = function () { st.to = b.dataset.to; draw(); }; });
       el.querySelectorAll('[data-fv]').forEach(function (b) { b.onclick = function () { st.forever = b.dataset.fv === '1'; draw(); }; });
       el.querySelector('#mx').onclick = function () { el.remove(); };
