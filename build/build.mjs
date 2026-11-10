@@ -102,8 +102,10 @@ function socialHtml() {
     '<img src="' + x.img + '" alt="' + (x.url ? '' : x.n) + '" width="38" height="38" loading="lazy">' + (x.url ? '</a>' : '</span>')).join('') + '</div>';
 }
 function payHtml() {
-  const items = ['Visa', 'Mastercard', 'American Express', 'Discover', 'Apple Pay', 'Google Pay'].map((n) => ({ n, img: brandFile(n) })).filter((x) => x.img);
-  return items.length ? '<div class="fmarks">' + items.map((x) => '<img src="' + x.img + '" alt="' + x.n + '" height="30" loading="lazy">').join('') + '</div>' : '';
+  // Card shaped tiles with the name in plain type. An official logo file in static/assets/img/brands/ replaces a tile (never redraw a brand logo).
+  const tile = (n, cls) => { const img = brandFile(n); return img ? '<img src="' + img + '" alt="' + n + '" height="38" loading="lazy">' : '<span class="fcard ' + cls + '"><i aria-hidden="true"></i><b>' + n + '</b></span>'; };
+  return '<div class="fmarks" role="group" aria-label="Cards we take">' + ['Visa', 'Mastercard', 'Amex', 'Discover'].map((n) => tile(n, 'fc-card')).join('') + '</div>' +
+    '<div class="fmarks" role="group" aria-label="Phone wallets we take">' + ['Apple Pay', 'Google Pay'].map((n) => tile(n, 'fc-pay')).join('') + '</div>';
 }
 // Every ZIP code in each town we serve, with the neighborhoods in it. The town copy (design/generator/longform.py) is the one list.
 function townZips(area) {

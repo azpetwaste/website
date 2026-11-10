@@ -800,7 +800,14 @@ REVAMP_CSS += r"""
 .apw .fpay{margin:0;font-size:15px;line-height:1.6;color:#D5DAF0}
 .apw .fpay a{color:#FF8A66;font-weight:700}
 .apw .fmarks{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
-.apw .fmarks img{height:30px;width:auto;display:block;border-radius:5px}
+.apw .fmarks img{height:38px;width:auto;display:block;border-radius:6px}
+.apw .fmarks+.fmarks{margin-top:8px}
+.apw .fcard{position:relative;display:flex;align-items:flex-end;justify-content:flex-start;width:78px;height:48px;padding:0 7px 6px;border-radius:7px;background:linear-gradient(135deg,#FFFFFF,#DDE2F2);color:#0E1430;box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 2px 6px rgba(0,0,0,.35)}
+.apw .fcard i{position:absolute;left:6px;top:7px;width:13px;height:10px;border-radius:2.500px;background:linear-gradient(135deg,#F4C56A,#C8922E)}
+.apw .fcard b{font-size:10px;font-weight:800;letter-spacing:.02em;line-height:1;white-space:nowrap}
+.apw .fcard.fc-pay{width:auto;min-width:98px;height:48px;align-items:center;justify-content:center;padding:0 14px;background:#FFFFFF}
+.apw .fcard.fc-pay i{display:none}
+.apw .fcard.fc-pay b{font-size:14px}
 .apw .fsoc{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px}
 .apw .fsoc a,.apw .fsoc span{display:block;min-height:0;padding:0;border:0;border-radius:0}
 .apw .fsoc img{width:38px;height:38px;display:block}
