@@ -139,8 +139,23 @@ function zipsHtml(area, name) {
 function hoodNames(area) {
   return townZips(area).flatMap((g) => g.names);
 }
+// Real Google reviews only. Each one is typed into src/site.config.json "reviews" from the live Google profile:
+// { "name": "First name L.", "town": "Verrado", "stars": 5, "text": "their words", "url": "link to the review on Google" }.
+// Nothing shows until a real review is in the list. Never write one.
+function reviewsHtml() {
+  const rs = (cfg.reviews || []).filter((r) => r && r.name && r.text && r.url && r.stars);
+  if (!rs.length) return '';
+  const avg = (rs.reduce((n, r) => n + Number(r.stars), 0) / rs.length).toFixed(1);
+  const star = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#FBBC04" d="M12 2.6l2.9 6 6.6.9-4.8 4.6 1.2 6.500L12 17.500 6.100 20.600l1.200-6.500L2.500 9.500l6.600-.900z"></path></svg>';
+  const r = rs[0];
+  const n = Math.round(Number(r.stars));
+  return '<a class="grv" href="' + esc(cfg.googleProfile || r.url) + '" target="_blank" rel="noopener">' +
+    '<span class="grv-s" role="img" aria-label="' + n + ' out of 5 stars">' + star.repeat(n) + '</span>' +
+    '<span class="grv-t"><b>' + avg + '</b> on Google · ' + rs.length + (rs.length === 1 ? ' review' : ' reviews') + '</span>' +
+    '<span class="grv-q">“' + esc(r.text) + '”</span><span class="grv-n">' + esc(r.name) + (r.town ? ' · ' + esc(r.town) : '') + '</span></a>';
+}
 const slots = (m, extra) => {
-  let out = m.replace('<!--BADGES-->', badgesHtml()).replace('<!--SOCIAL-->', socialHtml()).replace('<!--PAYMARKS-->', payHtml());
+  let out = m.replace('<!--REVIEWS-->', reviewsHtml()).replace('<!--BADGES-->', badgesHtml()).replace('<!--SOCIAL-->', socialHtml()).replace('<!--PAYMARKS-->', payHtml());
   if (extra) out = extra(out);
   return out;
 };
@@ -254,11 +269,43 @@ const FONTS_PRE = '<link rel="preconnect" href="https://fonts.googleapis.com"><l
 const BF_BAR = `<a class="bf" href="/book/" data-deal-end="${DEAL_END}" aria-label="Black Friday sale. Your first month is free. Ends Monday, November 30."><span class="bf-tag">Black Friday</span><span class="bf-t">First month free</span><span class="bf-d">Ends Mon, Nov 30</span><span class="bf-c" aria-hidden="true"><b data-u="d">00</b>d <b data-u="h">00</b>h <b data-u="m">00</b>m <b data-u="s">00</b>s</span><span class="bf-go">Get it ›</span></a>`;
 const BF_SKIP = new Set(['/book/', '/account/']);
 const BF_CSS = `.bf{font-family:"Schibsted Grotesk",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px 12px;padding:9px 14px;background:#0B0B0F;color:#fff;text-decoration:none;font-size:14px;line-height:1.3;text-align:center}.bf:hover .bf-go,.bf:focus-visible .bf-go{text-decoration:underline}.bf-tag{padding:3px 8px;border-radius:6px;background:#FF4A1C;color:#0E1430;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}.bf-t{font-weight:800}.bf-d{color:#C9CDE0}.bf-c{display:none;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-weight:700;color:#FFB199;font-variant-numeric:tabular-nums}.bf-c b{font-weight:800}html.bf-live .bf-c{display:inline}.bf-go{font-weight:800;color:#FF8A66}@media (max-width:560px){.bf{gap:4px 10px;padding:8px 10px;font-size:13px}.bf-d,.bf-go{display:none}}.bfd{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px 24px;margin:0 0 22px;padding:20px 22px;border-radius:22px;background:#0B0B0F;color:#fff;border:2px solid #FF4A1C;box-shadow:0 0 0 4px rgba(255,74,28,.18)}.bfd p{margin:0}.bfd-tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#FF8A66}.bfd-dot{width:8px;height:8px;border-radius:50%;background:#FF4A1C;animation:bfp 1.4s infinite}@keyframes bfp{50%{opacity:.25}}.bfd .bfd-h{margin-top:8px;font-size:clamp(26px,4vw,38px);font-weight:800;letter-spacing:-.03em;line-height:1.05;color:#fff}.bfd-h span{color:#FF4A1C}.bfd .bfd-p{margin-top:8px;font-size:16px;line-height:1.45;color:#D5DAF0}.bfd .bfd-ends{margin-bottom:8px;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#C9CDE0;text-align:center}.bfd-clock{display:flex;justify-content:center;gap:8px}.bfd-clock span{display:grid;justify-items:center;min-width:58px;padding:8px 6px;border-radius:12px;background:#1A1B24;border:1px solid #2C2E3A}.bfd-clock b{font-size:26px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;color:#fff}.bfd-clock i{margin-top:4px;font-style:normal;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#9CA2BD}.bfd .bfd-fine{grid-column:1/-1;font-size:13px;line-height:1.45;color:#9CA2BD}@media (max-width:720px){.bfd{grid-template-columns:minmax(0,1fr);padding:18px}.bfd .bfd-ends{text-align:left}.bfd-clock{justify-content:flex-start}}.sticker.bf-st{background:#0B0B0F;color:#fff}.sticker.bf-st::after{border-color:rgba(255,74,28,.95)}.bf-chip{display:inline-flex;align-items:center;gap:8px;margin:10px 0 0;padding:6px 12px 6px 6px;border-radius:999px;background:#0B0B0F;color:#fff;font-size:14px;font-weight:700}.bf-chip span{padding:3px 8px;border-radius:999px;background:#FF4A1C;color:#0E1430;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}@media (prefers-reduced-motion:reduce){.bfd-dot{animation:none}}html.bf-over .bf,html.bf-over [data-deal-end]{display:none!important}`;
+// Book, Call, Text. One bar, fixed to the bottom of every public page on phones and tablets, there from the first paint.
+const DK_PHONE = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.500 1.500a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"></path></svg>';
+const DK_CHAT = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H10l-6 4z"></path></svg>';
+const DOCK = `<nav class="dk" aria-label="Book, call or text">
+<div class="dk-r"><a class="dk-b" href="/book/"><b>Book now</b>[[bf:<small>Black Friday deal: first month free</small>||<small>First cleanup free</small>]]</a>
+<a class="dk-i" href="tel:+16233096104" aria-label="Call 623.309.6104">${DK_PHONE}<span>Call</span></a>
+<a class="dk-i" href="sms:+16233096104" aria-label="Text 623.309.6104">${DK_CHAT}<span>Text</span></a></div>
+<p class="dk-n"><a href="tel:+16233096104">623.309.6104</a> · Open 8 to 5, every day</p>
+</nav>`;
+const DOCK_SKIP = new Set(['/book/', '/account/']);
+const DOCK_CSS = `.dk{position:fixed;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px));z-index:35;padding:8px 8px 6px;border-radius:22px;background:rgba(10,15,36,.86);-webkit-backdrop-filter:blur(14px) saturate(1.4);backdrop-filter:blur(14px) saturate(1.4);border:1px solid rgba(255,255,255,.14);box-shadow:0 14px 40px rgba(0,0,0,.5);font-family:"Schibsted Grotesk",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+.dk-r{display:flex;gap:8px;max-width:560px;margin:0 auto}
+.dk a{text-decoration:none;-webkit-tap-highlight-color:transparent}
+.dk-b{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:54px;padding:0 10px;border-radius:15px;background:#FF4A1C;color:#0E1430;line-height:1.15}
+.dk-b b{font-size:18px;font-weight:800;letter-spacing:-.01em}
+.dk-b small{margin-top:2px;font-size:12px;font-weight:700;white-space:nowrap}
+.dk-i{flex:0 0 66px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:54px;border-radius:15px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#fff;font-size:13px;font-weight:700}
+.dk-b:active,.dk-i:active{transform:scale(.97)}
+.dk a:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.dk-n{margin:6px 0 0;text-align:center;font:600 12px/1.2 "IBM Plex Mono",ui-monospace,Consolas,monospace;letter-spacing:.04em;color:#AEB5D8}
+.dk-n a{color:#fff}
+html.book-open .dk{display:none}
+@media (max-width:1023px){body.has-dk{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}}
+@media (min-width:1024px){.dk{display:none}}
+@media (max-width:350px){.dk-b small{display:none}.dk-i{flex-basis:58px}}
+@media print{.dk{display:none}}
+.apw .grv{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:4px 10px;margin:14px 0 0;padding:12px 14px;border-radius:16px;background:var(--card);border:1px solid var(--line);color:var(--ink);text-decoration:none}
+.apw .grv-s{display:inline-flex;gap:1px}
+.apw .grv-t{font-size:15px}
+.apw .grv-q{grid-column:1/-1;font-size:15px;line-height:1.45;color:var(--ink2)}
+.apw .grv-n{grid-column:1/-1;font:600 12px/1.2 "IBM Plex Mono",ui-monospace,monospace;color:var(--mute)}`;
 function page(p) {
+  const dock = !DOCK_SKIP.has(p.route);
   const url = ORIGIN + p.route;
   const robots = p.index ? 'index, follow, max-image-preview:large, max-snippet:-1' : 'noindex, follow';
   const graph = p.index ? [website, business, { '@type': 'WebPage', '@id': url + '#webpage', url, name: p.title, description: p.description, isPartOf: { '@id': ORIGIN + '/#website' }, about: { '@id': BIZ_ID }, inLanguage: 'en-US', dateModified: TODAY }, ...(p.ld || [])] : null;
-  const css = p.css.join('\n') + '\n' + SITE_CSS + '\n' + BF_CSS + '\n.stf{display:block;width:max-content;margin:0 auto;padding:6px 10px 10px;font:10px/1 ui-monospace,Consolas,monospace;letter-spacing:.12em;color:#2A3150;text-decoration:none}.stf:hover,.stf:focus-visible{color:#6B7398}@media (max-width:1023px){.stf{padding-bottom:104px}}';
+  const css = p.css.join('\n') + '\n' + SITE_CSS + '\n' + BF_CSS + '\n' + DOCK_CSS + '\n.stf{display:block;width:max-content;margin:0 auto;padding:6px 10px 10px;font:10px/1 ui-monospace,Consolas,monospace;letter-spacing:.12em;color:#2A3150;text-decoration:none}.stf:hover,.stf:focus-visible{color:#6B7398}';
   const scripts = [assets['dc.js'], ...p.boards.map((b) => b.js), assets['apw.js']];
   const html = `<!doctype html>
 <html lang="en">
@@ -292,11 +339,12 @@ ${p.fonts}
 <style>${css}</style>
 ${graph ? `<script type="application/ld+json">${ldjson({ '@context': 'https://schema.org', '@graph': graph })}</script>` : ''}
 </head>
-<body${p.bodyClass ? ` class="${p.bodyClass}"` : ''}>
+<body${(p.bodyClass || dock) ? ` class="${[p.bodyClass, dock ? 'has-dk' : ''].filter(Boolean).join(' ')}"` : ''}>
 ${gtmBody(p)}<a class="skip" href="#app">Skip to content</a>
 ${BF_SKIP.has(p.route) ? '' : '[[bf:' + BF_BAR + '||]]'}
 <div id="app" data-board="${p.board}">${p.body}</div>
 <a class="stf" href="/crew/" rel="nofollow">staff</a>
+${dock ? DOCK : ''}
 ${p.dock ? `<div id="book-dock" role="dialog" aria-modal="true" aria-label="[[bf:Start your free month||Book now]]">${p.dock}</div>` : ''}
 <noscript><style>#book-dock{display:none!important}</style></noscript>
 ${scripts.map((s) => `<script src="${s}" defer></script>`).join('\n')}

@@ -20,6 +20,19 @@
 .apw .cfact{display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-top:1px solid var(--line)}
 .apw .cfact b{display:block;font-size:17px;color:var(--ink)}
 .apw .cfact span{display:block;margin-top:3px;font-size:16px;line-height:1.55;color:var(--ink2)}
+.apw .folds{margin-top:16px;border-top:1px solid var(--line)}
+.apw .fold{border-bottom:1px solid var(--line)}
+.apw .fold>summary{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:64px;padding:8px 2px;cursor:pointer;list-style:none}
+.apw .fold>summary::-webkit-details-marker{display:none}
+.apw .fold>summary::after{content:"";flex:0 0 10px;width:10px;height:10px;margin-right:4px;border-right:2px solid var(--accent-text);border-bottom:2px solid var(--accent-text);transform:rotate(45deg);transition:transform .2s}
+.apw .fold[open]>summary::after{transform:rotate(-135deg)}
+.apw .fold-h{margin:0;font-size:19px;font-weight:800;letter-spacing:-.02em;line-height:1.25;color:var(--ink)}
+.apw .foldb{max-width:820px;padding:4px 0 26px}
+.apw .foldb .hcards,.apw .foldb.lfb,.apw .foldb .zipgs,.apw .foldb .inc-l{margin-top:0}
+.apw .foldb .hcards{grid-template-columns:minmax(0,1fr)}
+.apw .foldb>.cp:first-child{margin-top:0}
+.apw .fold-s{margin-top:14px;border-top:1px solid var(--line)}
+.apw .fold-s>summary{min-height:52px;font-size:16px;font-weight:700;color:var(--ink)}
 </style>
 </helmet>
 <div class="apw {{ themeClass }}" style="min-height: 100%; background: var(--bg); color: var(--ink);">
@@ -36,10 +49,10 @@
     <h1 class="h1 h1-city">Pooper scooper service in @@C_NAME@@<span style="color: var(--accent);">.</span></h1>
     <p class="cp" style="margin-top: 16px;">@@C_INTRO@@</p>
     <div class="hbk" style="margin-top: 22px;">
-      <a href="Booking.dc.html" class="btn btn-dot">Book now</a>
-      [[bf:<span class="sticker bf-st" style="right: -2px; top: -18px;">Black<br>Friday<br>sale</span>||]]
+      <a href="Booking.dc.html" class="btn btn-dot">[[bf:Get the Black Friday deal||Book now]]</a>
     </div>
-    <p class="mono hsm">Bonded and insured · Free deodorizer spray · No contract</p>
+    <p class="mono hsm">[[bf:First month free · ||]]Bonded and insured · No contract</p>
+    <!--REVIEWS-->
   </div>
   </div>
 </section>
@@ -55,36 +68,9 @@
 @@MAP@@
   </div>
   <div class="wh-c">
-@@MAP_CHIPS@@
   @@MAP_KEY@@
-  <p class="mono" style="display: flex; align-items: center; gap: 10px; margin: 14px 0 0; padding: 12px 14px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); font-size: 14px; color: var(--ink);"><span class="ldot"></span>@@C_NAME_CAPS@@: WE SET YOUR DAY BY ROUTE</p>
+  <details class="fold fold-s"><summary>See the neighborhoods we cover</summary><div class="foldb"><!--HOODS--></div></details>
   </div>
-  </div>
-</section>
-
-@@C_HOODS_SEC@@
-<section class="sec" style="background: var(--bg2);">
-  <div class="in g2">
-  <div class="stk">
-    <h2 class="h2" style="margin-top: 0; color: var(--ink);">@@C_WHY_H2@@<span style="color: var(--accent);">.</span></h2>
-  </div>
-  <div class="cwhy">
-  @@C_WHY@@
-  </div>
-  </div>
-</section>
-
-<section class="sec" style="background: var(--bg2);">
-  <div class="in inc">
-  <h2 class="h2 inc-h" style="margin-top: 0; color: var(--ink);">What every visit includes<span style="color: var(--accent);">.</span></h2>
-  <div class="inc-l">
-    <div class="cfact"><span style="color: var(--accent-text); display: flex; flex: 0 0 auto; margin-top: 2px;">@@ICON_CHAT22@@</span><div><b>A text the night before</b><span>You get a 30 minute window for your visit.</span></div></div>
-    <div class="cfact"><span style="color: var(--accent-text); display: flex; flex: 0 0 auto; margin-top: 2px;">@@ICON_PIN@@</span><div><b>A live map on your day</b><span>Watch our truck drive to your house. No app needed.</span></div></div>
-    <div class="cfact"><span style="color: var(--accent-text); display: flex; flex: 0 0 auto; margin-top: 2px;">@@ICON_ROWS@@</span><div><b>Every pile, front to back</b><span>We walk your yard in rows. Rock and gravel get raked.</span></div></div>
-    <div class="cfact"><span style="color: var(--accent-text); display: flex; flex: 0 0 auto; margin-top: 2px;">@@ICON_SPRAY@@</span><div><b>Free deodorizer spray</b><span>We spray deodorizer on the spots your dogs use most.</span></div></div>
-    <div class="cfact" style="border-bottom: 1px solid var(--line);"><span style="color: var(--accent-text); display: flex; flex: 0 0 auto; margin-top: 2px;">@@ICON_CAMERA@@</span><div><b>A photo of your shut gate</b><span>We latch it, pull on it, and send you the photo.</span></div></div>
-  </div>
-  <a href="Main.dc.html" class="inc-a" style="display: inline-flex; align-items: center; gap: 8px; min-height: 48px; margin-top: 10px; font-size: 16px; font-weight: 700; text-decoration: none;">Watch a sample visit@@ICON_ARROW@@</a>
   </div>
 </section>
 
@@ -109,7 +95,6 @@
   </div>
 </section>
 
-@@C_GUIDE@@
 <section id="questions" class="sec" style="background: var(--bg2); color: var(--ink);">
   <div class="in g2">
   <div class="stk">
@@ -118,6 +103,27 @@
   <div class="cfaq">
     @@C_FAQ@@
   </div>
+  </div>
+</section>
+
+<section id="more" class="sec" style="background: var(--bg);">
+  <div class="in">
+  <p class="eb">More about @@C_NAME@@</p>
+  <div class="folds">
+  <details class="fold"><summary><h2 class="fold-h">@@C_WHY_H2@@</h2></summary><div class="foldb cwhy">
+  @@C_WHY@@
+  </div></details>
+  <details class="fold"><summary><h2 class="fold-h">What every visit includes</h2></summary><div class="foldb">
+  <div class="inc-l">
+    <div class="cfact"><span style="color: var(--accent-text); display: flex; flex: 0 0 auto; margin-top: 2px;">@@ICON_CHAT22@@</span><div><b>A text the night before</b><span>You get a 30 minute window for your visit.</span></div></div>
+    <div class="cfact"><span style="color: var(--accent-text); display: flex; flex: 0 0 auto; margin-top: 2px;">@@ICON_PIN@@</span><div><b>A live map on your day</b><span>Watch our truck drive to your house. No app needed.</span></div></div>
+    <div class="cfact"><span style="color: var(--accent-text); display: flex; flex: 0 0 auto; margin-top: 2px;">@@ICON_ROWS@@</span><div><b>Every pile, front to back</b><span>We walk your yard in rows. Rock and gravel get raked.</span></div></div>
+    <div class="cfact"><span style="color: var(--accent-text); display: flex; flex: 0 0 auto; margin-top: 2px;">@@ICON_SPRAY@@</span><div><b>Free deodorizer spray</b><span>We spray deodorizer on the spots your dogs use most.</span></div></div>
+    <div class="cfact" style="border-bottom: 1px solid var(--line);"><span style="color: var(--accent-text); display: flex; flex: 0 0 auto; margin-top: 2px;">@@ICON_CAMERA@@</span><div><b>A photo of your shut gate</b><span>We latch it, pull on it, and send you the photo.</span></div></div>
+  </div>
+  <a href="Main.dc.html" style="display: inline-flex; align-items: center; gap: 8px; min-height: 48px; margin-top: 10px; font-size: 16px; font-weight: 700; text-decoration: none;">Watch a sample visit@@ICON_ARROW@@</a>
+  </div></details>
+@@C_HOODS_SEC@@@@C_GUIDE@@  </div>
   </div>
 </section>
 
@@ -164,8 +170,6 @@ class Component extends DCLogic {
     this._onScroll = () => {
       const el = document.documentElement;
       const vh = window.innerHeight || 800;
-      const show = !(el.scrollHeight > vh + 120) || (window.pageYOffset || el.scrollTop || 0) > 480;
-      if (show !== this.state.showBar) this.setState({ showBar: show });
     };
     window.addEventListener('scroll', this._onScroll, { passive: true });
     window.addEventListener('resize', this._onScroll);

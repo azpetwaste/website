@@ -127,7 +127,6 @@ def main_prod(html):
 
 def city_prod(html):
     # the ZIP list for the town goes right under the map chip
-    html = must(html, ': WE SET YOUR DAY BY ROUTE</p>', ': WE SET YOUR DAY BY ROUTE</p>\n<!--HOODS-->', label='map chip')
     a = html.find('<p class="eb" style="color: #FF8A66;">Reviews</p>')
     b_tag = '<p style="margin: 26px 0 0; font-size: 16px; font-weight: 700;">We also scoop near you</p>'
     b = html.find(b_tag)

@@ -98,18 +98,15 @@ def _blocks(text):
 
 
 def _section(sid, h2, body, bg):
-    return ('<section id="%s" class="sec lf" style="background: %s;">\n  <div class="in g2">\n  <div class="stk">\n'
-            '    <h2 class="h2" style="margin-top: 0; color: var(--ink);">%s<span style="color: var(--accent);">.</span></h2>\n'
-            '  </div>\n  <div class="lfb">\n%s\n  </div>\n  </div>\n</section>\n') % (sid, bg, h2, body)
+    return ('  <details id="%s" class="fold lf"><summary><h2 class="fold-h">%s</h2></summary><div class="foldb lfb">\n%s\n  </div></details>\n') % (sid, h2, body)
 
 
 def hoods_section(t, town):
     cards = ''.join(
         '<article class="hcard"><h3>%s</h3><p class="hz mono">ZIP %s</p>%s</article>' % (name, z, _blocks(text))
         for name, z, text in t['hoods'])
-    return ('<section id="neighborhoods" class="sec lf" style="background: var(--bg);">\n  <div class="in">\n  <div class="shd">\n'
-            '    <h2 class="h2" style="margin-top: 0; color: var(--ink);">%s<span style="color: var(--accent);">.</span></h2>\n'
-            '    <p class="cp">%s</p>\n  </div>\n  <div class="hcards">%s</div>\n  </div>\n</section>\n') % (t['hoods_h2'], t['hoods_intro'], cards)
+    return ('  <details id="neighborhoods" class="fold lf"><summary><h2 class="fold-h">%s</h2></summary><div class="foldb">\n'
+            '    <p class="cp">%s</p>\n  <div class="hcards" style="margin-top: 16px;">%s</div>\n  </div></details>\n') % (t['hoods_h2'], t['hoods_intro'], cards)
 
 
 def guide(t, town):

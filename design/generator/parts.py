@@ -258,7 +258,7 @@ SOON_NOTE = ('<div class="soon">'
              '<p class="soon-p"><b>We don’t come to you yet?</b> Let us know. Join the waitlist with your name, phone and address. [[bf:Join by November 30 and your first month is free when we start in your area.||Your first cleanup is free when we start in your area.]]</p>'
              '<a href="Booking.dc.html" class="btn btn-line soon-b">Join the waitlist</a>'
              '</div>')
-SITE_CSS += ('\n.soon{margin-top:18px;padding:16px;border-radius:18px;background:var(--card);border:1.6px dashed var(--field)}'
+SITE_CSS += ('\n.soon{margin-top:18px;padding:16px;border-radius:18px;background:var(--card);border:1px solid var(--line)}'
              '.soon-h{margin:0;font-size:13px;font-weight:600;letter-spacing:.1em;color:var(--accent-text)}'
              '.soon-l{margin:6px 0 0;font-size:16px;font-weight:700;line-height:1.45;color:var(--ink)}'
              '.soon-p{margin:8px 0 0;font-size:15px;line-height:1.5;color:var(--ink2)}'
@@ -385,7 +385,6 @@ PAGE_CSS = HDR_CSS + r"""
 .apw .h1-hero{margin-top:12px;padding:0 4px;font-size:42px;color:var(--ink)}
 .apw .hvid{margin-top:18px}
 .apw .hbk{position:relative;margin-top:18px}
-.apw .hbk .btn{padding-right:96px}
 .apw .hsm{margin:12px 0 0;font-size:13px;color:var(--mute);text-align:center}
 .apw .hp{margin:22px 4px 0;font-size:17px;line-height:1.55;color:var(--ink2)}
 .apw .prg{margin-top:22px}
@@ -569,14 +568,8 @@ def _menu(links):
             '</sc-if>')
 
 
-SBAR = ('<sc-if value="{{ showBar }}" hint-placeholder-val="{{ true }}">\n'
-        '  <div class="sbar" style="position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; background: var(--bg); border-top: 1px solid var(--line); box-shadow: 0 -10px 24px rgba(10,15,36,.10);">\n'
-        '    <div style="display: flex; gap: 10px; max-width: 560px; margin: 0 auto; padding: 10px 12px 14px;">\n'
-        '      <a href="Booking.dc.html" class="btn btn-dot" style="flex: 1;">Book now</a>\n'
-        '      <a href="sms:+16233096104" class="btn btn-line" style="padding: 0 18px;">' + ICON_CHAT + 'Text us</a>\n'
-        '    </div>\n'
-        '  </div>\n'
-        '</sc-if>')
+# The Book, Call, Text bar is one piece for every page now. It lives in build/build.mjs (DOCK).
+SBAR = ''
 
 _flab = 'class="mono" style="margin: 0 0 4px; font-size: 13px; font-weight: 600; letter-spacing: .09em; color: #AEB5D8;"'
 _fcon = 'style="display: flex; align-items: center; gap: 12px; min-height: 56px; color: #FFFFFF; font-size: 17px; font-weight: 700; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,.10);"'

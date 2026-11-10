@@ -111,9 +111,9 @@ MAP_CSS = (
 .mrun{fill:none;stroke:#CFC5B4;stroke-width:4;stroke-linecap:round}.dark .mrun{stroke:#2C3767}
 .mart{fill:none;stroke:#FFFFFF;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.dark .mart{stroke:#28346A}
 .mcanal{fill:none;stroke:#8CC4E6;stroke-width:1.4;stroke-linejoin:round}.dark .mcanal{stroke:#3D6E95}
-.mriver{fill:none;stroke:#8DBEE0;stroke-width:2.2;stroke-dasharray:1 4;stroke-linecap:round}
+.mriver{fill:none;stroke:#8DBEE0;stroke-width:1.6;stroke-linecap:round;opacity:.7}
 .mzipf{fill:rgba(255,74,28,.07);pointer-events:none}.dark .mzipf{fill:rgba(255,74,28,.10)}
-.mzipl{fill:none;stroke:#FF4A1C;stroke-width:1.4;stroke-dasharray:5 3;stroke-linejoin:round;opacity:.85;pointer-events:none}
+.mzipl{fill:none;stroke:#FF4A1C;stroke-width:1;stroke-linejoin:round;opacity:.45;pointer-events:none}
 .mzipt{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:10px;font-weight:600;letter-spacing:.04em;fill:#B02A08;paint-order:stroke;stroke:#F3E7D2;stroke-width:3px;stroke-linejoin:round;pointer-events:none}.dark .mzipt{fill:#FF8A66;stroke:#141D3D}
 .mplc{cursor:pointer;transition:fill .25s ease}
 .mfwy0{fill:none;stroke:#D99A3A;stroke-width:6;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
@@ -132,12 +132,12 @@ MAP_CSS = (
 .mchip{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 15px 0 12px;border-radius:999px;border:1.6px solid var(--ink);font:inherit;font-size:15px;font-weight:700;cursor:pointer;text-decoration:none;white-space:nowrap}
 .mchip i{display:block;width:12px;height:12px;border-radius:4px;border:2px solid #FF4A1C}
 .mkey{display:flex;align-items:center;gap:10px;margin:12px 0 0;font-size:15px;line-height:1.45;color:var(--ink2)}
-.mkey svg{flex:0 0 28px;display:block}
+.mkey-sw{flex:0 0 16px;width:16px;height:16px;border-radius:5px;background:#FF4A1C}
 .msn{font-family:Archivo,"Arial Black",sans-serif;font-size:10px;font-weight:800;letter-spacing:.06em;fill:#4A5272;paint-order:stroke;stroke:#F3E7D2;stroke-width:3px;stroke-linejoin:round;pointer-events:none}
 .dark .msn{fill:#AEB5D8;stroke:#141D3D}
 .mst{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:7.5px;font-weight:600;letter-spacing:.1em;fill:#B02A08;paint-order:stroke;stroke:#F3E7D2;stroke-width:2.6px;stroke-linejoin:round;pointer-events:none}
 .dark .mst{fill:#FF8A66;stroke:#141D3D}
 @media (prefers-reduced-motion:reduce){.mtruck{animation:none;transform:translate(193px,190px)}.mplc{transition:none}}""")
 
-MAP_KEY = ('<p class="mkey"><svg width="28" height="10" viewBox="0 0 28 10" aria-hidden="true"><path d="M1 5H27" stroke="#FF4A1C" stroke-width="2.4" stroke-dasharray="6 3"></path></svg>'
-           '<span>Each dashed line is a ZIP code. We scoop every home in all six: 85326, 85338, 85340, 85355, 85395 and 85396.</span></p>')
+MAP_KEY = ('<p class="mkey"><i class="mkey-sw" aria-hidden="true"></i>'
+           '<span>We scoop every home in the orange area. Every street.</span></p>')
