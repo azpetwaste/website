@@ -2,12 +2,12 @@
  "faq": {
   "main": [
    {
-    "q": "What is the Black Friday deal?",
-    "a": "Sign up by November 30 and your first month is free. The big chains give you one free cleanup or $25 off. We give you a whole month. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid."
+    "q": "[[bf:What is the Black Friday sale?||Is my first cleanup free?]]",
+    "a": "[[bf:Sign up by November 30 and your first month is free. The sale ends at midnight on November 30. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.||Yes. Your first cleanup is free when you sign up.]]"
    },
    {
     "q": "How much does it cost?",
-    "a": "Weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Sign up by November 30 and your first month is free."
+    "a": "Weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]"
    },
    {
     "q": "Is the spray really free?",
@@ -47,7 +47,7 @@
    },
    {
     "q": "When do you charge my card?",
-    "a": "On the 1st of each month. With the Black Friday deal, your first month is free. Your first charge only covers the days after your free month, so it is smaller. Then you pay the full price on the 1st of each month."
+    "a": "On the 1st of each month.[[bf: With the Black Friday sale, your first month is free. Your first charge only covers the days after your free month, so it is smaller. Then you pay the full price on the 1st of each month.||]]"
    },
    {
     "q": "Who sees my gate code?",
@@ -67,7 +67,7 @@
    },
    {
     "q": "How do I cancel?",
-    "a": "Tap cancel in My Yard. There is no contract and no phone call. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid."
+    "a": "Tap cancel in My Yard. There is no contract and no phone call. If you signed up with the Black Friday sale, keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid."
    },
    {
     "q": "What if I get another dog?",
@@ -93,7 +93,7 @@
   "common": [
    {
     "q": "How much does a pooper scooper cost in the West Valley?",
-    "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and your first month is free. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
+    "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
    },
    {
     "q": "Where should I throw away dog poop?",
@@ -158,7 +158,7 @@
     },
     {
      "q": "How much does a pooper scooper cost in Buckeye?",
-     "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and your first month is free. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
+     "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
     },
     {
      "q": "Where should I throw away dog poop?",
@@ -267,7 +267,7 @@
     },
     {
      "q": "How much does a pooper scooper cost in Goodyear?",
-     "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and your first month is free. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
+     "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
     },
     {
      "q": "Where should I throw away dog poop?",
@@ -376,7 +376,7 @@
     },
     {
      "q": "How much does a pooper scooper cost in Litchfield Park?",
-     "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and your first month is free. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
+     "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
     },
     {
      "q": "Where should I throw away dog poop?",
@@ -470,7 +470,7 @@
     },
     {
      "q": "How much does a pooper scooper cost in Citrus Park?",
-     "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and your first month is free. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
+     "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
     },
     {
      "q": "Where should I throw away dog poop?",
@@ -563,7 +563,7 @@
     },
     {
      "q": "How much does a pooper scooper cost in Verrado?",
-     "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and your first month is free. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
+     "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
     },
     {
      "q": "Where should I throw away dog poop?",

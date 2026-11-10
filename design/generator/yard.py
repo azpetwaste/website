@@ -167,7 +167,7 @@ SECTION = '''<section id="yard" class="sec" style="background: var(--bg);">
     <sc-if value="{{ ydIdle }}" hint-placeholder-val="{{ true }}"><button type="button" class="btn btn-dot yd-go" onClick="{{ ydGo }}">Scoop it</button></sc-if>
     <sc-if value="{{ ydDone }}" hint-placeholder-val="{{ false }}"><div class="yd-end">
       <h3>Clean. Every week.</h3>
-      <p>{{ planLine }} is {{ totalLabel }} a month, with the spray and the gate photo included. Your first month is free.</p>
+      <p>{{ planLine }} is {{ totalLabel }} a month, with the spray and the gate photo included. [[bf:Black Friday sale: first month free through November 30.||Your first cleanup is free.]]</p>
       <a href="Booking.dc.html" class="btn btn-dot">{{ ctaLabel }}</a>
       <button type="button" class="yd-again" onClick="{{ ydAgain }}">Run it again</button>
     </div></sc-if>

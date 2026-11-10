@@ -255,7 +255,7 @@ MAP = truemap.build('mV.pick', 'mC.pick', 'mG.pick', 'mL.pick', 'mB.pick')
 SOON_NOTE = ('<div class="soon">'
              '<p class="soon-h mono">COMING SOON</p>'
              '<p class="soon-l">Surprise, Peoria, Glendale, Laveen, the Central and East Valley, Tucson, Flagstaff, Kingman and Lake Havasu City.</p>'
-             '<p class="soon-p"><b>We don’t come to you yet?</b> Let us know. Join the waitlist by November 30 with your name, phone and address, and lock in your free month.</p>'
+             '<p class="soon-p"><b>We don’t come to you yet?</b> Let us know. Join the waitlist with your name, phone and address. [[bf:Join by November 30 and your first month is free when we start in your area.||Your first cleanup is free when we start in your area.]]</p>'
              '<a href="Booking.dc.html" class="btn btn-line soon-b">Join the waitlist</a>'
              '</div>')
 SITE_CSS += ('\n.soon{margin-top:18px;padding:16px;border-radius:18px;background:var(--card);border:1.6px dashed var(--field)}'
@@ -275,8 +275,8 @@ MAP_CHIPS = '''  <div class="mchips" role="group" aria-label="Towns we scoop">
 from scene import saguaro, agave, barrel  # noqa: E402
 
 FAQ_ITEMS = [
-    ('What is the Black Friday deal?', 'Sign up by November 30 and your first month is free. The big chains give you one free cleanup or $25 off. We give you a whole month. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.'),
-    ('How much does it cost?', 'Weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Sign up by November 30 and your first month is free.'),
+    ('[[bf:What is the Black Friday sale?||Is my first cleanup free?]]', '[[bf:Sign up by November 30 and your first month is free. The sale ends at midnight on November 30. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.||Yes. Your first cleanup is free when you sign up.]]'),
+    ('How much does it cost?', 'Weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]'),
     ('Is the spray really free?', 'Yes. At every visit, we spray deodorizer on the spots your dogs use most. It costs you nothing.'),
     ('Do you come in the summer heat?', 'Yes. In summer we start early, so your yard is done before the worst heat of the day.'),
     ('What if it storms?', 'Light rain is fine. If there is lightning, we wait until it is safe. We text you if your time changes.'),
@@ -286,12 +286,12 @@ FAQ_ITEMS = [
     ('Do you clean your tools?', 'Yes. We clean our boots and tools after every yard. That keeps germs from going from yard to yard.'),
     ('Can I pick my day?', 'No. We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window.'),
     ('Can you come today? We have a party.', 'Yes. Text us and we can come the same day for $49. It goes on your next bill on the 1st.'),
-    ('When do you charge my card?', 'On the 1st of each month. With the Black Friday deal, your first month is free. Your first charge only covers the days after your free month, so it is smaller. Then you pay the full price on the 1st of each month.'),
+    ('When do you charge my card?', 'On the 1st of each month.[[bf: With the Black Friday sale, your first month is free. Your first charge only covers the days after your free month, so it is smaller. Then you pay the full price on the 1st of each month.||]]'),
     ('Who sees my gate code?', 'Only your scooper, and only on your day. You add it after you sign up. If you cancel, we delete it.'),
     ('What if a dog in the yard is not safe to be near?', 'We don’t go in. We text you to bring the dog inside. We can come back the same day.'),
     ('Can I skip a week?', 'Yes. You get 4 free skips a year. Sign in to My Yard and tap Skip next to the visit, up to 24 hours before. No phone call.'),
     ('Can I pause while we are away?', 'Yes. After your first 60 days, you can pause for up to 120 days in My Yard. You don’t pay while you are paused. Before then, use a free skip.'),
-    ('How do I cancel?', 'Tap cancel in My Yard. There is no contract and no phone call. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.'),
+    ('How do I cancel?', 'Tap cancel in My Yard. There is no contract and no phone call. If you signed up with the Black Friday sale, keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.'),
     ('What if I get another dog?', 'Text us, or we will see on our next visit. We update your plan to match and email you the new price. It starts with your next bill. Each dog after two adds $13 a month, or $9 on the every other week plan.'),
     ('What is My Yard?', 'My Yard is your account on our site. Sign in with your email and a 6 digit code. No password. You can see your next visits, skip a visit, pause, see your bills and gate photos, change your card, or cancel.'),
     ('Is my card safe?', 'Yes. You pay through Stripe, the same checkout big stores use. Stripe keeps your card. We never see or store your card number.'),
@@ -349,7 +349,7 @@ PRICE_TABLE = (
     '</tbody></table>'
     '<p class="mono" style="margin: 22px 0 2px; font-size: 13px; font-weight: 600; letter-spacing: .06em; color: #AEB5D8;">EXTRAS</p>'
     + _xrow('Deodorizer spray', 'FREE EVERY VISIT') + _xrow('Turf odor treatment', '$35') + _xrow('Same day pickup', '$49') + _xrow('One time cleanup', '$95', True) +
-    '<p style="margin: 12px 0 18px; font-size: 14px; line-height: 1.5; color: #AEB5D8;">Each dog after two adds $13 a month ($9 every other week). Your first month is free on any plan.</p>'
+    '<p style="margin: 12px 0 18px; font-size: 14px; line-height: 1.5; color: #AEB5D8;">Each dog after two adds $13 a month ($9 every other week). [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]</p>'
 )
 
 
@@ -766,14 +766,14 @@ PAGE_CSS += r"""
 .apw .ftrust b{display:block;font-size:15px;color:#F6F4EF}
 @media (min-width:600px){.apw .ftrust{grid-template-columns:repeat(3,1fr);gap:20px}}"""
 
-BF_DEAL = ('<div class="bfd" data-deal-end="2026-12-01T06:59:59Z">'
-  '<div><p class="bfd-tag"><span class="bfd-dot"></span>Black Friday deal</p>'
+BF_DEAL = ('[[bf:<div class="bfd" data-deal-end="2026-12-01T06:59:59Z">'
+  '<div><p class="bfd-tag"><span class="bfd-dot"></span>Black Friday sale</p>'
   '<p class="bfd-h">Your first month is free<span>.</span></p>'
-  '<p class="bfd-p">The big chains give you one free cleanup or $25 off. We give you a whole month.</p></div>'
-  '<div><p class="bfd-ends">Deal ends Monday, November 30</p>'
+  '<p class="bfd-p">Sign up by November 30. After that, the sale is over.</p></div>'
+  '<div><p class="bfd-ends">Sale ends Monday, November 30</p>'
   '<div class="bfd-clock" aria-hidden="true"><span><b data-u="d">00</b><i>days</i></span><span><b data-u="h">00</b><i>hrs</i></span><span><b data-u="m">00</b><i>min</i></span><span><b data-u="s">00</b><i>sec</i></span></div></div>'
   '<p class="bfd-fine">No contract. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.</p>'
-  '</div>')
+  '</div>||]]')
 
 DD_CSS = r""".apw .dd{position:relative;display:flex;align-items:center}
 .apw .dnav .ddt{gap:4px}

@@ -67,5 +67,5 @@ VALLEY_CSS = r"""
 VALLEY_KEY = ('<p class="vswipe" aria-hidden="true">Swipe the map to see the whole Valley →</p>'
               '<ul class="vkey">'
               '<li><i class="k1"></i><span><b>We scoop here.</b> Every home in 6 ZIP codes: 85326, 85338, 85340, 85355, 85395 and 85396.</span></li>'
-              '<li><i class="k2"></i><span><b>Coming soon.</b> The rest of the Valley. <a href="Booking.dc.html">Join the waitlist</a> by November 30 and your first month is free when we start in your area.</span></li>'
+              '<li><i class="k2"></i><span><b>Coming soon.</b> The rest of the Valley. <a href="Booking.dc.html">Join the waitlist</a>.[[bf: Join by November 30 and your first month is free when we start in your area.|| Your first cleanup is free when we start in your area.]]</span></li>'
               '</ul>')

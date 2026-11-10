@@ -88,6 +88,14 @@ This lane is website edits and AEO (showing up in Google and in AI answers). It 
 - **Search Console, Nov 9 night:** indexing requested for `/about/`, `/contact/`, `/our-promise/`. Google's daily limit hit after that. Still to request: the three new blog posts.
 - **Truck demo:** `/t/DEMO01` checked at phone size (map, arrival time, miles all show) and linked from How it works, step 4. The demo drive is set in Surprise, which is not a town we serve yet.
 
+### Black Friday sale switch (Nov 9, 2026, late). Read before you write any offer copy.
+- Joe's rule: the free month is the **Black Friday sale only**, through November 30, 2026. From midnight Phoenix time on December 1 the offer is **"Your first cleanup is free. Book now."**
+- How it works: copy that changes is written as `[[bf:sale text||after sale text]]` in the generator, in `content/` and in `build/build.mjs`. `bfx()` at the top of `build.mjs` fills every file the build writes. The date is `DEAL_END`. Test either side with `DEAL_ON=1 npm run build` or `DEAL_ON=0 npm run build`. Both pass `npm run check`.
+- The flip needs a fresh build after midnight. Two things push one: `.github/workflows/sale-switch.yml` (empty commit at 07:03 and 07:33 UTC on December 1) and a scheduled Claude task for the same night. If neither runs, push any commit on December 1.
+- New copy that mentions the free month must use the tag. Never write "first month free" as plain text.
+- **NOT switched yet: the sign up flow and checkout.** `book.prod.tpl.html`, `account.prod.tpl.html` and checkout in `worker.js` still give and describe a free month with no end date. Joe is choosing how billing works after the sale (see the options sent to him Nov 9). Build that before November 30, with the sign up tests.
+- Terms now say "Black Friday free month" and read true before and after the sale.
+
 ### Rules for this lane
 - Copy: no dashes, short plain words, third grade for customers, seventh grade for SEO pages, one h1 per page. `npm run check` enforces it.
 - Do not claim what we cannot prove. "No one in the industry offers this" stays off the site. The line in use is "The big chains give you one free cleanup or $25 off. We give you a whole month."

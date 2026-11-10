@@ -1,0 +1,21 @@
+# The Black Friday sale ends at midnight in Phoenix as November 30 ends (07:00 UTC on December 1).
+# The site build reads the date, so a fresh build after midnight flips every page to "Your first cleanup is free."
+# This pushes an empty commit so Cloudflare Pages builds again. Safe to delete after December 2026.
+name: Sale switch
+on:
+  schedule:
+    - cron: '3 7 1 12 *'
+    - cron: '33 7 1 12 *'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          git config user.name "sale-switch"
+          git config user.email "info@arizonapetwaste.com"
+          git commit --allow-empty -m "Rebuild: Black Friday sale ended, first cleanup free copy goes live"
+          git push

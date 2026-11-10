@@ -22,7 +22,7 @@ def ask(town, zips):
     return [
         ('Do you come to my street?', 'We scoop every home in %s. Type your ZIP when you book, and we tell you right away.' % zips),
         ('Are you licensed, bonded and insured?', 'Yes. Arizona Pet Waste is licensed, bonded and insured.'),
-        ('Is there a sign up fee?', 'Not with us. You pay $0 today. Your first month is free on any plan.'),
+        ('Is there a sign up fee?', 'Not with us. [[bf:You pay $0 today. Black Friday sale: sign up by November 30 and your first month is free.||There is no sign up fee, and your first cleanup is free.]]'),
         ('How much is each visit?', PRICES),
         ('Is the spray extra?', 'No. At every visit, we spray deodorizer on the spots your dogs use most. It is free.'),
         ('How will I know you came?', 'You get a text the night before with a 30 minute window. On your day, you can watch our truck on a live map. '
@@ -55,7 +55,7 @@ def faq_common(town):
     return [
         ('How much does a pooper scooper cost in %s?' % town,
          'With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. '
-         'There is no sign up fee, the spray is free, and your first month is free. When you compare, ask if a price is per visit or per month, '
+         'There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, '
          'if there is a first cleanup fee, and if spray costs extra.'),
         ('Where should I throw away dog poop?',
          'Bag it, tie the bag, and put it in your trash can. Do not put it in the recycle bin, and never hose it into the street or a storm drain. '
