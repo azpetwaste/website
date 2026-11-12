@@ -282,3 +282,8 @@ Joe: "our brain on this app needs to always be optimizing routes." A move must a
 - Tests: build and check pass, worker test clean, week 76, desk 108 (one check rewritten for the dropped text, one added), signup10 38, signup50 102, at 500 117, at 1,000 137. All pass.
 - Walked at phone size (375 by 812) in a headless Chrome on a local build: sign in, Schedule, open route, yard menu, Texts, Leads, My route, Start, I can't do this yard, I'm here, boxes, Photo trouble, no photo check, photo, next yard, and the photo fail path with `photofail=4`. No page errors, no sideways scroll.
 - Not run: the live site with this code, a real phone, the signed in app with real data.
+
+### Nov 12, 2026, 9 am. No pound sign in the address bar (website and AEO chat), on Joe's word
+- Joe saw `#` in the address bar after tapping links and wants clean URLs only. `src/runtime/apw.js`: a jump link (`#proof`, the policy contents lists, Skip to content, `/commercial-pet-waste-removal/#businesses`) still scrolls to its spot, but the `#` is never left in the URL (`cleanUrl`, `jumpTo`, `landed`). A link that lands on a page with a `#` scrolls, then drops it. `/#start` still opens sign up, then drops it.
+- A `#` that is not a spot on the page is left alone (sign in tokens). The truck link and the crew app were not touched.
+- Checked on the build: all 46 sitemap URLs have a page, a matching canonical and og:url, `index, follow`, a trailing slash, lower case, and no `#` or `?`. No page marked noindex is in the sitemap, no indexable page is missing from it, and no internal link is broken. The `#` inside schema `@id` values is a name for the item, not a link, and stays.

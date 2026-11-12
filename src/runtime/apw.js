@@ -223,20 +223,50 @@
   document.addEventListener('click', function (e) {
     if (e.target && e.target.id === 'book-dock' && root.classList.contains('book-open')) APW.closeBook();
   });
-  // same page links (#prices) scroll here, even when a <base> tag points somewhere else
-  document.addEventListener('click', function (e) {
-    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-    var a = e.target.closest && e.target.closest('a[href^="#"]');
-    if (!a) return;
-    var id = a.getAttribute('href').slice(1);
+  // Jump links scroll to their spot and the address bar stays clean: no # is ever left in the URL.
+  function cleanUrl() {
+    try { history.replaceState(history.state, '', location.pathname + location.search); } catch (err) { }
+  }
+  function jumpTo(id) {
     var el = id && document.getElementById(id);
-    if (!el) return;
-    e.preventDefault();
+    if (!el) return false;
     el.scrollIntoView({ block: 'start' });
     if (el.tabIndex < 0 && !/^(A|BUTTON|INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) el.setAttribute('tabindex', '-1');
     try { el.focus({ preventScroll: true }); } catch (err) { }
-    try { history.replaceState(history.state, '', '#' + id); } catch (err) { }
+    return true;
+  }
+  function samePath(a, b) {
+    return a.replace(/(index\.html)?$/, '').replace(/\/$/, '') === b.replace(/(index\.html)?$/, '').replace(/\/$/, '');
+  }
+  // same page links (#prices, or /this-page/#prices) scroll here, even when a <base> tag points somewhere else
+  document.addEventListener('click', function (e) {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    var a = e.target.closest && e.target.closest('a[href*="#"]');
+    if (!a) return;
+    var raw = a.getAttribute('href'), id;
+    if (raw.charAt(0) === '#') id = raw.slice(1);
+    else {
+      var u;
+      try { u = new URL(raw, location.href); } catch (err) { return; }
+      if (u.origin !== location.origin || !samePath(u.pathname, location.pathname) || u.search !== location.search) return;
+      id = u.hash.slice(1);
+    }
+    try { id = decodeURIComponent(id); } catch (err) { }
+    if (!jumpTo(id)) return;
+    e.preventDefault();
+    cleanUrl();
   });
+  // a link from another page (or an old bookmark) that lands here with a # scrolls to the spot, then the # is dropped
+  function landed() {
+    var id = location.hash.slice(1);
+    if (!id) return;
+    try { id = decodeURIComponent(id); } catch (err) { }
+    if (id === 'start') { cleanUrl(); return; }
+    if (!/^[A-Za-z][\w-]*$/.test(id) || !document.getElementById(id)) return;
+    jumpTo(id);
+    cleanUrl();
+  }
+  window.addEventListener('hashchange', landed);
   document.addEventListener('click', function (e) {
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     var a = e.target.closest && e.target.closest('a[href]');
@@ -281,7 +311,8 @@
         var idle = window.requestIdleCallback || function (f) { setTimeout(f, 1500); };
         idle(function () { APW.stripe().catch(function () { }); });
       }
-      if (location.hash === '#start' && dock) APW.openBook(intent());
+      if (location.hash === '#start' && dock) { cleanUrl(); APW.openBook(intent()); }
+      else landed();
     });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
