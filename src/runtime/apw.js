@@ -373,20 +373,16 @@
   function start() {
     var sky = document.querySelector('.sky');
     if (!sky) return;
-    // the home page has a cloud at the top too, so ask soon after the page is up
-    if (document.querySelector('.hwx')) setTimeout(ask, 900);
-    // elsewhere wait until the desert is close, so the cloud rolls in while someone is looking
-    else if ('IntersectionObserver' in window) {
+    // wait until the desert is close, so the cloud rolls in while someone is looking
+    if ('IntersectionObserver' in window) {
       var io = new IntersectionObserver(function (es) { for (var i = 0; i < es.length; i++) if (es[i].isIntersecting) { io.disconnect(); ask(); } }, { rootMargin: '300px' });
       io.observe(sky);
       setTimeout(function () { var now = document.querySelector('.sky'); if (now && now !== sky) { io.disconnect(); io.observe(now); } }, 3000);
     } else ask();
     document.addEventListener('click', function (e) {
-      var t = e.target && e.target.closest ? e.target : null;
-      var s = t && (t.closest('.sky') || (t.closest('.hwx') && t.closest('.hero-v'))); // the desert, or the cloud over the gate photo
+      var s = e.target && e.target.closest && e.target.closest('.sky');
       if (!s || !wx) return;
       var n = s.querySelector('.sky-n');
-      s.classList.toggle('wx-on', !n);
       if (n) { n.remove(); return; }
       n = document.createElement('p');
       n.className = 'sky-n';

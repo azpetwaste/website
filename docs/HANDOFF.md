@@ -336,7 +336,6 @@ Juan (the owner) read the live site and sent a review. Joe said do the edits, co
 
 ### Added Nov 13, 2026 (website and AEO chat): the weather sky
 - Joe asked for a small hidden touch that shows the real weather. The desert strip above the footer on the home and town pages now follows the weather over Verrado: sun, a few clouds, cloud cover, rain, storm with lightning, dust, and a moon with stars at night. Tap the sky and one line shows ("Raining in Verrado right now. Light rain is fine. We still scoop.").
-- Same day, Joe asked for it in the hero too: on the home page a cloud looks over the top of the gate photo and rain falls behind the print (`.hwx`, `.hrain` in `main.tpl.html` and `look.py`). The hero only shows cloud and rain. Night, dust and lightning stay in the desert strip.
 - New public route `GET /api/weather` in `src/worker/worker.js`, answered before `route()` so it can be cached (10 minutes in the Cloudflare cache, 2 minutes when the feed is down). It reads the National Weather Service: the last reading at Goodyear airport (KGYR), then the hourly forecast for Verrado if that reading is missing or older than 100 minutes. No key, no visitor data sent. A forecast that only says "chance of rain" shows as cloud, not rain.
 - The copy lines only repeat what the FAQ already says about rain and lightning. If the storm rule changes, change the lines in the last block of `src/runtime/apw.js` too.
 - Nothing in the field desk, the crew app or `crm.sql` was touched. Tests: `node build/worker.test.mjs` ends with `weather: ok`.
