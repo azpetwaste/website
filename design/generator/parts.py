@@ -250,26 +250,9 @@ _RIDGE1 = 'M0 98L24 84 40 88 58 72 74 80 92 62 108 70 124 58 142 70 160 66 178 7
 _RIDGE2 = 'M0 110L30 104 60 108 96 100 130 106 170 102 210 108 250 102 290 108 330 104 360 108 390 105V130H0Z'
 _tiles = ''.join('<g transform="%s"><path class="skm1" d="%s"></path></g>' % (t, _RIDGE1) for t in ('translate(390 0) scale(-1 1)', 'translate(390 0)', 'translate(1170 0) scale(-1 1)'))
 _tiles += ''.join('<g transform="%s"><path class="skm2" d="%s"></path></g>' % (t, _RIDGE2) for t in ('translate(390 0) scale(-1 1)', 'translate(390 0)', 'translate(1170 0) scale(-1 1)'))
-# The sky follows the real weather over Verrado (a small secret, Nov 2026). The page asks /api/weather and sets
-# data-wx on <html>: clear, part, cloud, rain, storm or dust, plus data-wxn at night. With no answer it stays a plain sun.
-# Tapping the sky shows one line about the weather. The CSS is in look.py (.wx-*), the script is at the end of apw.js.
-_STARS = ''.join('<circle cx="%d" cy="%d" r="%s"></circle>' % (x, y, r) for x, y, r in [
-    (28, 22, 1.2), (96, 40, 1), (150, 14, 1.4), (214, 34, 1), (268, 18, 1.2), (330, 44, 1), (372, 12, 1),
-    (418, 30, 1.2), (462, 12, 1), (508, 40, 1.4), (556, 20, 1), (604, 34, 1.2), (640, 10, 1), (748, 16, 1.2), (772, 42, 1),
-    (812, 24, 1), (866, 12, 1.4), (920, 38, 1), (972, 18, 1.2), (1030, 32, 1), (1084, 14, 1.2), (1140, 40, 1)])
-_WX_SKY = ('<g class="wx-st" fill="#F6F4EF">' + _STARS + '</g>'
-           '<g class="wx-m"><circle cx="690" cy="52" r="19" fill="#F6F4EF"></circle><circle class="wx-mc" cx="699" cy="46" r="17"></circle></g>'
-           '<g class="wx-d" fill="none" stroke="#F6F4EF" stroke-width="2" stroke-linecap="round"><path d="M604 40H702"></path><path d="M650 54H776"></path><path d="M620 68H716"></path></g>'
-           '<g class="wx-c"><rect x="646" y="44" width="94" height="24" rx="12"></rect><circle cx="670" cy="44" r="15"></circle><circle cx="697" cy="36" r="20"></circle><circle cx="722" cy="46" r="13"></circle></g>')
-_DROPS = ''.join('<path d="M%d %dl-3 9"></path>' % (x + (row % 2) * 9, 50 + row * 18) for row in range(5) for x in range(658, 736, 18))
-_WX_FRONT = ('<clipPath id="wxclip"><rect x="640" y="68" width="110" height="46"></rect></clipPath>'
-             '<g clip-path="url(#wxclip)"><g class="wx-r" fill="none" stroke="#F6F4EF" stroke-width="1.6" stroke-linecap="round">' + _DROPS + '</g></g>'
-             '<path class="wx-b" d="M700 68l-13 19h9l-6 17 19-23h-10l8-13z" fill="#FF4A1C"></path>')
 SKYLINE = ('<svg viewBox="0 0 1170 130" preserveAspectRatio="xMidYMax slice" aria-hidden="true">'
-           '<circle class="wx-s" cx="690" cy="58" r="24" fill="#FF4A1C"></circle>'
-           + _WX_SKY
-           + _tiles
-           + _WX_FRONT +
+           '<circle cx="690" cy="58" r="24" fill="#FF4A1C"></circle>'
+           + _tiles +
            '<rect class="skg" x="0" y="112" width="1170" height="18"></rect>'
            + saguaro(434, 118, 66) + saguaro(734, 118, 54, .9, True) + saguaro(762, 118, 36, .7) + agave(474, 121) + barrel(702, 121) + agave(648, 121, .8)
            + saguaro(96, 118, 58, .9) + saguaro(236, 118, 40, .8, True) + agave(170, 121) + barrel(318, 121, .9) + agave(40, 121, .8)

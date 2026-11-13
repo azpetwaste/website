@@ -336,30 +336,6 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .sky{margin:44px -20px 0}
 .apw .sky svg{display:block;width:100%;height:clamp(130px,19vw,240px)}
 .skm1{fill:#2B3468}.skm2{fill:#1E2650}.skg{fill:#2A2F4A}
-/* the sky follows the real weather over Verrado. <html data-wx> is set by apw.js. No answer, no change: a plain sun */
-.apw .sky{position:relative}
-.wx-c,.wx-r,.wx-b,.wx-d,.wx-m,.wx-st{opacity:0}
-.wx-mc{fill:var(--bg,#0A0F24)}
-.wx-s,.wx-m,.wx-st,.wx-d{transition:opacity .8s}
-.wx-c{fill:#F6F4EF;transform-box:fill-box;transform-origin:center;transform:translateX(-120px);transition:transform 2.2s cubic-bezier(.2,.7,.2,1),opacity .5s,fill .8s}
-[data-wx=cloud] .wx-c,[data-wx=rain] .wx-c,[data-wx=storm] .wx-c{opacity:1;transform:none}
-[data-wx=part] .wx-c{opacity:1;transform:translate(-30px,14px) scale(.7)}
-[data-wx=rain] .wx-c,[data-wx=storm] .wx-c{fill:#C9C3B6}
-[data-wx=cloud] .wx-s,[data-wx=rain] .wx-s,[data-wx=storm] .wx-s{opacity:.85}
-[data-wx=rain] .wx-r,[data-wx=storm] .wx-r{opacity:.8;animation:wxr .6s linear infinite}
-[data-wx=storm] .wx-b{animation:wxb 5s steps(1) infinite}
-[data-wx=dust] .wx-s{opacity:.5}
-[data-wx=dust] .wx-d{opacity:.3;animation:wxd 5s ease-in-out infinite alternate}
-[data-wxn] .wx-s{opacity:0}
-[data-wxn] .wx-m{opacity:1}
-[data-wxn] .wx-st{opacity:.75}
-[data-wxn][data-wx=cloud] .wx-st,[data-wxn][data-wx=rain] .wx-st,[data-wxn][data-wx=storm] .wx-st,[data-wxn][data-wx=dust] .wx-st{opacity:.2}
-[data-wxn][data-wx=dust] .wx-m{opacity:.5}
-@keyframes wxr{to{transform:translate(-6px,18px)}}
-@keyframes wxb{0%,8%,14%,100%{opacity:0}4%,11%{opacity:1}}
-@keyframes wxd{to{transform:translateX(22px)}}
-@media (prefers-reduced-motion:reduce){.wx-c{transition:none}.wx-r,.wx-d{animation:none!important}[data-wx=storm] .wx-b{animation:none;opacity:1}}
-.apw .sky-n{position:absolute;left:20px;right:20px;top:-30px;margin:0;font-size:15px;line-height:1.4;font-weight:700;color:var(--ink);text-align:center}
 
 /* town pages */
 .apw .crumb{display:flex;flex-wrap:wrap;gap:4px 8px;margin:0 0 18px;font-size:15px;line-height:1.4;color:var(--mute)}
