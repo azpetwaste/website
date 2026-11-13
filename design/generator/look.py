@@ -218,6 +218,20 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .hero-v{order:6;position:relative;display:flex;flex-direction:column;align-items:center;margin:40px 0 0;padding:0 16px 30px}
 .apw .sun{position:absolute;left:50%;top:34%;width:min(132%,560px);aspect-ratio:1/1;border-radius:50%;background:var(--accent);transform:translateX(-50%)}
 .apw .print-a{z-index:1;width:min(100%,400px);transform:rotate(2deg)}
+/* the weather in the hero (home page): a cloud looks over the top of the gate photo, and rain falls behind it. See the .wx-* note below */
+.apw .hwx{position:absolute;left:7%;top:-38px;width:128px;height:64px;opacity:0;transform:translateX(-80px);transform-origin:left bottom;transition:transform 2.2s cubic-bezier(.2,.7,.2,1),opacity .5s;pointer-events:none}
+.apw .hwx svg{display:block;width:100%;height:100%;fill:#F6F4EF;transition:fill .8s}
+[data-wx=cloud] .apw .hwx,[data-wx=rain] .apw .hwx,[data-wx=storm] .apw .hwx{opacity:1;transform:none;pointer-events:auto}
+[data-wx=part] .apw .hwx{opacity:1;transform:scale(.72);pointer-events:auto}
+[data-wx=rain] .apw .hwx svg,[data-wx=storm] .apw .hwx svg{fill:#C9C3B6}
+.apw .hrain{position:absolute;left:0;right:0;top:-30px;bottom:72px;opacity:0;pointer-events:none;transition:opacity .8s;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44'%3E%3Cpath d='M12 4l-4 12M34 26l-4 12' fill='none' stroke='%23F6F4EF' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") 0 0/44px 44px}
+[data-wx=rain] .apw .hrain,[data-wx=storm] .apw .hrain{opacity:.5;animation:hwr .7s linear infinite}
+@keyframes hwr{to{background-position:-14px 44px}}
+@media (prefers-reduced-motion:reduce){.apw .hwx{transition:none}.apw .hrain{animation:none!important}}
+.apw .hero-v{transition:margin-top .3s}
+.apw .hero-v.wx-on{margin-top:104px}
+@media (min-width:1024px){.apw .hwx{width:176px;height:88px;top:-54px;left:4%}.apw .hero-v.wx-on{margin-top:0}.apw .hero-v .sky-n{top:-96px}}
+.apw .hero-v .sky-n{top:-92px;left:0;right:0}
 .apw .print-a img{aspect-ratio:1/1}
 .apw .print-a .stamp{right:-14px;bottom:62px}
 .apw .hero-v figcaption{position:relative;z-index:1;margin-top:20px;font-size:16px;font-weight:700;line-height:1.3;color:#0E1430;text-align:center}
