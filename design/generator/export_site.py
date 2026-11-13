@@ -60,8 +60,8 @@ BLOBS = {
     '1467d93cd9b58ca9dd49fc16c4ec494b': '/assets/img/logo-horizontal-dark.svg',
     'ad31f5b41783c555e611fe77885d676a': '/assets/img/mark-round.svg',
     'a7a03153bb6d296b31597e8bc38011c5': '/assets/img/mark-round-dark.svg',
-    '5eaa35b6f87df2e6c7c19d16e9370468': '/assets/img/gate-photo.jpg',
-    '1414015c2e51423c09fa3ca2ffa8f0c2': '/assets/img/gate-scene.jpg',
+    '5eaa35b6f87df2e6c7c19d16e9370468': '/assets/img/gate-latched-close.jpg',
+    '1414015c2e51423c09fa3ca2ffa8f0c2': '/assets/img/gate-latched-side-yard.jpg',
 }
 LEGAL = ('<nav aria-label="Policies" style="display: flex; flex-wrap: wrap; gap: 0 18px; margin-top: 22px;">'
          '<a href="/privacy/" class="flink">Privacy</a><a href="/terms/" class="flink">Terms</a>'
