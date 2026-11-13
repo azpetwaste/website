@@ -233,10 +233,10 @@ SCENE_CSS = r""".vsw{border-radius:22px;overflow:hidden;background:#0A0F24;box-s
 .vs{position:relative;overflow:hidden;background:#BFDDF3;aspect-ratio:4/3;isolation:isolate}
 .vs>svg{position:absolute;inset:0;width:100%;height:100%;display:block}
 .dark .vs>svg{filter:brightness(.88) saturate(.95)}
-.vs .chipv{position:absolute;top:10px;z-index:2;display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border-radius:999px;background:rgba(10,15,36,.86);color:#FFFFFF;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:13px;font-weight:500;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap}
+.vs .chipv{position:absolute;top:10px;z-index:2;display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border-radius:999px;background:rgba(10,15,36,.86);color:#FFFFFF;font-family:var(--f-text);font-size:13px;font-weight:500;letter-spacing:.03em;text-transform:uppercase;white-space:nowrap}
 .vs .capv{position:absolute;left:10px;right:10px;top:48px;z-index:2;margin:0;padding:9px 12px;border-radius:14px;background:rgba(10,15,36,.84);color:#FFFFFF;font-size:15px;font-weight:600;line-height:1.35}
 .vs .repv{position:absolute;left:10px;right:10px;top:48px;z-index:3;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:#FFFFFF;color:#0E1430;box-shadow:0 10px 24px rgba(10,15,36,.3);animation:vRepIn .45s ease-out both}
-.vs .stampv{position:absolute;left:50%;top:46%;z-index:2;padding:3px;border:2.5px solid #FF4A1C;border-radius:8px;background:rgba(255,255,255,.96);color:#B02A08;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;text-align:center;opacity:0;animation:vStamp 24s linear infinite}
+.vs .stampv{position:absolute;left:50%;top:46%;z-index:2;padding:3px;border:2.5px solid #FF4A1C;border-radius:8px;background:rgba(255,255,255,.96);color:#B02A08;font-family:var(--f-head);text-align:center;opacity:0;animation:vStamp 24s linear infinite}
 .vsw .ctl{display:flex;align-items:center;gap:8px;height:52px;padding:0 14px 0 4px;background:#0A0F24;color:#FFFFFF}
 .vsw .vtag{flex:0 0 auto;font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#AEB5D8}
 .vsw .vbtn{width:44px;height:44px;flex:0 0 44px;border-radius:50%;border:0;background:transparent;color:#FFFFFF;display:grid;place-items:center;cursor:pointer;padding:0}

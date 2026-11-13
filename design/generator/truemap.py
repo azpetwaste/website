@@ -114,18 +114,18 @@ MAP_CSS = (
 .mriver{fill:none;stroke:#8DBEE0;stroke-width:1.6;stroke-linecap:round;opacity:.7}
 .mzipf{fill:rgba(255,74,28,.07);pointer-events:none}.dark .mzipf{fill:rgba(255,74,28,.10)}
 .mzipl{fill:none;stroke:#FF4A1C;stroke-width:1;stroke-linejoin:round;opacity:.45;pointer-events:none}
-.mzipt{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:10px;font-weight:600;letter-spacing:.04em;fill:#B02A08;paint-order:stroke;stroke:#F3E7D2;stroke-width:3px;stroke-linejoin:round;pointer-events:none}.dark .mzipt{fill:#FF8A66;stroke:#141D3D}
+.mzipt{font-family:Archivo,"Arial Narrow",Arial,sans-serif;font-stretch:82%;font-size:10px;font-weight:600;letter-spacing:.04em;fill:#B02A08;paint-order:stroke;stroke:#F3E7D2;stroke-width:3px;stroke-linejoin:round;pointer-events:none}.dark .mzipt{fill:#FF8A66;stroke:#141D3D}
 .mplc{cursor:pointer;transition:fill .25s ease}
 .mfwy0{fill:none;stroke:#D99A3A;stroke-width:6;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 .mfwy{fill:none;stroke:#F7C66A;stroke-width:3.8;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 .dark .mfwy0{stroke:#7A5A26}.dark .mfwy{stroke:#B98B3E}
 .mnolook,.mtxt,.mplace,.mattr,.mtruck{pointer-events:none}
-.mtxt{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:10px;font-weight:600;letter-spacing:.06em;fill:#7A6F60}.dark .mtxt{fill:#9AA2C8}
+.mtxt{font-family:Archivo,"Arial Narrow",Arial,sans-serif;font-stretch:82%;font-size:10px;font-weight:600;letter-spacing:.06em;fill:#7A6F60}.dark .mtxt{fill:#9AA2C8}
 .mtxtm{fill:#5E5045}.dark .mtxtm{fill:#C9CEE6}
 .mplace{font-family:Archivo,"Arial Black",sans-serif;font-size:11.5px;font-weight:800;letter-spacing:.05em;fill:#0E1430;paint-order:stroke;stroke:#F3E7D2;stroke-width:3.2px;stroke-linejoin:round}
 .dark .mplace{fill:#FFFFFF;stroke:#141D3D}
-.mshield{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:10px;font-weight:600}
-.mattr{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:8px;fill:#8A7F70}.dark .mattr{fill:#7F88B0}
+.mshield{font-family:Archivo,"Arial Narrow",Arial,sans-serif;font-stretch:82%;font-size:10px;font-weight:600}
+.mattr{font-family:Archivo,"Arial Narrow",Arial,sans-serif;font-stretch:82%;font-size:8px;fill:#8A7F70}.dark .mattr{fill:#7F88B0}
 .mtruck{animation:mapDrive 9s ease-in-out infinite}
 @keyframes mapDrive{""" + TRUCK_KEYS + r"""}
 .mchips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
@@ -135,7 +135,7 @@ MAP_CSS = (
 .mkey-sw{flex:0 0 16px;width:16px;height:16px;border-radius:5px;background:#FF4A1C}
 .msn{font-family:Archivo,"Arial Black",sans-serif;font-size:10px;font-weight:800;letter-spacing:.06em;fill:#4A5272;paint-order:stroke;stroke:#F3E7D2;stroke-width:3px;stroke-linejoin:round;pointer-events:none}
 .dark .msn{fill:#AEB5D8;stroke:#141D3D}
-.mst{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:7.5px;font-weight:600;letter-spacing:.1em;fill:#B02A08;paint-order:stroke;stroke:#F3E7D2;stroke-width:2.6px;stroke-linejoin:round;pointer-events:none}
+.mst{font-family:Archivo,"Arial Narrow",Arial,sans-serif;font-stretch:82%;font-size:7.5px;font-weight:600;letter-spacing:.1em;fill:#B02A08;paint-order:stroke;stroke:#F3E7D2;stroke-width:2.6px;stroke-linejoin:round;pointer-events:none}
 .dark .mst{fill:#FF8A66;stroke:#141D3D}
 @media (prefers-reduced-motion:reduce){.mtruck{animation:none;transform:translate(193px,190px)}.mplc{transition:none}}""")
 

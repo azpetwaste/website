@@ -25,6 +25,7 @@ Deep links for flyers and QR codes: `/book/?zip=85396&plan=week&dogs=2`
 - `src/boards/*.json` are the design boards exported from the design canvas (do not hand edit; they are regenerated).
 - `src/runtime/dc.js` renders the boards. The build renders every page to real HTML for Google, then the same code runs in the browser.
 - `src/runtime/apw.js` runs sign in, the sign up sheet, Stripe and the light or dark look.
+- The look (font, colors, layout) is `design/generator/look.py`. The site uses one font, Archivo, from `static/assets/fonts/` (our own file, nothing from Google Fonts). See `design/README.md`.
 - `src/worker/worker.js` is the server. It ships as `dist/_worker.js` and answers `/api/*` only.
 - `content/policies/` holds the policy text. `src/site.config.json` holds the phone, email, first visit date, and the BBB, Chamber and social links (fill in `sameAs`, `badges`, `social` once you have them).
 

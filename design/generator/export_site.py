@@ -24,7 +24,11 @@ parts.faq = _cap
 import cities
 import longform  # noqa: E402  (imports the patched faq)
 
-OUT = '/home/claude/apw-site/src/boards/'
+# Where the boards are written. Set APW_BOARDS to this repo's src/boards/ when you run it:
+#   APW_BOARDS=../../src/boards/ python3 export_site.py
+OUT = os.environ.get('APW_BOARDS', '/home/claude/apw-site/src/boards/')
+if not OUT.endswith('/'):
+    OUT += '/'
 os.makedirs(OUT, exist_ok=True)
 
 LINKS = {
@@ -63,11 +67,11 @@ BLOBS = {
     '5eaa35b6f87df2e6c7c19d16e9370468': '/assets/img/gate-latched-close.jpg',
     '1414015c2e51423c09fa3ca2ffa8f0c2': '/assets/img/gate-latched-side-yard.jpg',
 }
-LEGAL = ('<nav aria-label="Policies" style="display: flex; flex-wrap: wrap; gap: 0 18px; margin-top: 22px;">'
+LEGAL = ('<nav aria-label="Policies" class="flegal">'
          '<a href="/privacy/" class="flink">Privacy</a><a href="/terms/" class="flink">Terms</a>'
          '<a href="/texts/" class="flink">Text terms</a><a href="/accessibility/" class="flink">Accessibility</a></nav>'
          '<!--BADGES-->\n  ')
-COPY_LINE = '<p style="margin: 26px 0 0; font-size: 14px; line-height: 1.6; color: #AEB5D8;">© 2026 Arizona Pet Waste. All rights reserved.</p>'
+COPY_LINE = '<p class="fcopy">© 2026 Arizona Pet Waste. All rights reserved.</p>'
 
 
 def fill(tpl, board_id, extra=None):
@@ -113,26 +117,16 @@ def common(html):
         sys.exit('a design image is not mapped: %s' % re.findall(r'/_blob/\w+', html)[:3])
     if COPY_LINE in html:
         html = html.replace(COPY_LINE, LEGAL + COPY_LINE)
-    # placeholder social buttons in the footer become a slot the site fills from site.config.json
-    html = re.sub(r'<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px;">\s*<a href="#reviews"[\s\S]*?</div>', '<!--SOCIAL-->', html)
     return html
 
 
 def main_prod(html):
-    # placeholders that wait for real content: the owner story and customer reviews
-    html = cut_section_with(html, '[Owner<br>photo]')
-    html = cut_section_with(html, '>[5.0]</p>')
+    # Since the Nov 2026 redesign the templates hold no placeholder blocks (owner story, reviews), so nothing is cut here.
+    # Real Google reviews come in through the <!--REVIEWS--> slot (src/site.config.json), the owner story is on /about/.
     return html
 
 
 def city_prod(html):
-    # the ZIP list for the town goes right under the map chip
-    a = html.find('<p class="eb" style="color: #FF8A66;">Reviews</p>')
-    b_tag = '<p style="margin: 26px 0 0; font-size: 16px; font-weight: 700;">We also scoop near you</p>'
-    b = html.find(b_tag)
-    if a < 0 or b < 0:
-        sys.exit('city reviews block not found')
-    html = html[:a] + '<h2 class="h2" style="color: #FFFFFF;">We also scoop near you<span style="color: #FF4A1C;">.</span></h2>' + html[b + len(b_tag):]
     return html
 
 
@@ -148,7 +142,7 @@ def doc_shell(city_html):
 def split(html):
     m = re.search(r'<helmet>([\s\S]*?)</helmet>', html)
     helmet = m.group(1)
-    fonts = re.search(r'<link[^>]+fonts\.googleapis[^>]+>', helmet).group(0)
+    fonts = ''.join(re.findall(r'<link[^>]+>', helmet))  # font preloads (the fonts are our own files in /assets/fonts/)
     css = re.search(r'<style>([\s\S]*?)</style>', helmet).group(1)
     markup = html[m.end():html.index('</x-dc>')].strip()
     script = re.search(r'<script type="text/x-dc"[^>]*>([\s\S]*?)</script>', html).group(1).strip()

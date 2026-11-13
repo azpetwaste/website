@@ -42,6 +42,14 @@ for (const file of pages) {
     if (!h.textContent.trim()) bad(rel, 'empty h' + lv);
     last = lv;
   }
+  // the look (Nov 2026 redesign): public pages use our own font file, and headings carry no decoration.
+  // The crew app, the truck link and the staff page are their own files and are not checked here.
+  if (doc.querySelector('#app[data-board]')) {
+    if (/fonts\.(googleapis|gstatic)\.com/.test(html)) bad(rel, 'loads a font from Google (the font is our own file in /assets/fonts/)');
+    if (/IBM Plex Mono|Schibsted Grotesk/.test(html)) bad(rel, 'names a font we no longer use');
+    if (/<span style="color: var\(--accent\);">[.?]<\/span>|<span class="dot">/.test(html)) bad(rel, 'colored period after a heading');
+    if (!/rel="preload" href="\/assets\/fonts\//.test(html)) bad(rel, 'does not preload the font');
+  }
   // every image says what it is (alt="" is fine for pictures that are only decoration)
   for (const img of doc.querySelectorAll('img')) {
     if (!img.hasAttribute('alt')) bad(rel, 'image with no alt: ' + (img.getAttribute('src') || '').slice(0, 60));

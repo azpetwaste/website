@@ -5,12 +5,12 @@ from parts import faq
 
 
 def why(items):
-    return '\n  '.join('<p class="cp"><strong style="color: var(--ink);">%s</strong> %s</p>' % (a, b) for a, b in items)
+    return '\n  '.join('<p class="cp"><strong>%s</strong> %s</p>' % (a, b) for a, b in items)
 
 
 def nearby(links, extra):
-    out = ''.join('<a href="%s" class="btn btn-line-n" style="justify-content: space-between; padding: 0 20px;">%s<span aria-hidden="true">›</span></a>' % (h, n) for h, n in links)
-    return out + '<p style="margin: 6px 0 0; font-size: 15px; line-height: 1.55; color: #AEB5D8;">%s</p>' % extra
+    out = ''.join('<a href="%s" class="btn btn-line">%s<span aria-hidden="true">›</span></a>' % (h, n) for h, n in links)
+    return out + '<p class="nb-n">%s</p>' % extra
 
 
 import longform  # noqa: E402

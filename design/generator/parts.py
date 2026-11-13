@@ -1,35 +1,11 @@
-"""Shared parts for the v2 boards: theme tokens, the animated visit scene and its timeline logic.
-build.py swaps every @@NAME@@ in a template for the matching string here."""
+"""Shared parts for the boards: markup pieces, icons, copy and the page logic.
+export_site.py and build.py swap every @@NAME@@ in a template for the matching string here.
+The look (fonts, colors, layout CSS) lives in look.py."""
 
-FONTS = '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@800&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;family=Schibsted+Grotesk:wght@400;500;600;700;800;900&amp;display=swap">'
+import look  # noqa: E402  the look of the site lives in look.py
 
-BASE_CSS = r"""body{margin:0;background:#070B1B}
-*{box-sizing:border-box}
-.apw{--bg:#FFFFFF;--bg2:#F6F4EF;--bg3:#E4EEF8;--card:#FFFFFF;--ink:#0E1430;--ink2:#3E4668;--mute:#4A5272;--line:#E2DDD2;--field:#8A91B0;--accent:#FF4A1C;--accent-hi:#FF6B42;--accent-ink:#0E1430;--accent-text:#B02A08;--accent-soft:#FFE1D6;--ok:#1E7A52;--ok-soft:#E3F1EA;--band:#0A0F24;--band2:#111936;--shadow:0 14px 34px rgba(10,15,36,.14);font-family:"Schibsted Grotesk",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
-.apw.dark{--bg:#0A0F24;--bg2:#0E1530;--bg3:#101A38;--card:#141D3D;--ink:#F6F4EF;--ink2:#D5DAF0;--mute:#AEB5D8;--line:rgba(255,255,255,.13);--field:#6B7398;--accent-text:#FF8A66;--accent-soft:rgba(255,74,28,.16);--ok:#4CC38A;--ok-soft:rgba(76,195,138,.15);--band:#070B1B;--band2:#111936;--shadow:0 14px 34px rgba(0,0,0,.45)}
-.apw a{color:var(--accent-text)}
-.mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace}
-.wm{font-family:"Archivo","Arial Black",sans-serif;font-weight:800;text-transform:uppercase;letter-spacing:.045em;line-height:1}
-.eb{margin:0;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:13px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--accent-text)}
-.h1{margin:0;font-weight:800;letter-spacing:-.05em;line-height:.95;text-wrap:balance}
-.h2{margin:10px 0 0;font-size:34px;font-weight:800;letter-spacing:-.045em;line-height:1;text-wrap:balance}
-.lead{margin:12px 0 0;font-size:17px;line-height:1.55;color:var(--ink2)}
-.btn{display:flex;align-items:center;justify-content:center;gap:10px;min-height:56px;padding:0 24px;border-radius:999px;border:1.6px solid transparent;font:inherit;font-size:18px;font-weight:700;line-height:1;cursor:pointer;text-decoration:none;white-space:nowrap}
-.btn:disabled{opacity:.45;cursor:not-allowed}
-.apw .btn-dot{background:var(--accent);color:var(--accent-ink)}.apw .btn-dot:hover{background:var(--accent-hi);color:var(--accent-ink)}
-.apw .btn-ink{background:var(--ink);color:var(--bg)}
-.apw .btn-line{background:transparent;color:var(--ink);border-color:var(--field)}
-.apw .btn-line-n{background:transparent;color:#FFFFFF;border-color:rgba(255,255,255,.3)}
-.apw .btn-pay{background:#000000;color:#FFFFFF;border-color:#000000}
-.apw.dark .btn-pay{border-color:rgba(255,255,255,.4)}
-.ibtn{width:48px;height:48px;flex:0 0 48px;display:grid;place-items:center;border-radius:50%;border:1.6px solid var(--line);background:transparent;color:var(--ink);cursor:pointer;padding:0;text-decoration:none}
-.apw .ibtn-n{border-color:rgba(255,255,255,.24);color:#F6F4EF}
-.ldot{display:inline-block;width:9px;height:9px;flex:0 0 9px;border-radius:50%;background:#FF4A1C;animation:apwBlink 1.6s ease-out infinite}
-details>summary{list-style:none;cursor:pointer}details>summary::-webkit-details-marker{display:none}
-.chev{transition:transform .2s ease}details[open]>summary .chev{transform:rotate(45deg)}
-@keyframes apwBlink{0%{box-shadow:0 0 0 0 rgba(255,74,28,.6)}70%{box-shadow:0 0 0 8px rgba(255,74,28,0)}100%{box-shadow:0 0 0 0 rgba(255,74,28,0)}}
-@media (prefers-reduced-motion:reduce){.ldot{animation:none}}
-input:focus-visible,button:focus-visible,a:focus-visible,summary:focus-visible,textarea:focus-visible,ul:focus-visible{outline:3px solid #FF6B42;outline-offset:2px}"""
+FONTS = look.FONTS
+BASE_CSS = look.BASE_CSS
 
 # ---------- the visit scene lives in scene.py ----------
 import truemap  # noqa: E402
@@ -145,51 +121,8 @@ STARS = '<span style="display: inline-flex; gap: 2px;" aria-hidden="true">' + ST
 ICON_LOCK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>'
 ICON_CHECK44 = '<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>'
 
-# ---------- v3 page parts ----------
-SITE_CSS = r""".uline{position:relative;white-space:nowrap}
-.uline svg{position:absolute;left:-2%;bottom:-.14em;width:104%;height:.32em;overflow:visible}
-.uline path{fill:none;stroke:#FF4A1C;stroke-width:4;stroke-linecap:round;stroke-dasharray:320;stroke-dashoffset:320;animation:apwDraw 1s .5s ease-out forwards}
-@keyframes apwDraw{to{stroke-dashoffset:0}}
-.sticker{position:absolute;z-index:2;display:grid;place-items:center;width:78px;height:78px;border-radius:50%;background:#FF4A1C;color:#0E1430;text-align:center;font-size:13px;font-weight:800;line-height:1.05;text-transform:uppercase;letter-spacing:.02em;box-shadow:0 6px 14px rgba(10,15,36,.22);transform:rotate(9deg);pointer-events:none}
-.sticker::after{content:"";position:absolute;inset:5px;border-radius:50%;border:1.5px dashed rgba(14,20,48,.55)}
-.route{position:relative;list-style:none;margin:26px 0 0;padding:0}
-.route::before{content:"";position:absolute;left:75px;top:10px;bottom:10px;width:2px;background:repeating-linear-gradient(to bottom,#FF4A1C 0 7px,transparent 7px 13px)}
-.stop{display:grid;grid-template-columns:64px 24px minmax(0,1fr);align-items:start;padding-bottom:28px}
-.stop:last-child{padding-bottom:0}
-.stime{padding-top:2px;text-align:right;font-size:13px;font-weight:600;color:var(--accent-text);white-space:nowrap}
-.snode{justify-self:center;width:14px;height:14px;margin-top:3px;border-radius:50%;border:3px solid #FF4A1C;position:relative;z-index:1}
-.sbody{min-width:0;padding-left:4px}
-.sbody h3{margin:0;font-size:19px;font-weight:800;letter-spacing:-.025em;line-height:1.15;color:var(--ink)}
-.sbody p{margin:6px 0 0;font-size:16px;line-height:1.5;color:var(--ink2)}
-.rdot{position:absolute;left:69px;z-index:2;width:16px;height:16px;margin-top:-8px;border-radius:50%;background:#FF4A1C;box-shadow:0 0 0 3px var(--bg2);transition:top .25s ease-out}
-.rdot::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:2px solid #FF4A1C;animation:apwRing 1.8s ease-out infinite}
-@keyframes apwRing{0%{transform:scale(1);opacity:.9}100%{transform:scale(2.4);opacity:0}}
-.bub{display:inline-block;max-width:100%;margin-top:10px;padding:11px 14px;border-radius:18px 18px 18px 6px;background:var(--card);border:1px solid var(--line);font-size:15px;line-height:1.45;color:var(--ink)}
-.minimap{position:relative;margin-top:10px;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#F3E7D2;aspect-ratio:2/1}
-.minimap svg{position:absolute;inset:0;width:100%;height:100%;display:block}
-.mmdot{animation:mmDrive 6s ease-in-out infinite}
-@keyframes mmDrive{0%{transform:translate(18px,92px)}30%{transform:translate(118px,92px)}55%{transform:translate(118px,40px)}80%,100%{transform:translate(196px,40px)}}
-.dogrow{flex:1;min-width:0;display:flex;flex-wrap:wrap;justify-content:center;gap:2px;min-height:44px}
-.dogf{display:block;width:40px;height:40px;animation:dogPop .4s cubic-bezier(.3,1.6,.5,1) both}
-@keyframes dogPop{from{transform:scale(.2) rotate(-20deg);opacity:0}to{transform:none;opacity:1}}
-.cal{display:grid;grid-template-columns:repeat(7,9px);gap:3px}
-.cal span{display:block;width:9px;height:9px;border-radius:3px}
-.qa{margin-top:10px}
-.qa summary{display:flex;justify-content:flex-end}
-.qb{margin:0;font-family:inherit;letter-spacing:normal;max-width:86%;padding:12px 16px;border-radius:20px 20px 6px 20px;background:var(--ink);color:var(--bg);font-size:16px;font-weight:600;line-height:1.4}
-.qa[open] .qb{background:#FF4A1C;color:#0E1430}
-.ab{display:flex;gap:8px;align-items:flex-end;margin-top:8px}
-.ab img{width:28px;height:28px;flex:0 0 28px;display:block}
-.ab p{margin:0;max-width:86%;padding:12px 16px;border-radius:20px 20px 20px 6px;background:var(--card);border:1px solid var(--line);font-size:16px;line-height:1.5;color:var(--ink)}
-.rcpt{position:relative;margin-top:30px;padding:24px 20px 26px;background:#FFFFFF;color:#0E1430}
-.rcpt::before,.rcpt::after{content:"";position:absolute;left:0;right:0;height:10px;background-size:14px 10px;background-repeat:repeat-x}
-.rcpt::before{top:-10px;background-image:linear-gradient(135deg,transparent 7px,#FFFFFF 7px),linear-gradient(225deg,transparent 7px,#FFFFFF 7px)}
-.rcpt::after{bottom:-10px;background-image:linear-gradient(45deg,transparent 7px,#FFFFFF 7px),linear-gradient(315deg,transparent 7px,#FFFFFF 7px)}
-.rrow{display:flex;align-items:baseline;gap:8px;padding:9px 0;font-size:16px;font-weight:600}
-.rrow i{flex:1;min-width:16px;border-bottom:2px dotted #C9C2B3;transform:translateY(-4px)}
-.rrow b{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:14px;font-weight:600;color:#B02A08;white-space:nowrap}
-.ph{display:grid;place-items:center;text-align:center;border:1.6px dashed var(--field);background:var(--bg3);color:var(--mute);font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:13px;line-height:1.2}
-@media (prefers-reduced-motion:reduce){.uline path{animation:none;stroke-dashoffset:0}.rdot::after,.mmdot,.dogf{animation:none}}"""
+# ---------- page parts ----------
+SITE_CSS = look.SITE_CSS + '\n' + truemap.MAP_CSS + '\n' + look.MAP_FIX_CSS + '\n' + look.SCENE_FIX_CSS
 
 DOG_SVG = ('<svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">'
            '<ellipse cx="9" cy="17" rx="6" ry="10" fill="currentColor" opacity=".72" transform="rotate(18 9 17)"></ellipse>'
@@ -199,18 +132,6 @@ DOG_SVG = ('<svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">'
            '<ellipse cx="20" cy="24.4" rx="3.1" ry="2.2" fill="#1A1414"></ellipse>'
            '<circle cx="14.5" cy="18" r="1.8" fill="#1A1414"></circle><circle cx="25.5" cy="18" r="1.8" fill="#1A1414"></circle>'
            '<path d="M17.4 29.6q2.6 2 5.2 0" stroke="#1A1414" stroke-width="1.4" fill="none" stroke-linecap="round"></path></svg>')
-
-ULINE = '<svg viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><path vector-effect="non-scaling-stroke" d="M3 8C22 3 44 2 62 5S88 10 97 4"></path></svg>'
-
-MINIMAP = ('<svg viewBox="0 0 220 110" aria-hidden="true">'
-           '<g stroke="#FFFFFF" stroke-width="6" fill="none"><path d="M0 92H220M118 0V110M0 40H220M60 0V110M176 0V110"></path></g>'
-           '<path d="M18 92H118V40H196" stroke="#FF4A1C" stroke-width="3" fill="none" stroke-dasharray="5 5" stroke-linecap="round"></path>'
-           '<g fill="#E8C29A"><rect x="132" y="56" width="16" height="12" rx="2"></rect><rect x="74" y="56" width="18" height="12" rx="2"></rect><rect x="24" y="56" width="16" height="12" rx="2"></rect><rect x="132" y="12" width="18" height="12" rx="2"></rect><rect x="74" y="12" width="18" height="12" rx="2"></rect></g>'
-           '<path d="M196 41l-5.5 -8h11z" fill="#0E1430"></path><circle cx="196" cy="29" r="6" fill="#0E1430"></circle><circle cx="196" cy="29" r="2.4" fill="#FFFFFF"></circle>'
-           '<g class="mmdot"><circle r="9" fill="#FF4A1C" opacity=".25"></circle><circle r="5" fill="#FF4A1C" stroke="#FFFFFF" stroke-width="2"></circle></g>'
-           '</svg>')
-
-SITE_CSS += "\n.routew{position:relative;margin-top:26px}.route{margin:0}\n" + truemap.MAP_CSS
 
 LBS_PER_DOG = '274'
 
@@ -223,11 +144,11 @@ AREA_METHODS = r"""  _zipArea(zip) {
   _areaVals() {
     const s = this.state;
     const areas = {
-      buckeye: { name: 'Buckeye', meta: 'BUCKEYE · ZIP 85326 AND 85396' },
-      verrado: { name: 'Verrado', meta: 'VERRADO · BUCKEYE · ZIP 85396' },
-      citrus: { name: 'Citrus Park', meta: 'CITRUS PARK · WADDELL · ZIP 85355' },
-      goodyear: { name: 'Goodyear', meta: 'GOODYEAR · ZIP 85338 AND 85395' },
-      litchfield: { name: 'Litchfield Park', meta: 'LITCHFIELD PARK · ZIP 85340' }
+      buckeye: { name: 'Buckeye', meta: 'Buckeye, ZIP 85326 and 85396' },
+      verrado: { name: 'Verrado', meta: 'Verrado, in Buckeye, ZIP 85396' },
+      citrus: { name: 'Citrus Park', meta: 'Citrus Park and Waddell, ZIP 85355' },
+      goodyear: { name: 'Goodyear', meta: 'Goodyear, ZIP 85338 and 85395' },
+      litchfield: { name: 'Litchfield Park', meta: 'Litchfield Park, ZIP 85340' }
     };
     const pin = (id) => {
       const on = s.area === id;
@@ -253,23 +174,18 @@ AREA_METHODS = r"""  _zipArea(zip) {
 
 MAP = truemap.build('mV.pick', 'mC.pick', 'mG.pick', 'mL.pick', 'mB.pick')
 SOON_NOTE = ('<div class="soon">'
-             '<p class="soon-h mono">COMING SOON</p>'
+             '<p class="soon-h">Coming soon</p>'
              '<p class="soon-l">Surprise, Peoria, Glendale, Laveen, the Central and East Valley, Tucson, Flagstaff, Kingman and Lake Havasu City.</p>'
              '<p class="soon-p"><b>We don’t come to you yet?</b> Let us know. Join the waitlist with your name, phone and address. [[bf:Join by November 30 and your first month is free when we start in your area.||Your first cleanup is free when we start in your area.]]</p>'
              '<a href="Booking.dc.html" class="btn btn-line soon-b">Join the waitlist</a>'
              '</div>')
-SITE_CSS += ('\n.soon{margin-top:18px;padding:16px;border-radius:18px;background:var(--card);border:1px solid var(--line)}'
-             '.soon-h{margin:0;font-size:13px;font-weight:600;letter-spacing:.1em;color:var(--accent-text)}'
-             '.soon-l{margin:6px 0 0;font-size:16px;font-weight:700;line-height:1.45;color:var(--ink)}'
-             '.soon-p{margin:8px 0 0;font-size:15px;line-height:1.5;color:var(--ink2)}'
-             '.soon-b{margin-top:14px;width:100%}')
 MAP_KEY = truemap.MAP_KEY
 MAP_CHIPS = '''  <div class="mchips" role="group" aria-label="Towns we scoop">
-    <button type="button" class="mchip" style="background: {{ mB.bg }}; color: {{ mB.fg }};" aria-pressed="{{ mB.on }}" onClick="{{ mB.pick }}"><i></i>Buckeye</button>
-    <button type="button" class="mchip" style="background: {{ mG.bg }}; color: {{ mG.fg }};" aria-pressed="{{ mG.on }}" onClick="{{ mG.pick }}"><i></i>Goodyear</button>
-    <button type="button" class="mchip" style="background: {{ mL.bg }}; color: {{ mL.fg }};" aria-pressed="{{ mL.on }}" onClick="{{ mL.pick }}"><i></i>Litchfield Park</button>
-    <button type="button" class="mchip" style="background: {{ mC.bg }}; color: {{ mC.fg }};" aria-pressed="{{ mC.on }}" onClick="{{ mC.pick }}"><i></i>Citrus Park</button>
-    <button type="button" class="mchip" style="background: {{ mV.bg }}; color: {{ mV.fg }};" aria-pressed="{{ mV.on }}" onClick="{{ mV.pick }}"><i></i>Verrado</button>
+    <button type="button" class="mchip" aria-pressed="{{ mB.on }}" onClick="{{ mB.pick }}">Buckeye</button>
+    <button type="button" class="mchip" aria-pressed="{{ mG.on }}" onClick="{{ mG.pick }}">Goodyear</button>
+    <button type="button" class="mchip" aria-pressed="{{ mL.on }}" onClick="{{ mL.pick }}">Litchfield Park</button>
+    <button type="button" class="mchip" aria-pressed="{{ mC.on }}" onClick="{{ mC.pick }}">Citrus Park</button>
+    <button type="button" class="mchip" aria-pressed="{{ mV.on }}" onClick="{{ mV.pick }}">Verrado</button>
   </div>'''
 
 from scene import saguaro, agave, barrel  # noqa: E402
@@ -299,12 +215,16 @@ FAQ_ITEMS = [
     ('How do I see my bills?', 'Sign in to My Yard. Every bill is there, and you can open or save each one.'),
     ('My yard is rock, not grass.', 'Rock can hide poop. So we rake rock yards with a wide metal rake.'),
 ]
-_seal28 = ('<sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}"><img src="' + BLOB_MARK + '" alt=""></sc-if>'
-           '<sc-if value="{{ isDark }}" hint-placeholder-val="{{ false }}"><img src="' + BLOB_MARK_DARK + '" alt=""></sc-if>')
 
 
 def faq(items):
-    return '\n    '.join('<details class="qa"><summary><h3 class="qb">%s</h3></summary><div class="ab">%s<p>%s</p></div></details>' % (q, _seal28, a) for q, a in items)
+    """Questions as plain rows that open. Two columns on a computer, one on a phone. Every answer is in the page for Google and AI search."""
+    def one(q, a):
+        return '<details class="qa"><summary><h3 class="qb">%s</h3><span class="qa-i" aria-hidden="true"></span></summary><div class="ab"><p>%s</p></div></details>' % (q, a)
+    items = list(items)
+    half = (len(items) + 1) // 2
+    return ('<div class="qcol">' + ''.join(one(q, a) for q, a in items[:half]) + '</div>\n    '
+            '<div class="qcol">' + ''.join(one(q, a) for q, a in items[half:]) + '</div>')
 
 
 FAQ = faq(FAQ_ITEMS)
@@ -319,185 +239,46 @@ TRUCK_STATIC = (
     '<circle cx="76" cy="199.5" r="7" fill="#0A0F24"></circle><circle cx="76" cy="199.5" r="3" fill="#C9C3B6"></circle>'
 )
 
-SKYLINE = ('<svg viewBox="0 0 390 130" aria-hidden="true" style="display: block; width: 100%; height: auto;">'
-           '<circle cx="300" cy="58" r="24" fill="#FF4A1C"></circle>'
-           '<path class="skm1" d="M0 98L24 84 40 88 58 72 74 80 92 62 108 70 124 58 142 70 160 66 178 78 196 70 214 82 236 74 258 86 282 80 306 92 330 84 352 94 372 88 390 96V130H0Z"></path>'
-           '<path class="skm2" d="M0 110L30 104 60 108 96 100 130 106 170 102 210 108 250 102 290 108 330 104 360 108 390 105V130H0Z"></path>'
-           '<rect class="skg" x="0" y="112" width="390" height="18"></rect>'
-           + saguaro(44, 118, 66) + saguaro(344, 118, 54, .9, True) + saguaro(372, 118, 36, .7) + agave(84, 121) + barrel(312, 121) + agave(258, 121, .8) +
-           '<g transform="translate(150 -78)">' + TRUCK_STATIC + '</g>'
+# The desert at the bottom of the page: sun, two ridge lines, cactus and our truck.
+# It is three tiles wide. A phone shows the middle tile, a computer shows more of it (xMidYMax slice).
+_RIDGE1 = 'M0 98L24 84 40 88 58 72 74 80 92 62 108 70 124 58 142 70 160 66 178 78 196 70 214 82 236 74 258 86 282 80 306 92 330 84 352 94 372 88 390 96V130H0Z'
+_RIDGE2 = 'M0 110L30 104 60 108 96 100 130 106 170 102 210 108 250 102 290 108 330 104 360 108 390 105V130H0Z'
+_tiles = ''.join('<g transform="%s"><path class="skm1" d="%s"></path></g>' % (t, _RIDGE1) for t in ('translate(390 0) scale(-1 1)', 'translate(390 0)', 'translate(1170 0) scale(-1 1)'))
+_tiles += ''.join('<g transform="%s"><path class="skm2" d="%s"></path></g>' % (t, _RIDGE2) for t in ('translate(390 0) scale(-1 1)', 'translate(390 0)', 'translate(1170 0) scale(-1 1)'))
+SKYLINE = ('<svg viewBox="0 0 1170 130" preserveAspectRatio="xMidYMax slice" aria-hidden="true">'
+           '<circle cx="690" cy="58" r="24" fill="#FF4A1C"></circle>'
+           + _tiles +
+           '<rect class="skg" x="0" y="112" width="1170" height="18"></rect>'
+           + saguaro(434, 118, 66) + saguaro(734, 118, 54, .9, True) + saguaro(762, 118, 36, .7) + agave(474, 121) + barrel(702, 121) + agave(648, 121, .8)
+           + saguaro(96, 118, 58, .9) + saguaro(236, 118, 40, .8, True) + agave(170, 121) + barrel(318, 121, .9) + agave(40, 121, .8)
+           + saguaro(868, 118, 62, 1, True) + saguaro(1012, 118, 44, .8) + agave(944, 121) + saguaro(1118, 118, 56, .9) + barrel(1066, 121)
+           + '<g transform="translate(540 -78)">' + TRUCK_STATIC + '</g>'
            '</svg>')
 
-SITE_CSS += "\n.skm1{fill:#DCD6EA}.dark .skm1{fill:#2B3468}.skm2{fill:#BCB5D6}.dark .skm2{fill:#1E2650}.skg{fill:#EBD9B8}.dark .skg{fill:#2A2F4A}"
 
-_th = 'class="mono" style="padding: 10px 0; text-align: right; font-size: 13px; font-weight: 600; color: #AEB5D8; border-bottom: 1px solid rgba(255,255,255,.16);"'
-_td = 'style="padding: 12px 0; text-align: right; border-bottom: 1px solid rgba(255,255,255,.10);"'
-_rh = 'scope="row" style="padding: 12px 0; text-align: left; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,.10);"'
-
-
-def _xrow(a, b, last=False):
-    return ('<div style="display: flex; justify-content: space-between; gap: 12px; padding: 11px 0;%s font-size: 15px;"><span>%s</span><span class="mono" style="font-weight: 600; color: #FF8A66; white-space: nowrap;">%s</span></div>'
-            % ('' if last else ' border-bottom: 1px solid rgba(255,255,255,.10);', a, b))
+def _xrow(a, b):
+    return '<div class="ptab-r"><span>%s</span><b>%s</b></div>' % (a, b)
 
 
 PRICE_TABLE = (
-    '<table style="width: 100%; border-collapse: collapse; font-size: 15px; color: #FFFFFF;">'
-    '<thead><tr><th scope="col" class="mono" style="padding: 10px 0; text-align: left; font-size: 13px; font-weight: 600; color: #AEB5D8; border-bottom: 1px solid rgba(255,255,255,.16);">A MONTH</th>'
-    '<th scope="col" ' + _th + '>1 OR 2 DOGS</th><th scope="col" ' + _th + '>3 DOGS</th></tr></thead><tbody>'
-    '<tr><th ' + _rh + '>Every week</th><td ' + _td + '>$108</td><td ' + _td + '>$121</td></tr>'
-    '<tr><th ' + _rh + '>Twice a week</th><td ' + _td + '>$189</td><td ' + _td + '>$202</td></tr>'
-    '<tr><th ' + _rh + '>Every other week</th><td ' + _td + '>$75</td><td ' + _td + '>$84</td></tr>'
+    '<table class="ptab">'
+    '<thead><tr><th scope="col">A month</th><th scope="col">1 or 2 dogs</th><th scope="col">3 dogs</th></tr></thead><tbody>'
+    '<tr><th scope="row">Every week</th><td>$108</td><td>$121</td></tr>'
+    '<tr><th scope="row">Twice a week</th><td>$189</td><td>$202</td></tr>'
+    '<tr><th scope="row">Every other week</th><td>$75</td><td>$84</td></tr>'
     '</tbody></table>'
-    '<p class="mono" style="margin: 22px 0 2px; font-size: 13px; font-weight: 600; letter-spacing: .06em; color: #AEB5D8;">EXTRAS</p>'
-    + _xrow('Deodorizer spray', 'FREE EVERY VISIT') + _xrow('Turf odor treatment', '$35') + _xrow('Same day pickup', '$49') + _xrow('One time cleanup', '$95', True) +
-    '<p style="margin: 12px 0 18px; font-size: 14px; line-height: 1.5; color: #AEB5D8;">Each dog after two adds $13 a month ($9 every other week). [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]</p>'
+    '<p class="ptab-x">Extras</p>'
+    + _xrow('Deodorizer spray', 'Free every visit') + _xrow('Turf odor treatment', '$35') + _xrow('Same day pickup', '$49') + _xrow('One time cleanup', '$95') +
+    '<p class="ptab-n">Each dog after two adds $13 a month ($9 every other week). [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]</p>'
 )
 
 
 # ---------- page chrome shared by the home page, the town pages and the policy pages ----------
-# Phones get the one column design. From 1024px wide the same markup becomes a desktop site:
-# a top nav with Book now, two column sections, and Book now opens the sign up in a centered window.
-HDR_CSS = r""".apw .hdr{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
-.apw .hin{display:flex;align-items:center;gap:8px;max-width:1240px;height:80px;margin:0 auto;padding:0 12px 0 14px}
-.apw .hlogo{display:flex;align-items:center;flex:0 0 auto;min-height:48px;text-decoration:none}
-.apw .lgo{display:block;width:auto;height:67px}
-.apw .hsp{flex:1}
-.apw .dnav,.apw .hbook{display:none}
-@media (min-width:1024px){
-.apw .hin{max-width:1224px;height:88px;padding:0 32px;gap:10px}
-.apw .lgo{height:73px}
-.apw .dnav{display:flex;align-items:center;gap:2px;margin-left:20px}
-.apw .dnav a{display:inline-flex;align-items:center;min-height:44px;padding:0 12px;border-radius:999px;color:var(--ink);font-size:16px;font-weight:600;text-decoration:none;white-space:nowrap}
-.apw .dnav a:hover{background:var(--bg2)}
-.apw .hbook{display:inline-flex;min-height:48px;padding:0 22px;font-size:16px}
-.apw .mbtn{display:none}
-}
-@media (min-width:1024px) and (max-width:1199px){.apw .lgo{height:67px}}
-@media (min-width:1024px) and (max-width:1279px){.apw .dnav{margin-left:6px}.apw .dnav a{padding:0 9px;font-size:15px}}"""
+HDR_CSS = look.HDR_CSS
+PAGE_CSS = look.PAGE_CSS
+LF_CSS = look.LF_CSS
 
-PAGE_CSS = HDR_CSS + r"""
-.apw .pg{position:relative;background:var(--bg)}
-.apw .in{width:100%;max-width:560px;margin-left:auto;margin-right:auto}
-.apw .sec{padding:56px 20px}
-.apw .subn{margin:12px 0 0;font-size:17px;line-height:1.55;color:#D5DAF0}
-.apw .hero{padding:18px 16px 40px;background:var(--bg)}
-.apw .hey{display:flex;align-items:center;gap:10px;padding:0 4px}
-.apw .h1-hero{margin-top:12px;padding:0 4px;font-size:42px;color:var(--ink)}
-.apw .hvid{margin-top:18px}
-.apw .hbk{position:relative;margin-top:18px}
-.apw .hsm{margin:12px 0 0;font-size:13px;color:var(--mute);text-align:center}
-.apw .hp{margin:22px 4px 0;font-size:17px;line-height:1.55;color:var(--ink2)}
-.apw .prg{margin-top:22px}
-.apw .ptot{margin-top:16px}
-.apw .pf-a{margin-top:24px}
-.apw .pf-b{margin-top:16px}
-.apw .qs-l{margin-top:14px}
-.apw .qs-c .btn{margin-top:22px}
-.apw .pr .rcpt{text-align:left}
-.apw .cta{padding:0 0 56px;background:var(--bg);color:var(--ink);text-align:center}
-.apw .cta-in{padding:8px 20px 0}
-.apw .cta-h{margin-top:0;font-size:40px;color:var(--ink)}
-.apw .cta-c{padding-top:56px}
-.apw .cta .btn{margin-top:24px}
-.apw .chero{padding:0 0 36px;background:var(--bg)}
-.apw .cht{padding:4px 20px 0}
-.apw .h1-city{margin-top:10px;font-size:40px;color:var(--ink)}
-.apw .cfaq{margin-top:14px}
-.apw .nb-l{display:flex;flex-direction:column;gap:8px;margin-top:18px}
-.apw .inc-l{margin-top:18px}
-.apw .ftr{padding:40px 20px 128px;background:#070B1B;color:#FFFFFF}
-.apw .flogo{display:block;width:260px;max-width:100%;height:auto}
-.apw .fnav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:24px}
-.apw .fnav>div{display:flex;flex-direction:column}
-.apw .mdlg{position:fixed;inset:0;z-index:40;display:flex;justify-content:flex-end;background:rgba(7,11,27,.6)}
-.apw .mpan{width:100%;max-width:440px;height:100%;overflow-y:auto;display:flex;flex-direction:column;padding:0 16px 24px;background:var(--bg);color:var(--ink)}
-@media (max-height:600px) and (max-width:1023px){.apw .h1-hero{font-size:34px}.apw .short-hide{display:none !important}.apw .hero{padding-top:14px}.apw .vs{aspect-ratio:16/10}}
-@media (min-width:1024px){
-.apw .in{max-width:1160px}
-.apw .sec{padding:104px 32px}
-.apw .h2{font-size:48px}
-.apw .lead,.apw .subn{font-size:19px}
-.apw .g2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:72px;align-items:start}
-.apw .stk{position:sticky;top:136px}
-.apw .hero{padding:64px 32px 104px}
-.apw .hg{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);grid-template-areas:". v" "e v" "t v" "p v" "b v" "s v" ". v";grid-template-rows:1fr auto auto auto auto auto 1fr;column-gap:72px}
-.apw .hey{grid-area:e;padding:0}
-.apw .h1-hero{grid-area:t;margin-top:18px;padding:0;font-size:clamp(56px,5.2vw,78px)}
-.apw .hp{grid-area:p;margin:24px 0 0;max-width:31em;font-size:20px}
-.apw .hbk{grid-area:b;width:fit-content;min-width:340px;margin-top:32px}
-.apw .hsm{grid-area:s;margin-top:14px;text-align:left}
-.apw .hvid{grid-area:v;align-self:center;margin-top:0}
-.apw .shd{max-width:720px}
-.apw .prg{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);margin-top:44px}
-.apw .ptot{margin-top:0}
-.apw .hw .routew{margin-top:0}
-.apw .pf{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"h a" "b a";grid-template-rows:auto 1fr;column-gap:72px}
-.apw .pf-h{grid-area:h}
-.apw .pf-a{grid-area:a;margin-top:0}
-.apw .pf-b{grid-area:b;align-self:start;margin-top:36px}
-.apw .wh{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);grid-template-areas:"h m" "c m";grid-template-rows:auto 1fr;column-gap:72px}
-.apw .wh-h{grid-area:h}
-.apw .wh-c{grid-area:c}
-.apw .wh .map{grid-area:m;align-self:start;margin:0;border:1px solid var(--line);border-radius:24px}
-.apw .qs{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);grid-template-areas:"h l" "c l";grid-template-rows:auto 1fr;column-gap:72px}
-.apw .qs-h{grid-area:h}
-.apw .qs-l{grid-area:l;margin-top:0}
-.apw .qs-c{grid-area:c;align-self:start}
-.apw .qs-c .btn{display:inline-flex}
-.apw .pr{max-width:600px;text-align:center}
-.apw .cta{padding:0 32px 104px}
-.apw .cta-c{padding-top:104px}
-.apw .cta-h{font-size:56px}
-.apw .cta .btn{display:inline-flex;min-width:320px}
-.apw .sky{max-width:760px;margin:0 auto}
-.apw .sky svg{-webkit-mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent);mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent)}
-.apw .chero{padding:56px 32px 96px}
-.apw .chg{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);column-gap:72px;align-items:center}
-.apw .csky{order:2;display:flex;align-items:flex-end;aspect-ratio:3/2;border-radius:28px;overflow:hidden;background:linear-gradient(180deg,#CFE6F7,#F3F1EA 82%)}
-.apw.dark .csky{background:linear-gradient(180deg,#0B1330,#1B2449 82%)}
-.apw .cht{order:1;padding:0}
-.apw .h1-city{font-size:clamp(52px,4.8vw,72px)}
-.apw .cht .cp{font-size:19px}
-.apw .cwhy>:first-child,.apw .cfaq,.apw .nb-l,.apw .inc-l{margin-top:0}
-.apw .inc{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"h l" "a l";grid-template-rows:auto 1fr;column-gap:72px}
-.apw .inc-h{grid-area:h}
-.apw .inc-l{grid-area:l}
-.apw .inc-a{grid-area:a;align-self:start}
-.apw .cpr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"h t" "c t";grid-template-rows:auto 1fr;column-gap:72px}
-.apw .cpr-h{grid-area:h}
-.apw .cpr-t{grid-area:t;margin-top:0 !important}
-.apw .cpr-c{grid-area:c}
-.apw .cpr-c .btn{display:inline-flex;min-width:300px}
-.apw .nb-h .h2{margin-top:0}
-.apw .ftr{padding:72px 32px 48px}
-.apw .fg{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);column-gap:96px;align-items:start}
-.apw .fnav{margin-top:0}
-.apw .sbar{display:none !important}
-.apw .rv{display:grid !important;grid-template-columns:repeat(3,minmax(0,1fr));margin:14px 0 0 !important;padding:0 !important;overflow:visible !important}
-}"""
-
-
-# long form town pages: neighborhood cards, guide sections, sources
-LF_CSS = r""".apw .hcards{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:24px}
-.apw .hcard{display:flex;flex-direction:column;padding:20px 20px 18px;border-radius:20px;background:var(--card);border:1px solid var(--line)}
-.apw .hcard h3{margin:0;font-size:20px;font-weight:800;letter-spacing:-.02em;line-height:1.2;color:var(--ink)}
-.apw .hcard .hz{align-self:flex-start;margin:8px 0 0;padding:3px 10px;border-radius:999px;background:var(--accent-soft);color:var(--accent-text);font-size:13px;font-weight:600;letter-spacing:.03em}
-.apw .hcard p{margin:10px 0 0;font-size:16px;line-height:1.55;color:var(--ink2)}
-.apw .hcard p.hz{margin-top:8px}
-.apw .lfb{margin-top:24px}
-.apw .lfb h3{margin:30px 0 0;font-size:21px;font-weight:800;letter-spacing:-.02em;line-height:1.2;color:var(--ink)}
-.apw .lfb h3:first-child{margin-top:0}
-.apw .lfb p{margin:10px 0 0;font-size:17px;line-height:1.6;color:var(--ink2)}
-.apw .lfb ul{margin:12px 0 0;padding-left:22px;font-size:17px;line-height:1.6;color:var(--ink2)}
-.apw .lfb li{margin-top:6px}
-.apw .lfb li::marker{color:var(--accent)}
-.apw .lfb strong{color:var(--ink)}
-.apw .lfb ul.src{font-size:15px;line-height:1.5}
-.apw .lfb .upd{margin-top:18px;font-size:13px;color:var(--mute)}
-@media (min-width:700px){.apw .hcards{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (min-width:1024px){.apw .lfb{margin-top:0}.apw .hcards{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:36px}.apw .lfb p,.apw .lfb ul{font-size:18px}.apw .lfb ul.src{font-size:15px}}"""
-
-# interactive yard on the home page (yard.py)
+# interactive yard game (archived Nov 2026, see design/archive). The parts stay here so it can come back.
 import yard as _yard  # noqa: E402
 _yd = _yard.fill()
 YARD_SECTION = _yd['YARD_SECTION'].replace('@@ICON_MINUS20@@', ICON_MINUS20).replace('@@ICON_PLUS20@@', ICON_PLUS20)
@@ -507,12 +288,12 @@ YARD_STATE = _yd['YARD_STATE']
 
 DD_CHEV = '<svg class="ddc" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 DD_AREAS = ('<div class="ddp">'
-    '<a href="CityBuckeye.dc.html"><b>Buckeye</b><span>85326 · 85396</span></a>'
+    '<a href="CityBuckeye.dc.html"><b>Buckeye</b><span>85326 and 85396</span></a>'
     '<a href="CityVerrado.dc.html"><b>Verrado</b><span>Buckeye 85396</span></a>'
-    '<a href="CityGoodyear.dc.html"><b>Goodyear</b><span>85338 · 85395</span></a>'
+    '<a href="CityGoodyear.dc.html"><b>Goodyear</b><span>85338 and 85395</span></a>'
     '<a href="CityLitchfieldPark.dc.html"><b>Litchfield Park</b><span>85340</span></a>'
     '<a href="CityCitrusPark.dc.html"><b>Citrus Park and Waddell</b><span>85355</span></a>'
-    '<a href="AreasWeServe.dc.html" class="dda">See all service areas ›</a></div>')
+    '<a href="AreasWeServe.dc.html" class="dda">See all service areas</a></div>')
 DD_COMM = ('<div class="ddp ddg"><div><p class="ddh">Services</p>'
     '<a href="CommercialHoa.dc.html"><b>HOA common areas</b><span>Greenbelts, trails and parks</span></a>'
     '<a href="CommercialApartments.dc.html"><b>Apartments</b><span>Pet relief areas and dog runs</span></a>'
@@ -524,7 +305,7 @@ DD_COMM = ('<div class="ddp ddg"><div><p class="ddh">Services</p>'
     '<a href="CommercialGoodyear.dc.html"><b>Goodyear</b><span>Estrella, PebbleCreek, Palm Valley</span></a>'
     '<a href="CommercialLitchfield.dc.html"><b>Litchfield Park</b><span>HOAs, condos, resorts</span></a>'
     '<a href="CommercialCitrus.dc.html"><b>Citrus Park and Waddell</b><span>New communities, kennels</span></a>'
-    '<a href="Commercial.dc.html" class="dda">Commercial overview ›</a></div></div>')
+    '<a href="Commercial.dc.html" class="dda">Commercial overview</a></div></div>')
 DD = {'Areas we serve': DD_AREAS, 'Commercial': DD_COMM}
 
 
@@ -541,6 +322,7 @@ def _header(home, links):
             '  <nav class="dnav" aria-label="Main">' + nav + '</nav>\n'
             '  <span class="hsp"></span>\n'
             '  ' + THEME_BTN + '\n'
+            '  <a href="tel:+16233096104" class="hcall" aria-label="Call 623.309.6104">623.309.6104</a>\n'
             '  <a href="Booking.dc.html" class="btn btn-dot hbook">Book now</a>\n'
             '  <button type="button" class="ibtn mbtn" aria-label="Open menu" onClick="{{ openMenu }}">' + ICON_MENU + '</button>\n'
             '</div></header>')
@@ -551,18 +333,18 @@ def _menu(links):
     return ('<sc-if value="{{ menu }}" hint-placeholder-val="{{ false }}">\n'
             '  <div role="dialog" aria-modal="true" aria-label="Menu" class="mdlg">\n'
             '    <div class="mpan">\n'
-            '      <div style="display: flex; align-items: center; gap: 10px; height: 80px;">\n'
+            '      <div class="mtop">\n'
             '        ' + LOGO_H + '\n'
             '        <span style="flex: 1;"></span>\n'
             '        <button type="button" class="ibtn" aria-label="Close menu" onClick="{{ closeMenu }}">' + ICON_CLOSE + '</button>\n'
             '      </div>\n'
-            '      <nav aria-label="Main" style="display: flex; flex-direction: column; margin-top: 8px;">' + nav + '</nav>\n'
-            '      <a href="Booking.dc.html" class="btn btn-dot" style="margin-top: 24px;">Book now</a>\n'
-            '      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px;">\n'
+            '      <nav aria-label="Main" class="mnav">' + nav + '</nav>\n'
+            '      <a href="Booking.dc.html" class="btn btn-dot mbk">Book now</a>\n'
+            '      <div class="mct">\n'
             '        <a href="tel:+16233096104" class="btn btn-line">Call</a>\n'
             '        <a href="sms:+16233096104" class="btn btn-line">Text</a>\n'
             '      </div>\n'
-            '      <p class="mono" style="margin: 18px 0 0; text-align: center; font-size: 14px; color: var(--mute);">623.309.6104</p>\n'
+            '      <p class="mnum">623.309.6104</p>\n'
             '    </div>\n'
             '  </div>\n'
             '</sc-if>')
@@ -571,41 +353,27 @@ def _menu(links):
 # The Book, Call, Text bar is one piece for every page now. It lives in build/build.mjs (DOCK).
 SBAR = ''
 
-_flab = 'class="mono" style="margin: 0 0 4px; font-size: 13px; font-weight: 600; letter-spacing: .09em; color: #AEB5D8;"'
-_fcon = 'style="display: flex; align-items: center; gap: 12px; min-height: 56px; color: #FFFFFF; font-size: 17px; font-weight: 700; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,.10);"'
-_fsoc = 'class="btn btn-line-n" style="min-height: 44px; padding: 0 16px; font-size: 15px;"'
-
-
-SHIELD = ('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF8A66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-          '<path d="M12 3l7 3v5c0 4.6-3 8.4-7 10-4-1.6-7-5.4-7-10V6z"></path><path d="m9 12 2 2 4-4"></path></svg>')
-
-
-FLOCK = ('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF8A66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-         '<rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>')
-FCHECK = ('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF8A66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-          '<circle cx="12" cy="12" r="9"></circle><path d="m8.5 12 2.5 2.5 4.5-5"></path></svg>')
-
-
 F_CLOCK = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>'
 F_GLOBE = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18"></path><path d="M12 3c2.6 2.8 2.6 15.2 0 18c-2.600-2.800-2.600-15.200 0-18z"></path></svg>'
-F_SEAL = ('<svg class="fseal-i" viewBox="0 0 48 54" aria-hidden="true"><path d="M24 2l19 7v15c0 13-8 22-19 28C13 46 5 37 5 24V9z" fill="#FF4A1C"></path>'
-          '<path d="M24 7l14 5.200v11.800c0 10-6 17.500-14 22.300c-8-4.800-14-12.300-14-22.300V12.200z" fill="none" stroke="#0A0F24" stroke-width="1.6" opacity=".45"></path>'
-          '<path d="M15 26l6.500 6.500L34 19.500" fill="none" stroke="#FFFFFF" stroke-width="4.600" stroke-linecap="round" stroke-linejoin="round"></path></svg>')
-F_FAM = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#FF8A66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.500 11.500L12 4l8.500 7.500"></path><path d="M5.500 10v10h13V10"></path><path d="M12 17.500c-2.400-1.700-3.400-2.800-3.400-4.100a1.900 1.900 0 0 1 3.400-1.100a1.900 1.900 0 0 1 3.400 1.100c0 1.300-1 2.400-3.400 4.100z"></path></svg>'
+SEAL = look.seal_svg()
+SEAL_FAM = look.seal_svg(glyph='heart')
+SEALS = [('Bonded', '$50,000 bond'), ('Insured', '$1,000,000 liability'), ('Background checked', 'Every team member')]
+_F_PHONE = ICON_PHONE.replace('stroke="#FF6B42"', 'stroke="currentColor"')
+_F_SMS = ICON_CHAT
+_F_MAIL = ICON_MAIL.replace('stroke="#FF6B42"', 'stroke="currentColor"')
 
 
 def _footer(pre):
-    """pre is '' on the home page (links stay on the page) and 'Main.dc.html' everywhere else.
-    Layout (Nov 2026, Joe's pick): brand and contact, quick links, payment options. Seals, not boxes."""
+    """Layout (Nov 2026, Joe's pick): brand and contact, quick links, payment options. Then the seals row and family owned."""
     return ('<footer class="ftr">\n'
             '  <div class="in">\n'
             '  <div class="fg3">\n'
             '    <div class="fcol">\n'
-            '      <img class="flogo" src="' + BLOB_LOGO_DARK + '" alt="Arizona Pet Waste" width="260" height="79">\n'
+            '      <img class="flogo" src="' + BLOB_LOGO_DARK + '" alt="Arizona Pet Waste" width="240" height="73">\n'
             '      <ul class="fcon">\n'
-            '        <li><a href="tel:+16233096104" aria-label="Call us at 623.309.6104">' + ICON_PHONE + '<span>623.309.6104</span></a></li>\n'
-            '        <li><a href="sms:+16233096104" aria-label="Text us at 623.309.6104">' + ICON_SMS_O + '<span>623.309.6104</span></a></li>\n'
-            '        <li><a href="mailto:info@arizonapetwaste.com">' + ICON_MAIL + '<span>info@arizonapetwaste.com</span></a></li>\n'
+            '        <li><a href="tel:+16233096104" aria-label="Call us at 623.309.6104">' + _F_PHONE + '<span>623.309.6104</span></a></li>\n'
+            '        <li><a href="sms:+16233096104" aria-label="Text us at 623.309.6104">' + _F_SMS + '<span>623.309.6104</span></a></li>\n'
+            '        <li><a href="mailto:info@arizonapetwaste.com">' + _F_MAIL + '<span>info@arizonapetwaste.com</span></a></li>\n'
             '        <li><span class="fcon-t">' + F_CLOCK + '<span>Open 8 am to 5 pm, every day</span></span></li>\n'
             '        <li><a href="Main.dc.html">' + F_GLOBE + '<span>arizonapetwaste.com</span></a></li>\n'
             '      </ul>\n'
@@ -641,233 +409,65 @@ def _footer(pre):
             '      <p class="fhd">Payment options</p>\n'
             '      <p class="fpay">We take all major credit cards, Apple Pay and Google Pay. We do not take cash, Venmo or Cash App.</p>\n'
             '      <!--PAYMARKS-->\n'
-            '      <p class="fhd" style="margin-top: 26px;">Your info is safe</p>\n'
+            '      <p class="fhd fhd-2">Your info is safe</p>\n'
             '      <p class="fpay">Stripe keeps your card. We never see the number. We never sell your info. <a href="/privacy/">Read our Privacy Policy</a>.</p>\n'
             '    </div>\n'
             '  </div>\n'
             '  <div class="fseals" role="group" aria-label="Bonded, insured and background checked. Family owned and operated.">\n'
-            + ''.join('    <p class="fseal">' + F_SEAL + '<span><b>%s</b><small>%s</small></span></p>\n' % x for x in [('Bonded', '$50,000 bond'), ('Insured', '$1,000,000 liability'), ('Background checked', 'Every team member')]) +
+            + ''.join('    <p class="fseal">' + SEAL + '<span><b>%s</b><small>%s</small></span></p>\n' % x for x in SEALS) +
             '    <p class="fproof"><a href="/bonded-and-insured/">See the proof</a></p>\n'
-            '    <p class="ffam">' + F_FAM + '<span>Family owned and operated</span></p>\n'
+            '    <p class="ffam">' + SEAL_FAM.replace('class="seal-i"', 'class="seal-i ffam-i"') + '<span>Family owned and operated</span></p>\n'
             '  </div>\n'
-            '  <p style="margin: 26px 0 0; font-size: 14px; line-height: 1.6; color: #AEB5D8;">© 2026 Arizona Pet Waste. All rights reserved.</p>\n'
+            '  <p class="fcopy">© 2026 Arizona Pet Waste. All rights reserved.</p>\n'
             '  </div>\n'
             '</footer>')
 
 
-HEADER_MAIN = _header('Main.dc.html', [('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Commercial.dc.html', 'Commercial'), ('Faq.dc.html', 'FAQ')])
-HEADER_CITY = _header('Main.dc.html', [('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Commercial.dc.html', 'Commercial'), ('Faq.dc.html', 'FAQ')])
-MENU_MAIN = _menu([('Main.dc.html', 'Home'), ('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Commercial.dc.html', 'Commercial'), ('Faq.dc.html', 'FAQ'), ('Blog.dc.html', 'Blog'), ('CityBuckeye.dc.html', 'Buckeye'), ('CityGoodyear.dc.html', 'Goodyear'), ('CityLitchfieldPark.dc.html', 'Litchfield Park'), ('CityCitrusPark.dc.html', 'Citrus Park'), ('CityVerrado.dc.html', 'Verrado')])
-MENU_CITY = _menu([('Main.dc.html', 'Home'), ('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Commercial.dc.html', 'Commercial'), ('Faq.dc.html', 'FAQ'), ('Blog.dc.html', 'Blog'), ('CityBuckeye.dc.html', 'Buckeye'), ('CityGoodyear.dc.html', 'Goodyear'), ('CityLitchfieldPark.dc.html', 'Litchfield Park'), ('CityCitrusPark.dc.html', 'Citrus Park'), ('CityVerrado.dc.html', 'Verrado')])
+_NAV = [('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Commercial.dc.html', 'Commercial'), ('Faq.dc.html', 'FAQ')]
+_MNAV = [('Main.dc.html', 'Home'), ('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Commercial.dc.html', 'Commercial'), ('Faq.dc.html', 'FAQ'), ('Blog.dc.html', 'Blog'),
+         ('CityBuckeye.dc.html', 'Buckeye'), ('CityGoodyear.dc.html', 'Goodyear'), ('CityLitchfieldPark.dc.html', 'Litchfield Park'), ('CityCitrusPark.dc.html', 'Citrus Park'), ('CityVerrado.dc.html', 'Verrado')]
+HEADER_MAIN = _header('Main.dc.html', _NAV)
+HEADER_CITY = _header('Main.dc.html', _NAV)
+MENU_MAIN = _menu(_MNAV)
+MENU_CITY = _menu(_MNAV)
 FOOTER_MAIN = _footer('')
 FOOTER_CITY = _footer('Main.dc.html')
 
 
-# ---------- Redesign layer (Nov 2026): dark stage heroes, spec ticker, numbered sections, specs grid, motion ----------
-TICK_ITEMS = ['Gate photo every visit', 'Free deodorizer spray', 'Live truck map', 'First month $0', 'No contract',
-              '4 free skips a year', 'Free return in 24 hours', 'Bonded and insured']
-_tick_li = ''.join('<li>%s</li>' % x for x in TICK_ITEMS)
-TRUST_SVG = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"></path><path d="M9 12l2 2 4-4.5"></path></svg>'
-TICKER = ('<div class="tb" role="region" aria-label="Bonded and insured">\n'
-          '  <ul class="tb-l">'
-          + ''.join('<li>' + TRUST_SVG + '<b>%s</b></li>' % x for x in ['Bonded', 'Insured', 'Background checked'])
+# ---------- the seals strip under every hero: bonded, insured, background checked, family owned ----------
+TICKER = ('<div class="seals" role="region" aria-label="Bonded, insured and background checked. Family owned and operated.">\n'
+          '  <ul class="seals-l">'
+          + ''.join('<li>' + SEAL + '<span><b>%s</b><small>%s</small></span></li>' % x for x in SEALS)
+          + '<li>' + SEAL_FAM + '<span><b>Family owned</b><small>and operated</small></span></li>'
+          + '<li class="seals-go"><a class="tl" href="/bonded-and-insured/">See the proof</a></li>'
           + '</ul>\n</div>')
 
-SPEC_ITEMS = [('30', 'MIN', 'Your time window. We text it the night before.'),
-              ('1', 'PHOTO', 'Of your latched gate after every visit.'),
-              ('$0', 'SPRAY', 'Deodorizer on the spots your dogs use most.'),
-              ('24', 'HOURS', 'We come back free if we miss a pile.'),
-              ('4', 'SKIPS', 'Free skips a year. One tap in My Yard.'),
-              ('120', 'DAYS', 'Pause while you are away. You pay $0.'),
-              ('6', 'ZIP CODES', 'Every home in Buckeye, Goodyear, Litchfield Park and Citrus Park.'),
-              ('0', 'CONTRACTS', 'Month to month. Cancel in My Yard.')]
-SPECS = ('<section id="specs" class="sec spec">\n  <div class="in">\n'
-         '  <p class="eb nx">The specs</p>\n'
-         '  <h2 class="h2">Every visit, by the numbers<span style="color: #FF4A1C;">.</span></h2>\n'
-         '  <dl class="sgrid">\n' +
-         ''.join('    <div class="scell"><dt><b>%s</b><small>%s</small></dt><dd>%s</dd></div>\n' % s for s in SPEC_ITEMS) +
-         '  </dl>\n'
-         '  <p class="mono sfoot">Bonded and insured · No contract · No sign up fee</p>\n'
+# ---------- what every plan comes with (was "Every visit, by the numbers") ----------
+CK_SVG = '<svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 15l6 6L23 8"></path></svg>'
+CK_ITEMS = [('A 30 minute time window', 'We text it to you the night before.'),
+            ('A photo of your latched gate', 'After every visit. No photo? That visit is free.'),
+            ('Free deodorizer spray', 'On the spots your dogs use most.'),
+            ('A free return within 24 hours', 'If we miss a pile.'),
+            ('4 free skips a year', 'One tap in My Yard.'),
+            ('A pause for up to 120 days', 'While you are away. You pay $0.'),
+            ('Every home in 6 ZIP codes', 'Buckeye, Goodyear, Litchfield Park and Citrus Park.'),
+            ('No contract and no sign up fee', 'Month to month. Cancel in My Yard.')]
+SPECS = ('<section id="specs" class="sec">\n  <div class="in ck-g">\n'
+         '  <div class="shd">\n'
+         '    <h2 class="h2">What you get with every visit</h2>\n'
+         '    <p class="lead">Every plan comes with all of this.</p>\n'
+         '  </div>\n'
+         '  <ul class="ck">\n' +
+         ''.join('    <li>%s<div><b>%s</b><span>%s</span></div></li>\n' % (CK_SVG, a, b) for a, b in CK_ITEMS) +
+         '  </ul>\n'
          '  </div>\n</section>')
 
-REVAMP_CSS = r"""
-.apw{counter-reset:sx}
-.apw .hdr{background:color-mix(in srgb,var(--bg) 90%,transparent);-webkit-backdrop-filter:saturate(1.6) blur(14px);backdrop-filter:saturate(1.6) blur(14px)}
-.apw .hero,.apw .chero{--bg:#070B1B;--bg2:#0E1530;--bg3:#101A38;--card:#141D3D;--ink:#F6F4EF;--ink2:#D5DAF0;--mute:#AEB5D8;--line:rgba(255,255,255,.13);--field:#6B7398;--accent-text:#FF8A66;position:relative;isolation:isolate;overflow:hidden;background:#070B1B;color:#F6F4EF}
-.apw .hero::before,.apw .chero::before,.apw .spec::before{content:"";position:absolute;inset:0;z-index:-2;pointer-events:none;background-image:linear-gradient(rgba(246,244,239,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(246,244,239,.055) 1px,transparent 1px);background-size:44px 44px;-webkit-mask-image:radial-gradient(130% 75% at 50% 35%,#000 35%,transparent 80%);mask-image:radial-gradient(130% 75% at 50% 35%,#000 35%,transparent 80%)}
-.apw .hero::after,.apw .chero::after{content:"";position:absolute;z-index:-1;pointer-events:none;width:580px;height:580px;left:50%;top:46%;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,rgba(255,106,40,.42) 0%,rgba(255,74,28,.16) 40%,rgba(255,74,28,0) 70%)}
-.apw .hero .vsw{position:relative;box-shadow:0 0 0 1px rgba(255,255,255,.1),0 30px 80px -24px rgba(255,74,28,.5),0 24px 60px rgba(0,0,0,.5)}
-.apw .chero .skm1{fill:#2B3468}.apw .chero .skm2{fill:#1E2650}.apw .chero .skg{fill:#2A2F4A}
-.apw .hspec{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:26px 4px 0;border-top:1px solid rgba(255,255,255,.14)}
-.apw .hspec div{min-width:0;padding:14px 8px 0 0}
-.apw .hspec div+div{padding-left:12px;border-left:1px solid rgba(255,255,255,.14)}
-.apw .hspec dt{display:flex;align-items:baseline;gap:4px;font-family:"Archivo","Arial Black",sans-serif;font-weight:800;font-size:30px;line-height:1;color:#F6F4EF}
-.apw .hspec dt small{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:11px;font-weight:600;letter-spacing:.08em;color:#FF8A66}
-.apw .hspec dd{margin:7px 0 0;font-size:13px;line-height:1.35;color:#AEB5D8}
-.apw .tick{position:relative;overflow:hidden;background:#FF4A1C;color:#0E1430}
-.apw .tick-in{display:flex;width:max-content;animation:apwTick 42s linear infinite}
-.apw .tick-l{display:flex;margin:0;padding:0;list-style:none}
-.apw .tick-l li{display:flex;align-items:center;gap:20px;padding:15px 0 15px 20px;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:14px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
-.apw .tick-l li::after{content:"";width:7px;height:7px;border-radius:50%;background:#0E1430}
-@keyframes apwTick{to{transform:translateX(-50%)}}
-.apw .tick:hover .tick-in,.apw .tick-p:checked~.tick-in{animation-play-state:paused}
-.apw .tick-p{position:absolute;width:1px;height:1px;margin:0;opacity:0}
-.apw .tick-b{position:absolute;z-index:2;right:6px;top:50%;width:38px;height:38px;margin-top:-19px;border-radius:50%;background:#0E1430;color:#FF4A1C;display:grid;place-items:center;cursor:pointer;box-shadow:-14px 0 14px #FF4A1C}
-.apw .tick-b .i-play,.apw .tick-p:checked+.tick-b .i-pause{display:none}
-.apw .tick-p:checked+.tick-b .i-play{display:block}
-.apw .tick-p:focus-visible+.tick-b{outline:3px solid #0E1430;outline-offset:2px}
-.apw .eb.nx::before{counter-increment:sx;content:counter(sx,decimal-leading-zero) " / ";opacity:.75}
-.apw .spec{position:relative;isolation:isolate;overflow:hidden;background:#070B1B;color:#F6F4EF}
-.apw .spec .eb{color:#FF8A66}
-.apw .spec .h2{color:#F6F4EF}
-.apw .sgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:30px 0 0;border-top:1px solid rgba(255,255,255,.14);border-left:1px solid rgba(255,255,255,.14)}
-.apw .scell{min-width:0;padding:20px 18px 22px;border-right:1px solid rgba(255,255,255,.14);border-bottom:1px solid rgba(255,255,255,.14);transition:background-color .2s ease}
-.apw .scell:hover{background:rgba(255,74,28,.09)}
-.apw .scell dt{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;margin:0}
-.apw .scell b{font-family:"Archivo","Arial Black",sans-serif;font-weight:800;font-size:46px;line-height:.95;color:#F6F4EF}
-.apw .scell small{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12px;font-weight:600;letter-spacing:.1em;color:#FF8A66}
-.apw .scell dd{margin:10px 0 0;font-size:15px;line-height:1.45;color:#D5DAF0}
-.apw .sfoot{margin:18px 0 0;font-size:13px;line-height:1.5;letter-spacing:.08em;text-transform:uppercase;color:#AEB5D8}
-.apw .btn{transition:transform .18s cubic-bezier(.3,1.4,.5,1),box-shadow .2s ease,background-color .2s ease}
-.apw .btn:not(:disabled):hover{transform:translateY(-2px)}
-.apw .btn:not(:disabled):active{transform:translateY(0) scale(.98)}
-.apw .btn-dot{box-shadow:0 10px 24px -8px rgba(255,74,28,.6)}
-.apw .btn-dot:not(:disabled):hover{box-shadow:0 16px 32px -10px rgba(255,74,28,.75)}
-.apw .hbk .btn-dot{position:relative;overflow:hidden;isolation:isolate}
-.apw .hbk .btn-dot::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.5) 50%,transparent 65%);transform:translateX(-130%);animation:apwShine 5s 1.5s ease-in-out infinite}
-@keyframes apwShine{0%,72%{transform:translateX(-130%)}100%{transform:translateX(130%)}}
-@keyframes apwRise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
-@supports (animation-timeline:view()){@media (prefers-reduced-motion:no-preference){
-.apw .sec :is(.h2,.scell,.hcard,.rcpt){animation:apwRise linear both;animation-timeline:view();animation-range:entry 5% entry 75%}
-}}
-@media (min-width:1024px){
-.apw .hero::after{left:73%;top:50%;width:860px;height:860px}
-.apw .chero::after{left:75%;top:52%;width:760px;height:760px}
-.apw .chero .csky{background:linear-gradient(180deg,#0B1330,#1B2449 82%);box-shadow:0 0 0 1px rgba(255,255,255,.1),0 30px 80px -24px rgba(255,74,28,.45)}
-.apw .hg{grid-template-areas:". v" "e v" "t v" "p v" "b v" "s v" "x v" ". v";grid-template-rows:1fr auto auto auto auto auto auto 1fr}
-.apw .hspec{grid-area:x;max-width:520px;margin:34px 0 0}
-.apw .hspec dt{font-size:42px}
-.apw .hspec dd{font-size:14px}
-.apw .tick-l li{padding:17px 0 17px 24px;gap:24px;font-size:15px}
-.apw .wh{grid-template-columns:minmax(0,.9fr) minmax(0,1.4fr)}
-.apw .sgrid{grid-template-columns:repeat(4,minmax(0,1fr));margin-top:44px}
-.apw .scell{padding:30px 24px 32px}
-.apw .scell b{font-size:66px}
-}
-@media (prefers-reduced-motion:reduce){.apw .tick-in{animation:none}.apw .tick{overflow-x:auto}.apw .tick-b{display:none}.apw .hbk .btn-dot::after{display:none}.apw .btn{transition:none}.apw .btn:not(:disabled):hover,.apw .btn:not(:disabled):active{transform:none}}"""
-REVAMP_CSS += r"""
-.apw .tb{background:var(--bg2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-.apw .tb-l{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));max-width:1160px;margin:0 auto;padding:0;list-style:none}
-.apw .tb-l li{display:flex;align-items:center;justify-content:center;gap:10px;min-width:0;padding:16px 8px;color:#FF8A66}
-.apw .tb-l li+li{border-left:1px solid var(--line)}
-.apw .tb-l b{font-size:19px;letter-spacing:.01em;line-height:1.15;font-weight:800;color:var(--ink)}
-@media (max-width:520px){.apw .tb-l li{flex-direction:column;gap:6px;padding:14px 4px;text-align:center}}
-.apw .eb.nx::before{content:none}
-.apw .hero::before,.apw .chero::before,.apw .spec::before{content:none}
-.apw .hero::after,.apw .chero::after{opacity:.55}
-"""
-REVAMP_CSS += r"""
-.apw .h1-seo{font-size:clamp(30px,8.2vw,40px);line-height:1.04}
-@media (min-width:900px){.apw .h1-hero.h1-seo{font-size:clamp(40px,3.7vw,56px)}}
-.apw .gband{background:#FF4A1C;color:#0E1430}
-.apw .gband p{display:flex;flex-direction:column;gap:6px;max-width:1160px;margin:0 auto;padding:20px 20px;text-align:center}
-.apw .gband b{font-size:clamp(24px,6.4vw,38px);font-weight:800;letter-spacing:-.03em;line-height:1.05}
-.apw .gband span{font-size:16px;line-height:1.45;font-weight:600}
-.apw .snum{padding-top:0;text-align:center;font-family:inherit;font-size:30px;font-weight:800;line-height:1;color:#FF4A1C}
-.apw .stop .sbody h3{font-size:20px}
-.apw .fbadges{list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:26px 0 0;padding:0}
-.apw .fbadges li{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:84px;padding:10px 4px;border:2px solid #FF8A66;border-radius:16px;background:rgba(255,74,28,.12);color:#FF8A66;text-align:center}
-.apw .fbadges b{font-size:17px;font-weight:800;color:#FFFFFF}
-.apw .fbadges svg{width:28px;height:28px}
-.apw .ffam{display:flex;align-items:center;justify-content:center;gap:10px;margin:8px 0 0;padding:16px 14px;border-radius:16px;background:#FF4A1C;color:#0E1430;font-size:clamp(18px,5vw,22px);font-weight:800;letter-spacing:-.01em;text-align:center}
-.apw .fsoc{display:flex;flex-wrap:wrap;gap:8px;margin-top:24px}
-.apw .fsoc span,.apw .fsoc a{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border:1.5px solid rgba(255,255,255,.28);border-radius:999px;color:#F6F4EF;font-size:15px;font-weight:700;text-decoration:none}
-@media (min-width:600px){.apw .fbadges li{flex-direction:row;gap:10px;min-height:72px}.apw .fbadges b{font-size:20px}}
-"""
-REVAMP_CSS += r"""
-.apw .fg3{display:grid;grid-template-columns:minmax(0,1fr);gap:34px}
-.apw .fg3 .fnav{margin-top:0}
-.apw .fhd{margin:0 0 10px;font-size:17px;font-weight:800;letter-spacing:-.01em;color:#FFFFFF}
-.apw .fcon{list-style:none;margin:20px 0 0;padding:0;display:grid;gap:4px}
-.apw .fcon a,.apw .fcon .fcon-t{display:flex;align-items:center;gap:12px;min-height:44px;color:#F6F4EF;font-size:16px;font-weight:600;text-decoration:none}
-.apw .fcon svg{flex:0 0 22px;color:#FF8A66}
-.apw .fcon a:hover span{text-decoration:underline}
-.apw .fpay{margin:0;font-size:15px;line-height:1.6;color:#D5DAF0}
-.apw .fpay a{color:#FF8A66;font-weight:700}
-.apw .fmarks{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
-.apw .fmarks img{height:38px;width:auto;display:block;border-radius:6px}
-.apw .fmarks+.fmarks{margin-top:8px}
-.apw .fcard{position:relative;display:flex;align-items:flex-end;justify-content:flex-start;width:78px;height:48px;padding:0 7px 6px;border-radius:7px;background:linear-gradient(135deg,#FFFFFF,#DDE2F2);color:#0E1430;box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 2px 6px rgba(0,0,0,.35)}
-.apw .fcard i{position:absolute;left:6px;top:7px;width:13px;height:10px;border-radius:2.500px;background:linear-gradient(135deg,#F4C56A,#C8922E)}
-.apw .fcard b{font-size:10px;font-weight:800;letter-spacing:.02em;line-height:1;white-space:nowrap}
-.apw .fcard.fc-pay{width:auto;min-width:98px;height:48px;align-items:center;justify-content:center;padding:0 14px;background:#FFFFFF}
-.apw .fcard.fc-pay i{display:none}
-.apw .fcard.fc-pay b{font-size:14px}
-.apw .fsoc{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px}
-.apw .fsoc a,.apw .fsoc span{display:block;min-height:0;padding:0;border:0;border-radius:0}
-.apw .fsoc img{width:38px;height:38px;display:block}
-.apw .fseals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 8px;margin-top:38px;padding-top:30px;border-top:1px solid rgba(255,255,255,.12)}
-.apw .fseal{display:flex;flex-direction:column;align-items:center;gap:8px;margin:0;text-align:center}
-.apw .fseal-i{width:46px;height:52px;display:block}
-.apw .fseal b{font-size:16px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#FFFFFF}
-.apw .ffam{grid-column:1 / -1;display:flex;align-items:center;justify-content:center;gap:12px;margin:6px 0 0;padding:0;border-radius:0;background:none;color:#FFFFFF;font-size:19px;font-weight:800;line-height:1.15;letter-spacing:-.01em;text-align:left}
-.apw .ffam br{display:none}
-@media (min-width:900px){
-.apw .fg3{grid-template-columns:minmax(0,1.1fr) minmax(0,1.2fr) minmax(0,1fr);gap:56px}
-.apw .fseals{grid-template-columns:repeat(3,auto) 1fr;justify-content:start;align-items:center;gap:44px}
-.apw .fseal{flex-direction:row;gap:12px}
-.apw .ffam{grid-column:auto;justify-content:flex-end;margin:0;font-size:22px}
-}
-"""
-REVAMP_CSS += r"""
-.apw .fseals{grid-template-columns:repeat(2,minmax(0,1fr))}
-.apw .fseal span{display:flex;flex-direction:column;gap:3px}
-.apw .fseal b{font-size:20px}
-.apw .fseal small{font-size:14px;font-weight:600;color:#D5DAF0}
-.apw .fseal-i{width:56px;height:63px}
-.apw .fproof{grid-column:1 / -1;margin:0;text-align:center}
-.apw .fproof a{display:inline-flex;align-items:center;min-height:44px;color:#FF8A66;font-size:16px;font-weight:800;text-decoration:underline}
-@media (min-width:900px){.apw .fseals{grid-template-columns:auto auto auto 1fr}.apw .fproof{grid-column:auto;text-align:left}}
-"""
-REVAMP_CSS += r"""
-.apw .fseals{grid-template-columns:repeat(3,minmax(0,1fr))}
-.apw .fseal b{font-size:15px;letter-spacing:.03em}
-.apw .fseal small{font-size:13px}
-.apw .tb-l b{font-size:16px;line-height:1.15;text-align:center}
-@media (min-width:900px){.apw .fseals{grid-template-columns:auto auto auto auto;gap:36px}.apw .fseal b{font-size:19px}.apw .fseal small{font-size:14px}.apw .ffam{grid-column:1 / -1;justify-content:flex-start}.apw .tb-l b{font-size:19px}}
-"""
-PAGE_CSS += REVAMP_CSS
-PAGE_CSS += r"""
-.apw .ftrust{list-style:none;margin:26px 0 0;padding:18px 0 0;border-top:1px solid rgba(255,255,255,.10);display:grid;gap:14px}
-.apw .ftrust li{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.45;color:#AEB5D8}
-.apw .ftrust svg{flex:0 0 auto;margin-top:2px}
-.apw .ftrust b{display:block;font-size:15px;color:#F6F4EF}
-@media (min-width:600px){.apw .ftrust{grid-template-columns:repeat(3,1fr);gap:20px}}"""
-
-BF_DEAL = ('[[bf:<div class="bfd" data-deal-end="2026-12-01T06:59:59Z">'
-  '<div><p class="bfd-tag"><span class="bfd-dot"></span>Black Friday sale</p>'
-  '<p class="bfd-h">Your first month is free<span>.</span></p>'
+# The Black Friday coupon. The countdown is filled in by src/runtime/apw.js, and the whole block goes away when the sale ends.
+BF_DEAL = ('[[bf:<div class="bfd" data-deal-end="2026-12-01T06:59:59Z"><div class="bfd-in">'
+  '<div><p class="bfd-tag">Black Friday sale</p>'
+  '<p class="bfd-h">Your first month is free</p>'
   '<p class="bfd-p">Sign up by November 30. After that, the sale is over.</p></div>'
-  '<div><p class="bfd-ends">Sale ends Monday, November 30</p>'
-  '<div class="bfd-clock" aria-hidden="true"><span><b data-u="d">00</b><i>days</i></span><span><b data-u="h">00</b><i>hrs</i></span><span><b data-u="m">00</b><i>min</i></span><span><b data-u="s">00</b><i>sec</i></span></div></div>'
-  '<p class="bfd-fine">No contract. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.</p>'
-  '</div>||]]')
-
-DD_CSS = r""".apw .dd{position:relative;display:flex;align-items:center}
-.apw .dnav .ddt{gap:4px}
-.apw .ddc{width:14px;height:14px;transition:transform .15s}
-.apw .dd:hover .ddc,.apw .dd:focus-within .ddc{transform:rotate(180deg)}
-.apw .ddm{position:absolute;top:100%;left:50%;z-index:30;padding-top:10px;opacity:0;visibility:hidden;transform:translate(-50%,6px);transition:opacity .15s,transform .15s,visibility 0s .15s}
-.apw .dd:hover .ddm,.apw .dd:focus-within .ddm{opacity:1;visibility:visible;transform:translate(-50%,0);transition:opacity .15s,transform .15s}
-.apw .ddp{min-width:270px;padding:8px;border-radius:18px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow)}
-.apw .dnav .ddp a{display:grid;gap:2px;min-height:0;padding:10px 12px;border-radius:12px;white-space:normal;font-size:15px}
-.apw .dnav .ddp a:hover,.apw .dnav .ddp a:focus-visible{background:var(--bg2)}
-.apw .ddp b{font-weight:700}
-.apw .ddp span{font-size:13px;font-weight:500;color:var(--mute)}
-.apw .dnav .ddp .dda{margin-top:4px;border-top:1px solid var(--line);border-radius:0 0 12px 12px;font-weight:700;color:var(--accent-text)}
-.apw .ddg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;width:600px}
-.apw .ddh{margin:8px 12px 4px;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
-.apw.dark .ddp,.dark .apw .ddp{background:var(--card)}
-"""
-PAGE_CSS += DD_CSS
-HDR_CSS += DD_CSS
+  '<div><div class="bfd-when"><p class="bfd-ends">Sale ends Monday, November 30</p>'
+  '<p class="bfd-clock" aria-hidden="true"><span><b data-u="d">00</b><i>days</i></span><span><b data-u="h">00</b><i>hrs</i></span><span><b data-u="m">00</b><i>min</i></span><span><b data-u="s">00</b><i>sec</i></span></p></div>'
+  '<p class="bfd-fine">No contract. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.</p></div>'
+  '</div></div>||]]')
