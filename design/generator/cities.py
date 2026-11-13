@@ -26,9 +26,9 @@ def faqs(town, local, disposal=None):
 
 
 BUCKEYE_TRASH = ('Bag it, tie the bag, and put it in your trash cart. Buckeye wants all trash bagged and tied, '
-                 'and dog poop never goes in the recycle cart. That is what we do at every visit.')
+                 'and dog poop never goes in the recycle cart. On our visits, we bag it and haul it away for you.')
 
-INTRO = 'Arizona Pet Waste picks up dog poop in %s every week. We text you the night before, let you watch our truck on a live map, and send you a photo of your latched gate when we leave.'
+INTRO = 'Arizona Pet Waste picks up dog poop in %s every week and hauls it away. We text you the night before, let you watch our truck on a live map, and send you a photo of your latched gate when we leave.'
 
 B = ('CityBuckeye.dc.html', 'Buckeye')
 V = ('CityVerrado.dc.html', 'Verrado')
@@ -80,7 +80,7 @@ CITIES = [
             ('Is it illegal to not pick up dog poop in Goodyear?', 'Yes. Goodyear city code says droppings must be removed from yards at least twice a week, and pets cannot cause flies, smell or piles of droppings. On walks, you must pick up right away on public land and other people’s land.'),
             ('Can I report my neighbor for dog poop in Goodyear?', 'Yes. You can report it to the City of Goodyear. If you have an HOA, you can tell them too. Talking to your neighbor first often works best.'),
             ('How many dogs can I have in Goodyear?', 'Goodyear allows up to four household pets at a home. Dogs, cats and potbellied pigs all count toward the four.'),
-        ], 'Seal it in a plastic bag and put it in your tan trash cart. Goodyear says pet waste never goes in the green recycle cart. That is what we do at every visit.'),
+        ], 'Seal it in a plastic bag and put it in your tan trash cart. Goodyear says pet waste never goes in the green recycle cart. On our visits, we bag it and haul it away for you.'),
         nearby=nearby([L, B, C, V, ALL], 'Live in Avondale? Join the waitlist when you book.'),
     ),
     dict(
@@ -101,7 +101,7 @@ CITIES = [
             ('Is it illegal to not pick up dog poop in Litchfield Park?', 'Yes, in a lot of places. City code says you must pick up dog poop right away in parks, on public land and on any land you do not own. Outside city limits, the county health code says animal waste must be handled so it does not breed insects.'),
             ('Can I report my neighbor for dog poop in Litchfield Park?', 'Yes. You can contact the City of Litchfield Park, or Maricopa County if you live outside city limits. If you have an HOA, you can tell them too. Talking to your neighbor first often works best.'),
             ('Can you get into gated neighborhoods like Cachet and Dreaming Summit?', 'Yes. Add your gate code in My Yard. Only your scooper sees it, and only on your day.'),
-        ], 'Bag it, tie the bag, and put it in your trash can. Litchfield Park code says dog poop goes in a closed bag and then in the trash. Never put it in the recycle bin. That is what we do at every visit.'),
+        ], 'Bag it, tie the bag, and put it in your trash can. Litchfield Park code says dog poop goes in a closed bag and then in the trash. Never put it in the recycle bin. On our visits, we bag it and haul it away for you.'),
         nearby=nearby([G, B, C, V, ALL], 'Live in Avondale? Join the waitlist when you book.'),
     ),
     dict(

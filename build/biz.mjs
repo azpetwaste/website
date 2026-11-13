@@ -93,14 +93,14 @@ export function includesBlock(items) {
 export const STEPS = [
   ['Call, text or email', 'Tell us about your site. ' + PHONE + ' reaches a real person.'],
   ['Free site walk', 'We count the stations and time the walk through each common area.'],
-  ['Written quote', 'You get it within one business day. Month to month, no contract.'],
+  ['Written quote', 'You get it within one business day. Month to month, with 30 days notice.'],
   ['Set day each week', 'We start on your day, send a photo report after each visit and bill once on the 1st.']
 ];
 export function stepsBlock() {
   return '<ol class="bxsteps">' + STEPS.map(([a, b], i) => `<li><span class="bxn">${i + 1}</span><h3>${esc(a)}</h3><p>${esc(b)}</p></li>`).join('') + '</ol>';
 }
 export const ASK = [
-  ['Are you bonded and insured?', 'Yes. We carry a $50,000 business service bond and $1,000,000 in general liability insurance.[[ins: Our insurance policy starts November 16, 2026.||]] Ask and we send a certificate of insurance.'],
+  ['Are you bonded and insured?', '[[ins:We are bonded today. We carry a $50,000 business service bond. Our $1,000,000 general liability insurance starts November 16, 2026.||Yes. We carry a $50,000 business service bond and $1,000,000 in general liability insurance.]] Ask and we send a certificate of insurance.'],
   ['Do you send proof after every visit?', 'Yes. You get a photo report after each visit.'],
   ['Are bags and liners included?', 'Yes. They are part of your price.'],
   ['Do we have to sign a contract?', 'No. Plans are month to month with 30 days notice.'],
@@ -169,7 +169,7 @@ export function hero(pg, trail) {
     `<h1>${esc(pg.h1)}</h1><p class="lead">${h.lead || ''}</p>` +
     (h.ctaHtml || ctaButtons(h.cta)) +
     (trust ? `<p class="bxtrust">${esc(trust)}</p>` : '') +
-    '<ul class="bxbadges" aria-label="Bonded, insured and background checked">' + [['Bonded', '$50,000 bond'], ['Insured', '$1,000,000 liability'], ['Background checked', 'Every team member']].map(([a, b]) => `<li>${SEAL}<span><b>${a}</b><small>${b}</small></span></li>`).join('') + '</ul>' +
+    '<ul class="bxbadges" aria-label="[[ins:Bonded and background checked. Insurance starts November 16.||Bonded, insured and background checked]]">' + [['Bonded', '$50,000 bond'], ['[[ins:Insurance||Insured]]', '[[ins:$1,000,000, starts Nov 16||$1,000,000 liability]]'], ['Background checked', 'Every team member']].map(([a, b]) => `<li>${SEAL}<span><b>${a}</b><small>${b}</small></span></li>`).join('') + '</ul>' +
     '<ul class="bxh-stats">' + stats.map(([n, u, t]) => `<li><b>${esc(n)} ${esc(u)}</b><span>${esc(t)}</span></li>`).join('') + '</ul>' +
     '</div><div class="bxh-side">' + (h.side || reportCard(h.site)) + '</div></div></div></section>';
 }

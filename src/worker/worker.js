@@ -521,7 +521,7 @@ const FREE_RULE = 'Keep your plan for 60 days and your free month stays free. If
 function freeRule(label) {
   return label ? 'Keep your plan until ' + label + ' and your free month stays free. If you cancel before ' + label + ', we charge one month at your plan price, minus anything you have paid.' : FREE_RULE;
 }
-const WAIT_OFFER = 'Join by November 30, 2026 and your first month is free when we start in your area.';
+const WAIT_OFFER = 'None. The site only says we will tell them when we start in their area. The free month offer came off the waitlist on November 12, 2026.';
 async function waitlist(request, env, ctx) {
   const b = await body(request);
   if (!b) return fail(400, 'Something was missing. Please try again.');

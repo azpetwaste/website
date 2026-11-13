@@ -13,7 +13,7 @@ UPDATED = 'November 7, 2026'
 
 # ---------- shared copy ----------
 
-PRICES = ('Every week is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month, '
+PRICES = ('Every week is about $25 a week for 1 or 2 dogs. We bill it once a month: $108 on the 1st. Every other week is $75 a month, '
           'and twice a week is $189 a month. Each dog after two adds $13 a month ($9 every other week).')
 
 
@@ -21,13 +21,13 @@ def ask(town, zips):
     """What to ask before you hire a pooper scooper, with our answers."""
     return [
         ('Do you come to my street?', 'We scoop every home in %s. Type your ZIP when you book, and we tell you right away.' % zips),
-        ('Are you bonded and insured?', 'Yes. We carry a $50,000 business service bond and $1,000,000 in general liability insurance.[[ins: Our insurance policy starts November 16, 2026.||]] See the proof on our bonded and insured page.'),
+        ('Are you bonded and insured?', '[[ins:We are bonded today. We carry a $50,000 business service bond. Our $1,000,000 general liability insurance starts November 16, 2026.||Yes. We carry a $50,000 business service bond and $1,000,000 in general liability insurance.]] See the details on our bond and insurance page.'),
         ('Is there a sign up fee?', 'Not with us. [[bf:You pay $0 today. Black Friday sale: sign up by November 30 and your first month is free.||There is no sign up fee, and your first cleanup is free.]]'),
         ('How much is each visit?', PRICES),
         ('Is the spray extra?', 'No. At every visit, we spray deodorizer on the spots your dogs use most. It is free.'),
         ('How will I know you came?', 'You get a text the night before with a 30 minute window. On your day, you can watch our truck on a live map. '
                                       'When we leave, we send you a photo of your latched gate.'),
-        ('What do you do with the poop?', 'We bag it and put it in your trash can.'),
+        ('What do you do with the poop?', 'We haul it away. We bag it and take it with us. It does not go in your trash can.'),
         ('Do you clean your tools?', 'Yes. We clean our boots and tools after every yard. That keeps germs from going from yard to yard.'),
         ('What if you miss a pile or forget the photo?', 'Tap “Something’s off” in My Yard, and we come back for free within 24 hours. '
                                                        'If a visit has no gate photo, you pay $0 for that visit.'),
@@ -54,12 +54,12 @@ def faq_common(town):
     """Questions every town page answers. Town pages add their own on top."""
     return [
         ('How much does a pooper scooper cost in %s?' % town,
-         'With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. '
+         'With us, weekly pickup is about $25 a week for 1 or 2 dogs. We bill it once a month: $108 on the 1st. Every other week is $75 a month. '
          'There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, '
          'if there is a first cleanup fee, and if spray costs extra.'),
         ('Where should I throw away dog poop?',
          'Bag it, tie the bag, and put it in your trash can. Do not put it in the recycle bin, and never hose it into the street or a storm drain. '
-         'That is what we do at every visit.'),
+         'On our visits, we bag it and haul it away for you.'),
         ('Do you clean turf and rock yards?',
          'Yes. We pick up every pile on turf, grass and rock. We rake rock and gravel with a wide metal rake, then spray deodorizer where your dogs go most. The spray is free.'),
         ('Can you get rid of turf smell?',
@@ -73,7 +73,7 @@ def faq_common(town):
         ('What if my dog is in the yard?',
          'Tell us in My Yard. If a dog in the yard is not safe to be near, we do not go in. We text you to bring the dog inside, and we can come back the same day.'),
         ('Can I skip a week or pause?',
-         'Yes. You get 4 free skips a year. Tell us 24 hours before. You can pause for up to 120 days while you are away, and you do not pay while you are paused.'),
+         'Yes. You get 4 free skips a year. Tell us 24 hours before. After your first 60 days, you can pause for up to 120 days while you are away, and you do not pay while you are paused.'),
         ('Is there a contract?',
          'No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel. If you cancel in your first 60 days, we charge one month.'),
     ]

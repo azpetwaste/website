@@ -24,13 +24,13 @@
 
 <section class="hero">
   <div class="in hero-g">
-  <h1 class="h1 hero-h1"><span class="h1-a">Dog Poop <span class="nb">Pickup Service</span></span> <span class="h1-b">in Buckeye, Goodyear and Litchfield Park, AZ</span></h1>
-  <p class="hero-p">We pick up dog poop in your yard every week. On your day, you can watch us on a map. When we leave, we send you a photo of your shut gate.</p>
+  <h1 class="h1 hero-h1"><span class="h1-a">Dog Poop <span class="nb">Pickup Service</span></span> <span class="h1-b">in Verrado, Buckeye, Goodyear and Litchfield Park, AZ</span></h1>
+  <p class="hero-p">We pick up the dog poop in your yard every week and haul it away. On your day, you can watch us on a map. When we leave, we send you a photo of your shut gate.</p>
   <div class="hero-cta">
     <a href="Booking.dc.html" class="btn btn-dot">[[bf:Get the Black Friday deal||Book now]]</a>
     <p class="hero-call"><a href="tel:+16233096104">Call</a> or <a href="sms:+16233096104">text</a> <b>623.309.6104</b></p>
   </div>
-  <p class="hero-sm">Bonded and insured. No contract.</p>
+  <p class="hero-sm">@@COVERED@@ @@NO_CONTRACT@@</p>
   <!--REVIEWS-->
   <figure class="hero-v">
     <span class="sun" aria-hidden="true"></span>
@@ -81,23 +81,24 @@
         <button type="button" role="radio" aria-checked="{{ p.on }}" aria-label="{{ p.aria }}" onClick="{{ p.pick }}" class="plan">
           <span class="plan-r" aria-hidden="true"></span>
           <span class="plan-n">{{ p.name }}</span>
-          <span class="plan-s">{{ p.per }}</span>
-          <span class="plan-p">{{ p.price }}</span>
+          <span class="plan-s">{{ p.month }}</span>
+          <span class="plan-p">{{ p.week }}<small>a week</small></span>
         </button>
       </sc-for>
     </div>
   </div>
   <div class="pr-sum">
     <p class="pr-line">{{ planLine }}</p>
-    <p class="pr-total"><b>{{ totalLabel }}</b> a month</p>
-    <p class="pr-per">{{ perLine }}. [[bf:Black Friday sale: first month free.||Your first cleanup is free.]]</p>
-    <a href="Booking.dc.html" class="btn btn-dot">{{ ctaLabel }}</a>
-    <p class="pr-note">Each dog after two adds $13 a month ($9 every other week). No contract. Months with five visits cost the same as four. Every visit comes with a free deodorizer spray.</p>
+    <p class="pr-total"><span class="pr-ab">About</span><b>{{ weekLabel }}</b> a week</p>
+    <p class="pr-per">{{ billLine }} [[bf:Black Friday sale: your first month is free.||Your first cleanup is free.]]</p>
+    <a href="Booking.dc.html" class="btn btn-dot">[[bf:Start your free month||Book now]]</a>
+    <p class="pr-in"><strong>In every price:</strong> we haul the poop away, free deodorizer spray, a 30 minute time window, a live map of our truck and a photo of your shut gate.</p>
+    <p class="pr-note">Each dog after two adds $13 a month ($9 every other week). Months with five visits cost the same as four.</p>
     <details class="pr-all">
       <summary>See every price@@ICON_PLUS@@</summary>
 @@PRICE_TABLE@@
     </details>
-    <p class="pr-note"><strong>Our promise:</strong> No photo, that visit is free. Miss a pile, we come back free. No contract. <a href="/our-promise/">Read our promise</a></p>
+    <p class="pr-note"><strong>Our promise:</strong> No photo, that visit is free. Miss a pile, we come back free. @@NO_CONTRACT@@ <a href="/our-promise/">Read our promise</a></p>
   </div>
   </div>
   </div>
@@ -132,8 +133,8 @@
     </li>
     <li>
       <div>
-        <h3>We pick up every pile</h3>
-        <p>We shut the gate behind us. We walk in rows, front to back, and pick up every pile. Rock yards get raked.</p>
+        <h3>We pick up every pile and haul it away</h3>
+        <p>We shut the gate behind us. We walk in rows, front to back, and pick up every pile. Rock yards get raked. We bag the poop and take it with us.</p>
       </div>
     </li>
     <li>
@@ -165,6 +166,18 @@
 
 @@SPECS@@
 
+<section id="owner" class="sec">
+  <div class="in own">
+  <h2 class="h2">Meet Juan, the owner</h2>
+  <div class="own-t">
+    <p>Juan Gonzalez owns Arizona Pet Waste. He lives in Verrado with his wife and their six kids.</p>
+    <p>He works by three rules. Be honest. Charge a fair price. Help people when you can.</p>
+    <p>When you sign up, you help a local family.</p>
+    <a href="About.dc.html" class="tl">Read Juan’s story</a>
+  </div>
+  </div>
+</section>
+
 <section id="where" class="sec">
   <div class="in wh">
   <div class="wh-h">
@@ -195,7 +208,7 @@
     </sc-if>
     <sc-if value="{{ zipNo }}" hint-placeholder-val="{{ false }}">
       <div aria-live="polite" class="zipr">
-        <p><strong>Not in {{ zip }} yet.</strong> Join the waitlist: tap Book now and type your ZIP. [[bf:Join by November 30 and your first month is free when we start in your area.||Your first cleanup is free when we start in your area.]]</p>
+        <p><strong>Not in {{ zip }} yet.</strong> Join the waitlist: tap Book now and type your ZIP. We will tell you when we start in your area.</p>
       </div>
     </sc-if>
     <sc-if value="{{ zipShort }}" hint-placeholder-val="{{ false }}">
@@ -230,7 +243,7 @@
     <h2 class="h2 cta-h">A clean yard every week</h2>
     <a href="Booking.dc.html" class="btn btn-dot">Book now</a>
     <p class="hero-call"><a href="tel:+16233096104">Call</a> or <a href="sms:+16233096104">text</a> <b>623.309.6104</b></p>
-    <p class="cta-s">[[bf:Black Friday sale: first month free. Ends November 30.||Your first cleanup is free.]] No contract.</p>
+    <p class="cta-s">[[bf:Black Friday sale: first month free. Ends November 30.||Your first cleanup is free.]] @@NO_CONTRACT@@</p>
   </div>
   <div class="sky">@@SKYLINE@@</div>
 </section>
@@ -278,8 +291,8 @@ class Component extends DCLogic {
       dogUp: () => this.setState({ dogs: Math.min(6, s.dogs + 1) }),
       planLine: names[s.plan] + ', ' + dogs,
       totalLabel: '$' + total,
-      perLine: 'About $' + this._per(s.plan, s.dogs) + ' a visit',
-      ctaLabel: 'Book at $' + total + ' a month',
+      weekLabel: '$' + this._week(s.plan, s.dogs),
+      billLine: (s.plan === 'week' ? 'One visit a week.' : s.plan === 'twice' ? 'Two visits a week, about $' + this._per(s.plan, s.dogs) + ' each.' : 'One visit every two weeks, about $' + this._per(s.plan, s.dogs) + ' each.') + ' We bill $' + total + ' a month, on the 1st.',
       menu: s.menu,
       openMenu: () => this.setState({ menu: true }),
       closeMenu: () => this.setState({ menu: false })

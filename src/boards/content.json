@@ -7,7 +7,7 @@
    },
    {
     "q": "How much does it cost?",
-    "a": "Weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]"
+    "a": "Weekly pickup is about $25 a week for 1 or 2 dogs. We bill it once a month: $108 on the 1st. [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]"
    },
    {
     "q": "Is the spray really free?",
@@ -27,7 +27,7 @@
    },
    {
     "q": "Where does the poop go?",
-    "a": "We bag it, tie it shut and put it in your trash can."
+    "a": "We haul it away. We bag it, tie it shut and take it with us. It does not go in your trash can."
    },
    {
     "q": "Do you background check your team?",
@@ -35,7 +35,7 @@
    },
    {
     "q": "Are you bonded and insured?",
-    "a": "Yes. We carry a $50,000 business service bond and $1,000,000 in general liability insurance.[[ins: Our insurance policy starts November 16, 2026.||]] See the proof on our bonded and insured page."
+    "a": "[[ins:We are bonded today. We carry a $50,000 business service bond. Our $1,000,000 general liability insurance starts November 16, 2026.||Yes. We carry a $50,000 business service bond and $1,000,000 in general liability insurance.]] See the details on our bond and insurance page."
    },
    {
     "q": "Do you clean your tools?",
@@ -71,7 +71,7 @@
    },
    {
     "q": "How do I cancel?",
-    "a": "Tap cancel in My Yard. There is no contract and no phone call. If you signed up with the Black Friday sale, keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid."
+    "a": "Tap cancel in My Yard. There is no long term contract and no phone call. If you signed up with the Black Friday sale, keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid."
    },
    {
     "q": "What if I get another dog?",
@@ -97,11 +97,11 @@
   "common": [
    {
     "q": "How much does a pooper scooper cost in the West Valley?",
-    "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
+    "a": "With us, weekly pickup is about $25 a week for 1 or 2 dogs. We bill it once a month: $108 on the 1st. Every other week is $75 a month. There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
    },
    {
     "q": "Where should I throw away dog poop?",
-    "a": "Bag it, tie the bag, and put it in your trash can. Do not put it in the recycle bin, and never hose it into the street or a storm drain. That is what we do at every visit."
+    "a": "Bag it, tie the bag, and put it in your trash can. Do not put it in the recycle bin, and never hose it into the street or a storm drain. On our visits, we bag it and haul it away for you."
    },
    {
     "q": "Do you clean turf and rock yards?",
@@ -129,7 +129,7 @@
    },
    {
     "q": "Can I skip a week or pause?",
-    "a": "Yes. You get 4 free skips a year. Tell us 24 hours before. You can pause for up to 120 days while you are away, and you do not pay while you are paused."
+    "a": "Yes. You get 4 free skips a year. Tell us 24 hours before. After your first 60 days, you can pause for up to 120 days while you are away, and you do not pay while you are paused."
    },
    {
     "q": "Is there a contract?",
@@ -141,7 +141,7 @@
   "buckeye": {
    "name": "Buckeye",
    "eyebrow": "Buckeye, AZ · ZIP 85326 and 85396",
-   "intro": "Arizona Pet Waste picks up dog poop in Buckeye every week. We text you the night before, let you watch our truck on a live map, and send you a photo of your latched gate when we leave.",
+   "intro": "Arizona Pet Waste picks up dog poop in Buckeye every week and hauls it away. We text you the night before, let you watch our truck on a live map, and send you a photo of your latched gate when we leave.",
    "where": "Every home. Every street. Both Buckeye ZIP codes, 85326 and 85396.",
    "faq": [
     {
@@ -162,11 +162,11 @@
     },
     {
      "q": "How much does a pooper scooper cost in Buckeye?",
-     "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
+     "a": "With us, weekly pickup is about $25 a week for 1 or 2 dogs. We bill it once a month: $108 on the 1st. Every other week is $75 a month. There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
     },
     {
      "q": "Where should I throw away dog poop?",
-     "a": "Bag it, tie the bag, and put it in your trash cart. Buckeye wants all trash bagged and tied, and dog poop never goes in the recycle cart. That is what we do at every visit."
+     "a": "Bag it, tie the bag, and put it in your trash cart. Buckeye wants all trash bagged and tied, and dog poop never goes in the recycle cart. On our visits, we bag it and haul it away for you."
     },
     {
      "q": "Do you clean turf and rock yards?",
@@ -194,7 +194,7 @@
     },
     {
      "q": "Can I skip a week or pause?",
-     "a": "Yes. You get 4 free skips a year. Tell us 24 hours before. You can pause for up to 120 days while you are away, and you do not pay while you are paused."
+     "a": "Yes. You get 4 free skips a year. Tell us 24 hours before. After your first 60 days, you can pause for up to 120 days while you are away, and you do not pay while you are paused."
     },
     {
      "q": "Is there a contract?",
@@ -242,7 +242,7 @@
   "goodyear": {
    "name": "Goodyear",
    "eyebrow": "Goodyear, AZ · ZIP 85338 and 85395",
-   "intro": "Arizona Pet Waste picks up dog poop in Goodyear every week. We text you the night before, let you watch our truck on a live map, and send you a photo of your latched gate when we leave.",
+   "intro": "Arizona Pet Waste picks up dog poop in Goodyear every week and hauls it away. We text you the night before, let you watch our truck on a live map, and send you a photo of your latched gate when we leave.",
    "where": "Every home. Every street. Both Goodyear ZIP codes, 85338 and 85395.",
    "faq": [
     {
@@ -271,11 +271,11 @@
     },
     {
      "q": "How much does a pooper scooper cost in Goodyear?",
-     "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
+     "a": "With us, weekly pickup is about $25 a week for 1 or 2 dogs. We bill it once a month: $108 on the 1st. Every other week is $75 a month. There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
     },
     {
      "q": "Where should I throw away dog poop?",
-     "a": "Seal it in a plastic bag and put it in your tan trash cart. Goodyear says pet waste never goes in the green recycle cart. That is what we do at every visit."
+     "a": "Seal it in a plastic bag and put it in your tan trash cart. Goodyear says pet waste never goes in the green recycle cart. On our visits, we bag it and haul it away for you."
     },
     {
      "q": "Do you clean turf and rock yards?",
@@ -303,7 +303,7 @@
     },
     {
      "q": "Can I skip a week or pause?",
-     "a": "Yes. You get 4 free skips a year. Tell us 24 hours before. You can pause for up to 120 days while you are away, and you do not pay while you are paused."
+     "a": "Yes. You get 4 free skips a year. Tell us 24 hours before. After your first 60 days, you can pause for up to 120 days while you are away, and you do not pay while you are paused."
     },
     {
      "q": "Is there a contract?",
@@ -359,7 +359,7 @@
   "litchfield": {
    "name": "Litchfield Park",
    "eyebrow": "Litchfield Park, AZ · ZIP 85340",
-   "intro": "Arizona Pet Waste picks up dog poop in Litchfield Park every week. We text you the night before, let you watch our truck on a live map, and send you a photo of your latched gate when we leave.",
+   "intro": "Arizona Pet Waste picks up dog poop in Litchfield Park every week and hauls it away. We text you the night before, let you watch our truck on a live map, and send you a photo of your latched gate when we leave.",
    "where": "Every home. Every street. Litchfield Park ZIP 85340.",
    "faq": [
     {
@@ -380,11 +380,11 @@
     },
     {
      "q": "How much does a pooper scooper cost in Litchfield Park?",
-     "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
+     "a": "With us, weekly pickup is about $25 a week for 1 or 2 dogs. We bill it once a month: $108 on the 1st. Every other week is $75 a month. There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
     },
     {
      "q": "Where should I throw away dog poop?",
-     "a": "Bag it, tie the bag, and put it in your trash can. Litchfield Park code says dog poop goes in a closed bag and then in the trash. Never put it in the recycle bin. That is what we do at every visit."
+     "a": "Bag it, tie the bag, and put it in your trash can. Litchfield Park code says dog poop goes in a closed bag and then in the trash. Never put it in the recycle bin. On our visits, we bag it and haul it away for you."
     },
     {
      "q": "Do you clean turf and rock yards?",
@@ -412,7 +412,7 @@
     },
     {
      "q": "Can I skip a week or pause?",
-     "a": "Yes. You get 4 free skips a year. Tell us 24 hours before. You can pause for up to 120 days while you are away, and you do not pay while you are paused."
+     "a": "Yes. You get 4 free skips a year. Tell us 24 hours before. After your first 60 days, you can pause for up to 120 days while you are away, and you do not pay while you are paused."
     },
     {
      "q": "Is there a contract?",
@@ -449,7 +449,7 @@
   "citrus": {
    "name": "Citrus Park",
    "eyebrow": "Citrus Park · Waddell, AZ · ZIP 85355",
-   "intro": "Arizona Pet Waste picks up dog poop in Citrus Park every week. We text you the night before, let you watch our truck on a live map, and send you a photo of your latched gate when we leave.",
+   "intro": "Arizona Pet Waste picks up dog poop in Citrus Park every week and hauls it away. We text you the night before, let you watch our truck on a live map, and send you a photo of your latched gate when we leave.",
    "where": "Every home. Every street. Citrus Park and Waddell, ZIP 85355.",
    "faq": [
     {
@@ -474,11 +474,11 @@
     },
     {
      "q": "How much does a pooper scooper cost in Citrus Park?",
-     "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
+     "a": "With us, weekly pickup is about $25 a week for 1 or 2 dogs. We bill it once a month: $108 on the 1st. Every other week is $75 a month. There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
     },
     {
      "q": "Where should I throw away dog poop?",
-     "a": "Bag it, tie the bag, and put it in your trash can. Do not put it in the recycle bin, and never hose it into the street or a storm drain. That is what we do at every visit."
+     "a": "Bag it, tie the bag, and put it in your trash can. Do not put it in the recycle bin, and never hose it into the street or a storm drain. On our visits, we bag it and haul it away for you."
     },
     {
      "q": "Do you clean turf and rock yards?",
@@ -506,7 +506,7 @@
     },
     {
      "q": "Can I skip a week or pause?",
-     "a": "Yes. You get 4 free skips a year. Tell us 24 hours before. You can pause for up to 120 days while you are away, and you do not pay while you are paused."
+     "a": "Yes. You get 4 free skips a year. Tell us 24 hours before. After your first 60 days, you can pause for up to 120 days while you are away, and you do not pay while you are paused."
     },
     {
      "q": "Is there a contract?",
@@ -546,7 +546,7 @@
   "verrado": {
    "name": "Verrado",
    "eyebrow": "Verrado · Buckeye, AZ · ZIP 85396",
-   "intro": "Arizona Pet Waste picks up dog poop in Verrado every week. We text you the night before, let you watch our truck on a live map, and send you a photo of your latched gate when we leave.",
+   "intro": "Arizona Pet Waste picks up dog poop in Verrado every week and hauls it away. We text you the night before, let you watch our truck on a live map, and send you a photo of your latched gate when we leave.",
    "where": "Every home. Every district. Verrado is ZIP 85396. We cover the rest of Buckeye too.",
    "faq": [
     {
@@ -567,11 +567,11 @@
     },
     {
      "q": "How much does a pooper scooper cost in Verrado?",
-     "a": "With us, weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. Every other week is $75 a month. There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
+     "a": "With us, weekly pickup is about $25 a week for 1 or 2 dogs. We bill it once a month: $108 on the 1st. Every other week is $75 a month. There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, if there is a first cleanup fee, and if spray costs extra."
     },
     {
      "q": "Where should I throw away dog poop?",
-     "a": "Bag it, tie the bag, and put it in your trash cart. Buckeye wants all trash bagged and tied, and dog poop never goes in the recycle cart. That is what we do at every visit."
+     "a": "Bag it, tie the bag, and put it in your trash cart. Buckeye wants all trash bagged and tied, and dog poop never goes in the recycle cart. On our visits, we bag it and haul it away for you."
     },
     {
      "q": "Do you clean turf and rock yards?",
@@ -599,7 +599,7 @@
     },
     {
      "q": "Can I skip a week or pause?",
-     "a": "Yes. You get 4 free skips a year. Tell us 24 hours before. You can pause for up to 120 days while you are away, and you do not pay while you are paused."
+     "a": "Yes. You get 4 free skips a year. Tell us 24 hours before. After your first 60 days, you can pause for up to 120 days while you are away, and you do not pay while you are paused."
     },
     {
      "q": "Is there a contract?",

@@ -53,6 +53,9 @@ PRICE_METHODS = r"""  _price(id, dogs) {
     const visits = { week: 52 / 12, twice: 104 / 12, eow: 26 / 12 };
     return Math.round(this._price(id, dogs) / visits[id]);
   }
+  _week(id, dogs) {
+    return Math.round(this._price(id, dogs) * 12 / 52);
+  }
   _cal(id, onBand) {
     const out = [];
     for (let i = 0; i < 28; i++) {
@@ -73,9 +76,11 @@ PRICE_METHODS = r"""  _price(id, dogs) {
         name: names[id],
         price: '$' + this._price(id, s.dogs),
         per: 'About $' + this._per(id, s.dogs) + ' a visit',
+        week: '$' + this._week(id, s.dogs),
+        month: '$' + this._price(id, s.dogs) + ' a month',
         on: on,
         pick: () => this.setState({ plan: id }),
-        aria: names[id] + ', $' + this._price(id, s.dogs) + ' a month',
+        aria: names[id] + ', about $' + this._week(id, s.dogs) + ' a week, billed $' + this._price(id, s.dogs) + ' a month',
         cal: this._cal(id, onBand),
         border: on ? '#FF4A1C' : (onBand ? 'rgba(255,255,255,.18)' : 'var(--field)'),
         bg: on ? 'rgba(255,74,28,.12)' : 'transparent',
@@ -175,8 +180,8 @@ AREA_METHODS = r"""  _zipArea(zip) {
 MAP = truemap.build('mV.pick', 'mC.pick', 'mG.pick', 'mL.pick', 'mB.pick')
 SOON_NOTE = ('<div class="soon">'
              '<p class="soon-h">Coming soon</p>'
-             '<p class="soon-l">Surprise, Peoria, Glendale, Laveen, the Central and East Valley, Tucson, Flagstaff, Kingman and Lake Havasu City.</p>'
-             '<p class="soon-p"><b>We don’t come to you yet?</b> Let us know. Join the waitlist with your name, phone and address. [[bf:Join by November 30 and your first month is free when we start in your area.||Your first cleanup is free when we start in your area.]]</p>'
+             '<p class="soon-l">Surprise, Peoria, Glendale and Laveen.</p>'
+             '<p class="soon-p"><b>We don’t come to you yet?</b> Let us know. Join the waitlist with your name, phone and address. We will tell you when we start in your area.</p>'
              '<a href="Booking.dc.html" class="btn btn-line soon-b">Join the waitlist</a>'
              '</div>')
 MAP_KEY = truemap.MAP_KEY
@@ -192,14 +197,14 @@ from scene import saguaro, agave, barrel  # noqa: E402
 
 FAQ_ITEMS = [
     ('[[bf:What is the Black Friday sale?||Is my first cleanup free?]]', '[[bf:Sign up by November 30 and your first month is free. The sale ends at midnight on November 30. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.||Yes. Your first cleanup is free when you sign up.]]'),
-    ('How much does it cost?', 'Weekly pickup is $108 a month for 1 or 2 dogs. That is about $25 a visit. [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]'),
+    ('How much does it cost?', 'Weekly pickup is about $25 a week for 1 or 2 dogs. We bill it once a month: $108 on the 1st. [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]'),
     ('Is the spray really free?', 'Yes. At every visit, we spray deodorizer on the spots your dogs use most. It costs you nothing.'),
     ('Do you come in the summer heat?', 'Yes. In summer we start early, so your yard is done before the worst heat of the day.'),
     ('What if it storms?', 'Light rain is fine. If there is lightning, we wait until it is safe. We text you if your time changes.'),
     ('Do you clean artificial turf?', 'Yes. We pick up every pile and spray the spots your dogs use most. Turf can smell in the heat. For a deep clean, add a turf odor treatment for $35.'),
-    ('Where does the poop go?', 'We bag it, tie it shut and put it in your trash can.'),
+    ('Where does the poop go?', 'We haul it away. We bag it, tie it shut and take it with us. It does not go in your trash can.'),
     ('Do you background check your team?', 'Yes. Every team member must pass a background check before they work in a yard. Your safety and our safety come first.'),
-    ('Are you bonded and insured?', 'Yes. We carry a $50,000 business service bond and $1,000,000 in general liability insurance.[[ins: Our insurance policy starts November 16, 2026.||]] See the proof on our bonded and insured page.'),
+    ('Are you bonded and insured?', '[[ins:We are bonded today. We carry a $50,000 business service bond. Our $1,000,000 general liability insurance starts November 16, 2026.||Yes. We carry a $50,000 business service bond and $1,000,000 in general liability insurance.]] See the details on our bond and insurance page.'),
     ('Do you clean your tools?', 'Yes. We clean our boots and tools after every yard. That keeps germs from going from yard to yard.'),
     ('Can I pick my day?', 'No. We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window.'),
     ('Can you come today? We have a party.', 'Yes. Text us and we can come the same day for $49. It goes on your next bill on the 1st.'),
@@ -208,7 +213,7 @@ FAQ_ITEMS = [
     ('What if a dog in the yard is not safe to be near?', 'We don’t go in. We text you to bring the dog inside. We can come back the same day.'),
     ('Can I skip a week?', 'Yes. You get 4 free skips a year. Sign in to My Yard and tap Skip next to the visit, up to 24 hours before. No phone call.'),
     ('Can I pause while we are away?', 'Yes. After your first 60 days, you can pause for up to 120 days in My Yard. You don’t pay while you are paused. Before then, use a free skip.'),
-    ('How do I cancel?', 'Tap cancel in My Yard. There is no contract and no phone call. If you signed up with the Black Friday sale, keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.'),
+    ('How do I cancel?', 'Tap cancel in My Yard. There is no long term contract and no phone call. If you signed up with the Black Friday sale, keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.'),
     ('What if I get another dog?', 'Text us, or we will see on our next visit. We update your plan to match and email you the new price. It starts with your next bill. Each dog after two adds $13 a month, or $9 on the every other week plan.'),
     ('What is My Yard?', 'My Yard is your account on our site. Sign in with your email and a 6 digit code. No password. You can see your next visits, skip a visit, pause, see your bills and gate photos, change your card, or cancel.'),
     ('Is my card safe?', 'Yes. You pay through Stripe, the same checkout big stores use. Stripe keeps your card. We never see or store your card number.'),
@@ -260,13 +265,19 @@ def _xrow(a, b):
     return '<div class="ptab-r"><span>%s</span><b>%s</b></div>' % (a, b)
 
 
+def _pcell(month):
+    return '<td><b>$%d a week</b><small>$%d a month</small></td>' % (round(month * 12 / 52.0), month)
+
+
+PRICE_ROWS = ''.join('<tr><th scope="row">%s</th>%s%s</tr>' % (n, _pcell(a), _pcell(b))
+                     for n, a, b in [('Every week', 108, 121), ('Twice a week', 189, 202), ('Every other week', 75, 84)])
+WEEK_NOTE = 'We bill the month price on the 1st. The week price is the month price spread over the year, to the nearest dollar.'
 PRICE_TABLE = (
     '<table class="ptab">'
-    '<thead><tr><th scope="col">A month</th><th scope="col">1 or 2 dogs</th><th scope="col">3 dogs</th></tr></thead><tbody>'
-    '<tr><th scope="row">Every week</th><td>$108</td><td>$121</td></tr>'
-    '<tr><th scope="row">Twice a week</th><td>$189</td><td>$202</td></tr>'
-    '<tr><th scope="row">Every other week</th><td>$75</td><td>$84</td></tr>'
+    '<thead><tr><th scope="col">Plan</th><th scope="col">1 or 2 dogs</th><th scope="col">3 dogs</th></tr></thead><tbody>'
+    + PRICE_ROWS +
     '</tbody></table>'
+    '<p class="ptab-w">' + WEEK_NOTE + '</p>'
     '<p class="ptab-x">Extras</p>'
     + _xrow('Deodorizer spray', 'Free every visit') + _xrow('Turf odor treatment', '$35') + _xrow('Same day pickup', '$49') + _xrow('One time cleanup', '$95') +
     '<p class="ptab-n">Each dog after two adds $13 a month ($9 every other week). [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]</p>'
@@ -357,7 +368,11 @@ F_CLOCK = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="c
 F_GLOBE = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18"></path><path d="M12 3c2.6 2.8 2.6 15.2 0 18c-2.600-2.800-2.600-15.200 0-18z"></path></svg>'
 SEAL = look.seal_svg()
 SEAL_FAM = look.seal_svg(glyph='heart')
-SEALS = [('Bonded', '$50,000 bond'), ('Insured', '$1,000,000 liability'), ('Background checked', 'Every team member')]
+SEALS = [('Bonded', '$50,000 bond'), ('[[ins:Insurance||Insured]]', '[[ins:$1,000,000, starts Nov 16||$1,000,000 liability]]'), ('Background checked', 'Every team member')]
+SEALS_ARIA = '[[ins:Bonded and background checked. Insurance starts November 16.||Bonded, insured and background checked.]] Family owned and operated.'
+# One plain line by every sign up button. During the sale it names the 60 day rule, so "no contract" never stands alone.
+NO_CONTRACT = '[[bf:No long term contract. Keep your plan 60 days and your free month stays free.||No contract.]]'
+COVERED = '[[ins:Bonded. Insurance starts November 16.||Bonded and insured.]]'
 _F_PHONE = ICON_PHONE.replace('stroke="#FF6B42"', 'stroke="currentColor"')
 _F_SMS = ICON_CHAT
 _F_MAIL = ICON_MAIL.replace('stroke="#FF6B42"', 'stroke="currentColor"')
@@ -413,9 +428,9 @@ def _footer(pre):
             '      <p class="fpay">Stripe keeps your card. We never see the number. We never sell your info. <a href="/privacy/">Read our Privacy Policy</a>.</p>\n'
             '    </div>\n'
             '  </div>\n'
-            '  <div class="fseals" role="group" aria-label="Bonded, insured and background checked. Family owned and operated.">\n'
+            '  <div class="fseals" role="group" aria-label="' + SEALS_ARIA + '">\n'
             + ''.join('    <p class="fseal">' + SEAL + '<span><b>%s</b><small>%s</small></span></p>\n' % x for x in SEALS) +
-            '    <p class="fproof"><a href="/bonded-and-insured/">See the proof</a></p>\n'
+            '    <p class="fproof"><a href="/bonded-and-insured/">See our coverage</a></p>\n'
             '    <p class="ffam">' + SEAL_FAM.replace('class="seal-i"', 'class="seal-i ffam-i"') + '<span>Family owned and operated</span></p>\n'
             '  </div>\n'
             '  <p class="fcopy">© 2026 Arizona Pet Waste. All rights reserved.</p>\n'
@@ -435,23 +450,23 @@ FOOTER_CITY = _footer('Main.dc.html')
 
 
 # ---------- the seals strip under every hero: bonded, insured, background checked, family owned ----------
-TICKER = ('<div class="seals" role="region" aria-label="Bonded, insured and background checked. Family owned and operated.">\n'
+TICKER = ('<div class="seals" role="region" aria-label="' + SEALS_ARIA + '">\n'
           '  <ul class="seals-l">'
           + ''.join('<li>' + SEAL + '<span><b>%s</b><small>%s</small></span></li>' % x for x in SEALS)
           + '<li>' + SEAL_FAM + '<span><b>Family owned</b><small>and operated</small></span></li>'
-          + '<li class="seals-go"><a class="tl" href="/bonded-and-insured/">See the proof</a></li>'
+          + '<li class="seals-go"><a class="tl" href="/bonded-and-insured/">See our coverage</a></li>'
           + '</ul>\n</div>')
 
 # ---------- what every plan comes with (was "Every visit, by the numbers") ----------
 CK_SVG = '<svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 15l6 6L23 8"></path></svg>'
 CK_ITEMS = [('A 30 minute time window', 'We text it to you the night before.'),
             ('A photo of your latched gate', 'After every visit. No photo? That visit is free.'),
+            ('We haul the poop away', 'We bag it and take it with us. Nothing goes in your trash can.'),
             ('Free deodorizer spray', 'On the spots your dogs use most.'),
             ('A free return within 24 hours', 'If we miss a pile.'),
-            ('4 free skips a year', 'One tap in My Yard.'),
-            ('A pause for up to 120 days', 'While you are away. You pay $0.'),
-            ('Every home in 6 ZIP codes', 'Buckeye, Goodyear, Litchfield Park and Citrus Park.'),
-            ('No contract and no sign up fee', 'Month to month. Cancel in My Yard.')]
+            ('4 free skips a year', 'One tap in My Yard. After your first 60 days, you can pause for up to 120 days too.'),
+            ('Every home in 6 ZIP codes', 'Buckeye, Verrado, Goodyear, Litchfield Park, Citrus Park and Waddell.'),
+            ('[[bf:No long term contract||No contract]] and no sign up fee', '[[bf:Month to month. Keep your plan 60 days and your free month stays free.||Month to month. Cancel in My Yard.]]')]
 SPECS = ('<section id="specs" class="sec">\n  <div class="in ck-g">\n'
          '  <div class="shd">\n'
          '    <h2 class="h2">What you get with every visit</h2>\n'
@@ -469,5 +484,5 @@ BF_DEAL = ('[[bf:<div class="bfd" data-deal-end="2026-12-01T06:59:59Z"><div clas
   '<p class="bfd-p">Sign up by November 30. After that, the sale is over.</p></div>'
   '<div><div class="bfd-when"><p class="bfd-ends">Sale ends Monday, November 30</p>'
   '<p class="bfd-clock" aria-hidden="true"><span><b data-u="d">00</b><i>days</i></span><span><b data-u="h">00</b><i>hrs</i></span><span><b data-u="m">00</b><i>min</i></span><span><b data-u="s">00</b><i>sec</i></span></p></div>'
-  '<p class="bfd-fine">No contract. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.</p></div>'
+  '<p class="bfd-fine">No long term contract. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.</p></div>'
   '</div></div>||]]')

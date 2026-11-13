@@ -257,11 +257,15 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .plan[aria-checked="true"] .plan-r{border-color:var(--accent);background:var(--accent);box-shadow:inset 0 0 0 5px #0A0F24}
 .apw .plan-n{grid-area:n;align-self:end;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:22px;line-height:1.1}
 .apw .plan-s{grid-area:s;align-self:start;font-size:15px;line-height:1.3;color:var(--mute)}
-.apw .plan-p{grid-area:p;font-family:var(--f-head);font-stretch:68%;font-weight:850;font-size:42px;line-height:1}
+.apw .plan-p{grid-area:p;display:flex;flex-direction:column;align-items:flex-end;font-family:var(--f-head);font-stretch:68%;font-weight:850;font-size:42px;line-height:1}
+.apw .plan-p small{margin-top:3px;font-family:var(--f-text);font-stretch:104%;font-weight:400;font-size:14px;line-height:1.2;color:var(--mute)}
 .apw .pr-line{margin:0;font-size:17px;font-weight:700;color:var(--ink2)}
 .apw .pr-total{display:flex;align-items:baseline;gap:10px;margin:8px 0 0;font-size:21px;color:var(--ink2)}
 .apw .pr-total b{font-family:var(--f-head);font-stretch:66%;font-weight:900;font-size:108px;letter-spacing:-.01em;line-height:.8;color:var(--ink)}
+.apw .pr-ab{align-self:flex-start;margin-top:2px;font-size:17px;font-weight:700;color:var(--ink2)}
 .apw .pr-per{margin:14px 0 0;font-size:17px;line-height:1.5;color:var(--ink2)}
+.apw .pr-in{margin:20px 0 0;padding:14px 0 0;border-top:1px solid var(--line);font-size:16px;line-height:1.55;color:var(--ink2)}
+.apw .pr-in strong{color:var(--ink)}
 .apw .pr-sum>.btn{margin-top:22px}
 .apw .pr-note{margin:16px 0 0;font-size:15px;line-height:1.55;color:var(--mute)}
 .apw .pr-note strong{color:var(--ink)}
@@ -274,7 +278,11 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .ptab thead th{padding-top:4px;font-size:14px;font-weight:700;color:var(--mute)}
 .apw .ptab th:first-child{text-align:left}
 .apw .ptab tbody th{font-weight:700}
-.apw .ptab td{font-family:var(--f-head);font-stretch:84%;font-weight:800;font-size:19px}
+.apw .ptab td b{display:block;font-family:var(--f-head);font-stretch:84%;font-weight:800;font-size:19px;line-height:1.15;white-space:nowrap}
+.apw .ptab td small{display:block;margin-top:3px;font-size:14px;line-height:1.2;color:var(--mute);white-space:nowrap}
+.apw .ptab-w{margin:12px 0 0;font-size:14px;line-height:1.5;color:var(--mute)}
+.apw .ptab td{padding-left:12px}
+@media (max-width:379px){.apw .ptab td b{font-size:16px}.apw .ptab td small{font-size:12.5px}.apw .ptab tbody th{font-size:15px}}
 .apw .ptab-x{margin:20px 0 0;font-size:14px;font-weight:700;color:var(--mute)}
 .apw .ptab-r{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:16px}
 .apw .ptab-r b{font-family:var(--f-head);font-stretch:84%;font-weight:800;font-size:18px;color:var(--ink);white-space:nowrap}
@@ -302,6 +310,12 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .ck svg{display:block;width:28px;height:28px;color:var(--accent)}
 .apw .ck b{display:block;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:21px;line-height:1.15;color:var(--ink)}
 .apw .ck span{display:block;margin-top:4px;font-size:16px;line-height:1.45;color:var(--ink2)}
+
+/* the owner */
+.apw .own{display:grid;grid-template-columns:minmax(0,1fr);gap:22px}
+.apw .own-t p{margin:0 0 14px;max-width:34em;font-size:18px;line-height:1.55;color:var(--ink2)}
+.apw .own-t p:first-child{color:var(--ink)}
+.apw .own-t .tl{margin-top:2px}
 
 /* areas we serve */
 .apw .wh{display:grid;grid-template-columns:minmax(0,1fr);gap:26px}
@@ -438,7 +452,8 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .steps>li::before{font-size:84px}
 .apw .steps h3{font-size:28px}
 .apw .steps p{font-size:18px}
-.apw .ck-g{grid-template-columns:minmax(0,.8fr) minmax(0,1.6fr);column-gap:72px;align-items:start}
+.apw .ck-g,.apw .own{grid-template-columns:minmax(0,.8fr) minmax(0,1.6fr);column-gap:72px;align-items:start}
+.apw .own-t p{font-size:20px}
 .apw .ck b{font-size:22px}
 .apw .wh{grid-template-columns:minmax(0,.86fr) minmax(0,1.14fr);grid-template-areas:"h m" "c m" "c s";grid-template-rows:auto auto 1fr;column-gap:72px;row-gap:0}
 .apw .wh-h{grid-area:h}
