@@ -133,3 +133,27 @@ await show('pause 30 days', await call('/api/me/pause', 'POST', { until: az(30) 
 console.log('stripe pause call:', decodeURIComponent(subPosts[0] || ''), '| row:', stored.status, stored.pause_from, stored.pause_until);
 await show('start again', await call('/api/me/resume', 'POST', {}, 'good'));
 console.log('stripe resume call:', decodeURIComponent(subPosts[1] || ''), '| row:', stored.status, stored.pause_until);
+
+// the sky over Verrado
+{
+  const real = globalThis.fetch;
+  const sky = async () => (await worker.fetch(new Request('https://arizonapetwaste.com/api/weather'), env, ctx)).json();
+  const fresh = new Date(Date.now() - 13 * 60e3).toISOString();
+  const seen = (text) => async (u) => String(u).includes('/observations/latest')
+    ? reply({ properties: { textDescription: text, timestamp: fresh, temperature: { value: 14 }, icon: 'https://api.weather.gov/icons/land/day/x?size=medium' } }) : reply({}, 500);
+  for (const [t, k] of [['Light Rain', 'rain'], ['Thunderstorm in Vicinity', 'storm'], ['Mostly Cloudy', 'cloud'], ['Partly Cloudy', 'part'], ['Clear', 'clear'], ['Blowing Dust', 'dust']]) {
+    globalThis.fetch = seen(t);
+    const w = await sky();
+    if (!(w.ok && w.sky === k && w.temp === 57 && w.night === false && w.from === 'reading')) throw new Error('weather for ' + t + ': ' + JSON.stringify(w));
+  }
+  globalThis.fetch = async (u) => String(u).includes('/observations/latest') ? reply({ properties: { textDescription: 'Clear', timestamp: '2026-11-01T12:00:00Z' } })
+    : String(u).includes('/points/') ? reply({ properties: { forecastHourly: 'https://api.weather.gov/gridpoints/PSR/1,1/forecast/hourly' } })
+      : reply({ properties: { periods: [{ shortForecast: 'Chance Rain Showers', temperature: 61, temperatureUnit: 'F', isDaytime: false }] } });
+  let w = await sky();
+  if (!(w.ok && w.sky === 'cloud' && w.temp === 61 && w.night === true && w.from === 'forecast')) throw new Error('weather forecast: ' + JSON.stringify(w));
+  globalThis.fetch = async () => reply({}, 503);
+  w = await sky();
+  if (w.ok !== false) throw new Error('/api/weather should answer ok false when the feed is down');
+  globalThis.fetch = real;
+  console.log('\nweather: ok');
+}

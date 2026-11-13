@@ -47,6 +47,8 @@ export default {
       return res;
     }
     if (!url.pathname.startsWith('/api/')) return env.ASSETS.fetch(request);
+    // The sky in the desert at the bottom of the public pages: one small answer, kept 10 minutes, shared by every visitor.
+    if (url.pathname === '/api/weather' && request.method === 'GET') return weather(request, ctx);
     // A simple brake on floods and guessing. It counts per visitor address inside this server. It is a first line:
     // a Cloudflare rate limit rule on /api/* is the real wall.
     const ip = request.headers.get('cf-connecting-ip');
@@ -68,6 +70,58 @@ export default {
     }
   }
 };
+
+// ---------- the sky over Verrado (public pages) ----------
+// Read from the National Weather Service, which is free and needs no key. First the last reading at Goodyear airport
+// (KGYR, the closest station that reports every hour), then the hourly forecast for Verrado if that reading is missing or old.
+// No visitor data goes to them. If both fail the answer is { ok: false } and the page keeps its plain sun.
+const WX_AT = '33.4930,-112.5080'; // Verrado town center, not anyone's address
+const WX_STATION = 'KGYR';
+const WX_HEAD = { 'user-agent': 'arizonapetwaste.com (info@arizonapetwaste.com)', accept: 'application/geo+json' };
+function skyKind(text) {
+  const t = String(text || '').toLowerCase();
+  if (/thunder|t-storm|tstorm|lightning/.test(t)) return 'storm';
+  if (/rain|drizzle|shower|sprinkle/.test(t)) return 'rain';
+  if (/dust|sand/.test(t)) return 'dust';
+  if (/overcast|mostly cloudy|cloudy|fog|haze|smoke|mist|snow|sleet|hail/.test(t) && !/partly/.test(t)) return 'cloud';
+  if (/partly|few clouds|mostly sunny|mostly clear/.test(t)) return 'part';
+  return t ? 'clear' : '';
+}
+function azNight(at) { const h = new Date((at || Date.now()) - 7 * 3600e3).getUTCHours(); return h < 6 || h >= 18; }
+async function wxGet(u) {
+  const c = new AbortController();
+  const timer = setTimeout(() => c.abort(), 4000);
+  try { const r = await fetch(u, { headers: WX_HEAD, signal: c.signal }); return r.ok ? await r.json() : null; } catch (e) { return null; } finally { clearTimeout(timer); }
+}
+async function readSky(now = Date.now()) {
+  const o = ((await wxGet('https://api.weather.gov/stations/' + WX_STATION + '/observations/latest')) || {}).properties;
+  if (o && o.textDescription && now - Date.parse(o.timestamp) < 100 * 60e3) {
+    const c = o.temperature && typeof o.temperature.value === 'number' ? o.temperature.value : null;
+    const icon = String(o.icon || '');
+    return { ok: true, sky: skyKind(o.textDescription), temp: c == null ? null : Math.round(c * 9 / 5 + 32), night: /\/(day|night)\//.test(icon) ? /\/night\//.test(icon) : azNight(now), from: 'reading' };
+  }
+  const pt = ((await wxGet('https://api.weather.gov/points/' + WX_AT)) || {}).properties;
+  const f = pt && pt.forecastHourly ? ((await wxGet(pt.forecastHourly)) || {}).properties : null;
+  const p = f && f.periods && f.periods[0];
+  if (p && p.shortForecast) {
+    const temp = typeof p.temperature === 'number' ? Math.round(p.temperatureUnit === 'C' ? p.temperature * 9 / 5 + 32 : p.temperature) : null;
+    // a forecast of "chance of rain" is not rain: only call it wet when the forecast says it without "chance" or "slight"
+    let sky = skyKind(p.shortForecast);
+    if ((sky === 'rain' || sky === 'storm') && /chance|slight|isolated|scattered|likely/i.test(p.shortForecast)) sky = 'cloud';
+    return { ok: true, sky, temp, night: typeof p.isDaytime === 'boolean' ? !p.isDaytime : azNight(now), from: 'forecast' };
+  }
+  return { ok: false };
+}
+async function weather(request, ctx) {
+  const key = new Request(new URL('/api/weather', request.url).toString());
+  const store = typeof caches !== 'undefined' && caches.default;
+  if (store) { const hit = await store.match(key); if (hit) return hit; }
+  let data = { ok: false };
+  try { data = await readSky(); } catch (e) { data = { ok: false }; }
+  const res = new Response(JSON.stringify(data), { headers: { 'content-type': 'application/json', 'x-content-type-options': 'nosniff', 'cache-control': 'public, max-age=' + (data.ok ? 600 : 120) } });
+  if (store && ctx && ctx.waitUntil) ctx.waitUntil(store.put(key, res.clone()));
+  return res;
+}
 
 async function route(path, request, env, ctx) {
   const m = request.method;

@@ -336,3 +336,61 @@
   }
   if (tick()) var t = setInterval(function () { if (!tick()) clearInterval(t); }, 1000);
 })();
+
+// The sky in the desert at the bottom of the page follows the real weather over Verrado. A small secret:
+// tap the sky and it says what it sees. /api/weather answers { ok, sky, temp, night }. No answer, no change.
+// To look at one sky by hand, add ?sky=rain (or clear, part, cloud, storm, dust) and &night=1 to any page address.
+(function () {
+  var root = document.documentElement, wx = null, asked = false;
+  var KINDS = { clear: 1, part: 1, cloud: 1, rain: 1, storm: 1, dust: 1 };
+  function line(w) {
+    var t = typeof w.temp === 'number' ? ', ' + w.temp + '\u00B0' : '';
+    if (w.night) {
+      return ({ rain: 'Raining in Verrado tonight' + t + '.', storm: 'Storm over Verrado tonight.', dust: 'Dust is blowing over Verrado tonight.',
+        cloud: 'Cloudy night over Verrado' + t + '.', part: 'A few clouds over Verrado tonight' + t + '.' }[w.sky] || 'Clear night over Verrado' + t + '.') + ' We keep an eye on the sky.';
+    }
+    if (w.sky === 'rain') return 'Raining in Verrado right now' + t + '. Light rain is fine. We still scoop.';
+    if (w.sky === 'storm') return 'Storm over Verrado right now. We wait for the lightning to pass, then we scoop.';
+    if (w.sky === 'dust') return 'Dust is blowing over Verrado right now. We keep an eye on the sky.';
+    if (w.sky === 'cloud') return 'Cloudy over Verrado right now' + t + '. Good scooping weather.';
+    if (w.sky === 'part') return 'A few clouds over Verrado right now' + t + '. Good scooping weather.';
+    if (typeof w.temp === 'number' && w.temp >= 105) return 'It is ' + w.temp + '\u00B0 in Verrado right now. Stay cool. We have the yard.';
+    return 'Sunny in Verrado right now' + t + '. A good day for a clean yard.';
+  }
+  function show(w) {
+    if (!w || !w.ok || !KINDS[w.sky]) return;
+    wx = w;
+    root.setAttribute('data-wx', w.sky);
+    if (w.night) root.setAttribute('data-wxn', '1'); else root.removeAttribute('data-wxn');
+  }
+  function ask() {
+    if (asked) return;
+    asked = true;
+    var q = new URLSearchParams(location.search);
+    if (KINDS[q.get('sky')]) return show({ ok: true, sky: q.get('sky'), temp: null, night: q.get('night') === '1' });
+    fetch('/api/weather').then(function (r) { return r.json(); }).then(show).catch(function () { });
+  }
+  function start() {
+    var sky = document.querySelector('.sky');
+    if (!sky) return;
+    // wait until the desert is close, so the cloud rolls in while someone is looking
+    if ('IntersectionObserver' in window) {
+      var io = new IntersectionObserver(function (es) { for (var i = 0; i < es.length; i++) if (es[i].isIntersecting) { io.disconnect(); ask(); } }, { rootMargin: '300px' });
+      io.observe(sky);
+      setTimeout(function () { var now = document.querySelector('.sky'); if (now && now !== sky) { io.disconnect(); io.observe(now); } }, 3000);
+    } else ask();
+    document.addEventListener('click', function (e) {
+      var s = e.target && e.target.closest && e.target.closest('.sky');
+      if (!s || !wx) return;
+      var n = s.querySelector('.sky-n');
+      if (n) { n.remove(); return; }
+      n = document.createElement('p');
+      n.className = 'sky-n';
+      n.setAttribute('role', 'status');
+      n.textContent = line(wx);
+      s.appendChild(n);
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
