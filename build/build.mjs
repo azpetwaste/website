@@ -151,8 +151,8 @@ function reviewsHtml() {
   const n = Math.round(Number(r.stars));
   return '<a class="grv" href="' + esc(cfg.googleProfile || r.url) + '" target="_blank" rel="noopener">' +
     '<span class="grv-s" role="img" aria-label="' + n + ' out of 5 stars">' + star.repeat(n) + '</span>' +
-    '<span class="grv-t"><b>' + avg + '</b> on Google · ' + rs.length + (rs.length === 1 ? ' review' : ' reviews') + '</span>' +
-    '<span class="grv-q">“' + esc(r.text) + '”</span><span class="grv-n">' + esc(r.name) + (r.town ? ' · ' + esc(r.town) : '') + '</span></a>';
+    '<span class="grv-t"><b>' + avg + '</b> on Google, ' + rs.length + (rs.length === 1 ? ' review' : ' reviews') + '</span>' +
+    '<span class="grv-q">“' + esc(r.text) + '”</span><span class="grv-n">' + esc(r.name) + (r.town ? ', ' + esc(r.town) : '') + '</span></a>';
 }
 const slots = (m, extra) => {
   let out = m.replace('<!--REVIEWS-->', reviewsHtml()).replace('<!--BADGES-->', badgesHtml()).replace('<!--SOCIAL-->', socialHtml()).replace('<!--PAYMARKS-->', payHtml());
@@ -163,6 +163,7 @@ const slots = (m, extra) => {
 // ---------- page CSS ----------
 const darkVars = (content.base_css.match(/\.apw\.dark\{([^}]*)\}/) || [])[1] || '';
 const SITE_CSS = `html{background:#070B1B;-webkit-text-size-adjust:100%}
+::selection{background:#FF4A1C;color:#0E1430}
 body{margin:0;background:#070B1B}
 html.dark .apw{${darkVars}}
 [id]{scroll-margin-top:92px}
@@ -178,49 +179,65 @@ html.book-open #book-dock{display:flex;align-items:center;justify-content:center
 @keyframes dockIn{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
 .bookpage #app{height:100vh;height:100dvh}
 @media (min-width:600px){.bookpage #app{width:430px;height:min(900px,calc(100dvh - 48px));margin:24px auto;border-radius:26px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5)}}
-.apw .zipgs{margin-top:26px}
-.apw .zipg{margin-top:18px}
-.apw .zipg h3{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin:0;font-size:20px;font-weight:800;letter-spacing:-.02em;line-height:1.2;color:var(--ink)}
-.apw .zipg h3 .mono{font-size:14px;font-weight:600;letter-spacing:.04em;color:var(--accent-text)}
-.apw .doc.docw{max-width:1160px}
-.apw .towns{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-top:26px}
-.apw .town{display:flex;flex-direction:column;padding:22px 22px 20px;border-radius:22px;background:var(--card);border:1px solid var(--line)}
-.apw .doc .town h2{margin:0;font-size:28px}
-.apw .town .tzips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0;padding:0;list-style:none}
-.apw .town .tzips li{padding:5px 10px;border-radius:999px;background:var(--accent-soft);color:var(--accent-text);font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:14px;font-weight:600}
-.apw .doc .town p{font-size:16px}
-.apw .doc .town .tgo{display:inline-flex;align-items:center;gap:8px;min-height:44px;margin-top:auto;padding-top:12px;font-size:16px;text-decoration:none}
-.apw .doc table.ziplist{width:100%;margin-top:16px;border-collapse:collapse;font-size:16px}
-.apw .doc table.ziplist th,.apw .doc table.ziplist td{padding:12px 10px;border-bottom:1px solid var(--line);text-align:left;color:var(--ink)}
-.apw .doc table.ziplist th{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13px;letter-spacing:.06em;color:var(--mute)}
-.apw .doc table.ziplist td:first-child{font-family:"IBM Plex Mono",ui-monospace,monospace;font-weight:600;color:var(--accent-text)}
-.apw .doc .hubcta{display:inline-flex;margin-top:22px;min-width:260px}
-.apw .hoods{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0;padding:0;list-style:none}
-.apw .hoods li{padding:8px 12px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:15px;font-weight:600;color:var(--ink)}
-.apw .doc{max-width:800px;margin:0 auto;padding:30px 20px 60px;background:var(--bg);color:var(--ink)}
-@media (min-width:1024px){.apw .doc{padding:64px 32px 104px}.apw .doc .dh1{font-size:56px}}
-.apw .doc .dh1{margin:10px 0 0;font-size:40px}
-.apw .doc h2{margin:34px 0 0;font-size:24px;font-weight:800;letter-spacing:-.03em;line-height:1.15;color:var(--ink)}
-.apw .doc h3{margin:22px 0 0;font-size:19px;font-weight:800;letter-spacing:-.02em;color:var(--ink)}
-.apw .doc p,.apw .doc li{font-size:17px;line-height:1.6;color:var(--ink2)}
-.apw .doc p{margin:12px 0 0}
-.apw .doc ul,.apw .doc ol{margin:12px 0 0;padding-left:22px}
-.apw .doc li{margin-top:6px}
-.apw .doc a{color:var(--accent-text);font-weight:700}
+.apw .zipgs{margin-top:22px}
+.apw .zipg{margin-top:20px}
+.apw .zipg h3{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin:0;font-family:var(--f-head);font-stretch:88%;font-weight:750;font-size:21px;line-height:1.2;color:var(--ink)}
+.apw .zipg h3 .mono{font-family:var(--f-text);font-size:15px;font-weight:700;color:var(--accent-text)}
+.apw .hoods{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 20px;margin:12px 0 0;padding:0;list-style:none}
+.apw .hoods li{font-size:16px;line-height:1.4;color:var(--ink2)}
+.apw .zipgs>p{margin:16px 0 0;font-size:15px;line-height:1.55;color:var(--mute)}
+.apw .doc{max-width:1280px;margin:0 auto;padding:30px 20px 72px;background:var(--bg);color:var(--ink)}
+.apw .doc>*{max-width:760px}
+.apw .doc>.dh1{max-width:1000px}
+.apw .doc>.towns{max-width:none}
+.apw .doc .dh1{margin:0;font-size:clamp(46px,13.4vw,66px)}
+.apw .doc h2{margin:46px 0 0;font-family:var(--f-head);font-stretch:74%;font-weight:850;font-size:34px;line-height:1;color:var(--ink);text-wrap:balance}
+.apw .doc h3{margin:26px 0 0;font-family:var(--f-head);font-stretch:88%;font-weight:750;font-size:22px;line-height:1.2;color:var(--ink)}
+.apw .doc p,.apw .doc li{font-size:18px;line-height:1.6;color:var(--ink2)}
+.apw .doc p{margin:14px 0 0}
+.apw .doc ul,.apw .doc ol{margin:14px 0 0;padding-left:24px}
+.apw .doc li{margin-top:8px}
+.apw .doc li::marker{color:var(--accent);font-weight:700}
+.apw .doc a{color:var(--ink);font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px;text-decoration-color:var(--accent)}
+.apw .doc a:hover{text-decoration-color:currentColor}
 .apw .doc strong{color:var(--ink)}
-.apw .doc .eb{color:var(--accent-text)}
-.apw .doc .updated{margin-top:14px;font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13px;color:var(--mute)}
-.apw .doc .lead{font-size:19px;line-height:1.55;color:var(--ink)}
-.apw .doc .tocd{margin:18px 0 0;padding:4px 16px 14px;border-radius:16px;background:var(--bg2);border:1px solid var(--line)}
-.apw .doc .tocd summary{display:flex;align-items:center;min-height:44px;font-weight:800;color:var(--ink);cursor:pointer}
-.apw .doc .toc{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 0;padding:0;list-style:none}
-.apw .doc .toc a{display:inline-flex;align-items:center;min-height:40px;padding:0 12px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);font-size:14px;color:var(--ink);text-decoration:none}
+.apw .doc .crumb{margin:0 0 18px}
+.apw .doc .crumb a{font-weight:700;text-decoration:none}
+.apw .doc .updated,.apw .doc .meta{margin-top:14px;font-size:15px;color:var(--mute)}
+.apw .doc .lead{margin-top:20px;font-size:21px;line-height:1.5;color:var(--ink)}
+.apw .doc img{border-radius:6px}
+.apw .doc .print-d{width:min(100%,400px);margin:30px 0 34px 6px;transform:rotate(-1.4deg)}
+.apw .doc .print-d.print-w{width:min(100%,540px)}
+.apw .doc .print img{border-radius:0}
+.apw .doc .print-d .stamp{right:-4px;bottom:58px;font-size:20px}
+.apw .doc .tocd{margin:22px 0 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.apw .doc .tocd summary{display:flex;align-items:center;min-height:52px;font-weight:700;font-size:17px;color:var(--ink);cursor:pointer}
+.apw .doc .toc{display:grid;gap:2px;margin:0 0 14px;padding:0;list-style:none}
+.apw .doc .toc li{margin:0}
+.apw .doc .toc a{display:inline-flex;align-items:center;min-height:40px;font-size:16px;font-weight:400}
+.apw .towns{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0 56px;margin-top:30px;border-top:1px solid var(--line)}
+.apw .town{display:flex;flex-direction:column;padding:24px 0 22px;border-bottom:1px solid var(--line)}
+.apw .doc .town h2{margin:0;font-size:30px}
+.apw .doc .town h2 a{text-decoration:none}
+.apw .doc .town h2 a:hover{text-decoration:underline;text-decoration-color:var(--accent)}
+.apw .doc .town p{font-size:16px}
+.apw .doc .town .tgo{display:inline-flex;align-items:center;min-height:44px;margin-top:auto;padding-top:8px;font-size:16px}
+.apw .doc table.ziplist{width:100%;margin-top:18px;border-collapse:collapse;font-size:17px}
+.apw .doc table.ziplist th,.apw .doc table.ziplist td{padding:13px 14px 13px 0;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;line-height:1.45;color:var(--ink2)}
+.apw .doc table.ziplist th{font-size:14px;font-weight:700;color:var(--mute)}
+.apw .doc table.ziplist td:first-child{font-weight:700;color:var(--ink)}
+.apw .doc .hubcta{display:inline-flex;margin-top:26px;min-width:260px}
 .apw .doc a.btn{text-decoration:none}.apw .doc a.btn-dot{color:var(--accent-ink)}
-.skip{position:absolute;left:12px;top:-60px;z-index:100;padding:12px 16px;border-radius:12px;background:#FF4A1C;color:#0E1430;font:700 16px system-ui,sans-serif;text-decoration:none}
+.skip{position:absolute;left:12px;top:-60px;z-index:100;padding:12px 16px;border-radius:10px;background:#FF4A1C;color:#0E1430;font:700 16px var(--f-text);text-decoration:none}
 .skip:focus{top:12px}
+@media (min-width:1024px){.apw .doc{padding:56px 40px 120px}.apw .doc .dh1{font-size:clamp(72px,6.8vw,96px)}.apw .doc h2{font-size:42px}}
 @media (prefers-reduced-motion:reduce){#book-dock>.apw{animation:none}}`;
 
 // ---------- structured data ----------
+// The row of links at the top of a text page (Home › Pricing). It matches the BreadcrumbList data for the page.
+const crumbNav = (trail) => '<nav aria-label="Breadcrumb" class="crumb">' + trail.map((t, i) => (i < trail.length - 1
+  ? '<a href="' + t[1] + '">' + esc(t[0]) + '</a><span aria-hidden="true">›</span>' : '<span aria-current="page">' + esc(t[0]) + '</span>')).join('') + '</nav>';
+const docHead = (h1, trail) => crumbNav(trail) + '<h1 class="h1 dh1">' + esc(h1) + '</h1>';
 const BIZ_ID = ORIGIN + '/#business';
 const PLACES = {
   buckeye: { name: 'Buckeye', locality: 'Buckeye', zips: ['85326', '85396'], url: '/pooper-scooper/buckeye-az/' },
@@ -240,7 +257,7 @@ const monthly = (name, price, desc) => ({
   itemOffered: { '@type': 'Service', name: name, provider: { '@id': BIZ_ID } }
 });
 const OFFERS = [
-  monthly('Dog poop pickup every week', 108, 'For 1 or 2 dogs. About $25 a visit. Each dog after two adds $13 a month. [[bf:First month free through November 30||First cleanup free]].'),
+  monthly('Dog poop pickup every week', 108, 'For 1 or 2 dogs. About $25 a week, billed once a month. Each dog after two adds $13 a month. [[bf:First month free through November 30||First cleanup free]].'),
   monthly('Dog poop pickup twice a week', 189, 'For 1 or 2 dogs. Each dog after two adds $13 a month. [[bf:First month free through November 30||First cleanup free]].'),
   monthly('Dog poop pickup every other week', 75, 'For 1 or 2 dogs. Each dog after two adds $9 a month. [[bf:First month free through November 30||First cleanup free]].'),
   { '@type': 'Offer', name: 'Turf odor treatment', price: '35.00', priceCurrency: 'USD', itemOffered: { '@type': 'Service', name: 'Turf odor treatment' } },
@@ -249,7 +266,7 @@ const OFFERS = [
 const business = {
   '@type': 'LocalBusiness', '@id': BIZ_ID, name: cfg.name, url: ORIGIN + '/',
   founder: { '@type': 'Person', name: 'Juan Gonzalez', jobTitle: 'Owner', homeLocation: { '@type': 'Place', name: 'Verrado, Buckeye, Arizona' } },
-  description: 'Dog poop pickup and pet waste removal for every home in Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell and Citrus Park (85355), Arizona. Weekly, twice a week, or every other week. [[bf:First month free||First cleanup free]], free deodorizer spray at every visit, and a photo of your latched gate after each visit. Bonded and insured.',
+  description: 'Dog poop pickup and pet waste removal for every home in Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell and Citrus Park (85355), Arizona. Weekly, twice a week, or every other week. [[bf:First month free||First cleanup free]], free deodorizer spray at every visit, and a photo of your latched gate after each visit. We haul the waste away. [[ins:Bonded. Insurance starts November 16, 2026.||Bonded and insured.]]',
   telephone: '+1-623-309-6104', email: cfg.email,
   openingHoursSpecification: [{ '@type': 'OpeningHoursSpecification', dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], opens: '08:00', closes: '17:00' }],
   logo: ORIGIN + '/assets/img/icon-512.png', image: ORIGIN + '/assets/img/og.png',
@@ -265,10 +282,33 @@ const faqLd = (url, items) => ({ '@type': 'FAQPage', '@id': url + '#faq', mainEn
 const crumbs = (url, trail) => ({ '@type': 'BreadcrumbList', '@id': url + '#breadcrumb', itemListElement: trail.map((t, i) => ({ '@type': 'ListItem', position: i + 1, name: t[0], item: ORIGIN + t[1] })) });
 
 // ---------- pages ----------
-const FONTS_PRE = '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>';
-const BF_BAR = `<a class="bf" href="/book/" data-deal-end="${DEAL_END}" aria-label="Black Friday sale. Your first month is free. Ends Monday, November 30."><span class="bf-tag">Black Friday</span><span class="bf-t">First month free</span><span class="bf-d">Ends Mon, Nov 30</span><span class="bf-c" aria-hidden="true"><b data-u="d">00</b>d <b data-u="h">00</b>h <b data-u="m">00</b>m <b data-u="s">00</b>s</span><span class="bf-go">Get it ›</span></a>`;
+const FONTS_PRE = ''; // fonts are our own files in /assets/fonts/ (preloaded by each board), nothing comes from Google Fonts
+const BF_BAR = `<a class="bf" href="/book/" data-deal-end="${DEAL_END}"><span class="bf-tag">Black Friday sale</span><span class="bf-t">First month free</span><span class="bf-d">Ends Mon, Nov 30</span><span class="bf-c" aria-hidden="true"><b data-u="d">00</b>d <b data-u="h">00</b>h <b data-u="m">00</b>m <b data-u="s">00</b>s</span><span class="bf-go">Get it</span></a>`;
 const BF_SKIP = new Set(['/book/', '/account/']);
-const BF_CSS = `.bf{font-family:"Schibsted Grotesk",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px 12px;padding:9px 14px;background:#0B0B0F;color:#fff;text-decoration:none;font-size:14px;line-height:1.3;text-align:center}.bf:hover .bf-go,.bf:focus-visible .bf-go{text-decoration:underline}.bf-tag{padding:3px 8px;border-radius:6px;background:#FF4A1C;color:#0E1430;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}.bf-t{font-weight:800}.bf-d{color:#C9CDE0}.bf-c{display:none;font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-weight:700;color:#FFB199;font-variant-numeric:tabular-nums}.bf-c b{font-weight:800}html.bf-live .bf-c{display:inline}.bf-go{font-weight:800;color:#FF8A66}@media (max-width:560px){.bf{gap:4px 10px;padding:8px 10px;font-size:13px}.bf-d,.bf-go{display:none}}.bfd{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px 24px;margin:0 0 22px;padding:20px 22px;border-radius:22px;background:#0B0B0F;color:#fff;border:2px solid #FF4A1C;box-shadow:0 0 0 4px rgba(255,74,28,.18)}.bfd p{margin:0}.bfd-tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#FF8A66}.bfd-dot{width:8px;height:8px;border-radius:50%;background:#FF4A1C;animation:bfp 1.4s infinite}@keyframes bfp{50%{opacity:.25}}.bfd .bfd-h{margin-top:8px;font-size:clamp(26px,4vw,38px);font-weight:800;letter-spacing:-.03em;line-height:1.05;color:#fff}.bfd-h span{color:#FF4A1C}.bfd .bfd-p{margin-top:8px;font-size:16px;line-height:1.45;color:#D5DAF0}.bfd .bfd-ends{margin-bottom:8px;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#C9CDE0;text-align:center}.bfd-clock{display:flex;justify-content:center;gap:8px}.bfd-clock span{display:grid;justify-items:center;min-width:58px;padding:8px 6px;border-radius:12px;background:#1A1B24;border:1px solid #2C2E3A}.bfd-clock b{font-size:26px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;color:#fff}.bfd-clock i{margin-top:4px;font-style:normal;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#9CA2BD}.bfd .bfd-fine{grid-column:1/-1;font-size:13px;line-height:1.45;color:#9CA2BD}@media (max-width:720px){.bfd{grid-template-columns:minmax(0,1fr);margin-top:18px;padding:20px}.bfd .bfd-ends{text-align:left}.bfd-clock{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));max-width:300px}.bfd-clock span{min-width:0}}.sticker.bf-st{background:#0B0B0F;color:#fff}.sticker.bf-st::after{border-color:rgba(255,74,28,.95)}.bf-chip{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;margin:12px 0 0;padding:10px 14px;border-radius:14px;background:#0B0B0F;color:#fff;font-size:14px;font-weight:700;line-height:1.3}.bf-chip span{flex:0 0 auto;padding:4px 9px;border-radius:999px;background:#FF4A1C;color:#0E1430;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}@media (prefers-reduced-motion:reduce){.bfd-dot{animation:none}}html.bf-over .bf,html.bf-over [data-deal-end]{display:none!important}`;
+const BF_CSS = `.bf{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:2px 12px;padding:9px 14px;background:#FF4A1C;color:#0E1430;text-decoration:none;font-family:var(--f-text);font-stretch:104%;font-size:15px;line-height:1.3;text-align:center}
+.bf-tag{font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:17px;letter-spacing:.005em}
+.bf-t{font-weight:700}
+.bf-c{display:none;font-weight:700;font-variant-numeric:tabular-nums}
+html.bf-live .bf-c{display:inline}
+.bf-go{font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
+.bf:focus-visible{outline:3px solid #0E1430;outline-offset:-3px}
+@media (max-width:560px){.bf{gap:2px 10px;padding:8px 10px;font-size:14px}.bf-tag{font-size:16px}.bf-d,.bf-go{display:none}}
+.bfd{margin:0 0 30px;padding:20px 20px 18px;border-radius:6px;background:#F6F4EF;color:#0E1430;font-family:var(--f-text);container-type:inline-size}
+.bfd p{margin:0}
+.bfd .bfd-tag{font-size:16px;font-weight:700;color:#B02A08}
+.bfd .bfd-h{margin-top:6px;font-family:var(--f-head);font-stretch:68%;font-weight:850;font-size:clamp(38px,10vw,48px);letter-spacing:-.006em;line-height:.94;color:#0E1430}
+.bfd .bfd-p{margin-top:10px;font-size:17px;line-height:1.45;color:#0E1430}
+.bfd-when{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;margin-top:16px;padding-top:14px;border-top:2px solid #0E1430}
+.bfd .bfd-ends{font-size:16px;font-weight:700}
+.bfd .bfd-clock{display:flex;gap:12px;font-size:15px;font-variant-numeric:tabular-nums}
+.bfd-clock span{display:inline-flex;align-items:baseline;gap:4px}
+.bfd-clock b{font-family:var(--f-head);font-stretch:84%;font-weight:800;font-size:22px;line-height:1}
+.bfd-clock i{font-style:normal}
+.bfd .bfd-fine{margin-top:14px;font-size:14px;line-height:1.5;color:#3E4668}
+@container (min-width:860px){.bfd-in{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:56px;align-items:end}.bfd-when{margin-top:0}.bfd .bfd-h{font-size:64px}.bfd .bfd-fine{margin-top:12px}}
+.bf-chip{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;margin:14px 0 0;padding:10px 14px;border-radius:8px;background:#F6F4EF;color:#0E1430;font-size:15px;font-weight:700;line-height:1.3}
+.bf-chip span{flex:0 0 auto;color:#B02A08;white-space:nowrap}
+html.bf-over .bf,html.bf-over [data-deal-end]{display:none!important}`;
 // Book, Call, Text. One bar fixed to the bottom of the town pages only (Joe, Nov 10: off everywhere else). Phones and tablets.
 const DK_PHONE = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.500 1.500a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"></path></svg>';
 const DK_CHAT = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H10l-6 4z"></path></svg>';
@@ -278,30 +318,30 @@ const DOCK = `<nav class="dk" aria-label="Book, call or text"><div class="dk-r">
 <a class="dk-i" href="sms:+16233096104" aria-label="Text 623.309.6104">${DK_CHAT}<span>Text</span></a>
 </div></nav>`;
 const dockOn = (route) => /^\/pooper-scooper\//.test(route);
-const DOCK_CSS = `.dk{position:fixed;left:0;right:0;bottom:0;z-index:35;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));background:#0A0F24;border-top:1px solid rgba(255,255,255,.12);box-shadow:0 -12px 28px rgba(0,0,0,.35);font-family:"Schibsted Grotesk",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
-.dk-r{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;max-width:560px;margin:0 auto}
-.dk a{display:flex;align-items:center;justify-content:center;gap:8px;height:52px;border-radius:999px;font-size:16px;font-weight:800;line-height:1;white-space:nowrap;text-decoration:none;-webkit-tap-highlight-color:transparent}
-.dk-b{padding:0 24px;background:#FF4A1C;color:#0E1430;font-size:17px;letter-spacing:-.01em}
-.dk-i{padding:0 20px;background:transparent;border:1.5px solid rgba(255,255,255,.28);color:#fff}
+const DOCK_CSS = `.dk{position:fixed;left:0;right:0;bottom:0;z-index:35;padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));background:#070B1B;border-top:1px solid rgba(255,255,255,.16);font-family:var(--f-head)}
+.dk-r{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;max-width:600px;margin:0 auto}
+.dk a{display:flex;align-items:center;justify-content:center;gap:8px;height:54px;border-radius:12px;font-stretch:88%;font-size:18px;font-weight:750;line-height:1;white-space:nowrap;text-decoration:none;-webkit-tap-highlight-color:transparent}
+.dk-b{padding:0 22px;background:#FF4A1C;color:#0E1430;font-size:20px}
+.dk-i{padding:0 18px;background:transparent;border:2px solid rgba(255,255,255,.34);color:#fff}
 .dk-i svg{flex:0 0 auto}
-.dk a:active{transform:scale(.97)}
+.dk a:active{transform:translateY(1px)}
 .dk a:focus-visible{outline:3px solid #fff;outline-offset:2px}
 html.book-open .dk{display:none}
-@media (max-width:1023px){body.has-dk{padding-bottom:calc(77px + env(safe-area-inset-bottom,0px))}}
+@media (max-width:1023px){body.has-dk{padding-bottom:calc(75px + env(safe-area-inset-bottom,0px))}}
 @media (min-width:1024px){.dk{display:none}}
-@media (max-width:374px){.dk{padding-left:12px;padding-right:12px}.dk-r{gap:8px}.dk-i{padding:0 14px}.dk-b{padding:0 14px}}
+@media (max-width:374px){.dk{padding-left:10px;padding-right:10px}.dk-r{gap:6px}.dk-i{padding:0 12px}.dk-b{padding:0 12px}}
 @media print{.dk{display:none}}
-.apw .grv{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:4px 10px;margin:14px 0 0;padding:12px 14px;border-radius:16px;background:var(--card);border:1px solid var(--line);color:var(--ink);text-decoration:none}
+.apw .grv{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:4px 10px;margin:16px 0 0;padding:14px 0 0;border-top:1px solid var(--line);color:var(--ink);text-decoration:none}
 .apw .grv-s{display:inline-flex;gap:1px}
-.apw .grv-t{font-size:15px}
-.apw .grv-q{grid-column:1/-1;font-size:15px;line-height:1.45;color:var(--ink2)}
-.apw .grv-n{grid-column:1/-1;font:600 12px/1.2 "IBM Plex Mono",ui-monospace,monospace;color:var(--mute)}`;
+.apw .grv-t{font-size:16px}
+.apw .grv-q{grid-column:1/-1;font-size:16px;line-height:1.45;color:var(--ink2)}
+.apw .grv-n{grid-column:1/-1;font-size:14px;font-weight:700;color:var(--mute)}`;
 function page(p) {
   const dock = dockOn(p.route);
   const url = ORIGIN + p.route;
   const robots = p.index ? 'index, follow, max-image-preview:large, max-snippet:-1' : 'noindex, follow';
   const graph = p.index ? [website, business, { '@type': 'WebPage', '@id': url + '#webpage', url, name: p.title, description: p.description, isPartOf: { '@id': ORIGIN + '/#website' }, about: { '@id': BIZ_ID }, inLanguage: 'en-US', dateModified: TODAY }, ...(p.ld || [])] : null;
-  const css = p.css.join('\n') + '\n' + SITE_CSS + '\n' + BF_CSS + '\n' + DOCK_CSS + '\n.stf{display:block;width:max-content;margin:0 auto;padding:6px 10px 10px;font:10px/1 ui-monospace,Consolas,monospace;letter-spacing:.12em;color:#2A3150;text-decoration:none}.stf:hover,.stf:focus-visible{color:#6B7398}';
+  const css = p.css.join('\n') + '\n' + SITE_CSS + '\n' + BF_CSS + '\n' + DOCK_CSS + '\n.stf{display:block;width:max-content;margin:0 auto;padding:6px 10px 10px;font:11px/1 var(--f-text);letter-spacing:.08em;color:#2A3150;text-decoration:none}.stf:hover,.stf:focus-visible{color:#6B7398}';
   const scripts = [assets['dc.js'], ...p.boards.map((b) => b.js), assets['apw.js']];
   const html = `<!doctype html>
 <html lang="en">
@@ -365,7 +405,7 @@ const dockHtml = ssr(bookDock, { mode: 'dock' });
     route: '/', board: 'main', index: true,
     title: 'Pooper Scooper in the West Valley, AZ | Arizona Pet Waste',
     ogTitle: 'Dog poop pickup you can watch | Arizona Pet Waste',
-    description: 'Pooper scooper service in Buckeye, Goodyear, Litchfield Park and Citrus Park, AZ. Weekly dog poop removal, free deodorizer spray, [[bf:first month free||first cleanup free]].',
+    description: 'Pooper scooper service in Verrado, Buckeye, Goodyear and Litchfield Park, AZ. Weekly dog poop pickup for about $25 a week. We haul it away. [[bf:First month free||First cleanup free]].',
     fonts: e.b.fonts, css: [e.b.css, bookDock.b.css.replace(content.base_css, '')], boards: [e, bookDock],
     body: ssr(e), dock: dockHtml,
     ld: [faqLd(url, content.faq.main), {
@@ -420,8 +460,8 @@ for (const t of TOWNS) {
     const names = townZips(a).flatMap((g) => g.names).slice(0, 6);
     return '<a class="bxtown" href="' + p.url + '"><span class="bxtown-n">' + esc(p.name) + '</span>' +
       '<span class="bxzips">' + p.zips.map((z) => '<i>' + z + '</i>').join('') + '</span>' +
-      '<span class="bxtown-p">' + esc(blurbs[a]) + '</span><span class="bxtown-h">' + esc(names.join(' · ')) + '</span>' +
-      '<span class="bxgo">Pooper scooper in ' + esc(p.name) + ' ›</span></a>';
+      '<span class="bxtown-p">' + esc(blurbs[a]) + '</span><span class="bxtown-h">' + esc(names.join(', ')) + '</span>' +
+      '<span class="bxgo">Pooper scooper in ' + esc(p.name) + '</span></a>';
   }).join('') + '</div>';
   const rows = ALL_ZIPS.map((z) => '<tr><td>' + z[0] + '</td><td>' + esc(z[1]) + '</td><td><a href="' + PLACES[z[2]].url + '">' + esc(PLACES[z[2]].name) + ' page</a></td></tr>').join('');
   const sec = (id, k, h, lead, inner, alt) => '<section class="bxs' + (alt ? ' bxalt' : '') + '" id="' + id + '"><div class="bxw">' + BIZ.h2(id + '-h', h, k) + (lead ? '<p class="bxl">' + lead + '</p>' : '') + inner + '</div></section>';
@@ -429,8 +469,8 @@ for (const t of TOWNS) {
   const pg = {
     eyebrow: 'Every home in 6 ZIP codes', h1: 'Pooper scooper service areas',
     hero: {
-      lead: 'We pick up dog poop at every home in six West Valley ZIP codes: Buckeye, Goodyear, Litchfield Park, and Waddell with Citrus Park. Pick your town to see neighborhoods, prices and answers.',
-      ctaHtml: book, side: BIZ.mapBox(content.svcmap.res), trust: 'Bonded and insured · No sign up fee · No contract',
+      lead: 'We pick up dog poop at every home in six West Valley ZIP codes: Buckeye with Verrado, Goodyear, Litchfield Park, and Waddell with Citrus Park. Pick your town to see neighborhoods, prices and answers.',
+      ctaHtml: book, side: BIZ.mapBox(content.svcmap.res), trust: 'No sign up fee. [[bf:No long term contract.||No contract.]]',
       stats: [['6', 'ZIP codes', 'We scoop every home in all six'], ['4', 'towns', 'Plus every Verrado district'], ['$0', '[[bf:today||first visit]]', '[[bf:Black Friday sale. First month free||Your first cleanup is free]]']]
     }
   };
@@ -440,12 +480,11 @@ for (const t of TOWNS) {
       '<div class="bxtable-wrap"><table class="bxtable bxzipt"><thead><tr><th scope="col">ZIP</th><th scope="col">Town</th><th scope="col">Page</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
       '<p class="bxnote">Not sure about your street? Call or text 623.309.6104 and we will tell you right away.</p>', true) +
     sec('not-listed', 'Coming soon', 'Not on the list? Join the waitlist', 'We don’t come to you yet? Tap the button, type your ZIP, and add your name, phone and address. We will tell you when we start in your area.',
-      '<ul class="bxsoon">' + ['Surprise', 'Peoria', 'Glendale', 'Laveen', 'Central Valley', 'East Valley', 'Tucson', 'Flagstaff', 'Kingman', 'Lake Havasu City'].map((x) => '<li>' + x + '</li>').join('') + '</ul>' +
-      '<p class="bxl"><strong>[[bf:Join by November 30 and your first month is free when we start in your area.||Your first cleanup is free when we start in your area.]]</strong></p>' +
+      '<ul class="bxsoon">' + ['Surprise', 'Peoria', 'Glendale', 'Laveen'].map((x) => '<li>' + x + '</li>').join('') + '</ul>' +
       '<div class="bxh-cta"><a class="btn btn-dot" href="/book/">Join the waitlist</a></div>') +
     sec('commercial', 'HOAs and businesses', 'Need it for an HOA or a business', 'We also service pet waste stations and common areas for HOAs, apartments, dog parks and businesses in the same four towns.',
       BIZ.townsStrip() + '<p class="bxnote"><a href="' + BIZ.HUB + '">See commercial pet waste removal</a></p>', true) +
-    '<section class="bxcta"><div class="bxw"><div class="bxcta-in"><div><h2 id="get-started">[[bf:Start your free month||Book now]]<span class="dot">.</span></h2>' +
+    '<section class="bxcta"><div class="bxw"><div class="bxcta-in"><div><h2 id="get-started">[[bf:Start your free month||Book now]]</h2>' +
     '<p>Sign up in about 2 minutes. You pay $0 today, and we text you your day and time.</p></div>' +
     '<div class="bxh-cta"><a class="btn btn-dot" href="/book/">Book now</a><a class="btn btn-line-n" href="tel:+16233096104">' + BIZ.ICONS.phone + 'Call ' + BIZ.PHONE + '</a></div></div></div></section>';
   const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc bxdoc"').replace('@@DOC@@', inner));
@@ -466,12 +505,12 @@ for (const t of TOWNS) {
     { slug: 'how-it-works', h1: 'How our pooper scooper service works', title: 'How Our Pooper Scooper Service Works | Arizona Pet Waste',
       description: 'See every step of our pooper scooper visits: a text the night before, a live truck map, free deodorizer spray and a photo of your latched gate.' },
     { slug: 'pricing', h1: 'Pooper scooper prices', title: 'Pooper Scooper Prices, West Valley AZ | Arizona Pet Waste',
-      description: 'Pooper scooper prices: $108 a month for weekly visits with 1 or 2 dogs. No sign up fee, free deodorizer spray, billed on the 1st, [[bf:first month free||first cleanup free]].' }
+      description: 'Pooper scooper prices: about $25 a week ($108 a month) for weekly visits with 1 or 2 dogs. No sign up fee, free spray, we haul it away, [[bf:first month free||first cleanup free]].' }
   ];
   for (const pg of pages) {
     const route = '/' + pg.slug + '/';
     const url = ORIGIN + route;
-    const inner = '<p class="eb">Arizona Pet Waste</p><h1 class="h1 dh1">' + esc(pg.h1) + '<span style="color: var(--accent);">.</span></h1>' +
+    const inner = docHead(pg.h1, [['Home', '/'], [pg.crumb || pg.h1, route]]) +
       fs.readFileSync(path.join(ROOT, 'content/pages', pg.slug + '.html'), 'utf8');
     const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc docw"').replace('@@DOC@@', inner));
     const ld = [crumbs(url, [['Home', '/'], [pg.h1, route]])];
@@ -490,9 +529,9 @@ for (const t of TOWNS) {
   for (const [h, list] of groups) {
     const items = list.filter((x) => !seen.has(x.q) && seen.add(x.q));
     all.push(...items);
-    body += '<h2>' + esc(h) + '<span style="color: var(--accent);">.</span></h2>' + items.map((x) => '<h3>' + esc(x.q) + '</h3><p>' + esc(x.a) + '</p>').join('');
+    body += '<h2>' + esc(h) + '</h2>' + items.map((x) => '<h3>' + esc(x.q) + '</h3><p>' + esc(x.a) + '</p>').join('');
   }
-  const inner = '<p class="eb">Arizona Pet Waste</p><h1 class="h1 dh1">Pooper scooper FAQ<span style="color: var(--accent);">.</span></h1>' +
+  const inner = docHead('Pooper scooper FAQ', [['Home', '/'], ['FAQ', route]]) +
     '<p class="lead">Answers to the questions people ask us most. Still wondering? Call or text <a href="tel:+16233096104">623.309.6104</a>.</p>' + body +
     '<a class="btn btn-dot hubcta" href="/book/">[[bf:Start your free month||Book now]]</a>';
   const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc docw"').replace('@@DOC@@', inner));
@@ -523,7 +562,7 @@ const FILE_PAGES = [];
       description: 'Tips for West Valley dog owners: yard care, dog health and safety in the Arizona heat, turf odor, local poop laws and more from Arizona Pet Waste.',
       html: '<p class="lead">Tips for dog owners in Buckeye, Goodyear, Litchfield Park and Citrus Park. Clean yards, healthy dogs, and life in the Arizona heat.</p>' +
         '<div class="towns">' + posts.map((x) => '<article class="town"><h2><a href="' + x.route + '">' + esc(x.h1) + '</a></h2><p>' + esc(x.description) + '</p>' +
-          '<p style="color: var(--mute); font-size: 15px;">' + esc(fmtDate(x.date)) + '</p><a class="tgo" href="' + x.route + '">Read it ›</a></article>').join('') + '</div>',
+          '<p class="meta">' + esc(fmtDate(x.date)) + '</p><a class="tgo" href="' + x.route + '">Read it</a></article>').join('') + '</div>',
       posts });
   }
   for (const pg of FILE_PAGES) {
@@ -542,10 +581,10 @@ const FILE_PAGES = [];
       built.push(page({ route: pg.route, board: 'doc', index: true, title: pg.title, description: pg.description, fonts: e.b.fonts, css: [e.b.css, BIZ.BIZ_CSS, content.svcmap.css], boards: [e], body: ssr(e), ld }));
       continue;
     }
-    let inner = '<p class="eb">' + esc(pg.eyebrow || 'Arizona Pet Waste') + '</p><h1 class="h1 dh1">' + esc(pg.h1) + '<span style="color: var(--accent);">.</span></h1>';
-    if (pg.type === 'blog') inner += '<p class="mono" style="margin: 12px 0 0; font-size: 13px; color: var(--mute);">' + esc(fmtDate(pg.date).toUpperCase()) + ' · ' + Math.max(2, Math.round(pg.html.replace(/<[^>]+>/g, ' ').split(/\s+/).length / 200)) + ' MINUTE READ</p>';
+    let inner = docHead(pg.h1, trail);
+    if (pg.type === 'blog') inner += '<p class="meta">' + esc(fmtDate(pg.date)) + '. ' + Math.max(2, Math.round(pg.html.replace(/<[^>]+>/g, ' ').split(/\s+/).length / 200)) + ' minute read.</p>';
     inner += pg.html;
-    if (pg.faq && pg.faq.length) inner += '<h2 id="questions">Questions<span style="color: var(--accent);">.</span></h2>' + pg.faq.map(([q, a]) => '<h3>' + esc(q) + '</h3><p>' + esc(a) + '</p>').join('');
+    if (pg.faq && pg.faq.length) inner += '<h2 id="questions">Questions</h2>' + pg.faq.map(([q, a]) => '<h3>' + esc(q) + '</h3><p>' + esc(a) + '</p>').join('');
     if (!/href="\/book\/"|href="tel:/.test(pg.html) && pg.type !== 'blogindex') inner += '<a class="btn btn-dot hubcta" href="/book/">[[bf:Start your free month||Book now]]</a>';
     const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc docw"').replace('@@DOC@@', inner));
     const ld = [crumbs(url, trail)];
@@ -568,7 +607,7 @@ for (const [slug, fallbackH1] of POLICIES) {
   const frag = readIf(path.join(ROOT, 'content/policies', slug + '.html'), '<p class="lead">This page is being written.</p>');
   const toc = [...frag.matchAll(/<h2 id="([^"]+)">([\s\S]*?)<\/h2>/g)].map((x) => '<li><a href="#' + x[1] + '">' + x[2].replace(/<[^>]+>/g, '') + '</a></li>').join('');
   const h1 = m.h1 || fallbackH1;
-  const inner = '<p class="eb">Arizona Pet Waste</p><h1 class="h1 dh1">' + esc(h1) + '<span style="color: var(--accent);">.</span></h1>' +
+  const inner = docHead(h1, [['Home', '/'], [h1, '/' + slug + '/']]) +
     (toc ? '<details class="tocd"><summary>On this page</summary><ul class="toc">' + toc + '</ul></details>' : '') + frag;
   const e = useBoard('doc', (mk) => slots(mk).replace('@@DOC@@', inner));
   const route = '/' + slug + '/';
@@ -593,7 +632,7 @@ for (const [slug, fallbackH1] of POLICIES) {
     description: 'Sign in to My Yard to see your visits, skip, pause, see your bills and manage your card.',
     fonts: a.b.fonts, css: [a.b.css], boards: [a], body: ssr(a)
   }));
-  const nf = useBoard('doc', (mk) => slots(mk).replace('@@DOC@@', '<p class="eb">Arizona Pet Waste</p><h1 class="h1 dh1">We could not find that page<span style="color: var(--accent);">.</span></h1>' +
+  const nf = useBoard('doc', (mk) => slots(mk).replace('@@DOC@@', '<h1 class="h1 dh1">We could not find that page</h1>' +
     '<p class="lead">The link may be old. These pages can help.</p><ul><li><a href="/">Home</a></li><li><a href="/book/">[[bf:Start your free month||Book now]]</a></li><li><a href="/pooper-scooper/">Areas we serve</a></li><li><a href="/pooper-scooper/buckeye-az/">Buckeye</a></li><li><a href="/pooper-scooper/goodyear-az/">Goodyear</a></li><li><a href="/pooper-scooper/litchfield-park-az/">Litchfield Park</a></li><li><a href="/pooper-scooper/citrus-park-az/">Citrus Park</a></li><li><a href="/pooper-scooper/buckeye-az/verrado/">Verrado</a></li></ul>'));
   built.push(page({
     route: '/404.html', board: 'doc', index: false, title: 'Page Not Found | Arizona Pet Waste', description: 'We could not find that page.',
@@ -630,12 +669,12 @@ Sitemap: ${ORIGIN}/sitemap.xml
 const faqText = content.faq.main.map((x) => `- ${x.q} ${x.a}`).join('\n');
 fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 
-> Dog poop pickup (pet waste removal) for every home in six West Valley, Arizona ZIP codes, from a bonded and insured local company: Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell with Citrus Park (85355). Weekly, twice a week or every other week. [[bf:First month free through November 30||First cleanup free]]. Free deodorizer spray at every visit. A photo of your latched gate after every visit, and a live map of our truck on visit day. No contract.
+> Dog poop pickup (pet waste removal) for every home in six West Valley, Arizona ZIP codes, from a local company that is [[ins:bonded, with insurance starting November 16, 2026||bonded and insured]]: Buckeye (85326, 85396, with Verrado), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell with Citrus Park (85355). Weekly, twice a week or every other week. [[bf:First month free through November 30||First cleanup free]]. Free deodorizer spray at every visit. A photo of your latched gate after every visit, and a live map of our truck on visit day. We haul the waste away. [[bf:No long term contract.||No contract.]]
 
 ## Prices (per month)
-- Every week: $108 for 1 or 2 dogs (about $25 a visit). Each dog after two adds $13.
-- Twice a week: $189 for 1 or 2 dogs. Each dog after two adds $13.
-- Every other week: $75 for 1 or 2 dogs. Each dog after two adds $9.
+- Every week: $108 for 1 or 2 dogs. That is about $25 a week, or about $25 a visit. Each dog after two adds $13.
+- Twice a week: $189 for 1 or 2 dogs. That is about $44 a week. Each dog after two adds $13.
+- Every other week: $75 for 1 or 2 dogs. That is about $17 a week. Each dog after two adds $9.
 - Turf odor treatment: $35. One time cleanup: $95. Same day pickup for a party or guests: $49, added to the next bill.
 - Billing: everyone is billed on the 1st of each month.[[bf: During the Black Friday sale (sign up by November 30, 2026) the first month is free, and the first charge only covers the days after the free month. Then the full price on the 1st. A card is saved at sign up and nothing is charged that day.||]]
 [[bf:- Black Friday sale: sign up by Monday, November 30, 2026 and the first month is free. The sale ends at midnight on November 30. The free month stays free when the customer keeps the plan for 60 days. Canceling in the first 60 days is charged one month at the plan price, minus anything already paid. Canceling is done online in My Yard, with no phone call.||- Offer: the first cleanup is free. The Black Friday free month sale ended on November 30, 2026. Customers who signed up in the sale keep the free month when they keep the plan for 60 days.]]
@@ -647,7 +686,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - [Citrus Park and Waddell, AZ 85355](${ORIGIN}/pooper-scooper/citrus-park-az/), plus Citrus Park homes with Litchfield Park 85340 addresses. Neighborhoods: ${hoodNames('citrus').join(', ')}.
 - [Verrado, Buckeye AZ 85396](${ORIGIN}/pooper-scooper/buckeye-az/verrado/). Districts: ${hoodNames('verrado').join(', ')}.
 - Full list: [Areas we serve](${ORIGIN}/pooper-scooper/).
-- Coming soon: Surprise, Peoria, Glendale, Laveen, the Central and East Valley, Tucson, Flagstaff, Kingman and Lake Havasu City. Anyone outside our ZIP codes can join the waitlist. [[bf:Join by November 30, 2026 and the first month is free when we start in that area.||The first cleanup is free when we start in that area.]]
+- Coming soon, with no start date yet: Surprise, Peoria, Glendale and Laveen. Anyone outside our ZIP codes can join the waitlist, and we tell them when we start in their area.
 
 ## Commercial pet waste removal (HOAs, apartments, dog parks, businesses)
 - What: dog waste pickup in common areas plus pet waste station service (empty the can, new liner, refill bags, wipe and check the station, photo report after every visit). Any brand of station. Bags and liners included.
@@ -661,7 +700,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 ## How a visit works
 - Customers do not pick a day. We set each yard's day for them. We run set routes, and that keeps prices down. After sign up, we reach out to let the customer know their day and time.
 - We text the night before with a 30 minute window.
-- We shut the gate, pick up every pile front to back, and spray deodorizer where dogs go most.
+- We shut the gate, pick up every pile front to back, and spray deodorizer where dogs go most. We bag the waste and haul it away.
 - We latch the gate, pull on it, and send a photo.
 - Something off? Tap "Something's off" in My Yard and we come back free within 24 hours.
 
@@ -673,18 +712,18 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - Everywhere: bag dog poop, tie the bag, and put it in the trash cart. Never in the recycle cart or a storm drain. Storm drain water is not treated.
 
 ## Before you hire a pooper scooper (our answers)
-- Bonded and insured: yes. $50,000 business service bond from American Contractors Indemnity Company (Tokio Marine HCC), November 9, 2026 to November 9, 2027. General liability insurance of $1,000,000 / $2,000,000 from Certain Underwriters at Lloyd's, London, through Pet Care Insurance, November 16, 2026 to November 16, 2027. Proof: ${ORIGIN}/bonded-and-insured/
+- Bonded and insured: [[ins:bonded now, and the insurance policy starts November 16, 2026||yes]]. $50,000 business service bond from American Contractors Indemnity Company (Tokio Marine HCC), November 9, 2026 to November 9, 2027. General liability insurance of $1,000,000 / $2,000,000 from Certain Underwriters at Lloyd's, London, through Pet Care Insurance, November 16, 2026 to November 16, 2027. Coverage summary: ${ORIGIN}/bonded-and-insured/ (the certificate is sent on request)
 - Background checks: every team member must pass a background check before working in a yard.
 - Business license: in progress as of November 2026. Do not describe the company as licensed yet.
 - Owner: Juan Gonzalez, who lives in Verrado (Buckeye, AZ) with his wife and their six kids.
 - Sign up fee: none. [[bf:The first month is free only with the Black Friday sale, for sign ups through November 30, 2026.||The first cleanup is free.]]
-- Price per visit: weekly service is $108 a month for 1 or 2 dogs, about $25 a visit.
+- Price per visit: weekly service is $108 a month for 1 or 2 dogs. That is about $25 a week, or about $25 a visit. Prices are billed once a month, on the 1st.
 - Deodorizer spray: free at every visit.
 - Proof: a text the night before, a live truck map on visit day, and a photo of the latched gate after every visit. A visit with no gate photo costs $0.
 - Missed pile: free return within 24 hours.
-- Waste: bagged and put in your trash can.
+- Waste: we bag it and haul it away. Nothing is left in the customer’s trash can.
 - Tools: boots and tools cleaned after every yard.
-- Contract: none. 4 free skips a year. After the first 60 days, pause up to 120 days. Cancel in My Yard.[[bf: One free month per home.||]]
+- Contract: [[bf:no long term contract. Black Friday sign ups keep the free month by keeping the plan 60 days.||none.]] 4 free skips a year. After the first 60 days, pause up to 120 days. Cancel in My Yard.[[bf: One free month per home.||]]
 - My Yard: the customer account at ${ORIGIN}/account/. Sign in with an email code, no password. See next visits, skip a visit, pause, see bills and gate photos, change the card, or cancel. No phone call needed.
 - Payment: secure checkout by Stripe. Arizona Pet Waste never sees or stores card numbers.
 
@@ -694,7 +733,7 @@ ${faqText}
 ## Pages
 ${FILE_PAGES.filter((x) => x.type !== 'blogindex').map((x) => '- [' + x.h1 + '](' + ORIGIN + x.route + '): ' + x.description).join('\n')}${FILE_PAGES.length ? '\n' : ''}- [Home](${ORIGIN}/): plans, prices, how a visit works, service map
 - [How it works](${ORIGIN}/how-it-works/): every step of a visit
-- [About us](${ORIGIN}/about/): who we are, where we work, bonded and insured
+- [About us](${ORIGIN}/about/): who we are, where we work, our bond and insurance
 - [Our promise](${ORIGIN}/our-promise/): gate photo or the visit is $0, free return in 24 hours, the 60 day rule
 - [Contact](${ORIGIN}/contact/): call, text or email
 - [Pricing](${ORIGIN}/pricing/): plans, extras and billing on the 1st
