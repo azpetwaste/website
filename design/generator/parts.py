@@ -502,15 +502,11 @@ def pic(name, alt, sizes, lazy=True, cls=''):
 
 PH_HERO = pic('team-portrait', 'An Arizona Pet Waste scooper in a navy company shirt and work gloves, smiling in a side yard',
               '(min-width: 1024px) 430px, (min-width: 480px) 380px, 80vw', lazy=False)
-PH_PROMISE = pic('latch-gate-tall', 'Our scooper reaches over a wood and steel side gate to check that it is latched',
-                 '(min-width: 1024px) 400px, (min-width: 600px) 420px, 88vw')
-PH_HOW = pic('scoop-rock', 'Our scooper rakes dog poop out of a rock back yard into a lined bin',
-             '(min-width: 1024px) 520px, 90vw')
 PH_STEP_SCOOP = pic('scoop-side-yard', 'Our scooper picks up dog poop in a gravel side yard with a rake and a lined bin',
                     '(min-width: 1024px) 460px, 76vw')
 PH_STEP_SPRAY = pic('spray-turf', 'Our scooper sprays deodorizer on artificial turf in a back yard',
                     '(min-width: 1024px) 460px, 76vw')
-PH_OWNER = pic('at-gate-tall', 'A scooper from Arizona Pet Waste holds a side gate open, with his rake and bin',
+PH_OWNER = pic('at-gate-tall', 'Juan Gonzalez, owner of Arizona Pet Waste, holds a side gate open and smiles, with his rake and bin',
                '(min-width: 1024px) 400px, (min-width: 600px) 420px, 88vw')
 PH_CTA = pic('shirt-qr', 'The back of our company shirt, with arizonapetwaste.com and a QR code, as our scooper shuts a steel gate',
              '(min-width: 1024px) 560px, 100vw')

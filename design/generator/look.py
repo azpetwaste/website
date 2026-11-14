@@ -249,8 +249,11 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .promise-t p{max-width:33em;margin:0 0 12px;font-size:18px;font-weight:500;line-height:1.5}
 .apw .promise .tl{color:#0E1430;text-decoration-color:#0E1430}
 .apw .promise a:focus-visible{outline-color:#0E1430}
-.apw .promise-ph{max-width:420px;margin-top:30px}
-.apw .promise-ph figcaption{color:#0E1430;font-weight:600;font-size:16px}
+.apw .promise-ph{max-width:400px;margin:34px 0 0;padding-right:14px}
+.apw .promise-pr{transform:rotate(2deg)}
+.apw .promise-pr img{aspect-ratio:1/1}
+.apw .promise-pr .stamp{right:-14px;bottom:62px}
+.apw .promise-ph figcaption{margin-top:18px;color:#0E1430;font-weight:700;font-size:16px}
 
 /* prices */
 .apw .pr-deal{margin-top:28px}
@@ -474,7 +477,7 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .promise-g{grid-template-columns:minmax(0,1fr) minmax(0,400px);grid-template-areas:"h p" "t p";align-items:start;row-gap:34px}
 .apw .promise-h{grid-area:h;font-size:clamp(112px,11.4vw,168px)}
 .apw .promise-t{grid-area:t}
-.apw .promise-ph{grid-area:p;align-self:center;max-width:none;margin:0}
+.apw .promise-ph{grid-area:p;align-self:center;max-width:none;margin:0;padding-right:20px}
 .apw .pr-deal{margin-top:40px}
 .apw .pr-g{grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:88px;margin-top:44px;align-items:start}
 .apw .pr-total b{font-size:148px}
