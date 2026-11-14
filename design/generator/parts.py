@@ -486,3 +486,38 @@ BF_DEAL = ('[[bf:<div class="bfd" data-deal-end="2026-12-01T06:59:59Z"><div clas
   '<p class="bfd-clock" aria-hidden="true"><span><b data-u="d">00</b><i>days</i></span><span><b data-u="h">00</b><i>hrs</i></span><span><b data-u="m">00</b><i>min</i></span><span><b data-u="s">00</b><i>sec</i></span></p></div>'
   '<p class="bfd-fine">No long term contract. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.</p></div>'
   '</div></div>||]]')
+
+
+# ---------- real photos from the Nov 2026 shoot (static/assets/img/photos, cut by the sizes below) ----------
+# Wide photos are 3:2 (640, 960, 1440 wide). Tall ones end in "-tall" or are the portrait, 4:5 (480, 720, 1000 wide).
+def pic(name, alt, sizes, lazy=True, cls=''):
+    tall = name.endswith('-tall') or name == 'team-portrait'
+    ws = (480, 720, 1000) if tall else (640, 960, 1440)
+    w, h = (1000, 1250) if tall else (1440, 960)
+    return ('<img%s src="/assets/img/photos/%s.jpg" srcset="%s" sizes="%s" width="%d" height="%d" %s alt="%s">' % (
+        ' class="%s"' % cls if cls else '', name,
+        ', '.join('/assets/img/photos/%s-%d.webp %dw' % (name, x, x) for x in ws), sizes, w, h,
+        'loading="lazy" decoding="async"' if lazy else 'fetchpriority="high"', alt))
+
+
+PH_HERO = pic('team-portrait', 'An Arizona Pet Waste scooper in a navy company shirt and work gloves, smiling in a side yard',
+              '(min-width: 1024px) 430px, (min-width: 480px) 380px, 80vw', lazy=False)
+PH_PROMISE = pic('latch-gate-tall', 'Our scooper reaches over a wood and steel side gate to check that it is latched',
+                 '(min-width: 1024px) 400px, (min-width: 600px) 420px, 88vw')
+PH_HOW = pic('scoop-rock', 'Our scooper rakes dog poop out of a rock back yard into a lined bin',
+             '(min-width: 1024px) 520px, 90vw')
+PH_STEP_SCOOP = pic('scoop-side-yard', 'Our scooper picks up dog poop in a gravel side yard with a rake and a lined bin',
+                    '(min-width: 1024px) 460px, 76vw')
+PH_STEP_SPRAY = pic('spray-turf', 'Our scooper sprays deodorizer on artificial turf in a back yard',
+                    '(min-width: 1024px) 460px, 76vw')
+PH_OWNER = pic('at-gate-tall', 'A scooper from Arizona Pet Waste holds a side gate open, with his rake and bin',
+               '(min-width: 1024px) 400px, (min-width: 600px) 420px, 88vw')
+PH_CTA = pic('shirt-qr', 'The back of our company shirt, with arizonapetwaste.com and a QR code, as our scooper shuts a steel gate',
+             '(min-width: 1024px) 560px, 100vw')
+_BAND = [('scoop-turf-tall', 'Our scooper picks up dog poop on artificial turf', 'Turf yards', 'We scoop it, then spray it.'),
+         ('scoop-rock-tall', 'Our scooper rakes dog poop out of a rock yard', 'Rock yards', 'We rake every pile out of the rock.'),
+         ('spray-turf-tall', 'Our scooper sprays deodorizer on a turf yard', 'Free spray', 'Deodorizer at every visit.')]
+PHOTO_BAND = ('<section class="band" aria-label="Photos of our work">\n  <ul class="band-l">\n' +
+              ''.join('    <li><figure class="pho">%s<figcaption><b>%s</b><span>%s</span></figcaption></figure></li>\n' % (
+                  pic(n, a, '(min-width: 1024px) 380px, (min-width: 600px) 31vw, 78vw'), t, s) for n, a, t, s in _BAND) +
+              '  </ul>\n</section>')

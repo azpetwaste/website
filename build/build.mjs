@@ -208,6 +208,12 @@ html.book-open #book-dock{display:flex;align-items:center;justify-content:center
 .apw .doc img{border-radius:6px}
 .apw .doc .print-d{width:min(100%,400px);margin:30px 0 34px 6px;transform:rotate(-1.4deg)}
 .apw .doc .print-d.print-w{width:min(100%,540px)}
+.apw .doc{display:flow-root}
+.apw .doc .pho{margin:28px 0 30px}
+.apw .doc .pho:has(img[height="1250"]){max-width:420px}
+.apw .doc>.pho-w{max-width:760px}
+.apw .bxdoc .pho{max-width:760px;margin:26px 0 0}
+@media (min-width:1140px){.apw .doc>.pho-r{float:right;clear:right;width:calc(100% - 816px);max-width:400px;margin:8px 0 34px 56px}}
 .apw .doc .print img{border-radius:0}
 .apw .doc .print-d .stamp{right:-4px;bottom:58px;font-size:20px}
 .apw .doc .tocd{margin:22px 0 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
@@ -237,6 +243,14 @@ html.book-open #book-dock{display:flex;align-items:center;justify-content:center
 // The row of links at the top of a text page (Home › Pricing). It matches the BreadcrumbList data for the page.
 const crumbNav = (trail) => '<nav aria-label="Breadcrumb" class="crumb">' + trail.map((t, i) => (i < trail.length - 1
   ? '<a href="' + t[1] + '">' + esc(t[0]) + '</a><span aria-hidden="true">›</span>' : '<span aria-current="page">' + esc(t[0]) + '</span>')).join('') + '</nav>';
+// A real photo from static/assets/img/photos. Same markup as pic() in design/generator/parts.py.
+function photo(name, alt, cap, cls) {
+  const tall = /-tall$/.test(name) || name === 'team-portrait';
+  const ws = tall ? [480, 720, 1000] : [640, 960, 1440];
+  return '<figure class="pho ' + (cls || 'pho-r') + '"><img src="/assets/img/photos/' + name + '.jpg" srcset="' + ws.map((w) => '/assets/img/photos/' + name + '-' + w + '.webp ' + w + 'w').join(', ') +
+    '" sizes="(min-width: 1140px) 400px, (min-width: 800px) 760px, 92vw" width="' + (tall ? 1000 : 1440) + '" height="' + (tall ? 1250 : 960) + '" loading="lazy" decoding="async" alt="' + alt + '">' +
+    (cap ? '<figcaption>' + cap + '</figcaption>' : '') + '</figure>';
+}
 const docHead = (h1, trail) => crumbNav(trail) + '<h1 class="h1 dh1">' + esc(h1) + '</h1>';
 const BIZ_ID = ORIGIN + '/#business';
 const PLACES = {
@@ -269,7 +283,7 @@ const business = {
   description: 'Dog poop pickup and pet waste removal for every home in Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell and Citrus Park (85355), Arizona. Weekly, twice a week, or every other week. [[bf:First month free||First cleanup free]], free deodorizer spray at every visit, and a photo of your latched gate after each visit. We haul the waste away. [[ins:Bonded. Insurance starts November 16, 2026.||Bonded and insured.]]',
   telephone: '+1-623-309-6104', email: cfg.email,
   openingHoursSpecification: [{ '@type': 'OpeningHoursSpecification', dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], opens: '08:00', closes: '17:00' }],
-  logo: ORIGIN + '/assets/img/icon-512.png', image: ORIGIN + '/assets/img/og.png',
+  logo: ORIGIN + '/assets/img/icon-512.png', image: [ORIGIN + '/assets/img/og.png'].concat(['team-portrait', 'scoop-rock', 'spray-turf', 'latch-gate', 'shirt-qr'].map((n) => ORIGIN + '/assets/img/photos/' + n + '.jpg')),
   priceRange: '$75 to $189 a month', currenciesAccepted: 'USD', paymentAccepted: 'Credit card, debit card, Apple Pay, Google Pay',
   areaServed: SERVED,
   knowsAbout: ['Dog poop pickup', 'Pet waste removal', 'Pooper scooper service', 'Artificial turf odor treatment', 'Yard deodorizing'],
@@ -532,7 +546,8 @@ for (const t of TOWNS) {
     body += '<h2>' + esc(h) + '</h2>' + items.map((x) => '<h3>' + esc(x.q) + '</h3><p>' + esc(x.a) + '</p>').join('');
   }
   const inner = docHead('Pooper scooper FAQ', [['Home', '/'], ['FAQ', route]]) +
-    '<p class="lead">Answers to the questions people ask us most. Still wondering? Call or text <a href="tel:+16233096104">623.309.6104</a>.</p>' + body +
+    '<p class="lead">Answers to the questions people ask us most. Still wondering? Call or text <a href="tel:+16233096104">623.309.6104</a>.</p>' +
+    photo('at-gate', 'A scooper from Arizona Pet Waste holds a side gate open, with his rake and bin') + body +
     '<a class="btn btn-dot hubcta" href="/book/">[[bf:Start your free month||Book now]]</a>';
   const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc docw"').replace('@@DOC@@', inner));
   built.push(page({ route, board: 'doc', index: true, title: 'Pooper Scooper FAQ | Arizona Pet Waste',
@@ -561,6 +576,7 @@ const FILE_PAGES = [];
     FILE_PAGES.push({ route: '/blog/', type: 'blogindex', h1: 'Dog care blog', title: 'Dog Care Blog for West Valley Dog Owners | Arizona Pet Waste',
       description: 'Tips for West Valley dog owners: yard care, dog health and safety in the Arizona heat, turf odor, local poop laws and more from Arizona Pet Waste.',
       html: '<p class="lead">Tips for dog owners in Buckeye, Goodyear, Litchfield Park and Citrus Park. Clean yards, healthy dogs, and life in the Arizona heat.</p>' +
+        photo('walk-sprayer', 'Our scooper walks across a turf yard with a deodorizer sprayer', '', 'pho-w') +
         '<div class="towns">' + posts.map((x) => '<article class="town"><h2><a href="' + x.route + '">' + esc(x.h1) + '</a></h2><p>' + esc(x.description) + '</p>' +
           '<p class="meta">' + esc(fmtDate(x.date)) + '</p><a class="tgo" href="' + x.route + '">Read it</a></article>').join('') + '</div>',
       posts });

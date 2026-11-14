@@ -75,6 +75,10 @@ SITE_CSS = _min(r"""
 .apw .stamp{position:absolute;z-index:2;padding:3px;border:2.5px solid #FF4A1C;border-radius:9px;background:rgba(246,244,239,.95);color:#B02A08;transform:rotate(-7deg);font-family:var(--f-head);font-stretch:72%;font-weight:800;font-size:22px;letter-spacing:.05em;line-height:1;text-transform:uppercase;white-space:nowrap}
 .apw .stamp>span{display:flex;align-items:baseline;gap:.5em;padding:7px 11px 6px;border:1px solid #FF4A1C;border-radius:5px}
 .apw .stamp i{font-style:normal;font-weight:650;font-size:.74em;letter-spacing:.04em}
+/* a real photo from the shoot: flat, no frame. Prints are only for gate photos */
+.apw .pho{margin:0}
+.apw .pho img{display:block;width:100%;height:auto;border-radius:6px;background:#141D3D;object-fit:cover}
+.apw .pho figcaption{margin-top:10px;font-size:15px;line-height:1.4;color:var(--mute)}
 /* links inside running text: cream words on an orange underline */
 .apw .sec p a:not(.btn):not(.tl),.apw .sec li a:not(.btn),.apw .promise p a{color:var(--ink);font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px;text-decoration-color:var(--accent)}
 .apw .sec p a:not(.btn):not(.tl):hover,.apw .sec li a:not(.btn):hover{text-decoration-color:currentColor}
@@ -217,9 +221,15 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .hero-p{order:5;margin:24px 0 0;font-size:18px;line-height:1.55;color:var(--ink2)}
 .apw .hero-v{order:6;position:relative;display:flex;flex-direction:column;align-items:center;margin:40px 0 0;padding:0 16px 30px}
 .apw .sun{position:absolute;left:50%;top:34%;width:min(132%,560px);aspect-ratio:1/1;border-radius:50%;background:var(--accent);transform:translateX(-50%)}
-.apw .print-a{z-index:1;width:min(100%,400px);transform:rotate(2deg)}
+.apw .hero-ph{position:relative;z-index:1;align-self:flex-end;width:min(82%,380px)}
+.apw .hero-ph img{display:block;width:100%;height:auto;border-radius:6px;background:#141D3D}
+.apw .print-a{position:absolute;z-index:2;left:0;bottom:104px;width:min(46%,200px);padding:6px 6px 0;transform:rotate(-5deg)}
 .apw .print-a img{aspect-ratio:1/1}
-.apw .print-a .stamp{right:-14px;bottom:62px}
+.apw .print-a .stamp{right:-10px;bottom:32px;padding:2px;border-width:2px;border-radius:7px;font-size:12px}
+.apw .print-a .stamp>span{padding:4px 6px 3px;border-radius:4px}
+.apw .print-a p.print-c{padding:6px 1px 7px}
+.apw .print-a .print-c b{font-size:11.5px;white-space:nowrap}
+.apw .print-a .print-c span{display:none}
 .apw .hero-v figcaption{position:relative;z-index:1;margin-top:20px;font-size:16px;font-weight:700;line-height:1.3;color:#0E1430;text-align:center}
 
 /* bonded, insured, background checked, family owned */
@@ -239,6 +249,8 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .promise-t p{max-width:33em;margin:0 0 12px;font-size:18px;font-weight:500;line-height:1.5}
 .apw .promise .tl{color:#0E1430;text-decoration-color:#0E1430}
 .apw .promise a:focus-visible{outline-color:#0E1430}
+.apw .promise-ph{max-width:420px;margin-top:30px}
+.apw .promise-ph figcaption{color:#0E1430;font-weight:600;font-size:16px}
 
 /* prices */
 .apw .pr-deal{margin-top:28px}
@@ -292,6 +304,16 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .how-g{display:grid;grid-template-columns:minmax(0,1fr);gap:34px}
 .apw .how-l .vsw{margin-top:26px}
 .apw .how-cap{margin:10px 0 0;font-size:15px;line-height:1.4;color:var(--mute)}
+.apw .how-ph{margin-top:26px}
+.apw .step-ph{max-width:460px;margin:16px 0 4px}
+/* three photos in a row. On a phone they slide sideways inside their own strip */
+.apw .band{padding:64px 0 0}
+.apw .band-l{display:grid;grid-auto-flow:column;grid-auto-columns:74%;gap:12px;margin:0;padding:0 20px 6px;list-style:none;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.apw .band-l::-webkit-scrollbar{display:none}
+.apw .band-l li{scroll-snap-align:center}
+.apw .band .pho figcaption{margin-top:12px;font-size:16px;color:var(--ink2)}
+.apw .band .pho b{display:block;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:21px;line-height:1.15;color:var(--ink)}
+.apw .band .pho span{display:block;margin-top:3px}
 .apw .steps{list-style:none;margin:0;padding:0;counter-reset:s}
 .apw .steps>li{display:grid;grid-template-columns:50px minmax(0,1fr);column-gap:14px;padding:22px 0 24px;border-top:1px solid var(--line);counter-increment:s}
 .apw .steps>li:last-child{border-bottom:1px solid var(--line)}
@@ -316,6 +338,8 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .own-t p{margin:0 0 14px;max-width:34em;font-size:18px;line-height:1.55;color:var(--ink2)}
 .apw .own-t p:first-child{color:var(--ink)}
 .apw .own-t .tl{margin-top:2px}
+.apw .own-ph{max-width:420px}
+.apw .own-t .h2{margin-bottom:20px}
 
 /* areas we serve */
 .apw .wh{display:grid;grid-template-columns:minmax(0,1fr);gap:26px}
@@ -335,6 +359,8 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .cta-s{margin:2px 0 0;font-size:15px;line-height:1.5;color:var(--mute)}
 .apw .sky{margin:44px -20px 0}
 .apw .sky svg{display:block;width:100%;height:clamp(130px,19vw,240px)}
+.apw .cta-ph{max-width:1200px;margin:0 auto 48px}
+.apw .cta-ph img{aspect-ratio:16/10;object-position:30% 42%}
 .skm1{fill:#2B3468}.skm2{fill:#1E2650}.skg{fill:#2A2F4A}
 
 /* town pages */
@@ -409,6 +435,7 @@ PAGE_CSS = HDR_CSS + _min(r"""
 
 @media (max-height:600px) and (max-width:1023px){.apw .hero-h1{font-size:44px}.apw .hero{padding-top:16px}}
 @media (min-width:760px){
+.apw .band-l{grid-auto-flow:row;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;max-width:1280px;margin:0 auto;padding:0 20px;overflow:visible}
 .apw .ck{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:56px}
 .apw .seals-l{grid-template-columns:repeat(4,minmax(0,1fr));max-width:none}
 .apw .fseals{grid-template-columns:repeat(4,auto);justify-content:start;gap:22px 40px}
@@ -429,8 +456,11 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .hero .grv{grid-area:r}
 .apw .hero-v{grid-area:v;align-self:end;margin:0;padding:6px 20px 70px}
 .apw .sun{top:26%;width:min(128%,640px)}
-.apw .print-a{width:min(100%,440px)}
-.apw .print-a .stamp{right:-26px;bottom:72px;font-size:26px}
+.apw .hero-ph{width:min(86%,430px)}
+.apw .print-a{left:0;bottom:120px;width:230px;padding:8px 8px 0}
+.apw .print-a .stamp{right:-16px;bottom:38px;font-size:15px}
+.apw .print-a .print-c b{font-size:13px}
+.apw .print-a .print-c span{display:block;font-size:7.5px;letter-spacing:.1em;white-space:nowrap}
 .apw .hero-v figcaption{margin-top:24px;font-size:17px}
 .apw .seals-l{max-width:1280px;padding:26px 40px;grid-template-columns:repeat(4,auto) 1fr;gap:24px;align-items:center}
 .apw .seals-l .seals-go{grid-column:auto;justify-self:end}
@@ -441,6 +471,10 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .promise-h{font-size:clamp(120px,12.6vw,188px)}
 .apw .promise-t{margin:0 0 6px}
 .apw .promise-t p{font-size:20px}
+.apw .promise-g{grid-template-columns:minmax(0,1fr) minmax(0,400px);grid-template-areas:"h p" "t p";align-items:start;row-gap:34px}
+.apw .promise-h{grid-area:h;font-size:clamp(112px,11.4vw,168px)}
+.apw .promise-t{grid-area:t}
+.apw .promise-ph{grid-area:p;align-self:center;max-width:none;margin:0}
 .apw .pr-deal{margin-top:40px}
 .apw .pr-g{grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:88px;margin-top:44px;align-items:start}
 .apw .pr-total b{font-size:148px}
@@ -452,6 +486,14 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .steps>li::before{font-size:84px}
 .apw .steps h3{font-size:28px}
 .apw .steps p{font-size:18px}
+.apw .how-ph{margin-top:34px}
+.apw .band{padding:120px 0 0}
+.apw .band-l{gap:28px;padding:0 40px}
+.apw .own{align-items:center}
+.apw .own-ph{max-width:none}
+.apw .own-t .h2{margin-bottom:26px}
+.apw .cta-ph{margin-bottom:84px}
+.apw .cta-ph img{aspect-ratio:21/9}
 .apw .ck-g,.apw .own{grid-template-columns:minmax(0,.8fr) minmax(0,1.6fr);column-gap:72px;align-items:start}
 .apw .own-t p{font-size:20px}
 .apw .ck b{font-size:22px}

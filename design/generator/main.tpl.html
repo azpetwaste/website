@@ -11,7 +11,6 @@
 @@FONTS@@
 <style>
 @@BASE_CSS@@
-@@SCENE_CSS@@
 @@SITE_CSS@@
 @@PAGE_CSS@@
 @media (max-width:359px){.apw .spd{display:none}}
@@ -34,12 +33,13 @@
   <!--REVIEWS-->
   <figure class="hero-v">
     <span class="sun" aria-hidden="true"></span>
+    <div class="hero-ph">@@PH_HERO@@</div>
     <div class="print print-a">
-      <img src="/_blob/5eaa35b6f87df2e6c7c19d16e9370468" srcset="/assets/img/gate-latched-close-480.webp 480w, /assets/img/gate-latched-close-720.webp 720w, /assets/img/gate-latched-close-1000.webp 1000w" sizes="(min-width: 1024px) 420px, (min-width: 480px) 380px, 84vw" width="1000" height="1000" fetchpriority="high" alt="A sample gate photo: a wood and black steel side gate shut between two block posts, with the latch closed">
+      <img src="/_blob/5eaa35b6f87df2e6c7c19d16e9370468" srcset="/assets/img/gate-latched-close-480.webp 480w, /assets/img/gate-latched-close-720.webp 720w, /assets/img/gate-latched-close-1000.webp 1000w" sizes="(min-width: 1024px) 230px, 46vw" width="1000" height="1000" loading="lazy" decoding="async" alt="A sample gate photo: a wood and black steel side gate shut between two block posts, with the latch closed">
       <span class="stamp" aria-hidden="true"><span>Gate latched <i>10:19 AM</i></span></span>
       <p class="print-c" aria-hidden="true"><b>Tue 10:19 AM</b><span>Arizona Pet Waste</span></p>
     </div>
-    <figcaption>This is the kind of photo you get.</figcaption>
+    <figcaption>After every visit, you get a photo like this one.</figcaption>
   </figure>
   </div>
 </section>
@@ -53,6 +53,7 @@
     <p>Each visit on your bill has its photo next to it. If we can’t show the photo, that visit costs $0.</p>
     <a href="/our-promise/" class="tl">Read our promise</a>
   </div>
+  <figure class="pho promise-ph">@@PH_PROMISE@@<figcaption>We latch your gate and pull on it. Then we take the photo.</figcaption></figure>
   </div>
 </section>
 
@@ -109,13 +110,7 @@
   <div class="how-l">
     <h2 class="h2">How our dog poop pickup works</h2>
     <p class="lead">Here is what we do every time we come. Six easy steps.</p>
-    <div class="vsw">
-      <div class="{{ vsClass }}">
-@@SCENE@@
-      </div>
-@@SCENE_CTL@@
-    </div>
-    <p class="how-cap">Watch a visit from start to end. Drag the dot to move through it.</p>
+    <figure class="pho how-ph">@@PH_HOW@@</figure>
   </div>
   <ol class="steps">
     <li>
@@ -135,12 +130,14 @@
       <div>
         <h3>We pick up every pile and haul it away</h3>
         <p>We shut the gate behind us. We walk in rows, front to back, and pick up every pile. Rock yards get raked. We bag the poop and take it with us.</p>
+        <figure class="pho step-ph">@@PH_STEP_SCOOP@@</figure>
       </div>
     </li>
     <li>
       <div>
         <h3>We spray for free</h3>
         <p>We spray deodorizer on the spots your dogs use most. It is free at every visit.</p>
+        <figure class="pho step-ph">@@PH_STEP_SPRAY@@</figure>
       </div>
     </li>
     <li>
@@ -164,12 +161,15 @@
   </div>
 </section>
 
+@@PHOTO_BAND@@
+
 @@SPECS@@
 
 <section id="owner" class="sec">
   <div class="in own">
-  <h2 class="h2">Meet Juan, the owner</h2>
+  <figure class="pho own-ph">@@PH_OWNER@@</figure>
   <div class="own-t">
+    <h2 class="h2">Meet Juan, the owner</h2>
     <p>Juan Gonzalez owns Arizona Pet Waste. He lives in Verrado with his wife and their six kids.</p>
     <p>He works by three rules. Be honest. Charge a fair price. Help people when you can.</p>
     <p>When you sign up, you help a local family.</p>
@@ -239,6 +239,7 @@
 </section>
 
 <section class="cta">
+  <figure class="pho cta-ph">@@PH_CTA@@</figure>
   <div class="in cta-in">
     <h2 class="h2 cta-h">A clean yard every week</h2>
     <a href="Booking.dc.html" class="btn btn-dot">Book now</a>
@@ -261,18 +262,15 @@
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.state = { dark: this._themeFromProps(), plan: 'week', dogs: 2, zip: '', zipChecked: false, area: '', menu: false, @@VS_STATE@@ };
+    this.state = { dark: this._themeFromProps(), plan: 'week', dogs: 2, zip: '', zipChecked: false, area: '', menu: false };
   }
   componentDidMount() {
     this._themeInit();
-    this._vsInit();
   }
   componentWillUnmount() {
     this._themeStop();
-    this._vsStop();
   }
 @@THEME_METHODS@@
-@@VS_METHODS@@
 @@PRICE_METHODS@@
 @@AREA_METHODS@@
   renderVals() {
@@ -282,7 +280,7 @@ class Component extends DCLogic {
     const dogs = s.dogs === 1 ? '1 dog' : s.dogs + ' dogs';
     const furs = ['#D9A066', '#6B4A34', '#F1E3C8', '#3A3434', '#B5652A', '#9A9A9A'];
     const lbs = Math.round(s.dogs * @@LBS_PER_DOG@@ / 10) * 10;
-    return Object.assign({}, this._themeVals(), this._vsVals(), this._areaVals(), {
+    return Object.assign({}, this._themeVals(), this._areaVals(), {
       plans: this._plans(true),
       dogList: furs.slice(0, s.dogs).map((f) => ({ fur: f })),
       dogLabel: dogs,
