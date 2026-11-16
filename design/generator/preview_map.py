@@ -2,8 +2,8 @@ import re, subprocess, sys
 import truemap
 dark = len(sys.argv) > 1 and sys.argv[1] == 'dark'
 sel = sys.argv[2] if len(sys.argv) > 2 else 'bV'
-svg = truemap.build('pickV', 'pickC', 'pickG', 'pickL')
-for h in ('bV', 'bC', 'bG', 'bL'):
+svg = truemap.build('pickV', 'pickC', 'pickG', 'pickL', 'pickB', 'pickW')
+for h in ('bV', 'bC', 'bG', 'bL', 'bB', 'bW'):
     svg = svg.replace('{{ %s }}' % h, 'rgba(255,74,28,.40)' if h == sel else 'rgba(255,74,28,0)')
 svg = re.sub(r' onClick="\{\{ \w+ \}\}"', '', svg)
 svg = svg.replace('<g class="mtruck">', '<g class="mtruck" transform="translate(193 190)">')

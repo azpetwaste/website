@@ -8,18 +8,22 @@ Joe's plan (Nov 15, 2026): the West Valley first, then Phoenix, the East Valley,
 - Sign up, the office and the week planner work by ZIP code. A ZIP that is not on the list goes to the waitlist on its own.
 
 ## The list for one new town
-1. `design/generator/cities.py`: the town entry (name, ZIP line, intro, what makes it different).
-2. `design/generator/longform.py` `TOWNS`: neighborhoods, local answers and the town FAQ. Real places only. Check each one on a map.
-3. `research/neighborhoods.json`: the neighborhood names by ZIP.
-4. `build/build.mjs`: `PLACES`, `ALL_ZIPS`, `SIX` (the names we serve, in the order of our Google profile, used for the schema and every "we serve" sentence) and `TOWNS` (address, title, description). Title 62 letters or less, description 110 to 165. Add the town to the Google profile's service area the same day.
+1. `design/generator/cities.py`: the town entry (name, ZIP line, intro, what makes it different). Give it a page name like `CityWaddell.dc.html`, add that name to `LINKS` in `export_site.py` with the real address, and add the town to the `nearby` list of every other town.
+2. `design/generator/longform.py` `TOWNS`: neighborhoods, local answers and the town FAQ. Real places only. Check each one on a map. Write the town on its own. Do not copy another town and swap the name.
+3. `research/neighborhoods.json`: the neighborhood names by ZIP. Save where each fact on the page came from in `research/<town>-sources.md` (see `research/waddell-sources.md`).
+4. `build/build.mjs`: `PLACES`, `ALL_ZIPS`, `SIX` (the names we serve, in the order of our Google profile, used for the schema and every "we serve" sentence) and `TOWNS` (address, title, description). Title 62 letters or less, description 110 to 165. Add the town to the Google profile's service area the same day. In the same file: the card text on Areas we serve (`blurbs`), the 404 list and the short links in `_redirects` (`/waddell` and the like). No redirect may start at the new page's own address.
 5. `src/worker/worker.js` `ZIPS`: the ZIP codes, the city and the area key. Without this, sign up says "We do not scoop in that ZIP code yet."
 6. `design/generator/parts.py`: `DD_AREAS` (the Areas we serve menu), `_MNAV` (the phone menu), the footer town links, `MAP_CHIPS`, the ZIP to area lookup and the map pins.
-7. The map: `research/service_area.geojson`, then `design/generator/mapgen.py`, `truemap.py`, `valleymap.py` and `mapdata.json`. A town far from the West Valley (Tucson, Flagstaff, Kingman) needs its own map picture. Do not stretch the West Valley map.
+7. The map: `research/service_area.geojson`, then `design/generator/mapgen.py`, `truemap.py`, `valleymap.py` and `mapdata.json`. Each town page lights its own shape, so a new town needs one: add it to `truemap.build`, to `AREA_METHODS` in `parts.py` (`pin`, `blob` and the ZIP lookup), and to `static_map` in `export_site.py` (the count of shapes, and the `RES` and `COM` links). Today there are six: four ZIP areas (Buckeye, Goodyear, Litchfield Park, Waddell) and two places drawn on top (Verrado, Citrus Park). A town far from the West Valley (Tucson, Flagstaff, Kingman) needs its own map picture. Do not stretch the West Valley map.
 8. The sign up form city list: `design/generator/booking.tpl.html` and `book.prod.tpl.html`. If the form changes, retake the opt in screenshots for `/texts/` (`build/optin-shots.py`).
 9. `content/site/commercial-pet-waste-removal/<town>-az.html` if we take commercial work there.
 10. `llms.txt` (in `build/build.mjs`) and the footer town links.
 11. The office: the scooper and the days for that part of town in `/crew`, Schedule, Plan the week. The planner cuts days at long hops between towns, so a far town gets its own day.
 12. Take the town off "Coming soon" (`parts.py`) if it was listed there.
+
+## A worked example: Waddell (Nov 16, 2026)
+Waddell was a name that shared the Citrus Park page. It got its own page in one change. The commit "Waddell has its own town page" shows every file a town touches.
+What that change also had to do, because the name was already in use: move the Waddell neighborhoods and questions off the Citrus Park page so the two pages do not say the same thing, give Citrus Park its own map shape, and point every Waddell link at the new page.
 
 ## When we leave the West Valley
 These say "West Valley" today and need a second look the day the first town outside it goes live:

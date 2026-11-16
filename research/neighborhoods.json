@@ -373,6 +373,68 @@
         "extent_share_in_service_area": 1.0,
         "note": "County plat name is \"LA LOMA RESIDENTIAL AKA SUNSET TERRACE\"; coordinates are the extent center."
       }
+    ],
+    "waddell": [
+      {
+        "name": "White Tank Foothills",
+        "zip": "85355",
+        "where": "Near Northern Ave and Citrus Rd, west of the Loop 303 and Northern Parkway interchange. County island. Master plan cap of 1,746 homes.",
+        "inside": true,
+        "jurisdiction": "Maricopa County",
+        "source": "https://yourvalley.net/stories/glendale-area-645-home-phase-approved,330911"
+      },
+      {
+        "name": "Zanjero Pass",
+        "zip": "85355",
+        "where": "North and east of the northeast corner of Citrus Rd and Olive Ave. D.R. Horton, built 2023 to 2026.",
+        "inside": true,
+        "jurisdiction": "City of Glendale (annexed), surrounded by county land",
+        "source": "https://public.destinyhosted.com/glenddocs/2021/PC/20210617_3873/5980_Zanjero_Pass_-_PRD_Narrative_Stamped.pdf"
+      },
+      {
+        "name": "Cortessa",
+        "zip": "85355",
+        "where": "Off Peoria Ave at Cortessa Parkway. Four parts: The Villages, The Meadows, The Meadows II and Laureate at Cortessa (gated).",
+        "inside": true,
+        "source": "https://www.homesbymarco.com/neighborhoods/cortessa-in-waddell-az"
+      },
+      {
+        "name": "Granite Vista",
+        "zip": "85355",
+        "where": "Near the southwest corner of Olive Ave and Cotton Ln, a short way west of Loop 303. Elliott Homes.",
+        "inside": true,
+        "jurisdiction": "Maricopa County",
+        "source": "https://www.yourvalley.net/phoenix-independent/stories/board-approves-plats-for-217-homes,302123"
+      },
+      {
+        "name": "Stonebridge Manor",
+        "zip": "85355",
+        "where": "Off Peoria Ave near 157th Ave, east of Loop 303. Ashton Woods and Starlight Homes, built 2025 to 2027.",
+        "inside": true,
+        "source": "https://www.homesbymarco.com/subdivisions/stonebridge-manor-in-waddell-az"
+      },
+      {
+        "name": "Sentiero at Windrose",
+        "zip": "85355",
+        "where": "The Waddell part of Windrose (sales office 6811 N 189th Ln), on the Litchfield Park border. David Weekley Homes.",
+        "inside": true,
+        "source": "https://davidweekleyhomes.com/new-homes/az/phoenix/waddell/sentiero-at-windrose"
+      },
+      {
+        "name": "Sonoran Ridge Estates",
+        "zip": "85355",
+        "where": "Gated, cross streets Citrus Rd and Olive Ave (sample home 19211 W Seldon Ln, 0.77 acre).",
+        "inside": true,
+        "source": "https://www.coldwellbankerhomes.com/az/waddell/19211-w-seldon-ln/pid_70689012/"
+      },
+      {
+        "name": "Twelve Oaks Estates",
+        "zip": "85355",
+        "where": "Cross street Sarival Rd and Peoria Ave (sample home 9916 N 162nd Ln, 0.8 acre).",
+        "inside": true,
+        "jurisdiction": "Maricopa County",
+        "source": "https://homes.com/property/9916-n-162nd-ln-waddell-az/wpl078gg5qz9d"
+      }
     ]
   },
   "borderline": [
@@ -623,5 +685,14 @@
       "url": "https://maps.goodyearaz.gov/server/rest/services/Catalis/Catalis_Home_Owners_Association_HOA/MapServer",
       "why": "Official list of Goodyear HOAs with their management companies; handy for HOA common-area outreach and neighborhood page names."
     }
+  ],
+  "waddell_added": "2026-11-16",
+  "waddell_method": "Waddell entries were checked by address and ZIP code, not by coordinates: every source lists Waddell 85355 addresses, and we serve the whole ZIP. The sources for the page copy are in research/waddell-sources.md.",
+  "waddell_not_placed": [
+    "Northern Farms",
+    "Northern Crossing",
+    "Crystal Springs Estates",
+    "Enclave on Olive",
+    "Marbella at Windrose"
   ]
 }

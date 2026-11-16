@@ -1,6 +1,7 @@
 """Copy for the town pages, written short and plain (3rd to 5th grade reading level). Sources are in the canvas notes.
 We serve every ZIP code in each town: Buckeye 85326 and 85396, Goodyear 85338 and 85395, Litchfield Park 85340,
-Waddell (Citrus Park) 85355. Verrado has its own page inside Buckeye."""
+Waddell 85355. Verrado has its own page inside Buckeye. Citrus Park is the south part of the Waddell ZIP and has its own page too.
+Each town is written on its own: the Waddell page is not the Citrus Park page with the name swapped."""
 from parts import faq
 
 
@@ -34,6 +35,7 @@ B = ('CityBuckeye.dc.html', 'Buckeye')
 V = ('CityVerrado.dc.html', 'Verrado')
 L = ('CityLitchfieldPark.dc.html', 'Litchfield Park')
 C = ('CityCitrusPark.dc.html', 'Citrus Park')
+W = ('CityWaddell.dc.html', 'Waddell')
 G = ('CityGoodyear.dc.html', 'Goodyear')
 ALL = ('AreasWeServe.dc.html', 'Every area we serve')
 
@@ -58,7 +60,7 @@ CITIES = [
             ('Is it illegal to not pick up dog poop in Buckeye?', 'Yes. Buckeye city code says animal poop cannot be left in a way that is not clean, on public land or private land. That includes your own yard. Most HOAs have their own pickup rules too.'),
             ('Can I report my neighbor for dog poop in Buckeye?', 'Yes. You can report it to the City of Buckeye. If you have an HOA, you can tell them too. Talking to your neighbor first often works best. Sometimes they just need a hand, and we can help.'),
         ], BUCKEYE_TRASH),
-        nearby=nearby([V, G, L, C, ALL], 'Not sure about your street? Type your ZIP when you book, and we will tell you right away.'),
+        nearby=nearby([V, G, L, C, W, ALL], 'Not sure about your street? Type your ZIP when you book, and we will tell you right away.'),
     ),
     dict(
         file=G[0], id='g', area='goodyear', name='Goodyear', eyebrow='Goodyear, AZ · ZIP 85338 and 85395', h='13400',
@@ -81,7 +83,7 @@ CITIES = [
             ('Can I report my neighbor for dog poop in Goodyear?', 'Yes. You can report it to the City of Goodyear. If you have an HOA, you can tell them too. Talking to your neighbor first often works best.'),
             ('How many dogs can I have in Goodyear?', 'Goodyear allows up to four household pets at a home. Dogs, cats and potbellied pigs all count toward the four.'),
         ], 'Seal it in a plastic bag and put it in your tan trash cart. Goodyear says pet waste never goes in the green recycle cart. On our visits, we bag it and haul it away for you.'),
-        nearby=nearby([L, B, C, V, ALL], 'Live in Avondale? Join the waitlist when you book.'),
+        nearby=nearby([L, B, C, W, V, ALL], 'Live in Avondale? Join the waitlist when you book.'),
     ),
     dict(
         file=L[0], id='l', area='litchfield', name='Litchfield Park', eyebrow='Litchfield Park, AZ · ZIP 85340', h='12200',
@@ -102,13 +104,13 @@ CITIES = [
             ('Can I report my neighbor for dog poop in Litchfield Park?', 'Yes. You can contact the City of Litchfield Park, or Maricopa County if you live outside city limits. If you have an HOA, you can tell them too. Talking to your neighbor first often works best.'),
             ('Can you get into gated neighborhoods like Cachet and Dreaming Summit?', 'Yes. Add your gate code in My Yard. Only your scooper sees it, and only on your day.'),
         ], 'Bag it, tie the bag, and put it in your trash can. Litchfield Park code says dog poop goes in a closed bag and then in the trash. Never put it in the recycle bin. On our visits, we bag it and haul it away for you.'),
-        nearby=nearby([G, B, C, V, ALL], 'Live in Avondale? Join the waitlist when you book.'),
+        nearby=nearby([G, B, C, W, V, ALL], 'Live in Avondale? Join the waitlist when you book.'),
     ),
     dict(
-        file=C[0], id='c', area='citrus', name='Citrus Park', h1='Citrus Park and Waddell', eyebrow='Citrus Park · Waddell, AZ · ZIP 85355', h='11800',
+        file=C[0], id='c', area='citrus', name='Citrus Park', eyebrow='Citrus Park · Waddell, AZ · ZIP 85355', h='11400',
         intro=INTRO % 'Citrus Park',
-        map_h2='We cover all of Citrus Park and Waddell, AZ',
-        where='Every home. Every street. Citrus Park and Waddell, ZIP 85355.',
+        map_h2='We cover all of Citrus Park, AZ',
+        where='Every home. Every street. Citrus Park uses Waddell ZIP 85355, and a few homes use 85340.',
         why_h2='Why Citrus Park yards need weekly pickup',
         why=why([
             ('Big lots and green grass.', 'Many Citrus Park homes sit on an acre or more with flood irrigation, so the grass stays green. Thick grass hides poop, and dogs have lots of room to roam.'),
@@ -118,13 +120,13 @@ CITIES = [
         ]),
         faq_h2='Citrus Park questions',
         faq=faqs('Citrus Park', [
-            ('Do you serve all of Citrus Park?', 'Yes. We scoop all of Citrus Park and every home in Waddell ZIP 85355. Some Citrus Park homes, like Russell Ranch and Savannah, have Litchfield Park 85340 addresses, and we scoop those too.'),
+            ('Do you serve all of Citrus Park?', 'Yes. We scoop all of Citrus Park. Most homes here have Waddell 85355 addresses. Some, like Russell Ranch and Savannah, have Litchfield Park 85340 addresses, and we scoop those too.'),
             ('Do you clean big grass yards?', 'Yes. We walk your yard in rows and pick up every pile, even on an acre. Then we spray deodorizer where your dogs go most. The spray is free.'),
             ('Is the price higher for a big lot?', 'No. Your price depends on how often we come and how many dogs you have, not the size of your yard.'),
-            ('Is it illegal to not pick up dog poop in Waddell?', 'Citrus Park and Waddell follow Maricopa County rules. The county health code treats animal waste as trash that must be handled so it does not breed insects, and dogs must be fenced in or leashed.'),
-            ('Can I report a neighbor for dog poop in Waddell?', 'Yes. Waddell is county land, so you contact Maricopa County. If you have an HOA, you can tell them too. Talking to your neighbor first often works best.'),
+            ('Is it illegal to not pick up dog poop in Citrus Park?', 'Citrus Park follows Maricopa County rules. The county health code treats animal waste as trash that must be handled so it does not breed insects, and dogs must be fenced in or leashed.'),
+            ('Can I report a neighbor for dog poop in Citrus Park?', 'Yes. Citrus Park is county land, so you contact Maricopa County. If you have an HOA, you can tell them too. Talking to your neighbor first often works best.'),
         ]),
-        nearby=nearby([L, G, B, V, ALL], 'Live in Surprise? Join the waitlist when you book.'),
+        nearby=nearby([W, L, G, B, V, ALL], 'Live in Surprise? Join the waitlist when you book.'),
     ),
     dict(
         file=V[0], id='v', area='verrado', name='Verrado', eyebrow='Verrado · Buckeye, AZ · ZIP 85396', h='11600',
@@ -145,6 +147,32 @@ CITIES = [
             ('Is it illegal to not pick up dog poop in Verrado?', 'Yes. Verrado rules say anyone walking a dog must pick up the poop right away, anywhere in Verrado. Buckeye city code also says animal poop cannot be left in a way that is not clean, even in your own yard.'),
             ('Can I report a neighbor for dog poop in Verrado?', 'Yes. You can tell the Verrado Community Association, and you can call the City of Buckeye. Talking to your neighbor first often works best.'),
         ], BUCKEYE_TRASH),
-        nearby=nearby([B, G, L, C, ALL], 'Sundance, Tartesso and Festival Ranch are on our Buckeye page.'),
+        nearby=nearby([B, G, L, C, W, ALL], 'Sundance, Tartesso and Festival Ranch are on our Buckeye page.'),
+    ),
+    dict(
+        # Waddell, AZ 85355. Every fact here was checked on November 16, 2026. The sources are in research/waddell-sources.md.
+        file=W[0], id='w', area='waddell', name='Waddell', eyebrow='Waddell, AZ · ZIP 85355', h='12600',
+        intro='Arizona Pet Waste scoops dog poop at homes all over Waddell, AZ every week and hauls it away. '
+              'You get a text the night before, a live map of our truck, and a photo of your latched gate when we leave.',
+        map_h2='We cover all of Waddell, AZ',
+        where='Every home. Every street. Waddell is ZIP 85355, and we scoop all of it.',
+        why_h2='Why Waddell yards need weekly pickup',
+        why=why([
+            ('New homes keep coming.', 'Waddell is growing fast. White Tank Foothills is planned for up to 1,746 homes, and the homes in Zanjero Pass and Stonebridge Manor went up in just the last few years. New turf and rock yards start to smell fast in the sun.'),
+            ('Some yards are huge.', 'Not every Waddell yard is small. Lots in Twelve Oaks Estates and Sonoran Ridge Estates are about three quarters of an acre. That is a lot of ground to walk with a scooper, so we walk it in rows for you.'),
+            ('The desert is right there.', 'Waddell sits at the foot of the White Tank Mountains, next to the biggest regional park in Maricopa County. Desert heat bakes a yard fast, and warm poop draws flies. It pays to get it out each week.'),
+            ('The rules change by street.', 'Most of Waddell is county land. Some homes, like the ones in Zanjero Pass, are inside the City of Glendale. Most new neighborhoods have an HOA too. A clean yard keeps you on the right side of all three.'),
+        ]),
+        faq_h2='Waddell questions',
+        faq=faqs('Waddell', [
+            ('Do you serve all of Waddell?', 'Yes. We scoop every home with a Waddell 85355 address. That includes White Tank Foothills, Zanjero Pass, Cortessa, Granite Vista, Stonebridge Manor, Sentiero at Windrose and Citrus Park.'),
+            ('Is Waddell, AZ a city?', 'No. Waddell is a place name and a mailing address, ZIP 85355. Most homes here sit on county land. Some, like the ones in Zanjero Pass, are inside the City of Glendale. We scoop them all.'),
+            ('Is it illegal to not pick up dog poop in Waddell?', 'It depends on where your home sits. On county land, dogs must be fenced in or leashed, and the county health code treats animal waste as trash that must be handled so it does not breed insects. '
+                                                               'Inside Glendale, city code says to clean animal waste out of your yard at least twice a week. Most HOAs have their own rules too.'),
+            ('Can I report a neighbor for dog poop in Waddell?', 'Yes. On county land, you contact Maricopa County. Inside Glendale, you contact the city. If you have an HOA, you can tell them too. Talking to your neighbor first often works best.'),
+            ('Can I take my dog to White Tank Mountain Regional Park?', 'Yes. Dogs are welcome on a leash 6 feet long or shorter. The county lists five trails there as good for dogs, and the park has dog water fountains. Bag the poop and use the trash cans at the trailhead.'),
+            ('Can you get into gated neighborhoods like Laureate at Cortessa?', 'Yes. Add your gate code in My Yard. Only your scooper sees it, and only on your day.'),
+        ]),
+        nearby=nearby([C, L, G, B, V, ALL], 'Have a Surprise ZIP code, like 85388? Join the waitlist when you book.'),
     ),
 ]

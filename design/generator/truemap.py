@@ -2,7 +2,9 @@
 World units: 15 per km. x = (lon + 112.60) * 1392.4, y = (33.60 - lat) * 1658.55.
 Boundaries (Verrado, Citrus Park CDP, Goodyear, Litchfield Park, Luke AFB, White Tank and Skyline parks) come from
 Nominatim; roads, canals and the Agua Fria come from Overpass. Map data © OpenStreetMap contributors (ODbL).
-ZIP code areas (Z_*) are US Census ZCTAs (via OpenDataDE), clipped to the view and simplified."""
+ZIP code areas (Z_*) are US Census ZCTAs (via OpenDataDE), clipped to the view and simplified.
+Six shapes can light up: Buckeye, Goodyear, Litchfield Park and Waddell are their ZIP areas (Waddell is all of 85355).
+Verrado and Citrus Park are places inside those, drawn on top: Verrado inside Buckeye, Citrus Park at the south end of Waddell."""
 import json
 import os
 
@@ -71,10 +73,10 @@ def _soon():
                    % (x, y, n, x, y + 10) for n, x, y in SOON)
 
 
-def build(pick_v, pick_c, pick_g, pick_l, pick_b):
+def build(pick_v, pick_c, pick_g, pick_l, pick_b, pick_w):
     return (
         '<svg viewBox="%d %d %d %d" role="img" aria-label="Map of the ZIP codes Arizona Pet Waste scoops: Buckeye and Verrado 85326 and 85396, '
-        'Goodyear 85338 and 85395, Litchfield Park 85340, and Citrus Park and Waddell 85355">' % VIEW +
+        'Goodyear 85338 and 85395, Litchfield Park 85340, and Waddell and Citrus Park 85355">' % VIEW +
         '<rect class="mland" x="-20" y="-20" width="460" height="380"></rect>'
         '<path class="mmtn" d="' + _D['MTN'] + '"></path><path class="mridge" d="' + _D['RIDGES'] + '"></path>'
         '<path class="mbase" d="' + _D['LUKE'] + '"></path><path class="mrun" d="' + RUNWAYS + '"></path>'
@@ -83,7 +85,8 @@ def build(pick_v, pick_c, pick_g, pick_l, pick_b):
         + '<path class="mart" d="' + ''.join(ART) + '"></path>'
         + ''.join('<path class="mzipf" d="%s"></path>' % _D['Z_' + z] for z in ZIPS)
         + _shape(_zips('85326', '85396'), 'bB', pick_b) + _shape(_zips('85338', '85395'), 'bG', pick_g)
-        + _shape(_zips('85340'), 'bL', pick_l) + _shape(_zips('85355'), 'bC', pick_c) + _place('verrado', 'bV', pick_v)
+        + _shape(_zips('85340'), 'bL', pick_l) + _shape(_zips('85355'), 'bW', pick_w)
+        + _place('citrus', 'bC', pick_c) + _place('verrado', 'bV', pick_v)
         + ''.join('<path class="mzipl" d="%s"></path>' % _D['Z_' + z] for z in ZIPS) +
         '<path class="mfwy0" d="' + I10 + L303 + NPKWY + '"></path><path class="mfwy" d="' + I10 + L303 + NPKWY + '"></path>'
         '<g class="mnolook"><rect x="84" y="236" width="22" height="16" rx="4" fill="#2A5DB0"></rect><text x="95" y="248" text-anchor="middle" class="mshield" fill="#FFFFFF">10</text></g>'
@@ -93,7 +96,9 @@ def build(pick_v, pick_c, pick_g, pick_l, pick_b):
         + _label(370, 266, ['PHOENIX →'], 'mtxt')
         + '<text class="mtxt" x="398" y="122" transform="rotate(-90 398 122)">AGUA FRIA</text>'
         + _label(112, 160, ['VERRADO']) + _label(217, 98, ['CITRUS', 'PARK']) + _label(266, 196, ['GOODYEAR']) + _label(346, 160, ['LITCHFIELD', 'PARK'])
-        + _label(198, 48, ['WADDELL'])  # Waddell is the north part of ZIP 85355 (about 33.577 N, 112.438 W). Kept left of the 303 shield.
+        # Waddell is all of ZIP 85355. Its old town site (Waddell Road and Cotton Lane, 33.611 N) is north of this view,
+        # so the name sits in the north part of the ZIP that the map shows. Kept left of the 303 shield.
+        + _label(198, 48, ['WADDELL'])
         + _label(96, 286, ['BUCKEYE']) + _label(262, 277, ['GOODYEAR']) + _soon()
         + ''.join('<text class="mzipt" x="%d" y="%d" text-anchor="middle">%s</text>' % (x, y, z) for z, (x, y) in ZIP_LABELS.items()) +
         '<g class="mtruck"><circle r="8" fill="#FF4A1C" opacity=".25"></circle><circle r="4.5" fill="#FF4A1C" stroke="#FFFFFF" stroke-width="1.8"></circle></g>'

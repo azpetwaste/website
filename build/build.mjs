@@ -280,18 +280,18 @@ const PLACES = {
   goodyear: { name: 'Goodyear', locality: 'Goodyear', zips: ['85338', '85395'], url: '/pooper-scooper/goodyear-az/' },
   litchfield: { name: 'Litchfield Park', locality: 'Litchfield Park', zips: ['85340'], url: '/pooper-scooper/litchfield-park-az/' },
   citrus: { name: 'Citrus Park', locality: 'Waddell', zips: ['85355'], url: '/pooper-scooper/citrus-park-az/' },
+  waddell: { name: 'Waddell', locality: 'Waddell', zips: ['85355'], url: '/pooper-scooper/waddell-az/' },
   verrado: { name: 'Verrado', locality: 'Buckeye', zips: ['85396'], url: '/pooper-scooper/buckeye-az/verrado/' }
 };
-const ALL_ZIPS = [['85326', 'Buckeye', 'buckeye'], ['85396', 'Buckeye', 'buckeye'], ['85338', 'Goodyear', 'goodyear'], ['85395', 'Goodyear', 'goodyear'], ['85340', 'Litchfield Park', 'litchfield'], ['85355', 'Waddell', 'citrus']];
+// Each ZIP code, the town on its mail, and the town pages for it. 85355 is Waddell. Citrus Park is its south part and has its own page.
+const ALL_ZIPS = [['85326', 'Buckeye', 'buckeye'], ['85396', 'Buckeye', 'buckeye'], ['85338', 'Goodyear', 'goodyear'], ['85395', 'Goodyear', 'goodyear'], ['85340', 'Litchfield Park', 'litchfield'], ['85355', 'Waddell', 'waddell', 'citrus']];
 const zipPlace = (zip, locality) => ({ '@type': 'Place', name: locality + ', AZ ' + zip, address: { '@type': 'PostalAddress', addressLocality: locality, addressRegion: 'AZ', postalCode: zip, addressCountry: 'US' } });
 const cityPlace = (p) => ({ '@type': 'City', name: p.name + ', AZ', containedInPlace: { '@type': 'State', name: 'Arizona' } });
 const place = (p) => [cityPlace(p)].concat(p.zips.map((z) => zipPlace(z, p.locality)));
 // Joe's list, Nov 16, 2026 (it matches our Google profile): the six names we serve, always in this order.
-// Waddell has no page of its own. Its links go to the 85355 page, which covers Citrus Park and Waddell.
+// Each of the six has a page of its own. Waddell got its page on Nov 16, 2026 (/pooper-scooper/waddell-az/).
 const SIX = ['Buckeye', 'Verrado', 'Goodyear', 'Litchfield Park', 'Citrus Park', 'Waddell'];
 const SIX_TEXT = SIX.slice(0, 5).join(', ') + ' and ' + SIX[5];
-const WADDELL = { name: 'Waddell', zips: ['85355'], url: PLACES.citrus.url,
-  hoods: ['Sentiero at Windrose', 'White Tank Foothills', 'Zanjero Pass', 'Cortessa', 'Granite Vista', 'Stonebridge Manor'] };
 const SERVED = SIX.map((n) => ({ '@type': 'City', name: n, containedInPlace: { '@type': 'State', name: 'Arizona' } })).concat(ALL_ZIPS.map((z) => zipPlace(z[0], z[1])));
 // The link to our Google profile (src/site.config.json "googleProfile"). It shows no street address. It feeds the footer, the contact page and the schema.
 const GOOGLE = cfg.googleProfile || '';
@@ -514,7 +514,9 @@ const TOWNS = [
   { area: 'litchfield', board: 'city-litchfield', route: '/pooper-scooper/litchfield-park-az/', title: 'Pooper Scooper in Litchfield Park, AZ | Arizona Pet Waste',
     description: 'Pooper scooper and dog poop removal for every home in Litchfield Park, AZ 85340. [[bf:First month free||First cleanup free]], free deodorizer spray and a photo of your latched gate.' },
   { area: 'citrus', board: 'city-citrus', route: '/pooper-scooper/citrus-park-az/', title: 'Pooper Scooper in Citrus Park, AZ | Arizona Pet Waste',
-    description: 'Pooper scooper and dog poop removal for every home in Citrus Park and Waddell, AZ 85355. [[bf:First month free||First cleanup free]], free spray and a photo of your latched gate.' },
+    description: 'Pooper scooper and dog poop removal for every home in Citrus Park, AZ, in Waddell ZIP 85355. [[bf:First month free||First cleanup free]], free spray and a photo of your latched gate.' },
+  { area: 'waddell', board: 'city-waddell', route: '/pooper-scooper/waddell-az/', title: 'Pooper Scooper in Waddell, AZ | Arizona Pet Waste',
+    description: 'Pooper scooper and dog poop removal for every home in Waddell, AZ 85355, White Tank Foothills to Cortessa. [[bf:First month free||First cleanup free]], free spray and a gate photo.' },
   { area: 'verrado', board: 'city-verrado', route: '/pooper-scooper/buckeye-az/verrado/', title: 'Pooper Scooper in Verrado, Buckeye AZ | Arizona Pet Waste',
     description: 'Pooper scooper and dog poop removal for Verrado homes in Buckeye, AZ 85396. [[bf:First month free||First cleanup free]], free deodorizer spray and a photo of your latched gate.' }
 ];
@@ -537,18 +539,18 @@ for (const t of TOWNS) {
 {
   const route = '/pooper-scooper/';
   const url = ORIGIN + route;
-  // The six names in the order of Joe's list. Waddell is its own card. It opens the 85355 page it shares with Citrus Park.
+  // The six names in the order of Joe's list. Each card opens that town's own page.
   const order = ['buckeye', 'verrado', 'goodyear', 'litchfield', 'citrus', 'waddell'];
   const blurbs = {
     buckeye: 'North Buckeye by the White Tank Mountains, and the rest of Buckeye from Sundance to downtown.',
     goodyear: 'All of Goodyear, from PebbleCreek and Palm Valley down to Estrella Mountain Ranch.',
     litchfield: 'Every 85340 home, inside the city and out, from The Wigwam to Dreaming Summit.',
     citrus: 'All of Citrus Park, from big irrigated lots to horse properties.',
-    waddell: 'Every home in Waddell, from White Tank Foothills to new neighborhoods like Zanjero Pass.',
+    waddell: 'Every Waddell 85355 home, from White Tank Foothills and Zanjero Pass to the big lots by the mountains.',
     verrado: 'Every Verrado district, at the foot of the White Tank Mountains in Buckeye.'
   };
-  const placeOf = (a) => (a === 'waddell' ? WADDELL : PLACES[a]);
-  const hoodsOf = (a) => (a === 'waddell' ? WADDELL.hoods : townZips(a).flatMap((g) => g.names).filter((n) => a !== 'citrus' || !WADDELL.hoods.includes(n)));
+  const placeOf = (a) => PLACES[a];
+  const hoodsOf = (a) => hoodNames(a).filter((n) => n !== PLACES[a].name);
   const cards = '<div class="bxtowns bxtowns-g">' + order.map((a) => {
     const p = placeOf(a);
     const names = hoodsOf(a).slice(0, 6);
@@ -557,7 +559,7 @@ for (const t of TOWNS) {
       '<span class="bxtown-p">' + esc(blurbs[a]) + '</span><span class="bxtown-h">' + esc(names.join(', ')) + '</span>' +
       '<span class="bxgo">Pooper scooper in ' + esc(p.name) + '</span></a>';
   }).join('') + '</div>';
-  const rows = ALL_ZIPS.map((z) => '<tr><td>' + z[0] + '</td><td>' + esc(z[1]) + '</td><td><a href="' + PLACES[z[2]].url + '">' + esc(PLACES[z[2]].name) + ' page</a></td></tr>').join('');
+  const rows = ALL_ZIPS.map((z) => '<tr><td>' + z[0] + '</td><td>' + esc(z[1]) + '</td><td>' + z.slice(2).map((a) => '<a href="' + PLACES[a].url + '">' + esc(PLACES[a].name) + ' page</a>').join(' and ') + '</td></tr>').join('');
   const sec = (id, k, h, lead, inner, alt) => '<section class="bxs' + (alt ? ' bxalt' : '') + '" id="' + id + '"><div class="bxw">' + BIZ.h2(id + '-h', h, k) + (lead ? '<p class="bxl">' + lead + '</p>' : '') + inner + '</div></section>';
   const book = '<div class="bxh-cta"><a class="btn btn-dot" href="/book/">[[bf:Start your free month||Book now]]</a><a class="btn btn-line-n" href="#zip-codes">See every ZIP code</a></div>';
   const pg = {
@@ -738,7 +740,7 @@ for (const [slug, fallbackH1] of POLICIES) {
     fonts: a.b.fonts, css: [a.b.css], boards: [a], body: ssr(a)
   }));
   const nf = useBoard('doc', (mk) => slots(mk).replace('@@DOC@@', '<h1 class="h1 dh1">We could not find that page</h1>' +
-    '<p class="lead">The link may be old. These pages can help.</p><ul><li><a href="/">Home</a></li><li><a href="/book/">[[bf:Start your free month||Book now]]</a></li><li><a href="/pooper-scooper/">Areas we serve</a></li><li><a href="/pooper-scooper/buckeye-az/">Buckeye</a></li><li><a href="/pooper-scooper/buckeye-az/verrado/">Verrado</a></li><li><a href="/pooper-scooper/goodyear-az/">Goodyear</a></li><li><a href="/pooper-scooper/litchfield-park-az/">Litchfield Park</a></li><li><a href="/pooper-scooper/citrus-park-az/">Citrus Park</a></li><li><a href="/pooper-scooper/citrus-park-az/">Waddell</a></li></ul>'));
+    '<p class="lead">The link may be old. These pages can help.</p><ul><li><a href="/">Home</a></li><li><a href="/book/">[[bf:Start your free month||Book now]]</a></li><li><a href="/pooper-scooper/">Areas we serve</a></li><li><a href="/pooper-scooper/buckeye-az/">Buckeye</a></li><li><a href="/pooper-scooper/buckeye-az/verrado/">Verrado</a></li><li><a href="/pooper-scooper/goodyear-az/">Goodyear</a></li><li><a href="/pooper-scooper/litchfield-park-az/">Litchfield Park</a></li><li><a href="/pooper-scooper/citrus-park-az/">Citrus Park</a></li><li><a href="/pooper-scooper/waddell-az/">Waddell</a></li></ul>'));
   built.push(page({
     route: '/404.html', board: 'doc', index: false, title: 'Page Not Found | Arizona Pet Waste', description: 'We could not find that page.',
     fonts: nf.b.fonts, css: [nf.b.css], boards: [nf], body: ssr(nf)
@@ -794,8 +796,8 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - [Verrado, Buckeye AZ 85396](${ORIGIN}/pooper-scooper/buckeye-az/verrado/). Districts: ${hoodNames('verrado').join(', ')}.
 - [Goodyear, AZ 85338 and 85395](${ORIGIN}/pooper-scooper/goodyear-az/). Neighborhoods: ${hoodNames('goodyear').join(', ')}.
 - [Litchfield Park, AZ 85340](${ORIGIN}/pooper-scooper/litchfield-park-az/). Neighborhoods: ${hoodNames('litchfield').join(', ')}.
-- [Citrus Park, AZ 85355](${ORIGIN}/pooper-scooper/citrus-park-az/), plus Citrus Park homes with Litchfield Park 85340 addresses. Neighborhoods: ${hoodNames('citrus').filter((n) => !WADDELL.hoods.includes(n)).join(', ')}.
-- [Waddell, AZ 85355](${ORIGIN}/pooper-scooper/citrus-park-az/). Waddell shares the Citrus Park page. Neighborhoods: ${WADDELL.hoods.join(', ')}.
+- [Citrus Park, AZ 85355](${ORIGIN}/pooper-scooper/citrus-park-az/), the south part of the Waddell ZIP code, plus Citrus Park homes with Litchfield Park 85340 addresses. Neighborhoods: ${hoodNames('citrus').join(', ')}.
+- [Waddell, AZ 85355](${ORIGIN}/pooper-scooper/waddell-az/). Every home with a Waddell 85355 address. Waddell is a place name and a mailing address, not a city. Neighborhoods: ${hoodNames('waddell').join(', ')}.
 - Full list: [Areas we serve](${ORIGIN}/pooper-scooper/).
 - Coming soon, with no start date yet: Surprise, Peoria, Glendale and Laveen. Anyone outside our ZIP codes can join the waitlist, and we tell them when we start in their area.
 
@@ -823,7 +825,8 @@ ${VIDEOS.map((v) => '- [' + v.name + '](' + videoUrl(v) + '): ' + v.text).join('
 - Buckeye (including Verrado): city code says animal waste cannot be left in an unsanitary way on public or private land, including your own yard. Verrado HOA rules say dog poop must be picked up right away anywhere in Verrado.
 - Goodyear: city code says droppings must be removed from yards at least twice a week, and pets cannot cause flies, odor or piled up droppings. Up to four household pets per home.
 - Litchfield Park: city code says dog owners must pick up poop right away in parks, on public land and on land they do not own, and put it in a closed bag in the trash.
-- Unincorporated Maricopa County (Waddell, Citrus Park and county parts of 85340): dogs must be fenced or on a leash of 6 feet or less, and the county health code treats animal waste as refuse that must not breed insects.
+- Unincorporated Maricopa County (most of Waddell, Citrus Park and county parts of 85340): dogs must be fenced or on a leash of 6 feet or less, and the county health code treats animal waste as refuse that must not breed insects.
+- Waddell homes inside the City of Glendale (Zanjero Pass is one): Glendale city code says animal waste must be removed from yards at least twice a week.
 - Everywhere: bag dog poop, tie the bag, and put it in the trash cart. Never in the recycle cart or a storm drain. Storm drain water is not treated.
 
 ## Before you hire a pooper scooper (our answers)
@@ -855,7 +858,7 @@ ${FILE_PAGES.filter((x) => x.type !== 'blogindex').map((x) => '- [' + x.h1 + '](
 - [FAQ](${ORIGIN}/faq/): all of our answers
 - [[[bf:Start your free month||Book now]]](${ORIGIN}/book/): sign up online in about 2 minutes
 - [Areas we serve](${ORIGIN}/pooper-scooper/): every town and ZIP code we scoop
-- [Buckeye](${ORIGIN}/pooper-scooper/buckeye-az/), [Verrado](${ORIGIN}/pooper-scooper/buckeye-az/verrado/), [Goodyear](${ORIGIN}/pooper-scooper/goodyear-az/), [Litchfield Park](${ORIGIN}/pooper-scooper/litchfield-park-az/), [Citrus Park and Waddell](${ORIGIN}/pooper-scooper/citrus-park-az/): town pages
+- [Buckeye](${ORIGIN}/pooper-scooper/buckeye-az/), [Verrado](${ORIGIN}/pooper-scooper/buckeye-az/verrado/), [Goodyear](${ORIGIN}/pooper-scooper/goodyear-az/), [Litchfield Park](${ORIGIN}/pooper-scooper/litchfield-park-az/), [Citrus Park](${ORIGIN}/pooper-scooper/citrus-park-az/), [Waddell](${ORIGIN}/pooper-scooper/waddell-az/): town pages
 - [Privacy Policy](${ORIGIN}/privacy/)
 - [Terms of Service](${ORIGIN}/terms/)
 - [Text Message Terms](${ORIGIN}/texts/)
@@ -916,10 +919,10 @@ fs.writeFileSync(path.join(DIST, '_redirects'), `/staff /crew/ 301
 /where-we-scoop /pooper-scooper/ 301
 /estrella /pooper-scooper/goodyear-az/ 301
 /sundance /pooper-scooper/buckeye-az/ 301
-/waddell /pooper-scooper/citrus-park-az/ 301
-/waddell/ /pooper-scooper/citrus-park-az/ 301
-/pooper-scooper/waddell-az /pooper-scooper/citrus-park-az/ 301
-/pooper-scooper/waddell-az/ /pooper-scooper/citrus-park-az/ 301
+/waddell /pooper-scooper/waddell-az/ 301
+/waddell/ /pooper-scooper/waddell-az/ 301
+/waddell-az /pooper-scooper/waddell-az/ 301
+/waddell-az/ /pooper-scooper/waddell-az/ 301
 /turf-odor-treatment /pricing/ 301
 /turf-odor-treatment/ /pricing/ 301
 /prices /pricing/ 301

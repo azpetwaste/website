@@ -437,6 +437,8 @@ PAGE_CSS = HDR_CSS + _min(r"""
 /* areas we serve */
 .apw .wh{display:grid;grid-template-columns:minmax(0,1fr);gap:26px}
 .apw .wh-c .tl{margin-top:18px}
+.apw .wh-t{margin:6px 0 0;font-size:16px;line-height:1.9;color:var(--ink2)}
+.apw .wh-t a{color:var(--ink);font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px;text-decoration-color:var(--accent)}
 
 /* questions */
 .apw .qs-h .lead{max-width:30em}

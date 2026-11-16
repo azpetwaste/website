@@ -284,7 +284,7 @@ TOWNS['litchfield'] = dict(
                                    'Big yard? We walk it in rows.'),
         ('Savannah', '85340', 'Savannah is near Camelback Road and Perryville Road, with bigger lots and a neighborhood playground.'),
         ('Windrose', '85340', 'Windrose is near Perryville Road and Camelback Road, with a big park at Missouri Avenue and 189th Avenue. '
-                              'Part of Windrose uses Litchfield Park 85340 and part uses Waddell 85355. We scoop both.'),
+                              'Part of Windrose uses Litchfield Park 85340 and part uses <a href="CityWaddell.dc.html">Waddell</a> 85355. We scoop both.'),
         ('Canyon Views', '85340', 'Canyon Views is at Jackrabbit Trail and Montebello Avenue. It is part of Buckeye, but the mail says Litchfield Park 85340. '
                                   'Either way, we come to you.'),
         ('Allen Ranches', '85340', 'Allen Ranches is a newer neighborhood with Litchfield Park 85340 addresses inside the City of Glendale. We scoop it too.'),
@@ -314,31 +314,27 @@ TOWNS['litchfield'] = dict(
     ],
 )
 
-# ---------- Citrus Park and Waddell (85355) ----------
+# ---------- Citrus Park (the south part of Waddell ZIP 85355, plus a few 85340 homes) ----------
 TOWNS['citrus'] = dict(
-    zips=[('85355', 'Waddell and Citrus Park'), ('85340', 'Citrus Park homes with Litchfield Park addresses')],
-    hoods_h2='Citrus Park and Waddell neighborhoods we scoop',
-    hoods_intro='We scoop every home in Waddell ZIP 85355, including all of Citrus Park. '
-                'Some Citrus Park homes have Litchfield Park 85340 addresses, and we scoop those too.',
+    zips=[('85355', 'Citrus Park homes with Waddell addresses'), ('85340', 'Citrus Park homes with Litchfield Park addresses')],
+    hoods_h2='Citrus Park neighborhoods we scoop',
+    hoods_intro='We scoop every home in Citrus Park. Most homes here have Waddell 85355 addresses. '
+                'Some have Litchfield Park 85340 addresses, and we scoop those too. '
+                'Live north of Northern Avenue? See our <a href="CityWaddell.dc.html">Waddell page</a>.',
     hoods=[
         ('Citrus Park', '85355', 'Citrus Park is east of Perryville Road and south of Northern Avenue, between Goodyear and Glendale. '
                                  'It is not part of any city. It is known for big lots, horse properties and flood irrigation.'),
         ('Clearwater Farms', '85355', 'Clearwater Farms is around Citrus Road and Glendale Avenue. Many lots are one to two acres, with horse corrals and irrigated grass. '
                                       'Big green yards hide poop, so we walk them in rows.'),
         ('Tara Estates', '85355', 'Tara Estates has large homes built from 2006 on. Big homes come with big yards to keep clean.'),
-        ('Sentiero at Windrose', '85355', 'Sentiero is the Waddell part of Windrose, on the Litchfield Park border, with greenbelts, parks and trails.'),
-        ('White Tank Foothills', '85355', 'White Tank Foothills is a growing area of new homes in Waddell. New homes mean new turf and rock yards, and we clean both.'),
-        ('Zanjero Pass', '85355', 'Zanjero Pass is a newer neighborhood in Waddell with pickleball, a park, tot lots and trails.'),
-        ('Cortessa', '85355', 'Cortessa is a gated neighborhood off Peoria Avenue, and some lots are a full acre. Add your gate code in My Yard, and we take it from there.'),
-        ('Granite Vista', '85355', 'Granite Vista is off Cotton Lane near Olive Avenue. We scoop every home here.'),
-        ('Stonebridge Manor', '85355', 'Stonebridge Manor is on the east side of Waddell, and it uses Waddell 85355 addresses. Same price, same weekly visit.'),
+        ('Montana Farms', '85355', 'Montana Farms is north of Bethany Home Road, between Citrus Road and Cotton Lane. We scoop every home here.'),
         ('Russell Ranch', '85340', 'Russell Ranch is near Camelback Road and Citrus Road, inside the Citrus Park area, with Litchfield Park addresses. '
                                    'Some lots are close to an acre.'),
         ('Savannah', '85340', 'Savannah is near Camelback Road and Perryville Road, inside the Citrus Park area, with Litchfield Park addresses.'),
     ],
     sections=[
-        ('rules', 'Citrus Park and Waddell rules about dog poop', [
-            ('County land, county rules', 'Citrus Park and Waddell are not part of a city, so Maricopa County rules apply. '
+        ('rules', 'Citrus Park rules about dog poop', [
+            ('County land, county rules', 'Citrus Park is not part of a city, so Maricopa County rules apply. '
                                           'Dogs must be fenced in or on a leash 6 feet long or shorter. '
                                           'The county health code treats animal waste as trash that must be handled so it does not breed insects.'),
             ('Pick up before water day', 'Flood irrigation can spread dog poop across the whole yard. '
@@ -351,11 +347,72 @@ TOWNS['citrus'] = dict(
                                                   'Dogs are welcome on a leash 6 feet long or shorter. Bring bags and carry the poop out.'),
             ('Park hours', 'From May to October, the park is open 5 a.m. to 9 p.m. From November to April, it is open 6 a.m. to 8 p.m. '
                            'In summer, hike early and bring water for your dog.'),
-            ('Neighborhood parks', 'Windrose has a big community park at Missouri Avenue and 189th Avenue. '
-                                   'Newer neighborhoods, like Zanjero Pass and White Tank Foothills, have their own parks and trails.'),
+            ('Neighborhood parks', 'Windrose, just west of Citrus Park, has a big community park at Missouri Avenue and 189th Avenue.'),
         ]),
         ('year', 'Your Citrus Park yard all year', seasons('Citrus Park', 'Citrus Park summers are hot. In July, the normal high in the Phoenix area is about 106 degrees.')),
-        ('ask', 'What to ask before you hire a pooper scooper in Citrus Park', ask('Citrus Park', 'Waddell ZIP 85355, including all of Citrus Park')),
+        ('ask', 'What to ask before you hire a pooper scooper in Citrus Park', ask('Citrus Park', 'Citrus Park, with Waddell 85355 or Litchfield Park 85340 addresses')),
+    ],
+)
+
+# ---------- Waddell (85355) ----------
+# Checked November 16, 2026. The sources for every line are in research/waddell-sources.md.
+# Waddell is a place name, not a city. Most of it is county land. Zanjero Pass was annexed by the City of Glendale.
+TOWNS['waddell'] = dict(
+    zips=[('85355', 'Waddell')],
+    hoods_h2='Waddell neighborhoods we scoop',
+    hoods_intro='We scoop every home with a Waddell 85355 address. These are some of the neighborhoods we cover. '
+                'If your ZIP is 85355 and you do not see your neighborhood, we still come to you.',
+    hoods=[
+        ('White Tank Foothills', '85355', 'White Tank Foothills is near Northern Avenue and Citrus Road, west of Loop 303. '
+                                          'It is planned for up to 1,746 homes, with parks, playgrounds, ramadas and sport courts. '
+                                          'New homes mean new turf and rock yards, and we clean both.'),
+        ('Zanjero Pass', '85355', 'Zanjero Pass is at Citrus Road and Olive Avenue, with a park, pickleball courts, tot lots and walking trails. '
+                                  'It is inside the City of Glendale, but the mail says Waddell 85355. Either way, we come to you.'),
+        ('Cortessa', '85355', 'Cortessa is off Peoria Avenue at Cortessa Parkway, with walking paths and playgrounds. '
+                              'Laureate at Cortessa is the gated part, with larger homes. Add your gate code in My Yard, and we take it from there.'),
+        ('Granite Vista', '85355', 'Granite Vista is near Olive Avenue and Cotton Lane, a short way west of Loop 303. '
+                                   'It has a park and a playground, and we scoop every street.'),
+        ('Stonebridge Manor', '85355', 'Stonebridge Manor is off Peoria Avenue, east of Loop 303. Homes here were built from 2025 on. '
+                                       'Neighbors share a park, a playground, walking trails and a bocce court.'),
+        ('Sentiero at Windrose', '85355', 'Sentiero is a newer part of Windrose, on the Litchfield Park border, with parks, trails, tot lots and green space. '
+                                          'Part of Windrose uses Litchfield Park 85340. We scoop both.'),
+        ('Sonoran Ridge Estates', '85355', 'Sonoran Ridge Estates is a gated neighborhood near Olive Avenue, minutes from White Tank Mountain Regional Park. '
+                                           'Some lots are three quarters of an acre or more. Big yard? We walk it in rows.'),
+        ('Twelve Oaks Estates', '85355', 'Twelve Oaks Estates is near Sarival Road and Peoria Avenue. Lots here are close to an acre, '
+                                         'so there is a lot of yard to keep clean.'),
+        ('Citrus Park', '85355', 'Citrus Park is the south part of the Waddell ZIP code. It is known for big lots, horse properties and flood irrigation. '
+                                 '<a href="CityCitrusPark.dc.html">See our Citrus Park page</a>.'),
+    ],
+    sections=[
+        ('rules', 'Waddell rules about dog poop', [
+            ('Waddell is not a city', 'Waddell has had its own post office since 1937, but it never became a city. '
+                                      'Most homes here sit on county land, so Maricopa County rules apply. '
+                                      'Dogs must be kept in on your own land, or walked on a leash 6 feet long or shorter.'),
+            ('The county health code', 'The county health code treats animal waste as trash. It must be handled so it does not breed insects. '
+                                       'We did not find a county rule that says how often you must scoop your own yard.'),
+            ('Homes inside Glendale', 'Some Waddell homes, like the ones in Zanjero Pass, are inside the City of Glendale. '
+                                      'Glendale city code says animal waste must be cleaned out of yards at least twice a week. '
+                                      'Our twice a week plan matches that rule.'),
+            ('HOA rules', 'Most newer Waddell neighborhoods have an HOA. Cortessa, Stonebridge Manor and Windrose all do. '
+                          'HOAs care about smell, flies and how a yard looks, so a clean yard keeps the letters away.'),
+            ('Where the poop goes', 'Bag it, tie the bag, and put it in your trash can. Never leave it in a wash or a storm drain.'),
+        ]),
+        ('parks', 'Where to walk your dog in Waddell', [
+            ('White Tank Mountain Regional Park', 'The park is at 20304 W White Tank Mountain Road, off Olive Avenue, right in Waddell. '
+                                                  'At nearly 30,000 acres, it is the biggest regional park in Maricopa County, with about 30 miles of trails. '
+                                                  'Dogs are welcome on a leash 6 feet long or shorter.'),
+            ('Good trails for dogs', 'The county names five trails here as good for dogs: Black Rock Loop, Gray Fox, South, Waddell and Waterfall. '
+                                     'The Waterfall Trail is 1.8 miles out and back, and the first half mile has a hard, smooth surface. '
+                                     'The Waddell Trail is an easy 2 miles out and back.'),
+            ('Bags, water and heat', 'Park rules say you must pick up after your dog. Bag it and use the trash cans at the trailhead. '
+                                     'The park has dog water fountains, but bring your own water and a bowl too. '
+                                     'On hot days, touch the ground first. If it burns your hand, it will burn paws.'),
+            ('Park hours', 'From May to October, the park is open 5 a.m. to 9 p.m. From November to April, it is open 6 a.m. to 8 p.m. In summer, go early.'),
+            ('Close to home', 'For a short walk, Zanjero Pass, White Tank Foothills, Granite Vista and Stonebridge Manor each have a park or a playground of their own.'),
+        ]),
+        ('year', 'Your Waddell yard all year', seasons('Waddell', 'Waddell summers are hot, and they last a long time. '
+                                                               'In July, the normal high in the Phoenix area is about 106 degrees.')),
+        ('ask', 'What to ask before you hire a pooper scooper in Waddell', ask('Waddell', 'Waddell ZIP 85355')),
     ],
 )
 

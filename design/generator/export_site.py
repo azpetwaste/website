@@ -36,6 +36,7 @@ LINKS = {
     'Main.dc.html': '/',
     'CityVerrado.dc.html': '/pooper-scooper/buckeye-az/verrado/',
     'CityCitrusPark.dc.html': '/pooper-scooper/citrus-park-az/',
+    'CityWaddell.dc.html': '/pooper-scooper/waddell-az/',
     'CityGoodyear.dc.html': '/pooper-scooper/goodyear-az/',
     'CityLitchfieldPark.dc.html': '/pooper-scooper/litchfield-park-az/',
     'MyYard.dc.html': '/account/',
@@ -205,24 +206,28 @@ import truemap  # noqa: E402
 
 
 def static_map(links, label):
-    svg = truemap.build('pV', 'pC', 'pG', 'pL', 'pB')
+    svg = truemap.build('pV', 'pC', 'pG', 'pL', 'pB', 'pW')
 
     def rep(m):
+        if links[m.group(2)] is None:  # this map has no page of its own for the shape, so it is left out
+            return ''
         href, name = links[m.group(2)]
         return '<a href="%s" aria-label="%s"><path class="mplc mlink" d="%s"></path></a>' % (href, name, m.group(1))
     svg, n = re.subn(r'<path class="mplc" d="([^"]+)" style="fill: \{\{ (\w+) \}\};" onClick="\{\{ \w+ \}\}"></path>', rep, svg)
-    if n != 5:
-        sys.exit('static map: expected 5 town shapes, found %d' % n)
+    if n != 6:
+        sys.exit('static map: expected 6 town shapes, found %d' % n)
     return re.sub(r' role="img" aria-label="[^"]*"', ' aria-label="%s"' % label, svg, count=1)
 
 
 RES = {'bB': ('/pooper-scooper/buckeye-az/', 'Pooper scooper in Buckeye'), 'bG': ('/pooper-scooper/goodyear-az/', 'Pooper scooper in Goodyear'),
-       'bL': ('/pooper-scooper/litchfield-park-az/', 'Pooper scooper in Litchfield Park'), 'bC': ('/pooper-scooper/citrus-park-az/', 'Pooper scooper in Citrus Park'),
-       'bV': ('/pooper-scooper/buckeye-az/verrado/', 'Pooper scooper in Verrado')}
+       'bL': ('/pooper-scooper/litchfield-park-az/', 'Pooper scooper in Litchfield Park'), 'bW': ('/pooper-scooper/waddell-az/', 'Pooper scooper in Waddell'),
+       'bC': ('/pooper-scooper/citrus-park-az/', 'Pooper scooper in Citrus Park'), 'bV': ('/pooper-scooper/buckeye-az/verrado/', 'Pooper scooper in Verrado')}
+# Homes: Waddell (all of ZIP 85355) and Citrus Park (its south end) each open their own page.
+# HOAs and businesses: one page covers both, so the ZIP shape links to it and the Citrus Park shape is left out.
 COM = {'bB': ('/commercial-pet-waste-removal/buckeye-az/', 'Commercial pet waste removal in Buckeye'),
        'bG': ('/commercial-pet-waste-removal/goodyear-az/', 'Commercial pet waste removal in Goodyear'),
        'bL': ('/commercial-pet-waste-removal/litchfield-park-az/', 'Commercial pet waste removal in Litchfield Park'),
-       'bC': ('/commercial-pet-waste-removal/citrus-park-az/', 'Commercial pet waste removal in Citrus Park'),
+       'bW': ('/commercial-pet-waste-removal/citrus-park-az/', 'Commercial pet waste removal in Citrus Park and Waddell'), 'bC': None,
        'bV': ('/commercial-pet-waste-removal/buckeye-az/', 'Commercial pet waste removal in Verrado and Buckeye')}
 _mcss = truemap.MAP_CSS.split('}', 1)[1]  # drop the home page .map box rule
 content['svcmap'] = {

@@ -142,7 +142,7 @@ DOG_SVG = ('<svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">'
 LBS_PER_DOG = '274'
 
 AREA_METHODS = r"""  _zipArea(zip) {
-    return ({ '85326': 'buckeye', '85396': 'buckeye', '85338': 'goodyear', '85395': 'goodyear', '85340': 'litchfield', '85355': 'citrus' })[zip] || '';
+    return ({ '85326': 'buckeye', '85396': 'buckeye', '85338': 'goodyear', '85395': 'goodyear', '85340': 'litchfield', '85355': 'waddell' })[zip] || '';
   }
   _checkZip() {
     this.setState({ zipChecked: true, area: this._zipArea(this.state.zip) });
@@ -152,7 +152,7 @@ AREA_METHODS = r"""  _zipArea(zip) {
     const areas = {
       buckeye: { name: 'Buckeye', meta: 'Buckeye, ZIP 85326 and 85396' },
       verrado: { name: 'Verrado', meta: 'Verrado, in Buckeye, ZIP 85396' },
-      citrus: { name: 'Citrus Park', meta: 'Citrus Park and Waddell, ZIP 85355' },
+      citrus: { name: 'Citrus Park', meta: 'Citrus Park, in Waddell ZIP 85355' },
       waddell: { name: 'Waddell', meta: 'Waddell and Citrus Park, ZIP 85355' },
       goodyear: { name: 'Goodyear', meta: 'Goodyear, ZIP 85338 and 85395' },
       litchfield: { name: 'Litchfield Park', meta: 'Litchfield Park, ZIP 85340' }
@@ -161,12 +161,12 @@ AREA_METHODS = r"""  _zipArea(zip) {
       const on = s.area === id;
       return { on: on, bg: on ? 'var(--ink)' : 'var(--card)', fg: on ? 'var(--bg)' : 'var(--ink)', pick: () => this.setState({ area: id, zip: '', zipChecked: false }) };
     };
-    const blob = (id, also) => (s.area === id || (also && s.area === also) ? (s.dark ? 'rgba(255,74,28,.58)' : 'rgba(255,74,28,.42)') : 'rgba(255,74,28,0)');
+    const blob = (id) => (s.area === id ? (s.dark ? 'rgba(255,74,28,.58)' : 'rgba(255,74,28,.42)') : 'rgba(255,74,28,0)');
     const a = areas[s.area];
     const byZip = s.zipChecked && !!this._zipArea(s.zip);
     return {
       mB: pin('buckeye'), mV: pin('verrado'), mC: pin('citrus'), mW: pin('waddell'), mG: pin('goodyear'), mL: pin('litchfield'),
-      bB: blob('buckeye'), bV: blob('verrado'), bC: blob('citrus', 'waddell'), bG: blob('goodyear'), bL: blob('litchfield'),
+      bB: blob('buckeye'), bV: blob('verrado'), bC: blob('citrus'), bW: blob('waddell'), bG: blob('goodyear'), bL: blob('litchfield'),
       areaOn: !!a,
       areaName: byZip ? 'ZIP ' + s.zip : (a ? a.name : ''),
       areaMeta: a ? a.meta : '',
@@ -179,7 +179,7 @@ AREA_METHODS = r"""  _zipArea(zip) {
     };
   }"""
 
-MAP = truemap.build('mV.pick', 'mC.pick', 'mG.pick', 'mL.pick', 'mB.pick')
+MAP = truemap.build('mV.pick', 'mC.pick', 'mG.pick', 'mL.pick', 'mB.pick', 'mW.pick')
 SOON_NOTE = ('<div class="soon">'
              '<p class="soon-h">Coming soon</p>'
              '<p class="soon-l">Surprise, Peoria, Glendale and Laveen.</p>'
@@ -307,7 +307,7 @@ DD_AREAS = ('<div class="ddp">'
     '<a href="CityGoodyear.dc.html"><b>Goodyear</b></a>'
     '<a href="CityLitchfieldPark.dc.html"><b>Litchfield Park</b></a>'
     '<a href="CityCitrusPark.dc.html"><b>Citrus Park</b></a>'
-    '<a href="CityCitrusPark.dc.html"><b>Waddell</b></a>'
+    '<a href="CityWaddell.dc.html"><b>Waddell</b></a>'
     '<a href="AreasWeServe.dc.html" class="dda">See all service areas</a></div>')
 DD_COMM = ('<div class="ddp ddg"><div><p class="ddh">Services</p>'
     '<a href="CommercialHoa.dc.html"><b>HOA common areas</b><span>Greenbelts, trails and parks</span></a>'
@@ -411,7 +411,7 @@ def _footer(pre):
             '        <a href="CityGoodyear.dc.html" class="flink">Goodyear</a>\n'
             '        <a href="CityLitchfieldPark.dc.html" class="flink">Litchfield Park</a>\n'
             '        <a href="CityCitrusPark.dc.html" class="flink">Citrus Park</a>\n'
-            '        <a href="CityCitrusPark.dc.html" class="flink">Waddell</a>\n'
+            '        <a href="CityWaddell.dc.html" class="flink">Waddell</a>\n'
             '        <a href="Commercial.dc.html" class="flink">Commercial</a>\n'
             '      </div>\n'
             '      <div>\n'
@@ -447,7 +447,7 @@ def _footer(pre):
 
 _NAV = [('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Commercial.dc.html', 'Commercial'), ('Faq.dc.html', 'FAQ')]
 _MNAV = [('Main.dc.html', 'Home'), ('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Commercial.dc.html', 'Commercial'), ('Faq.dc.html', 'FAQ'), ('Blog.dc.html', 'Blog'),
-         ('CityBuckeye.dc.html', 'Buckeye'), ('CityVerrado.dc.html', 'Verrado'), ('CityGoodyear.dc.html', 'Goodyear'), ('CityLitchfieldPark.dc.html', 'Litchfield Park'), ('CityCitrusPark.dc.html', 'Citrus Park'), ('CityCitrusPark.dc.html', 'Waddell')]
+         ('CityBuckeye.dc.html', 'Buckeye'), ('CityVerrado.dc.html', 'Verrado'), ('CityGoodyear.dc.html', 'Goodyear'), ('CityLitchfieldPark.dc.html', 'Litchfield Park'), ('CityCitrusPark.dc.html', 'Citrus Park'), ('CityWaddell.dc.html', 'Waddell')]
 HEADER_MAIN = _header('Main.dc.html', _NAV)
 HEADER_CITY = _header('Main.dc.html', _NAV)
 MENU_MAIN = _menu(_MNAV)

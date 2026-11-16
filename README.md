@@ -1,6 +1,6 @@
 # arizonapetwaste.com
 
-The Arizona Pet Waste website: home page with sign up built in, four town pages, policies, sign in (email code), Stripe checkout with the first month free, and My Yard.
+The Arizona Pet Waste website: home page with sign up built in, six town pages, policies, sign in (email code), Stripe checkout with the first month free, and My Yard.
 
 Hosting: Cloudflare Pages. Accounts and data: Supabase. Payments: Stripe. Email: Resend.
 Everything is under info@arizonapetwaste.com.
@@ -10,7 +10,7 @@ Everything is under info@arizonapetwaste.com.
 | URL | What it is | Google |
 |---|---|---|
 | `/` | Home page with the sign up sheet (phone) or sign up panel (computer) | indexed |
-| `/verrado/` `/citrus-park/` `/goodyear/` `/litchfield-park/` | Town pages with map, neighborhoods, local questions | indexed |
+| `/pooper-scooper/buckeye-az/` `/pooper-scooper/buckeye-az/verrado/` `/pooper-scooper/goodyear-az/` `/pooper-scooper/litchfield-park-az/` `/pooper-scooper/citrus-park-az/` `/pooper-scooper/waddell-az/` | Town pages with map, neighborhoods, local questions. Short links like `/verrado/` and `/waddell/` forward to them | indexed |
 | `/privacy/` `/terms/` `/texts/` `/accessibility/` | Policies | indexed |
 | `/book/` | Sign up on its own page (for QR codes, yard signs, texts) | not indexed |
 | `/account/` | My Yard: sign in, gate code, dog names, texts, card and cancel | not indexed |
