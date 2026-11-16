@@ -369,10 +369,11 @@ F_GLOBE = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="c
 SEAL = look.seal_svg()
 SEAL_FAM = look.seal_svg(glyph='heart')
 SEALS = [('Bonded', '$50,000 bond'), ('[[ins:Insurance||Insured]]', '$1,000,000 liability'), ('Background checked', 'Every team member')]
-SEALS_ARIA = '[[ins:Bonded and background checked. Insurance starts November 16.||Bonded, insured and background checked.]] Family owned and operated.'
+SEALS_ARIA = '[[ins:Bonded and background checked.||Bonded, insured and background checked.]] Family owned and operated.'
 # One plain line by every sign up button. During the sale it names the 60 day rule, so "no contract" never stands alone.
 NO_CONTRACT = '[[bf:No long term contract. Keep your plan 60 days and your free month stays free.||No contract.]]'
-COVERED = '[[ins:Bonded. Insurance starts November 16.||Bonded and insured.]]'
+# Joe, Nov 15, 2026 (the night before launch): no "starts November 16" by the hero or on the seals. Until the insurance date the line is just "Bonded."
+COVERED = '[[ins:Bonded.||Bonded and insured.]]'
 _F_PHONE = ICON_PHONE.replace('stroke="#FF6B42"', 'stroke="currentColor"')
 _F_SMS = ICON_CHAT
 _F_MAIL = ICON_MAIL.replace('stroke="#FF6B42"', 'stroke="currentColor"')
