@@ -198,13 +198,13 @@ from scene import saguaro, agave, barrel  # noqa: E402
 FAQ_ITEMS = [
     ('[[bf:What is the Black Friday sale?||Is my first cleanup free?]]', '[[bf:Sign up by November 30 and your first month is free. The sale ends at midnight on November 30. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.||Yes. Your first cleanup is free when you sign up.]]'),
     ('How much does it cost?', 'Weekly pickup is about $25 a week for 1 or 2 dogs. We bill it once a month: $108 on the 1st. [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]'),
-    ('Is the spray really free?', 'Yes. At every visit, we spray deodorizer on the spots your dogs use most. It costs you nothing.'),
+    ('Is the spray really free?', 'Yes. Deodorizing is included free with every visit. We spray the spots your dogs use most. It costs you nothing.'),
     ('Do you come in the summer heat?', 'Yes. In summer we start early, so your yard is done before the worst heat of the day.'),
     ('What if it storms?', 'Light rain is fine. If there is lightning, we wait until it is safe. We text you if your time changes.'),
-    ('Do you clean artificial turf?', 'Yes. We pick up every pile and spray the spots your dogs use most. Turf can smell in the heat. For a deep clean, add a turf odor treatment for $35.'),
+    ('Do you clean artificial turf?', 'Yes. We pick up every pile and spray the spots your dogs use most. Turf can smell in the heat. Deodorizing is included free with every visit.'),
     ('Where does the poop go?', 'We haul it away. We bag it, tie it shut and take it with us. It does not go in your trash can.'),
     ('Do you background check your team?', 'Yes. Every team member must pass a background check before they work in a yard. Your safety and our safety come first.'),
-    ('Are you bonded and insured?', '[[ins:We are bonded today. We carry a $50,000 business service bond. Our $1,000,000 general liability insurance starts November 16, 2026.||Yes. We carry a $50,000 business service bond and $1,000,000 in general liability insurance.]] See the details on our bond and insurance page.'),
+    ('Are you bonded and insured?', 'Yes. We are insured and bonded. We carry a $50,000 business service bond and $1,000,000 in general liability insurance. See the details on our bond and insurance page.'),
     ('Do you clean your tools?', 'Yes. We clean our boots and tools after every yard. That keeps germs from going from yard to yard.'),
     ('Can I pick my day?', 'No. We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window.'),
     ('Can you come today? We have a party.', 'Yes. Text us and we can come the same day for $49. It goes on your next bill on the 1st.'),
@@ -279,7 +279,7 @@ PRICE_TABLE = (
     '</tbody></table>'
     '<p class="ptab-w">' + WEEK_NOTE + '</p>'
     '<p class="ptab-x">Extras</p>'
-    + _xrow('Deodorizer spray', 'Free every visit') + _xrow('Turf odor treatment', '$35') + _xrow('Same day pickup', '$49') + _xrow('One time cleanup', '$95') +
+    + _xrow('Deodorizing with every visit', 'Included free') + _xrow('Same day pickup', '$49') + _xrow('One time cleanup', '$95') +
     '<p class="ptab-n">Each dog after two adds $13 a month ($9 every other week). [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]</p>'
 )
 
@@ -368,12 +368,12 @@ F_CLOCK = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="c
 F_GLOBE = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18"></path><path d="M12 3c2.6 2.8 2.6 15.2 0 18c-2.600-2.800-2.600-15.200 0-18z"></path></svg>'
 SEAL = look.seal_svg()
 SEAL_FAM = look.seal_svg(glyph='heart')
-SEALS = [('Bonded', '$50,000 bond'), ('[[ins:Insurance||Insured]]', '$1,000,000 liability'), ('Background checked', 'Every team member')]
-SEALS_ARIA = '[[ins:Bonded and background checked.||Bonded, insured and background checked.]] Family owned and operated.'
+SEALS = [('Bonded', '$50,000 bond'), ('Insured', '$1,000,000 liability'), ('Background checked', 'Every team member')]
+SEALS_ARIA = 'Bonded, insured and background checked. Family owned and operated.'
 # One plain line by every sign up button. During the sale it names the 60 day rule, so "no contract" never stands alone.
 NO_CONTRACT = '[[bf:No long term contract. Keep your plan 60 days and your free month stays free.||No contract.]]'
-# Joe, Nov 15, 2026 (the night before launch): no "starts November 16" by the hero or on the seals. Until the insurance date the line is just "Bonded."
-COVERED = '[[ins:Bonded.||Bonded and insured.]]'
+# Joe, Nov 16, 2026: the insurance is in force. The claim is in the present tense and has no start date: "Insured and bonded."
+COVERED = 'Insured and bonded.'
 _F_PHONE = ICON_PHONE.replace('stroke="#FF6B42"', 'stroke="currentColor"')
 _F_SMS = ICON_CHAT
 _F_MAIL = ICON_MAIL.replace('stroke="#FF6B42"', 'stroke="currentColor"')
@@ -463,7 +463,7 @@ CK_SVG = '<svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-widt
 CK_ITEMS = [('A 30 minute time window', 'We text it to you the night before.'),
             ('A photo of your latched gate', 'After every visit. No photo? That visit is free.'),
             ('We haul the poop away', 'We bag it and take it with us. Nothing goes in your trash can.'),
-            ('Free deodorizer spray', 'On the spots your dogs use most.'),
+            ('Deodorizing included free', 'With every visit, on the spots your dogs use most.'),
             ('A free return within 24 hours', 'If we miss a pile.'),
             ('4 free skips a year', 'One tap in My Yard. After your first 60 days, you can pause for up to 120 days too.'),
             ('Every home in 6 ZIP codes', 'Buckeye, Verrado, Goodyear, Litchfield Park, Citrus Park and Waddell.'),

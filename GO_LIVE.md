@@ -123,4 +123,6 @@ Sample messages:
 1. Arizona Pet Waste: Hi Sam, we scoop your yard tomorrow between 9:00 and 9:30 AM. Reply STOP to opt out.
 2. Arizona Pet Waste: We are on the way. Watch the truck in My Yard: arizonapetwaste.com/account
 3. Arizona Pet Waste: All done. Your gate is shut and latched. See the photo in My Yard: arizonapetwaste.com/account. Reply HELP for help.
-4. Arizona Pet Waste: Turf smelling in the heat? Add a turf odor treatment to your next visit for $35. Reply STOP to opt out.
+4. Arizona Pet Waste: Guests coming over? We can scoop your yard the same day for $49. Text us back to book it. Reply STOP to opt out.
+
+Sample 4 changed on November 16, 2026. It used to offer a turf odor treatment for $35. Joe ended that paid extra: deodorizing is included free with every visit. If the old sample was already sent to Twilio, swap it for this one on the next edit of the campaign.

@@ -18,6 +18,15 @@ const routes = new Set(pages.map((p) => '/' + path.relative(DIST, p).replace(/in
 const DASH = /[-‐-―−]/;
 let problems = 0;
 const bad = (page, msg) => { problems++; console.log('  x', page, msg); };
+// Joe, Nov 16, 2026: deodorizing is included free with every visit, and the insurance is in force.
+// Nothing sells a turf odor treatment for a price, and nothing says the insurance starts on a date. Both run on the words with the tags taken out.
+const PAID_TURF = /turf odor treatment[^.\n]{0,40}\$\d|turf odor treatment","price":"[1-9]/i;
+const INS_DATE = /insurance[^.\n]{0,30}\bstart(s|ing)\b|starts Nov(ember)? 16/i;
+const owner = (page, text) => {
+  const words = text.replace(/<[^>]+>/g, ' ');
+  if (PAID_TURF.test(words)) bad(page, 'sells a paid turf odor treatment (deodorizing is included free with every visit)');
+  if (INS_DATE.test(words)) bad(page, 'says the insurance starts on a date (say "Insured and bonded")');
+};
 const indexable = new Set();
 
 for (const file of pages) {
@@ -50,6 +59,7 @@ for (const file of pages) {
     if (/<span style="color: var\(--accent\);">[.?]<\/span>|<span class="dot">/.test(html)) bad(rel, 'colored period after a heading');
     if (!/rel="preload" href="\/assets\/fonts\//.test(html)) bad(rel, 'does not preload the font');
   }
+  owner(rel, html);
   // every image says what it is (alt="" is fine for pictures that are only decoration)
   for (const img of doc.querySelectorAll('img')) {
     if (!img.hasAttribute('alt')) bad(rel, 'image with no alt: ' + (img.getAttribute('src') || '').slice(0, 60));
@@ -91,5 +101,7 @@ for (const file of pages) {
   if (!/^Sitemap: https:\/\/\S+\/sitemap\.xml$/m.test(robots)) bad('/robots.txt', 'no Sitemap line');
   console.log('sitemap  ' + locs.size + ' pages');
 }
+// the file AI search reads gets the same two owner checks as the pages
+if (fs.existsSync(path.join(DIST, 'llms.txt'))) owner('/llms.txt', fs.readFileSync(path.join(DIST, 'llms.txt'), 'utf8'));
 console.log(problems ? '\n' + problems + ' problems' : '\nAll checks passed.');
 process.exit(problems ? 1 : 0);

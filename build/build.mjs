@@ -22,10 +22,9 @@ const content = JSON.parse(fs.readFileSync(path.join(SRC, 'boards/content.json')
 // Every file the build writes goes through bfx(), so one date flips the whole site. DEAL_ON=1 or DEAL_ON=0 forces a side for testing.
 const DEAL_END = '2026-12-01T06:59:59Z'; // midnight in Phoenix as November 30 ends
 const DEAL_ON = process.env.DEAL_ON ? process.env.DEAL_ON === '1' : Date.now() < Date.parse(DEAL_END);
-// Insurance starts November 16, 2026. [[ins:before that day||from that day on]] works the same way as the sale tag.
-const INS_START = '2026-11-16T07:00:00Z';
-const INS_WAIT = process.env.INS_WAIT ? process.env.INS_WAIT === '1' : Date.now() < Date.parse(INS_START);
-const bfx = (t) => t.replace(/\[\[bf:([\s\S]*?)\|\|([\s\S]*?)\]\]/g, (m, on, off) => (DEAL_ON ? on : off)).replace(/\[\[ins:([\s\S]*?)\|\|([\s\S]*?)\]\]/g, (m, before, after) => (INS_WAIT ? before : after));
+// The insurance has been in force since November 16, 2026. Copy says so in the present tense with no start date: "Insured and bonded."
+// The [[ins:before||after]] tag is retired and no file uses it. If one ever comes back, only its second half is written.
+const bfx = (t) => t.replace(/\[\[bf:([\s\S]*?)\|\|([\s\S]*?)\]\]/g, (m, on, off) => (DEAL_ON ? on : off)).replace(/\[\[ins:([\s\S]*?)\|\|([\s\S]*?)\]\]/g, (m, before, after) => after);
 const _write = fs.writeFileSync.bind(fs);
 fs.writeFileSync = (p, data, ...rest) => _write(p, typeof data === 'string' ? bfx(data) : data, ...rest);
 // Google Tag Manager (for Google Ads). Google's own install: the script high in <head>, the noscript frame right after <body>.
@@ -287,17 +286,21 @@ const monthly = (name, price, desc) => ({
   priceSpecification: { '@type': 'UnitPriceSpecification', price: price.toFixed(2), priceCurrency: 'USD', unitText: 'MONTH', referenceQuantity: { '@type': 'QuantitativeValue', value: 1, unitCode: 'MON' } },
   itemOffered: { '@type': 'Service', name: name, provider: { '@id': BIZ_ID } }
 });
+// Joe, Nov 16, 2026: deodorizing is included free with every visit. There is no paid turf odor treatment. Every plan says so,
+// and the list of offers carries it as its own free line (price 0.00), so a reader of the schema sees it is included and not an extra.
+const SPRAY = 'Deodorizing included free with every visit';
 const OFFERS = [
-  monthly('Dog poop pickup every week', 108, 'For 1 or 2 dogs. About $25 a week, billed once a month. Each dog after two adds $13 a month. [[bf:First month free through November 30||First cleanup free]].'),
-  monthly('Dog poop pickup twice a week', 189, 'For 1 or 2 dogs. Each dog after two adds $13 a month. [[bf:First month free through November 30||First cleanup free]].'),
-  monthly('Dog poop pickup every other week', 75, 'For 1 or 2 dogs. Each dog after two adds $9 a month. [[bf:First month free through November 30||First cleanup free]].'),
-  { '@type': 'Offer', name: 'Turf odor treatment', price: '35.00', priceCurrency: 'USD', itemOffered: { '@type': 'Service', name: 'Turf odor treatment' } },
+  monthly('Dog poop pickup every week', 108, 'For 1 or 2 dogs. About $25 a week, billed once a month. Each dog after two adds $13 a month. ' + SPRAY + '. [[bf:First month free through November 30||First cleanup free]].'),
+  monthly('Dog poop pickup twice a week', 189, 'For 1 or 2 dogs. Each dog after two adds $13 a month. ' + SPRAY + '. [[bf:First month free through November 30||First cleanup free]].'),
+  monthly('Dog poop pickup every other week', 75, 'For 1 or 2 dogs. Each dog after two adds $9 a month. ' + SPRAY + '. [[bf:First month free through November 30||First cleanup free]].'),
+  { '@type': 'Offer', name: SPRAY, description: 'Part of every plan and every visit. We spray the spots your dogs use most. It is not sold as an extra.', price: '0.00', priceCurrency: 'USD',
+    itemOffered: { '@type': 'Service', name: 'Yard deodorizing', serviceType: 'Yard deodorizing', url: ORIGIN + '/turf-odor-treatment/', provider: { '@id': BIZ_ID } } },
   { '@type': 'Offer', name: 'One time yard cleanup', price: '95.00', priceCurrency: 'USD', itemOffered: { '@type': 'Service', name: 'One time dog poop cleanup' } }
 ];
 const business = {
   '@type': 'LocalBusiness', '@id': BIZ_ID, name: cfg.name, url: ORIGIN + '/',
   founder: { '@type': 'Person', name: 'Juan Gonzalez', jobTitle: 'Owner', homeLocation: { '@type': 'Place', name: 'Verrado, Buckeye, Arizona' } },
-  description: 'Dog poop pickup and pet waste removal for every home in Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell and Citrus Park (85355), Arizona. Weekly, twice a week, or every other week. [[bf:First month free||First cleanup free]], free deodorizer spray at every visit, and a photo of your latched gate after each visit. We haul the waste away. [[ins:Bonded.||Bonded and insured.]]',
+  description: 'Dog poop pickup and pet waste removal for every home in Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell and Citrus Park (85355), Arizona. Weekly, twice a week, or every other week. [[bf:First month free||First cleanup free]], deodorizing included free with every visit, and a photo of your latched gate after each visit. We haul the waste away. Insured and bonded.',
   telephone: '+1-623-309-6104', email: cfg.email,
   // A service area business: we go to the customer, so there is no street here on purpose. Town, state and country only.
   address: { '@type': 'PostalAddress', addressLocality: 'Buckeye', addressRegion: 'AZ', postalCode: '85396', addressCountry: 'US' },
@@ -305,7 +308,7 @@ const business = {
   logo: ORIGIN + '/assets/img/icon-512.png', image: [ORIGIN + '/assets/img/og.jpg'].concat(['team-portrait', 'scoop-rock', 'spray-turf', 'latch-gate', 'shirt-qr'].map((n) => ORIGIN + '/assets/img/photos/' + n + '.jpg')),
   priceRange: '$75 to $189 a month', currenciesAccepted: 'USD', paymentAccepted: 'Credit card, debit card, Apple Pay, Google Pay',
   areaServed: SERVED,
-  knowsAbout: ['Dog poop pickup', 'Pet waste removal', 'Pooper scooper service', 'Artificial turf odor treatment', 'Yard deodorizing'],
+  knowsAbout: ['Dog poop pickup', 'Pet waste removal', 'Pooper scooper service', 'Yard deodorizing'],
   slogan: 'No photo? That visit is free.',
   hasOfferCatalog: { '@type': 'OfferCatalog', name: 'Dog poop pickup plans', itemListElement: OFFERS }
 };
@@ -576,7 +579,7 @@ for (const t of TOWNS) {
     const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc docw"').replace('@@DOC@@', inner));
     const ld = [crumbs(url, [['Home', '/'], [pg.h1, route]])];
     if (pg.slug === 'pricing') ld.push({ '@type': 'Service', '@id': url + '#service', name: 'Pooper scooper service', serviceType: 'Pet waste removal', provider: { '@id': BIZ_ID }, areaServed: SERVED,
-      offers: [['Every week, 1 or 2 dogs', '108.00'], ['Twice a week, 1 or 2 dogs', '189.00'], ['Every other week, 1 or 2 dogs', '75.00']].map(([n, pr]) => ({ '@type': 'Offer', name: n, price: pr, priceCurrency: 'USD',
+      offers: [['Every week, 1 or 2 dogs', '108.00'], ['Twice a week, 1 or 2 dogs', '189.00'], ['Every other week, 1 or 2 dogs', '75.00']].map(([n, pr]) => ({ '@type': 'Offer', name: n, description: SPRAY + '.', price: pr, priceCurrency: 'USD',
         priceSpecification: { '@type': 'UnitPriceSpecification', price: pr, priceCurrency: 'USD', unitText: 'MONTH' } })) });
     built.push(page({ route, board: 'doc', index: true, title: pg.title, description: pg.description, fonts: e.b.fonts, css: [e.b.css], boards: [e], body: ssr(e), ld }));
   }
@@ -652,8 +655,10 @@ const FILE_PAGES = [];
     const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc docw"').replace('@@DOC@@', inner));
     const ld = [crumbs(url, trail)];
     if (pg.faq && pg.faq.length) ld.push(faqLd(url, pg.faq.map(([q, a]) => ({ q, a }))));
-    if (pg.type === 'service') ld.push({ '@type': 'Service', '@id': url + '#service', name: pg.service || pg.h1, serviceType: pg.serviceType || 'Pet waste removal', provider: { '@id': BIZ_ID },
-      areaServed: pg.area && PLACES[pg.area] ? place(PLACES[pg.area]) : SERVED, description: pg.description });
+    // "offer" in a page's front matter is a name and a price for the service on that page. The deodorizing page uses it to say the price is 0.00.
+    if (pg.type === 'service') ld.push(Object.assign({ '@type': 'Service', '@id': url + '#service', name: pg.service || pg.h1, serviceType: pg.serviceType || 'Pet waste removal', provider: { '@id': BIZ_ID },
+      areaServed: pg.area && PLACES[pg.area] ? place(PLACES[pg.area]) : SERVED, description: pg.description },
+    pg.offer ? { offers: { '@type': 'Offer', name: pg.offer.name, price: pg.offer.price, priceCurrency: 'USD' } } : {}));
     if (pg.type === 'blog') ld.push({ '@type': 'BlogPosting', '@id': url + '#post', headline: pg.h1, description: pg.description, datePublished: pg.date, dateModified: pg.updated || pg.date,
       author: { '@type': 'Organization', name: 'Arizona Pet Waste', url: ORIGIN + '/' }, publisher: { '@id': BIZ_ID }, mainEntityOfPage: url, image: ORIGIN + '/assets/img/og.jpg', inLanguage: 'en-US' });
     if (pg.type === 'blogindex') ld.push({ '@type': 'Blog', '@id': url + '#blog', name: 'Arizona Pet Waste dog care blog', publisher: { '@id': BIZ_ID },
@@ -737,13 +742,14 @@ if (cfg.indexNowKey) fs.writeFileSync(path.join(DIST, cfg.indexNowKey + '.txt'),
 const faqText = content.faq.main.map((x) => `- ${x.q} ${x.a}`).join('\n');
 fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 
-> Dog poop pickup (pet waste removal) for every home in six West Valley, Arizona ZIP codes, from a local company that is [[ins:bonded, with insurance starting November 16, 2026||bonded and insured]]: Buckeye (85326, 85396, with Verrado), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell with Citrus Park (85355). Weekly, twice a week or every other week. [[bf:First month free through November 30||First cleanup free]]. Free deodorizer spray at every visit. A photo of your latched gate after every visit, and a live map of our truck on visit day. We haul the waste away. [[bf:No long term contract.||No contract.]]
+> Dog poop pickup (pet waste removal) for every home in six West Valley, Arizona ZIP codes, from a local company that is insured and bonded: Buckeye (85326, 85396, with Verrado), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell with Citrus Park (85355). Weekly, twice a week or every other week. [[bf:First month free through November 30||First cleanup free]]. Deodorizing included free with every visit. A photo of your latched gate after every visit, and a live map of our truck on visit day. We haul the waste away. [[bf:No long term contract.||No contract.]]
 
 ## Prices (per month)
 - Every week: $108 for 1 or 2 dogs. That is about $25 a week, or about $25 a visit. Each dog after two adds $13.
 - Twice a week: $189 for 1 or 2 dogs. That is about $44 a week. Each dog after two adds $13.
 - Every other week: $75 for 1 or 2 dogs. That is about $17 a week. Each dog after two adds $9.
-- Turf odor treatment: $35. One time cleanup: $95. Same day pickup for a party or guests: $49, added to the next bill.
+- Deodorizing: included free with every visit, on every plan. There is no paid turf odor treatment.
+- One time cleanup: $95. Same day pickup for a party or guests: $49, added to the next bill.
 - Billing: everyone is billed on the 1st of each month.[[bf: During the Black Friday sale (sign up by November 30, 2026) the first month is free. A card is saved at sign up and nothing is charged that day. The first charge is on the day the free month ends and only covers the days left until the 1st. Then the full price on the 1st of each month. If a payment fails, the customer is emailed that day and visits are on hold until the bill is paid.||]]
 [[bf:- Black Friday sale: sign up by Monday, November 30, 2026 and the first month is free. The sale ends at midnight on November 30. The free month stays free when the customer keeps the plan for 60 days. Canceling in the first 60 days is charged one month at the plan price, minus anything already paid. Canceling is done online in My Yard, with no phone call.||- Offer: the first cleanup is free. The Black Friday free month sale ended on November 30, 2026. Customers who signed up in the sale keep the free month when they keep the plan for 60 days.]]
 
@@ -784,13 +790,13 @@ ${VIDEOS.map((v) => '- [' + v.name + '](' + videoUrl(v) + '): ' + v.text).join('
 - Everywhere: bag dog poop, tie the bag, and put it in the trash cart. Never in the recycle cart or a storm drain. Storm drain water is not treated.
 
 ## Before you hire a pooper scooper (our answers)
-- Bonded and insured: [[ins:bonded now, and the insurance policy starts November 16, 2026||yes]]. $50,000 business service bond from American Contractors Indemnity Company (Tokio Marine HCC), November 9, 2026 to November 9, 2027. General liability insurance of $1,000,000 / $2,000,000 from Certain Underwriters at Lloyd's, London, through Pet Care Insurance, November 16, 2026 to November 16, 2027. Coverage summary: ${ORIGIN}/bonded-and-insured/ (the certificate is sent on request)
+- Insured and bonded: yes. $50,000 business service bond from American Contractors Indemnity Company (Tokio Marine HCC), November 9, 2026 to November 9, 2027. General liability insurance of $1,000,000 / $2,000,000 from Certain Underwriters at Lloyd's, London, through Pet Care Insurance, November 16, 2026 to November 16, 2027. Coverage summary: ${ORIGIN}/bonded-and-insured/ (the certificate is sent on request)
 - Background checks: every team member must pass a background check before working in a yard.
 - Business license: in progress as of November 2026. Do not describe the company as licensed yet.
 - Owner: Juan Gonzalez, owner and operator, who lives in Verrado (Buckeye, AZ) with his wife and their six kids. The three standards he runs the company by: do what you say you are going to do, take pride in the details, never stop improving.
 - Sign up fee: none. [[bf:The first month is free only with the Black Friday sale, for sign ups through November 30, 2026.||The first cleanup is free.]]
 - Price per visit: weekly service is $108 a month for 1 or 2 dogs. That is about $25 a week, or about $25 a visit. Prices are billed once a month, on the 1st.
-- Deodorizer spray: free at every visit.
+- Deodorizing: included free with every visit. We spray the spots dogs use most. It is not an extra.
 - Proof: a text the night before, a live truck map on visit day, and a photo of the latched gate after every visit. A visit with no gate photo costs $0.
 - Missed pile: free return within 24 hours.
 - Waste: we bag it and haul it away. Nothing is left in the customer’s trash can.

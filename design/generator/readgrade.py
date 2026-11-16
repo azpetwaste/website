@@ -6,7 +6,7 @@ import sys
 import cities
 import longform
 
-SKIP = {'arizona', 'buckeye', 'goodyear', 'litchfield', 'verrado', 'waddell', 'estrella', 'maricopa', 'sanitizer', 'deodorizer',
+SKIP = {'arizona', 'buckeye', 'goodyear', 'litchfield', 'verrado', 'waddell', 'estrella', 'maricopa', 'sanitizer', 'deodorizer', 'deodorizing',
         'monsoon', 'pebblecreek', 'tartesso', 'teravalis', 'sundance', 'westpark', 'interstate', 'cantamia', 'centerra', 'cottonflower'}
 
 
