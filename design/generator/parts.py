@@ -527,6 +527,7 @@ PHOTO_BAND = ('<section class="band" aria-label="Photos of our work">\n  <ul cla
 # The still (NAME.jpg, NAME-360.webp, NAME-540.webp) is the first frame of the web file, so nothing jumps when the video starts.
 # How the files are made: docs/video/README.md.
 REEL_CSS = look.REEL_CSS
+HV_CSS = look.HV_CSS
 REEL_END = '2026-12-01T06:59:59Z'  # the sale ends. Same moment as DEAL_END in build/build.mjs and END in src/runtime/reel.js
 _RL_PLAY = '<path d="M8 5v14l11-7z" fill="currentColor"></path>'
 _RL_PAUSE = '<path d="M7 5h4v14H7zM13 5h4v14h-4z" fill="currentColor"></path>'

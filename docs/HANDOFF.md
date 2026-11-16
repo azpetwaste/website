@@ -399,3 +399,12 @@ Sign up, as of tonight:
 - All 130 booking buttons on 45 pages go to `/book/`. The form opens and checks each field in plain words.
 - Cloudflare still has Stripe test keys (`pk_test`) and no mail key (`/api/config` says `mail: false`). So the public gets the "we call you" form and the lead lands in the office (3 leads there, last one Nov 13, no server errors in 3 days). Real cards need the live keys and a live webhook. That is Joe's or Atlas's to set. This chat must not handle keys.
 - Field desk session, one for you: the live `customers` table has no `skips` column yet. It is in `supabase/crm.sql` (line 42) but was not run on the live database. Until it is, a skip from My Yard falls back to a text. I did not run it: the database is your lane.
+
+### Nov 15, 2026, 9:30 pm. Header video on the home page (website and AEO chat), on Joe's word
+Joe sent a 16 second film of a real visit (4K, 127 MB) and asked for it as the website header, working on phones, tablets and computers, with no lag, and with the buttons on it see through so nothing covers the film.
+- The home hero is now `hero-hv`: the film plays behind the H1 and behind the top bar. One flat navy layer at 58 percent sits over it. The portrait and gate print left the hero (the promise sign right under it still has the print).
+- See through: the hero Book button and the top bar Book button are an orange outline with cream words while they sit on the film. Scroll down and the top bar turns solid navy with the orange button, as before. `html.hv-top` is set in the page head for pages with the film and kept by `src/runtime/hv.js`.
+- Speed: the page loads a still picture only (16 KB on a phone, 50 KB on a computer). The film is fetched after the page has loaded and the browser is idle. A phone held upright gets `header-tall-v1.mp4` (540 by 864, 1.0 MB), everything else gets `header-wide-v1.mp4` (1280 by 720, 1.9 MB). No sound track. It stops off screen, in a hidden tab and when sign up opens. No film for less motion, data saver or a slow link. A round button pauses and plays it. Lab scores did not move: phone 86 to 87 (was 84), computer 100.
+- Files: `docs/video/make_header.py /path/to/original.mp4` makes the four files in `static/assets/video`. The original is not in the repo.
+- Tested with a script: 23 checks (load order, which file, pause, scroll, sign up, less motion, no script) at 1440, 1280, 1024, 768, 390 wide and a phone held sideways.
+- Other pages are unchanged. Town pages keep the map in the hero.

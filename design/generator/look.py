@@ -198,6 +198,46 @@ REEL_CSS = _min(r"""
 @media (min-width:1168px){.apw .rl-ph{width:clamp(200px,calc((100vh - 250px) * .5625),276px)}}
 """)
 
+# The header video (home page). One film of a real visit plays behind the H1, under a flat navy layer so the words stay easy to read.
+# The film also sits behind the top bar while the page is at the very top (html.hv-top, set in the page head and kept by src/runtime/hv.js).
+# Everything that sits on the film is see through: the Book buttons are an orange outline, not a filled box. Joe, Nov 15, 2026.
+HV_CSS = _min(r"""
+.apw .hero-hv{isolation:isolate;overflow:visible;padding-bottom:76px;background:#0A0F24}
+.apw .hv{position:absolute;z-index:-1;left:0;right:0;bottom:0;top:-69px;overflow:hidden;background:#0A0F24}
+.apw .hv picture{display:contents}
+.apw .hv-po,.apw .hv video{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;object-position:50% 38%}
+.apw .hv video{opacity:0}
+.apw .hv.is-live video{opacity:1}
+.apw .hv::after{content:"";position:absolute;left:0;top:0;right:0;bottom:0;background:rgba(10,15,36,.58)}
+.apw .hero-hv .hero-h1,.apw .hero-hv .hero-p,.apw .hero-hv .hero-call,.apw .hero-hv .hero-call a,.apw .hero-hv .hero-call b{color:#F6F4EF}
+.apw .hero-hv .h1-b{color:#F6F4EF}
+.apw .hero-hv .hero-sm{color:#E3E7F6}
+.apw .hero-hv .hero-p{margin-bottom:0}
+.apw .hero-hv .btn-dot{background:transparent;border-color:#FF4A1C;border-width:3px;color:#F6F4EF}
+.apw .hero-hv .btn-dot:not(:disabled):hover{background:#FF4A1C;color:#0E1430}
+.apw .hv-pp{position:absolute;z-index:2;right:16px;bottom:16px;display:flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;border:2px solid rgba(246,244,239,.7);border-radius:50%;background:transparent;color:#F6F4EF;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.apw .hv-pp[hidden]{display:none}
+.apw .hv-pp:hover{border-color:#F6F4EF}
+.apw .hv-pp:focus-visible{outline:3px solid #F6F4EF;outline-offset:3px}
+.apw .hv-pp .hv-i2,.apw .hv-pp.is-paused .hv-i1{display:none}
+.apw .hv-pp.is-paused .hv-i2{display:block}
+html.hv-top .apw .hdr:has(+ .hero-hv){background:transparent;border-bottom-color:transparent}
+html.hv-top .apw .hdr:has(+ .hero-hv) .hbook{background:transparent;border-color:#FF4A1C;color:#F6F4EF}
+html.hv-top .apw .hdr:has(+ .hero-hv) .hbook:hover{background:#FF4A1C;color:#0E1430}
+@media (min-width:1024px){
+.apw .hv{top:-89px}
+.apw .hero-hv{padding-top:clamp(56px,9vh,104px);padding-bottom:clamp(84px,13vh,140px)}
+.apw .hero-hv .hero-g{grid-template-columns:minmax(0,1fr);grid-template-areas:"t" "p" "c" "s" "r";grid-template-rows:auto}
+.apw .hero-hv .hero-p{max-width:30em}
+.apw .hero-hv .h1-a{max-width:6.7em}
+.apw .hero-hv{min-height:min(74vh,740px)}
+.apw .hero-hv .hero-g{align-content:center}
+.apw .hv-pp{right:40px;bottom:28px}
+.apw .hv-po,.apw .hv video{object-position:50% 30%}
+}
+@media print{.apw .hv video,.apw .hv-pp{display:none}}
+""")
+
 HDR_CSS = _min(r"""
 .apw .hdr{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
 .apw .hin{display:flex;align-items:center;gap:8px;max-width:1280px;height:68px;margin:0 auto;padding:0 12px 0 14px}

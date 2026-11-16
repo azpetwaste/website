@@ -14,6 +14,7 @@
 @@SITE_CSS@@
 @@PAGE_CSS@@
 @@REEL_CSS@@
+@@HV_CSS@@
 </style>
 </helmet>
 <div class="apw {{ themeClass }}" style="min-height: 100%; background: var(--bg); color: var(--ink);">
@@ -21,7 +22,8 @@
 
 @@HEADER_MAIN@@
 
-<section class="hero">
+<section class="hero hero-hv">
+  <div class="hv" data-hv data-wide="/assets/video/header-wide-v1.mp4" data-tall="/assets/video/header-tall-v1.mp4"><picture><source media="(max-width: 699px) and (orientation: portrait)" srcset="/assets/video/header-tall.webp" type="image/webp" width="540" height="864"><img class="hv-po" src="/assets/video/header-wide.webp" width="1280" height="720" alt="" fetchpriority="high" decoding="async"></picture></div>
   <div class="in hero-g">
   <h1 class="h1 hero-h1"><span class="h1-a">Dog Poop <span class="nb">Pickup Service</span></span> <span class="h1-b">in Verrado, Buckeye, Goodyear and Litchfield Park, AZ</span></h1>
   <p class="hero-p">We pick up the dog poop in your yard every week and haul it away. On your day, you can watch us on a map. When we leave, we send you a photo of your shut gate.</p>
@@ -31,17 +33,8 @@
   </div>
   <p class="hero-sm">@@COVERED@@ @@NO_CONTRACT@@</p>
   <!--REVIEWS-->
-  <figure class="hero-v">
-    <span class="sun" aria-hidden="true"></span>
-    <div class="hero-ph">@@PH_HERO@@</div>
-    <div class="print print-a">
-      <img src="/_blob/5eaa35b6f87df2e6c7c19d16e9370468" srcset="/assets/img/gate-latched-close-480.webp 480w, /assets/img/gate-latched-close-720.webp 720w, /assets/img/gate-latched-close-1000.webp 1000w" sizes="(min-width: 1024px) 230px, 46vw" width="1000" height="1000" loading="lazy" decoding="async" alt="A sample gate photo: a wood and black steel side gate shut between two block posts, with the latch closed">
-      <span class="stamp" aria-hidden="true"><span>Gate latched <i>10:19 AM</i></span></span>
-      <p class="print-c" aria-hidden="true"><b>Tue 10:19 AM</b><span>Arizona Pet Waste</span></p>
-    </div>
-    <figcaption>After every visit, you get a photo like this one.</figcaption>
-  </figure>
   </div>
+  <button type="button" class="hv-pp" aria-label="Pause the video" hidden><svg class="hv-i1" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4h4v16H6zM14 4h4v16h-4z"></path></svg><svg class="hv-i2" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4l13 8-13 8z"></path></svg></button>
 </section>
 @@TICKER@@
 

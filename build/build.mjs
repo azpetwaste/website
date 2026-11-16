@@ -76,6 +76,8 @@ const cfgForClient = { firstVisitFrom: cfg.firstVisitFrom, scheduleDays: cfg.sch
 emit('apw.js', 'window.APW=window.APW||{};window.APW.cfg=' + JSON.stringify(cfgForClient) + ';\n' + fs.readFileSync(path.join(SRC, 'runtime/apw.js'), 'utf8'));
 // The phone with our videos. Only pages that hold one (data-reel in the page body) load this file.
 emit('reel.js', fs.readFileSync(path.join(SRC, 'runtime/reel.js'), 'utf8'));
+// The header video on the home page. Only pages that hold one (data-hv in the page body) load this file.
+emit('hv.js', fs.readFileSync(path.join(SRC, 'runtime/hv.js'), 'utf8'));
 
 // ---------- server side rendering ----------
 const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>');
@@ -376,7 +378,7 @@ function page(p) {
   const robots = p.index ? 'index, follow, max-image-preview:large, max-snippet:-1' : 'noindex, follow';
   const graph = p.index ? [website, business, { '@type': 'WebPage', '@id': url + '#webpage', url, name: p.title, description: p.description, isPartOf: { '@id': ORIGIN + '/#website' }, about: { '@id': BIZ_ID }, inLanguage: 'en-US', dateModified: TODAY }, ...(p.ld || [])] : null;
   const css = p.css.join('\n') + '\n' + SITE_CSS + '\n' + BF_CSS + '\n' + DOCK_CSS + '\n.stf{display:block;width:max-content;margin:0 auto;padding:6px 10px 10px;font:11px/1 var(--f-text);letter-spacing:.08em;color:#7F88AE;text-decoration:none}.stf:hover,.stf:focus-visible{color:#fff}';
-  const scripts = [assets['dc.js'], ...p.boards.map((b) => b.js), assets['apw.js']].concat(/ data-reel[ >=]/.test(p.body) ? [assets['reel.js']] : []);
+  const scripts = [assets['dc.js'], ...p.boards.map((b) => b.js), assets['apw.js']].concat(/ data-reel[ >=]/.test(p.body) ? [assets['reel.js']] : []).concat(/ data-hv[ >=]/.test(p.body) ? [assets['hv.js']] : []);
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -409,7 +411,7 @@ ${p.index ? `<link rel="canonical" href="${url}">` : ''}
 <link rel="manifest" href="/site.webmanifest">
 ${FONTS_PRE}
 ${p.fonts}
-<script>document.documentElement.classList.add('dark')</script>
+<script>document.documentElement.classList.add('dark'${/ data-hv[ >=]/.test(p.body) ? ", 'hv-top'" : ''})</script>
 <style>${css}</style>
 ${graph ? `<script type="application/ld+json">${ldjson({ '@context': 'https://schema.org', '@graph': graph })}</script>` : ''}
 </head>
