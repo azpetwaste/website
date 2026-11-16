@@ -220,6 +220,7 @@ globalThis.fetch = async (u, init = {}) => {
     if (p.startsWith('subscriptions/') && m === 'POST') { subPosts.push(p.slice(14) + ' ' + String(init.body)); return reply({ id: p.slice(14), status: 'active' }); }
     if (p === 'invoices' && m === 'GET') return reply({ data: invoiceList.concat(madeBills.filter((b) => b.customer === new URLSearchParams(query).get('customer'))) });
     if (/^invoices\/in_open\d*\/pay$/.test(p)) { payCalls.push(p + ' ' + ((init.headers || {})['idempotency-key'] || '')); return reply({ id: 'in', status: 'paid' }); }
+    if (p === 'invoiceitems' && m === 'GET') return reply({ data: [] });
     if (p === 'invoiceitems') { lastItem = { amount: Number(f.get('amount')), description: f.get('description') }; if (lastItem.amount > 0) charges.push(lastItem); return reply({ id: 'ii_1' }); }
     if (p === 'invoices') { const b = { id: 'in_' + (++invN), status: 'draft', customer: f.get('customer'), metadata: Object.fromEntries([...f.entries()].filter(([k]) => k.startsWith('metadata[')).map(([k, v]) => [k.slice(9, -1), v])) }; madeBills.push(b); return reply(b); }
     if (/^invoices\/in_\d+\/(finalize|pay)$/.test(p)) return reply({ id: 'in', status: 'paid' });

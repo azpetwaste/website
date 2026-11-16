@@ -210,7 +210,7 @@ globalThis.fetch = async (u, init = {}) => {
     const p = u.slice('https://api.stripe.com/v1/'.length).split('?')[0], query = u.split('?')[1] || '';
     const hit = pay.handle(m, p, query, new URLSearchParams(m === 'GET' ? '' : String(init.body || '')), (init.headers || {})['idempotency-key']);
     if (hit) return hit;
-    if (p === 'invoiceitems') return reply({ id: 'ii_1' });
+    if (p === 'invoiceitems') return reply(m === 'GET' ? { data: [] } : { id: 'ii_1' });
     return reply({ error: { message: 'unmocked stripe ' + p } }, 500);
   }
   return deskFetch(u, init);

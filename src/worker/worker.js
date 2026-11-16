@@ -172,6 +172,8 @@ async function stripe(env, method, path, params, idem) {
     const e = new Error('stripe ' + r.status + ' ' + ((data.error && data.error.message) || ''));
     e.status = r.status;
     e.stripe = data.error;
+    // Stripe keeps the answer to a keyed request for a day and hands the same one back, a failure too.
+    e.replayed = r.headers.get('idempotent-replayed') === 'true';
     throw e;
   }
   return data;
@@ -414,6 +416,11 @@ async function checkoutDone(request, env, ctx) {
 
 // How long to wait (times 1, 2, 3) before asking Stripe again when it says the same request is still running.
 const PLAN_WAIT = 700;
+// The "only once" key for starting a plan is this plus the sign up's session id. Stripe remembers the answer to a
+// keyed request for a day, a failed answer too, and it refuses the same key with other fields. So if the fields of
+// the plan request in startPlan ever change, change this prefix in the same commit. If not, a sign up that failed
+// under the old fields stays stuck until Stripe forgets its key.
+const PLAN_KEY = 'apw-plan-';
 // The card is saved. Start the plan: free until `free_end`, bills lined up on the 1st (`anchor`), and Stripe charges
 // the days in between on its own. Safe to run more than once for one sign up: the Stripe webhook and the sign up page
 // both call it, Stripe keeps it to one plan, and `booked` keeps it to one welcome.
@@ -440,7 +447,7 @@ async function startPlan(env, ctx, s) {
   const alive = (x) => x.status !== 'canceled' && x.status !== 'incomplete_expired';
   const mine = all.filter((x) => x.metadata && x.metadata.session === s.id)[0];
   if (mine && !alive(mine)) return null;
-  let sub = mine || all.filter(alive)[0] || null, made = false;
+  let sub = mine || all.filter(alive)[0] || null;
   if (!sub) {
     const freeEnd = parseInt(md.free_end, 10), anchor = parseInt(md.anchor, 10);
     if (!(freeEnd > Date.now() / 1000) || !(anchor >= freeEnd)) throw new Error('sign up ' + s.id + ' has bad dates');
@@ -468,17 +475,17 @@ async function startPlan(env, ctx, s) {
       }
     });
     for (let tries = 0; !sub; tries++) {
-      try { sub = await stripe(env, 'POST', 'subscriptions', plan, 'apw-plan-' + s.id); } catch (e) {
+      try { sub = await stripe(env, 'POST', 'subscriptions', plan, PLAN_KEY + s.id); } catch (e) {
         // 409: the other caller (the webhook or the sign up page) is starting this same plan right now. Ask again
         // with the same key: once its request is done, Stripe hands back the plan it made.
         if (e.status !== 409 || tries >= 3) throw e;
         await new Promise((r) => setTimeout(r, PLAN_WAIT * (tries + 1)));
       }
     }
-    made = true;
+    // Look at the first bill now. Queued before the row is touched, so a row update that fails cannot skip the look.
+    ctx.waitUntil(checkPlan(env, s, sub));
   }
   await booked(env, ctx, uid, sub, customer, card);
-  if (made) ctx.waitUntil(checkPlan(env, s, sub));
   return sub;
 }
 
@@ -528,7 +535,11 @@ async function booked(env, ctx, uid, sub, customer, card) {
 // Stripe's retries do not flood the inbox. The email does not say to start a plan by hand: the next retry usually
 // starts it, and a plan made by hand on top of that one would bill the customer twice.
 async function planAlert(env, s, e, fresh) {
-  if (fresh === false || hitLimit('planalert|' + ((s && s.id) || ''), 1, 3600e3)) return;
+  // Stripe keeps the answer to a keyed request for a day. When it hands back a failure it already gave (or says the
+  // key was used with other fields), waiting will not help, and the office must hear that even on a late retry.
+  const again = !!(e && (e.replayed || (e.status !== 409 && e.stripe && e.stripe.type === 'idempotency_error')));
+  const sid = (s && s.id) || '';
+  if (again ? hitLimit('planrepeat|' + sid, 1, 6 * 3600e3) : (fresh === false || hitLimit('planalert|' + sid, 1, 3600e3))) return;
   const md = (s && s.metadata) || {};
   let c = null;
   try { c = (await db(env, 'GET', 'customers?id=eq.' + uuid(s.client_reference_id || md.user_id) + '&select=name,email,phone,address,zip'))[0]; } catch (x) { c = null; }
@@ -544,8 +555,9 @@ async function planAlert(env, s, e, fresh) {
     'Free month ends: ' + (md.free_label || 'unknown'),
     'Stripe customer: ' + idOf(s && s.customer),
     'Stripe checkout session: ' + ((s && s.id) || 'unknown'), '',
-    'What went wrong: ' + clean(e && e.message, 300)
-  ].join('\n'));
+    'What went wrong: ' + clean(e && e.message, 300),
+    again ? 'Stripe is handing back the answer it gave the first time for this sign up, and it will for one day. Waiting will not fix this one. Tell Joe now.' : null
+  ].filter((x) => x !== null).join('\n'));
 }
 // The same failure, named so the Health tab line makes sense on its own.
 function planError(s, e) {
@@ -586,7 +598,8 @@ async function checkPlan(env, s, sub) {
     c ? 'Name: ' + c.name + '\nMobile: ' + c.phone + '\nEmail: ' + c.email : 'Customer row: not found',
     'Stripe customer: ' + idOf(sub.customer),
     'Stripe plan: ' + sub.id, '',
-    'Tell Joe today. Do not change the plan in Stripe by hand.'
+    'Tell Joe today. Do not change the plan in Stripe by hand.',
+    'If every new sign up gets this email, the check is what is off, not the plans. Tell Joe that too.'
   ]).join('\n'));
 }
 
@@ -633,6 +646,16 @@ async function webhook(request, env, ctx) {
     return fail(400, 'Bad signature.');
   }
   const evt = JSON.parse(payload);
+  // This site reads full ("snapshot") events. Stripe's newer "thin" events carry no object, so nothing below would act
+  // on one, and cancels, failed payments and paid bills would be lost without a sound. Refuse them out loud: Stripe
+  // then shows the webhook as failing, and the Health tab says why and what to do.
+  if (evt.object === 'v2.core.event' || /^v\d+\./.test(String(evt.type || ''))) {
+    if (!hitLimit('thinevent', 1, 3600e3)) {
+      ctx.waitUntil(logError(env, 'server', '/api/stripe-webhook', 'Stripe is sending thin events. This webhook must send snapshot events',
+        'In Stripe, add a new webhook for /api/stripe-webhook with the payload format set to Snapshot and the seven events listed in GO_LIVE.md. Put its signing secret in Cloudflare as STRIPE_WEBHOOK_SECRET, redeploy, then delete the thin one. Event type seen: ' + clean(evt.type, 80)));
+    }
+    return fail(400, 'This webhook needs snapshot events, not thin events. See GO_LIVE.md.');
+  }
   const o = evt.data && evt.data.object || {};
   const was = (evt.data && evt.data.previous_attributes) || {};
   const now = new Date().toISOString();
@@ -673,7 +696,10 @@ async function webhook(request, env, ctx) {
     // A customer on hold for a failed bill only comes off hold through backOn. Other changes to the plan do not lift it.
     // And late news about a plan the row already shows as canceled must not bring that customer back. (A new plan
     // made for a canceled customer has a new id, so that one does bring them back.)
-    const old = gone || !o.id ? '' : '&or=(status.neq.canceled,stripe_subscription_id.is.null,stripe_subscription_id.neq.' + encodeURIComponent(o.id) + ')';
+    // The other way round: a cancel is for one plan. If the row has moved on to a newer plan (the office started
+    // them again), a late or resent cancel of the old plan must not cancel the new one.
+    const old = !o.id ? '' : gone ? '&or=(stripe_subscription_id.is.null,stripe_subscription_id.eq.' + encodeURIComponent(o.id) + ')'
+      : '&or=(status.neq.canceled,stripe_subscription_id.is.null,stripe_subscription_id.neq.' + encodeURIComponent(o.id) + ')';
     const rows = await db(env, 'PATCH', 'customers?' + filter + (good ? '&status=neq.past_due' : '') + old, patch, 'return=representation');
     // Canceled or paused: take them off any route that has not happened yet.
     if ((gone || patch.status === 'paused') && rows && rows[0]) {
@@ -809,6 +835,13 @@ async function billedBefore(env, customer, tag, value) {
   const list = await stripe(env, 'GET', 'invoices', { customer: idOf(customer), limit: 100 });
   return (list.data || []).some((i) => i.status !== 'void' && i.metadata && i.metadata[tag] === value);
 }
+// The line for a one time charge, made once. It carries the same tag as its bill. If an earlier try made the line
+// and then failed before the bill, the line is still waiting on the customer: use it, do not add a second one.
+async function chargeLine(env, customer, tag, value, amount, description, key) {
+  const waiting = await stripe(env, 'GET', 'invoiceitems', { customer: idOf(customer), pending: 'true', limit: 100 });
+  if ((waiting.data || []).some((i) => i.metadata && i.metadata[tag] === value)) return;
+  await stripe(env, 'POST', 'invoiceitems', { customer: idOf(customer), amount, currency: 'usd', description, metadata: { [tag]: value } }, key);
+}
 
 // The free month stays free when the customer keeps the plan for 60 days. A cancel requested before that
 // (canceled_at is when they asked, even for cancel at period end) brings what they have paid up to one month
@@ -835,8 +868,7 @@ async function freeMonthCharge(env, ctx, sub, row) {
       amount = month - (paid.data || []).reduce((n, i) => n + (i.amount_paid || 0), 0);
       if (amount < 50) return; // already paid a month (Stripe will not charge under 50 cents)
     }
-    await stripe(env, 'POST', 'invoiceitems', { customer: sub.customer, amount, currency: 'usd',
-      description: 'Early cancel charge: one month at plan price, minus what was paid' }, 'apw-early-item-' + sub.id);
+    await chargeLine(env, sub.customer, 'early_cancel', sub.id, amount, 'Early cancel charge: one month at plan price, minus what was paid', 'apw-early-item-' + sub.id);
     const inv = await stripe(env, 'POST', 'invoices', Object.assign({ customer: sub.customer, collection_method: 'charge_automatically',
       auto_advance: 'true', pending_invoice_items_behavior: 'include', description: 'You canceled in your first 60 days, so we charge one month at your plan price, minus anything you paid.',
       metadata: { early_cancel: sub.id } },
@@ -869,7 +901,7 @@ async function resumeCharge(env, ctx, sub, row) {
     const key = sub.id + '-' + tag;
     // One back from pause charge for one plan in one month, also when Stripe sends the event again days later.
     if (await billedBefore(env, sub.customer, 'resume', key)) return;
-    await stripe(env, 'POST', 'invoiceitems', { customer: sub.customer, amount, currency: 'usd', description: 'Back from pause: the days left in this month' }, 'apw-resume-item-' + key);
+    await chargeLine(env, sub.customer, 'resume', key, amount, 'Back from pause: the days left in this month', 'apw-resume-item-' + key);
     const inv = await stripe(env, 'POST', 'invoices', Object.assign({ customer: sub.customer, collection_method: 'charge_automatically', auto_advance: 'true', pending_invoice_items_behavior: 'include',
       description: 'You started again in the middle of the month, so this covers the days left in the month.', metadata: { resume: key } }, sub.default_payment_method ? { default_payment_method: sub.default_payment_method } : {}), 'apw-resume-inv-' + key);
     await stripe(env, 'POST', 'invoices/' + inv.id + '/finalize', {}, 'apw-resume-fin-' + key);
