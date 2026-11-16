@@ -299,11 +299,11 @@ YARD_STATE = _yd['YARD_STATE']
 
 DD_CHEV = '<svg class="ddc" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 DD_AREAS = ('<div class="ddp">'
-    '<a href="CityBuckeye.dc.html"><b>Buckeye</b><span>85326 and 85396</span></a>'
-    '<a href="CityVerrado.dc.html"><b>Verrado</b><span>Buckeye 85396</span></a>'
-    '<a href="CityGoodyear.dc.html"><b>Goodyear</b><span>85338 and 85395</span></a>'
-    '<a href="CityLitchfieldPark.dc.html"><b>Litchfield Park</b><span>85340</span></a>'
-    '<a href="CityCitrusPark.dc.html"><b>Citrus Park and Waddell</b><span>85355</span></a>'
+    '<a href="CityBuckeye.dc.html"><b>Buckeye</b></a>'
+    '<a href="CityVerrado.dc.html"><b>Verrado</b></a>'
+    '<a href="CityGoodyear.dc.html"><b>Goodyear</b></a>'
+    '<a href="CityLitchfieldPark.dc.html"><b>Litchfield Park</b></a>'
+    '<a href="CityCitrusPark.dc.html"><b>Citrus Park and Waddell</b></a>'
     '<a href="AreasWeServe.dc.html" class="dda">See all service areas</a></div>')
 DD_COMM = ('<div class="ddp ddg"><div><p class="ddh">Services</p>'
     '<a href="CommercialHoa.dc.html"><b>HOA common areas</b><span>Greenbelts, trails and parks</span></a>'
@@ -368,7 +368,7 @@ F_CLOCK = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="c
 F_GLOBE = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18"></path><path d="M12 3c2.6 2.8 2.6 15.2 0 18c-2.600-2.800-2.600-15.200 0-18z"></path></svg>'
 SEAL = look.seal_svg()
 SEAL_FAM = look.seal_svg(glyph='heart')
-SEALS = [('Bonded', '$50,000 bond'), ('[[ins:Insurance||Insured]]', '[[ins:$1,000,000, starts Nov 16||$1,000,000 liability]]'), ('Background checked', 'Every team member')]
+SEALS = [('Bonded', '$50,000 bond'), ('[[ins:Insurance||Insured]]', '$1,000,000 liability'), ('Background checked', 'Every team member')]
 SEALS_ARIA = '[[ins:Bonded and background checked. Insurance starts November 16.||Bonded, insured and background checked.]] Family owned and operated.'
 # One plain line by every sign up button. During the sale it names the 60 day rule, so "no contract" never stands alone.
 NO_CONTRACT = '[[bf:No long term contract. Keep your plan 60 days and your free month stays free.||No contract.]]'
@@ -517,3 +517,59 @@ PHOTO_BAND = ('<section class="band" aria-label="Photos of our work">\n  <ul cla
               ''.join('    <li><figure class="pho">%s<figcaption><b>%s</b><span>%s</span></figcaption></figure></li>\n' % (
                   pic(n, a, '(min-width: 1024px) 380px, (min-width: 600px) 31vw, 78vw'), t, s) for n, a, t, s in _BAND) +
               '  </ul>\n</section>')
+
+
+# ---------- the phone with our videos (home page, How it works). Real video from the Nov 2026 shoot ----------
+# Files: static/assets/video. NAME-sale-v1.mp4 is the ad as Joe sent it, with the Black Friday "first month free" captions.
+# NAME-v1.mp4 is the same clip with those captions and the offer line on the closing card cut out, for December on.
+# The build picks the file with the sale tag, and src/runtime/reel.js switches at the same moment even with no new build.
+# The still (NAME.jpg, NAME-360.webp, NAME-540.webp) is the first frame of the web file, so nothing jumps when the video starts.
+# How the files are made: docs/video/README.md.
+REEL_CSS = look.REEL_CSS
+REEL_END = '2026-12-01T06:59:59Z'  # the sale ends. Same moment as DEAL_END in build/build.mjs and END in src/runtime/reel.js
+_RL_PLAY = '<path d="M8 5v14l11-7z" fill="currentColor"></path>'
+_RL_PAUSE = '<path d="M7 5h4v14H7zM13 5h4v14h-4z" fill="currentColor"></path>'
+# file name, name on the chip, one line under it, length in the sale, length after, what the still shows, sale only
+_REEL = [
+    ('dog-poop-pickup', 'We pick it up', 'Your dog poops every day. We scoop it all up.', '0:10', '0:07',
+     'Our scooper walks up to a wood side gate to start a visit', False),
+    ('gate-photo', 'Gate photo', 'No photo? That visit is free.', '0:15', '0:10',
+     'Our scooper picks up dog poop on a turf yard with a rake and a lined bin', False),
+    ('free-spray', 'Free spray', 'Yard smells like a kennel? We spray it for free.', '0:15', '0:10',
+     'Our scooper shuts a wood side gate with a gloved hand', False),
+    ('black-friday', 'Black Friday sale', 'Sign up by November 30. Your first month is free.', '0:15', '',
+     'Our scooper sprays deodorizer on a turf yard', True),
+]
+
+
+def _reel():
+    v = '/assets/video/'
+
+    def file(name, sale_only=False):
+        return v + name + '-sale-v1.mp4' if sale_only else '[[bf:%s%s-sale-v1.mp4||%s%s-v1.mp4]]' % (v, name, v, name)
+
+    rows = ''
+    for n, (name, chip, line, d_sale, d_after, alt, sale_only) in enumerate(_REEL):
+        row = ('<a class="rl-i" href="%s"%s data-po="%s%s" data-alt="%s"%s>'
+               '<span class="rl-ic" aria-hidden="true"><svg viewBox="0 0 24 24">%s</svg></span>'
+               '<span class="rl-t">%s</span><span class="rl-s">%s</span><span class="rl-d">%s</span></a>' % (
+                   file(name, sale_only), ' data-deal-end="%s"' % REEL_END if sale_only else ' data-after="%s%s-v1.mp4"' % (v, name),
+                   v, name, alt, ' aria-current="true"' if n == 0 else '', _RL_PLAY, chip, line,
+                   d_sale if sale_only else '[[bf:%s||%s]]' % (d_sale, d_after)))
+        rows += '\n        ' + ('[[bf:' + row + '||]]' if sale_only else row)
+    name, alt = _REEL[0][0], _REEL[0][5]
+    return ('<div class="rl" data-reel>\n'
+            '      <div class="rl-ph">\n'
+            '        <div class="rl-scr">\n'
+            '          <img class="rl-po" src="%s%s.jpg" srcset="%s%s-360.webp 360w, %s%s-540.webp 540w" sizes="276px" width="540" height="960" loading="lazy" decoding="async" alt="%s">\n'
+            '          <video class="rl-v" src="%s" width="540" height="960" preload="none" muted playsinline controls disableremoteplayback aria-label="Video of our scooper at work in a real yard"></video>\n'
+            '          <div class="rl-bars" aria-hidden="true"></div>\n'
+            '          <button type="button" class="rl-pp" aria-label="Play the video"><svg class="rl-pl" viewBox="0 0 24 24" aria-hidden="true">%s</svg><svg class="rl-pa" viewBox="0 0 24 24" aria-hidden="true">%s</svg></button>\n'
+            '        </div>\n'
+            '      </div>\n'
+            '      <div class="rl-l" role="group" aria-label="Our videos. Pick one to play it.">%s\n'
+            '      </div>\n'
+            '    </div>' % (v, name, v, name, v, name, alt, file(name), _RL_PLAY, _RL_PAUSE, rows))
+
+
+REEL = _reel()

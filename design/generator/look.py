@@ -148,6 +148,56 @@ SCENE_FIX_CSS = _min(r"""
 .apw .vs .stampv{font-family:var(--f-head);font-stretch:72%;font-weight:800;letter-spacing:.05em}
 """)
 
+# The phone with our videos (home page, How it works). One flat orange phone, like a work phone in a bright case.
+# Under 500 px of room the clip names are chips under the phone. With more room they are a list beside it.
+# src/runtime/reel.js runs it and adds .is-js. Until then the video keeps the browser's own controls, so it works with no script.
+REEL_CSS = _min(r"""
+.apw .how-v{container-type:inline-size}
+.apw .rl{display:grid;grid-template-columns:minmax(0,1fr);justify-items:center;row-gap:18px}
+.apw .rl-ph{position:relative;width:min(100%,276px);padding:9px;border-radius:40px;background:#FF4A1C}
+.apw .rl-ph::before,.apw .rl-ph::after{content:"";position:absolute;width:4px;background:#FF4A1C}
+.apw .rl-ph::before{right:-4px;top:24%;height:13%;border-radius:0 3px 3px 0}
+.apw .rl-ph::after{left:-4px;top:19%;height:8%;border-radius:3px 0 0 3px}
+.apw .rl-scr{position:relative;overflow:hidden;aspect-ratio:9/16;border:3px solid #0A0F24;border-radius:31px;background:#070B1B;isolation:isolate;scroll-margin:84px 0 16px}
+.apw .rl-po,.apw .rl-v{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover}
+.apw .rl.is-js .rl-scr{cursor:pointer}
+.apw .rl.is-js .rl-v{opacity:0}
+.apw .rl.is-js.is-live .rl-v{opacity:1}
+.apw .rl-bars{position:absolute;z-index:2;left:16px;right:16px;top:13px;display:none;gap:4px;pointer-events:none}
+.apw .rl.is-js .rl-bars{display:flex}
+.apw .rl-bars i{flex:1;height:4px;overflow:hidden;border-radius:2px;background:rgba(7,11,27,.5);box-shadow:0 0 0 1px rgba(7,11,27,.3)}
+.apw .rl-bars b{display:block;height:100%;background:#F6F4EF;transform:scaleX(0);transform-origin:0 50%}
+.apw .rl-pp{position:absolute;z-index:3;left:11px;bottom:11px;display:none;place-items:center;width:44px;height:44px;padding:0;border:0;border-radius:12px;background:#0A0F24;color:#F6F4EF;cursor:pointer}
+.apw .rl.is-js .rl-pp{display:grid}
+.apw .rl-pp svg{display:block;width:22px;height:22px}
+.apw .rl-pp .rl-pl,.apw .rl.is-play .rl-pp .rl-pa{display:block}
+.apw .rl-pp .rl-pa,.apw .rl.is-play .rl-pp .rl-pl{display:none}
+.apw .rl:not(.is-play) .rl-pp{left:50%;top:50%;bottom:auto;width:76px;height:76px;margin:-38px 0 0 -38px;border-radius:18px;background:#FF4A1C;color:#0E1430}
+.apw .rl:not(.is-play) .rl-pp svg{width:38px;height:38px}
+.apw .rl-pp:focus-visible{outline-color:#F6F4EF}
+.apw .rl-l{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;width:100%}
+.apw .rl-i{display:inline-flex;align-items:center;min-height:46px;padding:0 14px;border:2px solid var(--line2);border-radius:12px;color:var(--ink);font-family:var(--f-head);font-stretch:88%;font-size:17px;font-weight:750;line-height:1.1;text-decoration:none;white-space:nowrap}
+.apw .rl-i:hover{border-color:var(--ink)}
+.apw .rl-i[aria-current="true"]{background:var(--accent);border-color:var(--accent);color:#0E1430}
+.apw .rl-ic,.apw .rl-s,.apw .rl-d{display:none}
+@container (min-width:500px){
+.apw .rl{grid-template-columns:auto minmax(0,1fr);column-gap:30px;align-items:center;justify-items:stretch}
+.apw .rl-ph{width:clamp(200px,calc((100vh - 120px) * .5625),276px)}
+.apw .rl-l{display:block;border-top:1px solid var(--line)}
+.apw .rl-i,.apw .rl-i:hover,.apw .rl-i[aria-current="true"]{display:grid;grid-template-columns:26px minmax(0,1fr) auto;grid-template-areas:"i t d" "i s s";column-gap:12px;row-gap:4px;align-items:baseline;min-height:0;padding:15px 0 16px;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;color:var(--ink);font-stretch:86%;font-size:21px;font-weight:800;white-space:normal}
+.apw .rl-ic{grid-area:i;align-self:start;display:grid;place-items:center;width:26px;height:26px;border-radius:7px;color:var(--mute)}
+.apw .rl-ic svg{display:block;width:16px;height:16px}
+.apw .rl-i[aria-current="true"] .rl-ic{background:var(--accent);color:#0E1430}
+.apw .rl-t{grid-area:t}
+.apw .rl-i:hover .rl-t{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px;text-decoration-color:var(--accent)}
+.apw .rl-s{grid-area:s;display:block;font-family:var(--f-text);font-stretch:104%;font-size:16px;font-weight:400;line-height:1.4;color:var(--ink2)}
+.apw .rl-d{grid-area:d;display:block;font-family:var(--f-text);font-stretch:104%;font-size:15px;font-weight:400;font-variant-numeric:tabular-nums;color:var(--mute)}
+}
+/* on a computer the phone stays on screen while the steps scroll by, so the phone and what sits with it must fit the height of the window */
+@media (min-width:1024px) and (max-width:1167px){.apw .rl-ph{width:clamp(190px,calc((100vh - 400px) * .5625),276px)}}
+@media (min-width:1168px){.apw .rl-ph{width:clamp(200px,calc((100vh - 250px) * .5625),276px)}}
+""")
+
 HDR_CSS = _min(r"""
 .apw .hdr{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
 .apw .hin{display:flex;align-items:center;gap:8px;max-width:1280px;height:68px;margin:0 auto;padding:0 12px 0 14px}
@@ -305,8 +355,8 @@ PAGE_CSS = HDR_CSS + _min(r"""
 
 /* how it works */
 .apw .how-g{display:grid;grid-template-columns:minmax(0,1fr);gap:34px}
-.apw .how-l .vsw{margin-top:26px}
-.apw .how-cap{margin:10px 0 0;font-size:15px;line-height:1.4;color:var(--mute)}
+.apw .how-v{margin-top:28px}
+.apw .how-cap{margin:16px 0 0;font-size:15px;line-height:1.45;color:var(--mute)}
 .apw .how-ph{margin-top:26px}
 .apw .step-ph{max-width:460px;margin:16px 0 4px}
 /* three photos in a row. On a phone they slide sideways inside their own strip */
@@ -483,8 +533,8 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .pr-total b{font-size:148px}
 .apw .pr-sum>.btn{min-height:64px;font-size:22px}
 .apw .how-g{grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:88px;align-items:start}
-.apw .how-l{position:sticky;top:124px}
-.apw .how-l .vsw{margin-top:34px}
+.apw .how-l{align-self:stretch}
+.apw .how-v{position:sticky;top:108px;margin-top:36px}
 .apw .steps>li{grid-template-columns:70px minmax(0,1fr);padding:26px 0 30px}
 .apw .steps>li::before{font-size:84px}
 .apw .steps h3{font-size:28px}

@@ -169,7 +169,7 @@ export function hero(pg, trail) {
     `<h1>${esc(pg.h1)}</h1><p class="lead">${h.lead || ''}</p>` +
     (h.ctaHtml || ctaButtons(h.cta)) +
     (trust ? `<p class="bxtrust">${esc(trust)}</p>` : '') +
-    '<ul class="bxbadges" aria-label="[[ins:Bonded and background checked. Insurance starts November 16.||Bonded, insured and background checked]]">' + [['Bonded', '$50,000 bond'], ['[[ins:Insurance||Insured]]', '[[ins:$1,000,000, starts Nov 16||$1,000,000 liability]]'], ['Background checked', 'Every team member']].map(([a, b]) => `<li>${SEAL}<span><b>${a}</b><small>${b}</small></span></li>`).join('') + '</ul>' +
+    '<ul class="bxbadges" aria-label="[[ins:Bonded and background checked. Insurance starts November 16.||Bonded, insured and background checked]]">' + [['Bonded', '$50,000 bond'], ['[[ins:Insurance||Insured]]', '$1,000,000 liability'], ['Background checked', 'Every team member']].map(([a, b]) => `<li>${SEAL}<span><b>${a}</b><small>${b}</small></span></li>`).join('') + '</ul>' +
     '<ul class="bxh-stats">' + stats.map(([n, u, t]) => `<li><b>${esc(n)} ${esc(u)}</b><span>${esc(t)}</span></li>`).join('') + '</ul>' +
     '</div><div class="bxh-side">' + (h.side || reportCard(h.site)) + '</div></div></div></section>';
 }

@@ -4,3 +4,6 @@ shots/
 .DS_Store
 dist/
 __pycache__/
+
+# Scratch files from docs/video/make_reel.py
+docs/video/.tmp/

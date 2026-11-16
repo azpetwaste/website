@@ -11,10 +11,9 @@
 @@FONTS@@
 <style>
 @@BASE_CSS@@
-@@SCENE_CSS@@
 @@SITE_CSS@@
 @@PAGE_CSS@@
-@media (max-width:359px){.apw .spd{display:none}}
+@@REEL_CSS@@
 </style>
 </helmet>
 <div class="apw {{ themeClass }}" style="min-height: 100%; background: var(--bg); color: var(--ink);">
@@ -118,13 +117,10 @@
   <div class="how-l">
     <h2 class="h2">How our dog poop pickup works</h2>
     <p class="lead">Here is what we do every time we come. Six easy steps.</p>
-    <div class="vsw">
-      <div class="{{ vsClass }}">
-@@SCENE@@
-      </div>
-@@SCENE_CTL@@
+    <div class="how-v">
+    @@REEL@@
+    <p class="how-cap">Real video of us at work in a real yard.[[bf: The free month is our Black Friday sale. It ends November 30. No long term contract. Keep your plan 60 days and your free month stays free.||]]</p>
     </div>
-    <p class="how-cap">Watch a visit from start to end. Drag the dot to move through it.</p>
   </div>
   <ol class="steps">
     <li>
@@ -185,7 +181,7 @@
   <div class="own-t">
     <h2 class="h2">Meet Juan, the owner</h2>
     <p>Juan Gonzalez owns Arizona Pet Waste. He lives in Verrado with his wife and their six kids.</p>
-    <p>He works by three rules. Be honest. Charge a fair price. Help people when you can.</p>
+    <p>He works by three standards. Do what you say you will do. Take pride in the details. Never stop getting better.</p>
     <p>When you sign up, you help a local family.</p>
     <a href="About.dc.html" class="tl">Read Juan’s story</a>
   </div>
@@ -276,18 +272,15 @@
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.state = { dark: this._themeFromProps(), plan: 'week', dogs: 2, zip: '', zipChecked: false, area: '', menu: false, @@VS_STATE@@ };
+    this.state = { dark: this._themeFromProps(), plan: 'week', dogs: 2, zip: '', zipChecked: false, area: '', menu: false };
   }
   componentDidMount() {
     this._themeInit();
-    this._vsInit();
   }
   componentWillUnmount() {
     this._themeStop();
-    this._vsStop();
   }
 @@THEME_METHODS@@
-@@VS_METHODS@@
 @@PRICE_METHODS@@
 @@AREA_METHODS@@
   renderVals() {
@@ -297,7 +290,7 @@ class Component extends DCLogic {
     const dogs = s.dogs === 1 ? '1 dog' : s.dogs + ' dogs';
     const furs = ['#D9A066', '#6B4A34', '#F1E3C8', '#3A3434', '#B5652A', '#9A9A9A'];
     const lbs = Math.round(s.dogs * @@LBS_PER_DOG@@ / 10) * 10;
-    return Object.assign({}, this._themeVals(), this._vsVals(), this._areaVals(), {
+    return Object.assign({}, this._themeVals(), this._areaVals(), {
       plans: this._plans(true),
       dogList: furs.slice(0, s.dogs).map((f) => ({ fur: f })),
       dogLabel: dogs,

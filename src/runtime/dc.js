@@ -134,7 +134,10 @@
   }
 
   function Instance(block, doc) {
-    var frag = doc.importNode(block.proto, true);
+    // Copy the block inside the template's own (inert) document. The copy joins the page when it is put in.
+    // Do not use doc.importNode here: Chrome then fetches every loading="lazy" image at once when the same
+    // image is already in the server HTML, so nothing on the page was lazy any more (found Nov 15, 2026).
+    var frag = block.proto.cloneNode(true);
     this.doc = doc;
     this.block = block;
     this.frag = frag;

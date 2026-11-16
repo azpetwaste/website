@@ -74,6 +74,8 @@ function emit(name, code) {
 emit('dc.js', fs.readFileSync(path.join(SRC, 'runtime/dc.js'), 'utf8'));
 const cfgForClient = { firstVisitFrom: cfg.firstVisitFrom, scheduleDays: cfg.scheduleDays };
 emit('apw.js', 'window.APW=window.APW||{};window.APW.cfg=' + JSON.stringify(cfgForClient) + ';\n' + fs.readFileSync(path.join(SRC, 'runtime/apw.js'), 'utf8'));
+// The phone with our videos. Only pages that hold one (data-reel in the page body) load this file.
+emit('reel.js', fs.readFileSync(path.join(SRC, 'runtime/reel.js'), 'utf8'));
 
 // ---------- server side rendering ----------
 const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>');
@@ -369,7 +371,7 @@ function page(p) {
   const robots = p.index ? 'index, follow, max-image-preview:large, max-snippet:-1' : 'noindex, follow';
   const graph = p.index ? [website, business, { '@type': 'WebPage', '@id': url + '#webpage', url, name: p.title, description: p.description, isPartOf: { '@id': ORIGIN + '/#website' }, about: { '@id': BIZ_ID }, inLanguage: 'en-US', dateModified: TODAY }, ...(p.ld || [])] : null;
   const css = p.css.join('\n') + '\n' + SITE_CSS + '\n' + BF_CSS + '\n' + DOCK_CSS + '\n.stf{display:block;width:max-content;margin:0 auto;padding:6px 10px 10px;font:11px/1 var(--f-text);letter-spacing:.08em;color:#2A3150;text-decoration:none}.stf:hover,.stf:focus-visible{color:#6B7398}';
-  const scripts = [assets['dc.js'], ...p.boards.map((b) => b.js), assets['apw.js']];
+  const scripts = [assets['dc.js'], ...p.boards.map((b) => b.js), assets['apw.js']].concat(/ data-reel[ >=]/.test(p.body) ? [assets['reel.js']] : []);
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -424,6 +426,27 @@ const built = [];
 const bookDock = useBoard('book', (m) => m.replace(/<(\/?)h1(?=[\s>])/g, '<$1h2'));
 const dockHtml = ssr(bookDock, { mode: 'dock' });
 
+// The videos in the phone on the home page (How it works). The clip list and the words on the page are in design/generator/parts.py (_REEL).
+// Files are in static/assets/video: NAME-sale-v1.mp4 plays through the Black Friday sale, NAME-v1.mp4 after it (free month captions cut out).
+// Google only gives video results to a page where one video is the main thing, so this data is here to say what the videos are, not to win a video result.
+const VIDEO_DAY = '2026-11-15T19:30:00-07:00';
+const VIDEOS = [
+  { file: 'dog-poop-pickup', secs: [10, 7], name: 'Your dog poops every day. We pick it up.',
+    text: 'Real video of an Arizona Pet Waste scooper at work: in through the side gate, picking up dog poop on turf and rock, and out again. We serve Buckeye, Verrado, Goodyear and Litchfield Park, AZ.' },
+  { file: 'gate-photo', secs: [15, 10], name: 'No photo? That visit is free.',
+    text: 'After every dog poop pickup visit, Arizona Pet Waste sends you a photo of your latched gate. If you do not get a photo, that visit is free.' },
+  { file: 'free-spray', secs: [15, 10], name: 'Free deodorizer spray at every visit',
+    text: 'Yard smells like a kennel? Arizona Pet Waste sprays deodorizer on the spots your dogs use most. It is free at every dog poop pickup visit.' },
+  { file: 'black-friday', secs: [15, 0], sale: true, name: 'Black Friday sale: your first month of dog poop pickup is free',
+    text: 'Sign up for dog poop pickup by November 30, 2026 and your first month is free. No long term contract. Keep your plan 60 days and your free month stays free.' }
+].filter((v) => DEAL_ON || !v.sale);
+const videoUrl = (v) => ORIGIN + '/assets/video/' + v.file + (DEAL_ON ? '-sale' : '') + '-v1.mp4';
+const videoLd = (pageUrl) => VIDEOS.map((v) => Object.assign({
+  '@type': 'VideoObject', '@id': pageUrl + '#video-' + v.file, name: v.name, description: v.text,
+  thumbnailUrl: ORIGIN + '/assets/video/' + v.file + '.jpg', uploadDate: VIDEO_DAY, duration: 'PT' + v.secs[DEAL_ON ? 0 : 1] + 'S',
+  contentUrl: videoUrl(v), publisher: { '@id': BIZ_ID }, inLanguage: 'en-US'
+}, v.sale ? { expires: DEAL_END } : {}));
+
 // home
 {
   const e = useBoard('main', (m) => slots(m));
@@ -438,7 +461,7 @@ const dockHtml = ssr(bookDock, { mode: 'dock' });
     ld: [faqLd(url, content.faq.main), {
       '@type': 'Service', '@id': url + '#service', name: 'Dog poop pickup', serviceType: 'Pet waste removal', provider: { '@id': BIZ_ID },
       areaServed: SERVED, offers: { '@type': 'AggregateOffer', lowPrice: '75.00', highPrice: '189.00', priceCurrency: 'USD', offerCount: 3 }
-    }]
+    }, ...videoLd(url)]
   }));
 }
 
@@ -735,6 +758,10 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - We latch the gate, pull on it, and send a photo.
 - Something off? Tap "Something's off" in My Yard and we come back free within 24 hours.
 
+## Videos of our work (real video, shot in November 2026, no sound)
+${VIDEOS.map((v) => '- [' + v.name + '](' + videoUrl(v) + '): ' + v.text).join('\n')}
+- They play on the home page, in the How it works section: ${ORIGIN}/
+
 ## Local dog poop rules (plain summary)
 - Buckeye (including Verrado): city code says animal waste cannot be left in an unsanitary way on public or private land, including your own yard. Verrado HOA rules say dog poop must be picked up right away anywhere in Verrado.
 - Goodyear: city code says droppings must be removed from yards at least twice a week, and pets cannot cause flies, odor or piled up droppings. Up to four household pets per home.
@@ -746,7 +773,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - Bonded and insured: [[ins:bonded now, and the insurance policy starts November 16, 2026||yes]]. $50,000 business service bond from American Contractors Indemnity Company (Tokio Marine HCC), November 9, 2026 to November 9, 2027. General liability insurance of $1,000,000 / $2,000,000 from Certain Underwriters at Lloyd's, London, through Pet Care Insurance, November 16, 2026 to November 16, 2027. Coverage summary: ${ORIGIN}/bonded-and-insured/ (the certificate is sent on request)
 - Background checks: every team member must pass a background check before working in a yard.
 - Business license: in progress as of November 2026. Do not describe the company as licensed yet.
-- Owner: Juan Gonzalez, who lives in Verrado (Buckeye, AZ) with his wife and their six kids.
+- Owner: Juan Gonzalez, owner and operator, who lives in Verrado (Buckeye, AZ) with his wife and their six kids. The three standards he runs the company by: do what you say you are going to do, take pride in the details, never stop improving.
 - Sign up fee: none. [[bf:The first month is free only with the Black Friday sale, for sign ups through November 30, 2026.||The first cleanup is free.]]
 - Price per visit: weekly service is $108 a month for 1 or 2 dogs. That is about $25 a week, or about $25 a visit. Prices are billed once a month, on the 1st.
 - Deodorizer spray: free at every visit.
