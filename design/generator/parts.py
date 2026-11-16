@@ -179,8 +179,10 @@ AREA_METHODS = r"""  _zipArea(zip) {
     };
   }"""
 
-MAP = truemap.build('mV.pick', 'mC.pick', 'mG.pick', 'mL.pick', 'mB.pick', 'mW.pick')  # town pages: all six shapes
-MAP_HOME = truemap.build('mV.pick', 'mC.pick', 'mG.pick', 'mL.pick', 'mB.pick', 'mW.pick', verrado=False)  # home page: Verrado is shown as Buckeye (Joe, Nov 16 2026)
+# Joe, Nov 16 2026: Verrado is part of Buckeye. Every map labels ZIP 85396 BUCKEYE and has no Verrado shape,
+# except the Verrado page's own map (MAP_V), which still lights Verrado.
+MAP = truemap.build('mV.pick', 'mC.pick', 'mG.pick', 'mL.pick', 'mB.pick', 'mW.pick', verrado=False)
+MAP_V = truemap.build('mV.pick', 'mC.pick', 'mG.pick', 'mL.pick', 'mB.pick', 'mW.pick')
 SOON_NOTE = ('<div class="soon">'
              '<p class="soon-h">Coming soon</p>'
              '<p class="soon-l">Surprise, Peoria, Glendale and Laveen.</p>'
@@ -303,7 +305,6 @@ YARD_STATE = _yd['YARD_STATE']
 DD_CHEV = '<svg class="ddc" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 DD_AREAS = ('<div class="ddp">'
     '<a href="CityBuckeye.dc.html"><b>Buckeye</b></a>'
-    '<a href="CityVerrado.dc.html"><b>Verrado</b></a>'
     '<a href="CityGoodyear.dc.html"><b>Goodyear</b></a>'
     '<a href="CityLitchfieldPark.dc.html"><b>Litchfield Park</b></a>'
     '<a href="CityCitrusPark.dc.html"><b>Citrus Park</b></a>'
@@ -407,7 +408,6 @@ def _footer(pre):
             '        <a href="Pricing.dc.html" class="flink">Pricing</a>\n'
             '        <a href="AreasWeServe.dc.html" class="flink">Areas we serve</a>\n'
             '        <a href="CityBuckeye.dc.html" class="flink">Buckeye</a>\n'
-            '        <a href="CityVerrado.dc.html" class="flink">Verrado</a>\n'
             '        <a href="CityGoodyear.dc.html" class="flink">Goodyear</a>\n'
             '        <a href="CityLitchfieldPark.dc.html" class="flink">Litchfield Park</a>\n'
             '        <a href="CityCitrusPark.dc.html" class="flink">Citrus Park</a>\n'
@@ -447,7 +447,7 @@ def _footer(pre):
 
 _NAV = [('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Commercial.dc.html', 'Commercial'), ('Faq.dc.html', 'FAQ')]
 _MNAV = [('Main.dc.html', 'Home'), ('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Commercial.dc.html', 'Commercial'), ('Faq.dc.html', 'FAQ'), ('Blog.dc.html', 'Blog'),
-         ('CityBuckeye.dc.html', 'Buckeye'), ('CityVerrado.dc.html', 'Verrado'), ('CityGoodyear.dc.html', 'Goodyear'), ('CityLitchfieldPark.dc.html', 'Litchfield Park'), ('CityCitrusPark.dc.html', 'Citrus Park'), ('CityWaddell.dc.html', 'Waddell')]
+         ('CityBuckeye.dc.html', 'Buckeye'), ('CityGoodyear.dc.html', 'Goodyear'), ('CityLitchfieldPark.dc.html', 'Litchfield Park'), ('CityCitrusPark.dc.html', 'Citrus Park'), ('CityWaddell.dc.html', 'Waddell')]
 HEADER_MAIN = _header('Main.dc.html', _NAV)
 HEADER_CITY = _header('Main.dc.html', _NAV)
 MENU_MAIN = _menu(_MNAV)
@@ -472,7 +472,7 @@ CK_ITEMS = [('A 30 minute time window', 'We text it to you the night before.'),
             ('Deodorizing included free', 'With every visit, on rock and turf yards alike.'),
             ('A free return within 24 hours', 'If we miss a pile.'),
             ('4 free skips a year', 'One tap in My Yard. After your first 60 days, you can pause for up to 120 days too.'),
-            ('Every home in 6 ZIP codes', 'Buckeye, Verrado, Goodyear, Litchfield Park, Citrus Park and Waddell.'),
+            ('Every home in 6 ZIP codes', 'Buckeye, Goodyear, Litchfield Park, Citrus Park and Waddell.'),
             ('[[bf:No long term contract||No contract]] and no sign up fee', '[[bf:Month to month. Keep your plan 60 days and your free month stays free.||Month to month. Cancel in My Yard.]]')]
 SPECS = ('<section id="specs" class="sec">\n  <div class="in ck-g">\n'
          '  <div class="shd">\n'

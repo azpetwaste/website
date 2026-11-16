@@ -83,7 +83,7 @@ CITIES = [
             ('Can I report my neighbor for dog poop in Goodyear?', 'Yes. You can report it to the City of Goodyear. If you have an HOA, you can tell them too. Talking to your neighbor first often works best.'),
             ('How many dogs can I have in Goodyear?', 'Goodyear allows up to four household pets at a home. Dogs, cats and potbellied pigs all count toward the four.'),
         ], 'Seal it in a plastic bag and put it in your tan trash cart. Goodyear says pet waste never goes in the green recycle cart. On our visits, we bag it and haul it away for you.'),
-        nearby=nearby([L, B, C, W, V, ALL], 'Live in Avondale? Join the waitlist when you book.'),
+        nearby=nearby([L, B, C, W, ALL], 'Live in Avondale? Join the waitlist when you book.'),
     ),
     dict(
         file=L[0], id='l', area='litchfield', name='Litchfield Park', eyebrow='Litchfield Park, AZ · ZIP 85340', h='12200',
@@ -104,7 +104,7 @@ CITIES = [
             ('Can I report my neighbor for dog poop in Litchfield Park?', 'Yes. You can contact the City of Litchfield Park, or Maricopa County if you live outside city limits. If you have an HOA, you can tell them too. Talking to your neighbor first often works best.'),
             ('Can you get into gated neighborhoods like Cachet and Dreaming Summit?', 'Yes. Add your gate code in My Yard. Only your scooper sees it, and only on your day.'),
         ], 'Bag it, tie the bag, and put it in your trash can. Litchfield Park code says dog poop goes in a closed bag and then in the trash. Never put it in the recycle bin. On our visits, we bag it and haul it away for you.'),
-        nearby=nearby([G, B, C, W, V, ALL], 'Live in Avondale? Join the waitlist when you book.'),
+        nearby=nearby([G, B, C, W, ALL], 'Live in Avondale? Join the waitlist when you book.'),
     ),
     dict(
         file=C[0], id='c', area='citrus', name='Citrus Park', eyebrow='Citrus Park · Waddell, AZ · ZIP 85355', h='11400',
@@ -126,7 +126,7 @@ CITIES = [
             ('Is it illegal to not pick up dog poop in Citrus Park?', 'Citrus Park follows Maricopa County rules. The county health code treats animal waste as trash that must be handled so it does not breed insects, and dogs must be fenced in or leashed.'),
             ('Can I report a neighbor for dog poop in Citrus Park?', 'Yes. Citrus Park is county land, so you contact Maricopa County. If you have an HOA, you can tell them too. Talking to your neighbor first often works best.'),
         ]),
-        nearby=nearby([W, L, G, B, V, ALL], 'Live in Surprise? Join the waitlist when you book.'),
+        nearby=nearby([W, L, G, B, ALL], 'Live in Surprise? Join the waitlist when you book.'),
     ),
     dict(
         file=V[0], id='v', area='verrado', name='Verrado', eyebrow='Verrado · Buckeye, AZ · ZIP 85396', h='11600',
@@ -173,6 +173,6 @@ CITIES = [
             ('Can I take my dog to White Tank Mountain Regional Park?', 'Yes. Dogs are welcome on a leash 6 feet long or shorter. The county lists five trails there as good for dogs, and the park has dog water fountains. Bag the poop and use the trash cans at the trailhead.'),
             ('Can you get into gated neighborhoods like Laureate at Cortessa?', 'Yes. Add your gate code in My Yard. Only your scooper sees it, and only on your day.'),
         ]),
-        nearby=nearby([C, L, G, B, V, ALL], 'Have a Surprise ZIP code, like 85388? Join the waitlist when you book.'),
+        nearby=nearby([C, L, G, B, ALL], 'Have a Surprise ZIP code, like 85388? Join the waitlist when you book.'),
     ),
 ]

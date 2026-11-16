@@ -184,6 +184,8 @@ content = {'faq': {'main': prod_faq(parts.FAQ_ITEMS), 'common': prod_faq(longfor
 shell = None
 for i, cdef in enumerate(cities.CITIES):
     tpl = open('city.tpl.html').read()
+    if cdef['area'] == 'verrado':  # only the Verrado page lights a Verrado shape
+        tpl = tpl.replace('@@MAP@@', '@@MAP_V@@')
     vals = {'C_NAME': cdef['name'], 'C_H1': cdef.get('h1', cdef['name']), 'C_NAME_CAPS': cdef['name'].upper(), 'C_AREA': cdef['area'], 'C_EYEBROW': cdef['eyebrow'],
             'C_INTRO': cdef['intro'], 'C_MAP_H2': cdef['map_h2'], 'C_WHERE': cdef['where'], 'C_WHY_H2': cdef['why_h2'],
             'C_WHY': cdef['why'], 'C_FAQ_H2': cdef['faq_h2'], 'C_FAQ': cdef['faq'], 'C_NEARBY': cdef['nearby'], 'C_H': cdef['h']}
@@ -206,7 +208,7 @@ import truemap  # noqa: E402
 
 
 def static_map(links, label):
-    svg = truemap.build('pV', 'pC', 'pG', 'pL', 'pB', 'pW')
+    svg = truemap.build('pV', 'pC', 'pG', 'pL', 'pB', 'pW', verrado=False)
 
     def rep(m):
         if links[m.group(2)] is None:  # this map has no page of its own for the shape, so it is left out
@@ -214,21 +216,20 @@ def static_map(links, label):
         href, name = links[m.group(2)]
         return '<a href="%s" aria-label="%s"><path class="mplc mlink" d="%s"></path></a>' % (href, name, m.group(1))
     svg, n = re.subn(r'<path class="mplc" d="([^"]+)" style="fill: \{\{ (\w+) \}\};" onClick="\{\{ \w+ \}\}"></path>', rep, svg)
-    if n != 6:
-        sys.exit('static map: expected 6 town shapes, found %d' % n)
+    if n != 5:
+        sys.exit('static map: expected 5 town shapes, found %d' % n)
     return re.sub(r' role="img" aria-label="[^"]*"', ' aria-label="%s"' % label, svg, count=1)
 
 
 RES = {'bB': ('/pooper-scooper/buckeye-az/', 'Pooper scooper in Buckeye'), 'bG': ('/pooper-scooper/goodyear-az/', 'Pooper scooper in Goodyear'),
        'bL': ('/pooper-scooper/litchfield-park-az/', 'Pooper scooper in Litchfield Park'), 'bW': ('/pooper-scooper/waddell-az/', 'Pooper scooper in Waddell'),
-       'bC': ('/pooper-scooper/citrus-park-az/', 'Pooper scooper in Citrus Park'), 'bV': ('/pooper-scooper/buckeye-az/verrado/', 'Pooper scooper in Verrado')}
+       'bC': ('/pooper-scooper/citrus-park-az/', 'Pooper scooper in Citrus Park')}
 # Homes: Waddell (all of ZIP 85355) and Citrus Park (its south end) each open their own page.
 # HOAs and businesses: one page covers both, so the ZIP shape links to it and the Citrus Park shape is left out.
 COM = {'bB': ('/commercial-pet-waste-removal/buckeye-az/', 'Commercial pet waste removal in Buckeye'),
        'bG': ('/commercial-pet-waste-removal/goodyear-az/', 'Commercial pet waste removal in Goodyear'),
        'bL': ('/commercial-pet-waste-removal/litchfield-park-az/', 'Commercial pet waste removal in Litchfield Park'),
-       'bW': ('/commercial-pet-waste-removal/citrus-park-az/', 'Commercial pet waste removal in Citrus Park and Waddell'), 'bC': None,
-       'bV': ('/commercial-pet-waste-removal/buckeye-az/', 'Commercial pet waste removal in Verrado and Buckeye')}
+       'bW': ('/commercial-pet-waste-removal/citrus-park-az/', 'Commercial pet waste removal in Citrus Park and Waddell'), 'bC': None}
 _mcss = truemap.MAP_CSS.split('}', 1)[1]  # drop the home page .map box rule
 content['svcmap'] = {
     'res': static_map(RES, 'Map of the towns and ZIP codes we serve. Tap a town to open its page.'),

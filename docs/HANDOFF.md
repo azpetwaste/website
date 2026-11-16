@@ -495,3 +495,7 @@ Joe asked for a real Waddell page, built like the other five town pages, with it
 ## Nov 16, 2026: Verrado hidden in the home page Areas section (website session)
 - Joe: Verrado is Buckeye, Buckeye is the main city. The home Areas section now names Buckeye, Goodyear, Litchfield Park, Citrus Park and Waddell (lead line, chips, Read about your town). The home map labels 85396 BUCKEYE and has no Verrado shape (`MAP_HOME`, `verrado=False`).
 - Not changed: the Verrado page, its links in the header, phone menu, footer, Areas we serve, sitemap and llms.txt, the home page H1, the share picture, and every other map.
+
+## Nov 16, 2026, later: five towns everywhere (website session)
+- Joe: Buckeye, Goodyear, Litchfield Park, Citrus Park and Waddell are the towns. Verrado is in Buckeye. Every town list, menu, footer, schema town list, Areas card, blog line and map now uses five. `SIX` in `build/build.mjs` is now `AREA_TOWNS` / `TOWNS_TEXT`.
+- The Verrado page stays live and linked (Buckeye page, 85396 ZIP row, About, one time cleanup, sitemap, llms.txt). Not changed: home H1, share picture, sign up form city buttons.
