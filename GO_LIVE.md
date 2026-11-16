@@ -47,7 +47,7 @@ Stay in Test mode for now.
 3. Settings > Billing > Customer portal: turn on. Allow update payment method, view invoices, cancel subscription (at end of billing period). Leave "Pause subscription", "Switch plan" and "Update quantities" OFF: pausing is done in My Yard, which holds it back for the first 60 days. Save. The portal is saved one time in test mode and one time in live mode.
 4. Settings > Billing > Subscriptions and emails: turn on "Send a reminder email 7 days before a free trial ends" (the card networks ask for this). Leave "Send emails when card payments fail" OFF: the site sends its own email the same day.
 5. Billing > Revenue recovery > Retries: Smart Retries on (new accounts start with up to 8 tries in 2 weeks). "If all retries for a payment fail": Cancel the subscription. Then nobody is billed month after month for visits they are not getting. Leave both "Pause the subscription" choices off.
-6. Settings > Payment methods: cards, Apple Pay, Google Pay and Link on. Settings > Payment method domains: add `arizonapetwaste.com` and `www.arizonapetwaste.com`. Add them in LIVE mode (that covers test mode too). Apple Pay and Google Pay do not show on our card form until this is done. If Stripe shows a file to put on the site for Apple Pay, hand the file to Claude: it goes in `static/.well-known/`.
+6. Settings > Payment methods: cards, Apple Pay, Google Pay and Link on. Turn the others off (bank debits, Cash App Pay, Amazon Pay, pay later): our card form only asks for cards and Link, but if Stripe ever refused that list it would show every way to pay that is on here. Settings > Payment method domains: add `arizonapetwaste.com` and `www.arizonapetwaste.com`. Add them in LIVE mode (that covers test mode too). Apple Pay and Google Pay do not show on our card form until this is done. If Stripe shows a file to put on the site for Apple Pay, hand the file to Claude: it goes in `static/.well-known/`.
 7. Developers > Webhooks (or Workbench > Event destinations) > Add endpoint `https://arizonapetwaste.com/api/stripe-webhook`.
    Events, all seven: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`, `customer.updated`.
    If it asks for an API version, take the newest one. Copy the signing secret into Cloudflare as `STRIPE_WEBHOOK_SECRET`.
@@ -60,9 +60,16 @@ How a plan is billed (Joe, November 15, 2026):
 - The day the free month ends: the part month up to the 1st. Then the full price on the 1st of each month, for the month ahead. A free month that ends on a 1st has no part month.
 - A payment fails: the customer is emailed that day, a text waits in the office Texts tab for staff to send, the office is emailed, and the customer stays off new routes until the bill is paid. Stripe keeps retrying. When the bill is paid they are back on and get a thank you.
 - A customer who changes their card in My Yard while on hold: the open bill is tried on the new card right away (that is what `customer.updated` is for).
+- Right after each plan is made, the server asks Stripe what the first bill will be and holds it up against what the customer saw. If they do not match, the office gets an email that starts with "CHECK BILLING". Nothing is charged at that point. Do not change the plan by hand: tell Joe.
+- If the plan does not start after the card is saved, the office gets "ACTION NEEDED". The site tries again on its own. Never start a second plan by hand: two plans means two bills.
 
 ## 6. Check the setup
 Open https://arizonapetwaste.com/api/health. It must say `"live":true`. If it says false, a key is missing in Cloudflare.
+The same line shows three more things, and never a key:
+- `"keys"`: `"test"` or `"live"` is which Stripe mode both keys are for. `"mixed"` means one key is a test key and the other is a live key. That cannot work: fix it before anyone signs up.
+- `"hook"`: true when `STRIPE_WEBHOOK_SECRET` is set.
+- `"mail"`: true when `RESEND_API_KEY` is set.
+If the webhook secret is set but is the wrong one (the test mode secret with live keys, say), /crew > Health shows the line "A Stripe event was refused: its signature does not match STRIPE_WEBHOOK_SECRET". Sign ups still work then, but cancels, failed payments and paid bills do not reach the office until it is fixed.
 
 ## 7. Test on a phone and a computer (Joe)
 While the Stripe test keys are in Cloudflare, the public gets the "we call you" sign up. Open `https://arizonapetwaste.com/book/?test=1` to turn real checkout on for that browser tab.
@@ -70,7 +77,7 @@ While the Stripe test keys are in Cloudflare, the public gets the "we call you" 
 2. The 6 digit code arrives by email within a minute. Type it.
 3. Write down what the pay step shows: the free until day, the part month amount and its day, and the 60 day date. Pay with test card `4242 4242 4242 4242`, any future date, any 3 numbers.
 4. You see "You are booked!". You get the booking email at info@arizonapetwaste.com and the customer email, one of each.
-5. Supabase > Table Editor > customers shows the row with status `trialing`. In Stripe (test mode) the customer has one subscription, status Trialing. Its trial ends on the free until day. Its "Upcoming invoice" is the part month amount from step 3, to the cent, and after that the billing day is the 1st. The customer's default payment method is the test card.
+5. Supabase > Table Editor > customers shows the row with status `trialing`. In Stripe (test mode) the customer has one subscription, status Trialing. Its trial ends on the free until day. Its "Upcoming invoice" is the part month amount from step 3, to the cent, and after that the billing day is the 1st. The customer's default payment method is the test card. The server makes this same check on its own for every sign up: no "CHECK BILLING" email at info@arizonapetwaste.com and no such line in /crew > Health means Stripe agreed.
 6. Stripe > Developers > Webhooks > the endpoint: every delivery says 200.
 7. Open /account/, sign in with the code, save a gate code, tap "Change card or cancel" and see the Stripe page.
 8. Failed payment drill (test mode only). In Stripe open the test customer, add test card `4000 0000 0000 0341` and make it the default. Open the subscription > Actions > End trial now. Within about an hour Stripe tries the bill and it fails. Check: the customer email "Your card did not work", the office email "Card failed", a "card failed" text in /crew > Texts, status "Card problem" and the "Your card did not work" box in My Yard. Then make `4242 4242 4242 4242` the default again in "Change my card": the bill is paid right away, the customer gets "Your payment went through", and My Yard is back to normal.
@@ -79,8 +86,8 @@ While the Stripe test keys are in Cloudflare, the public gets the "we call you" 
 1. Delete the test sign ups first: Supabase > Table Editor > customers, remove the rows made in test mode. A row left from test mode blocks that email, phone and address from signing up again (one free month per home) and its Stripe ids mean nothing to the live keys.
 2. Switch Stripe to live mode. Repeat Stripe steps 1 and 3 to 7 in live mode: live mode has its own portal settings, its own retry and email settings, its own payment method domains and its own webhook with its own signing secret.
 3. Put the live publishable key, live secret key and live webhook secret into Cloudflare (`STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`). Redeploy the latest deployment so the settings load.
-4. Open https://arizonapetwaste.com/api/health: `"live":true`. Open /book/ with no `?test=1`: the pay step shows the card form (the live key turns real checkout on for everyone on its own).
-5. Do one real sign up with your own card. You are charged $0. Check Stripe live mode the same way as step 5 of the test. Then cancel it in My Yard. A cancel in the first 60 days is charged one month, so cancel it in Stripe and refund yourself if that charge goes through.
+4. Open https://arizonapetwaste.com/api/health: `"live":true,"keys":"live","hook":true,"mail":true`. Open /book/ with no `?test=1`: the pay step shows the card form (the live key turns real checkout on for everyone on its own).
+5. Do one real sign up with your own card. You are charged $0. Check Stripe live mode the same way as step 5 of the test. Then look at Stripe > Developers > Webhooks: the live deliveries say 200. A 400 there means the webhook secret in Cloudflare is not the live one. Then cancel it in My Yard. A cancel in the first 60 days is charged one month, so cancel it in Stripe and refund yourself if that charge goes through.
 
 Every setting the live site reads in Cloudflare Pages > Settings > Variables and Secrets:
 - Must have: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`.

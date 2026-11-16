@@ -53,7 +53,7 @@ npm run check      # one H1 per page, titles, no dashes in copy, links, structur
 | `NODE_VERSION` | `22` | text |
 
 Until the Supabase and Stripe keys are set, the site runs in demo mode: the whole sign up works, nothing is saved and no card is charged.
-Check the server any time at `/api/health`.
+Check the server any time at `/api/health`. It shows if the keys are in (`live`), which Stripe mode they are for (`keys`: test, live or mixed), and if the webhook secret (`hook`) and the mail key (`mail`) are set. It never shows a key.
 
 ## Stripe webhook events
 

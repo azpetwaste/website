@@ -258,6 +258,8 @@ ok('all 10 are on their free month', list.every((c) => c.status === 'trialing'))
   ok('each plan is started by the server: free until the free month ends, bills on the 1st, part month charged by Stripe', Object.keys(pay.made).length === 10
     && Number(f.get('trial_end')) > Date.now() / 1000 + 30 * 86400 && (!f.has('billing_cycle_anchor') || (Number(f.get('billing_cycle_anchor')) > Number(f.get('trial_end')) && new Date(Number(f.get('billing_cycle_anchor')) * 1000).toISOString().slice(8, 13) === '01T19' && f.get('proration_behavior') === 'create_prorations'))
     && f.get('items[0][price]') === 'price_' + h[3] + '_base' && f.get('items[1][price]') === 'price_' + h[3] + '_extra' && f.get('items[1][quantity]') === String(h[4] - 2), String(f)); }
+ok('each new plan had its first bill looked at in Stripe once, and it matched what the customer was told', pay.previews.length === 10 && new Set(pay.previews).size === 10 && mails.filter((x) => /^CHECK BILLING/.test(x.subject)).length === 0
+  && Object.keys(pay.made).every((k) => Math.abs(pay.firstBill(k) - Number(pay.made[k].get('metadata[first_charge]'))) <= 1), [pay.previews.length, mails.filter((x) => /^CHECK BILLING/.test(x.subject)).map((x) => x.text)]);
 ok('all 10 have a map pin', list.every((c) => c.lat != null && c.lng != null));
 ok('all 10 got their area service day', list.every((c) => c.service_day === wd));
 ok('office got 10 new booking emails', mails.filter((x) => /^New booking/.test(x.subject)).length === 10);

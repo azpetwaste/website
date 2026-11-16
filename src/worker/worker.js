@@ -87,7 +87,7 @@ async function route(path, request, env, ctx) {
   if (path === '/api/me/pause' && m === 'POST') return mePause(request, env, ctx);
   if (path === '/api/me/resume' && m === 'POST') return meResume(request, env, ctx);
   if (path === '/api/demo/week' && m === 'GET') return demoWeek(env, new URL(request.url).searchParams);
-  if (path === '/api/health' && m === 'GET') return ok({ ok: true, live: live(env), desk: sbLive(env) });
+  if (path === '/api/health' && m === 'GET') return ok({ ok: true, live: live(env), desk: sbLive(env), keys: keyMode(env), hook: !!env.STRIPE_WEBHOOK_SECRET, mail: !!env.RESEND_API_KEY });
   if (path === '/api/log' && m === 'POST') return clientLog(request, env);
   if (/^\/api\/(staff|crew|office|track)\//.test(path)) return desk(path, request, env, ctx);
   return fail(404, 'Not found.');
@@ -113,6 +113,13 @@ function live(env) {
 }
 // The field desk only needs Supabase, so the crew app works before Stripe is live.
 function sbLive(env) { return !!(env.SUPABASE_URL && env.SUPABASE_ANON_KEY && env.SUPABASE_SERVICE_ROLE_KEY); }
+// Which Stripe mode the two keys are for: test, live, or mixed (one of each, which cannot work). Shown by /api/health
+// so a key swap can be checked from a browser. It shows the mode only, never a key.
+function keyMode(env) {
+  const mode = (k) => (/^[a-z]+_live_/.test(String(k || '')) ? 'live' : /^[a-z]+_test_/.test(String(k || '')) ? 'test' : '');
+  const a = mode(env.STRIPE_PUBLISHABLE_KEY), b = mode(env.STRIPE_SECRET_KEY);
+  return !a && !b ? 'none' : a === b ? a : 'mixed';
+}
 const clean = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f]+/g, ' ').trim().slice(0, n);
 const digits = (v) => { let d = String(v || '').replace(/\D/g, ''); if (d.length === 11 && d[0] === '1') d = d.slice(1); return d; };
 const emailOk = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e || '');
@@ -399,11 +406,14 @@ async function checkoutDone(request, env, ctx) {
     const out = await startPlan(env, ctx, s);
     return ok({ booked: !!out });
   } catch (e) {
-    await planAlert(env, s, e);
-    throw e;
+    // Only for a card form that was just finished, so an old sign up asked about again does not email the office.
+    await planAlert(env, s, e, Date.now() / 1000 - (s.created || 0) < 3600);
+    throw planError(s, e);
   }
 }
 
+// How long to wait (times 1, 2, 3) before asking Stripe again when it says the same request is still running.
+const PLAN_WAIT = 700;
 // The card is saved. Start the plan: free until `free_end`, bills lined up on the 1st (`anchor`), and Stripe charges
 // the days in between on its own. Safe to run more than once for one sign up: the Stripe webhook and the sign up page
 // both call it, Stripe keeps it to one plan, and `booked` keeps it to one welcome.
@@ -411,50 +421,64 @@ async function startPlan(env, ctx, s) {
   const md = s.metadata || {};
   const uid = uuid(s.client_reference_id || md.user_id), customer = idOf(s.customer);
   if (s.mode !== 'setup' || !uid || !customer || !PLANS[md.plan]) return null;
+  // Only a sign up that is waiting at the card step gets a plan. A finished sign up that is reported again (the
+  // page and the webhook both report it, Stripe sends events again, anyone can resend one from the Dashboard) starts
+  // nothing. Neither does an old sign up of a customer who has since canceled.
+  const rows = await db(env, 'GET', 'customers?id=eq.' + uid + '&select=status,stripe_subscription_id');
+  const row = rows && rows[0];
+  if (!row || row.status !== 'checkout') {
+    return row && row.stripe_subscription_id && ['trialing', 'active', 'past_due', 'paused'].includes(row.status) ? { id: row.stripe_subscription_id, already: true } : null;
+  }
   let si = s.setup_intent;
   if (typeof si === 'string') si = await stripe(env, 'GET', 'setup_intents/' + si, { expand: ['payment_method'] });
   let card = si && si.payment_method;
   if (typeof card === 'string') card = await stripe(env, 'GET', 'payment_methods/' + card);
   if (!card || !card.id) throw new Error('sign up ' + s.id + ' has no saved card');
-  const livePlan = async () => ((await stripe(env, 'GET', 'subscriptions', { customer, status: 'all', limit: 10 })).data || [])
-    .filter((x) => x.status !== 'canceled' && x.status !== 'incomplete_expired')[0] || null;
-  // One plan for one customer. A plan that is already there (this ran before, or a second tab) is the plan.
-  let sub = await livePlan();
+  // Every plan this customer has had. One sign up makes one plan, ever: if the plan from this sign up is there, it is
+  // the plan, and if it has been canceled since, no new one is made. Any other live plan is the plan too (a second tab).
+  const all = (await stripe(env, 'GET', 'subscriptions', { customer, status: 'all', limit: 100 })).data || [];
+  const alive = (x) => x.status !== 'canceled' && x.status !== 'incomplete_expired';
+  const mine = all.filter((x) => x.metadata && x.metadata.session === s.id)[0];
+  if (mine && !alive(mine)) return null;
+  let sub = mine || all.filter(alive)[0] || null, made = false;
   if (!sub) {
-    // The saved card pays every bill. It is set on the Stripe customer, not on the plan, so a card changed later on
-    // Stripe's billing page (My Yard, Change card) is the card every later bill and retry uses.
-    await stripe(env, 'POST', 'customers/' + customer, { invoice_settings: { default_payment_method: card.id } });
+    const freeEnd = parseInt(md.free_end, 10), anchor = parseInt(md.anchor, 10);
+    if (!(freeEnd > Date.now() / 1000) || !(anchor >= freeEnd)) throw new Error('sign up ' + s.id + ' has bad dates');
     const ids = await prices(env);
     const dogs = Math.min(6, Math.max(1, parseInt(md.dogs, 10) || 1));
     const items = [{ price: ids['apw_' + md.plan + '_base'], quantity: 1 }];
     if (dogs > 2) items.push({ price: ids['apw_' + md.plan + '_extra'], quantity: dogs - 2 });
-    const freeEnd = parseInt(md.free_end, 10), anchor = parseInt(md.anchor, 10);
-    if (!(freeEnd > Date.now() / 1000) || !(anchor >= freeEnd)) throw new Error('sign up ' + s.id + ' has bad dates');
-    try {
-      sub = await stripe(env, 'POST', 'subscriptions', Object.assign({
-        customer, items,
-        // Free until trial_end. A free month that ends on a 1st needs nothing more: Stripe bills from that day.
-        trial_end: freeEnd
-      }, anchor > freeEnd ? {
-        // Bills line up on the 1st after the free month, and Stripe charges the days in between as a part month.
-        billing_cycle_anchor: anchor, proration_behavior: 'create_prorations'
-      } : {}, {
-        description: PLANS[md.plan].name + ', ' + dogs + (dogs === 1 ? ' dog' : ' dogs') + ', ' + ((ZIPS[md.zip] || {}).name || 'AZ') + '. We reach out to set the first visit.',
-        metadata: {
-          user_id: uid, plan: md.plan, dogs: String(dogs), zip: md.zip || '', session: s.id, first_charge: md.first_charge || '',
-          free_end: String(freeEnd), anchor: String(anchor), min_end: md.min_end || '',
-          free_label: md.free_label || '', next_label: md.next_label || '', min_label: md.min_label || ''
-        }
-      }), 'apw-plan-' + s.id);
-    } catch (e) {
-      // 409: the other caller is starting this same plan right now. Give it a moment, then use its plan.
-      if (e.status !== 409) throw e;
-      await new Promise((r) => setTimeout(r, 1500));
-      sub = await livePlan();
-      if (!sub) throw e;
+    // The saved card pays every bill. It is set on the Stripe customer, not on the plan, so a card changed later on
+    // Stripe's billing page (My Yard, Change card) is the card every later bill and retry uses.
+    await stripe(env, 'POST', 'customers/' + customer, { invoice_settings: { default_payment_method: card.id } });
+    const plan = Object.assign({
+      customer, items,
+      // Free until trial_end. A free month that ends on a 1st needs nothing more: Stripe lines the bills up on the
+      // day a free month ends when no other day is given, and that day is the 1st.
+      trial_end: freeEnd
+    }, anchor > freeEnd ? {
+      // Bills line up on the 1st after the free month, and Stripe charges the days in between as a part month.
+      billing_cycle_anchor: anchor, proration_behavior: 'create_prorations'
+    } : {}, {
+      description: PLANS[md.plan].name + ', ' + dogs + (dogs === 1 ? ' dog' : ' dogs') + ', ' + ((ZIPS[md.zip] || {}).name || 'AZ') + '. We reach out to set the first visit.',
+      metadata: {
+        user_id: uid, plan: md.plan, dogs: String(dogs), zip: md.zip || '', session: s.id, first_charge: md.first_charge || '',
+        free_end: String(freeEnd), anchor: String(anchor), min_end: md.min_end || '',
+        free_label: md.free_label || '', next_label: md.next_label || '', min_label: md.min_label || ''
+      }
+    });
+    for (let tries = 0; !sub; tries++) {
+      try { sub = await stripe(env, 'POST', 'subscriptions', plan, 'apw-plan-' + s.id); } catch (e) {
+        // 409: the other caller (the webhook or the sign up page) is starting this same plan right now. Ask again
+        // with the same key: once its request is done, Stripe hands back the plan it made.
+        if (e.status !== 409 || tries >= 3) throw e;
+        await new Promise((r) => setTimeout(r, PLAN_WAIT * (tries + 1)));
+      }
     }
+    made = true;
   }
   await booked(env, ctx, uid, sub, customer, card);
+  if (made) ctx.waitUntil(checkPlan(env, s, sub));
   return sub;
 }
 
@@ -462,11 +486,15 @@ async function startPlan(env, ctx, s) {
 // so a sign up finished by the Stripe webhook and by the sign up page still gets one of each.
 async function booked(env, ctx, uid, sub, customer, card) {
   const status = sub.pause_collection ? 'paused' : sub.status;
-  const rows = await db(env, 'PATCH', 'customers?id=eq.' + uid + '&status=eq.checkout',
-    { status, stripe_subscription_id: sub.id, stripe_customer_id: customer, updated_at: new Date().toISOString() }, 'return=representation');
+  const meta = sub.metadata || {};
+  const patch = { status, stripe_subscription_id: sub.id, stripe_customer_id: customer, updated_at: new Date().toISOString() };
+  // The plan Stripe bills is the plan. If the card step was open in two tabs with two choices, the row follows the
+  // one that was finished.
+  const paidDogs = parseInt(meta.dogs, 10);
+  if (PLANS[meta.plan] && paidDogs >= 1 && paidDogs <= 6) { patch.plan = meta.plan; patch.dogs = paidDogs; }
+  const rows = await db(env, 'PATCH', 'customers?id=eq.' + uid + '&status=eq.checkout', patch, 'return=representation');
   const c = rows && rows[0];
   if (!c) return false;
-  const meta = sub.metadata || {};
   if (!card) {
     try { card = (await stripe(env, 'GET', 'customers/' + customer, { expand: ['invoice_settings.default_payment_method'] })).invoice_settings.default_payment_method; } catch (e) { card = null; }
   }
@@ -496,15 +524,21 @@ async function booked(env, ctx, uid, sub, customer, card) {
 }
 
 // A saved card with no plan is the one failure that must not sit quiet: the customer thinks they are booked.
-// The office gets the details to start the plan by hand. Only on a fresh try, so Stripe's retries do not flood the inbox.
+// The office is told who it is and what to look at. Only on a fresh try, and once an hour for one sign up, so
+// Stripe's retries do not flood the inbox. The email does not say to start a plan by hand: the next retry usually
+// starts it, and a plan made by hand on top of that one would bill the customer twice.
 async function planAlert(env, s, e, fresh) {
-  if (fresh === false) return;
+  if (fresh === false || hitLimit('planalert|' + ((s && s.id) || ''), 1, 3600e3)) return;
   const md = (s && s.metadata) || {};
   let c = null;
   try { c = (await db(env, 'GET', 'customers?id=eq.' + uuid(s.client_reference_id || md.user_id) + '&select=name,email,phone,address,zip'))[0]; } catch (x) { c = null; }
   await mail(env, owner(env), 'ACTION NEEDED: card saved but the plan did not start' + (c ? ': ' + c.name : ''), [
-    'Someone finished sign up and saved a card, but Stripe did not start their plan. They were not charged.',
-    'Start it by hand in Stripe, or call them.', '',
+    'Someone finished sign up and saved a card, but their plan did not start. They were not charged.', '',
+    'The site tries again on its own for up to 3 days, and the next try often works. If a "New booking" email for them shows up, it fixed itself and there is nothing to do.', '',
+    'If no "New booking" email comes within one hour:',
+    '1. Open their customer in Stripe (the id is below) and look at Subscriptions.',
+    '2. If a plan is there, do not start a second one. Two plans means two bills.',
+    '3. If no plan is there, call them so they know, and tell Joe today so the plan gets started the right way.', '',
     c ? 'Name: ' + c.name + '\nMobile: ' + c.phone + '\nEmail: ' + c.email + '\nAddress: ' + c.address + ', ' + c.zip : 'Customer row: not found',
     'Plan: ' + ((PLANS[md.plan] || {}).name || md.plan || 'unknown') + ', ' + (md.dogs || '?') + ' dogs',
     'Free month ends: ' + (md.free_label || 'unknown'),
@@ -513,13 +547,57 @@ async function planAlert(env, s, e, fresh) {
     'What went wrong: ' + clean(e && e.message, 300)
   ].join('\n'));
 }
+// The same failure, named so the Health tab line makes sense on its own.
+function planError(s, e) {
+  const x = e instanceof Error ? e : new Error(String(e));
+  if (!/^Card saved/.test(x.message)) x.message = 'Card saved but the plan did not start (' + ((s && s.id) || 'no session') + '). ' + x.message;
+  return x;
+}
+
+// The plan was just made. Ask Stripe what it will charge first and hold that up against what the customer was told
+// at the card step. They should always match. If they ever do not, the office hears about it the day of the sign up,
+// weeks before the first charge. This only looks: it changes nothing in Stripe and it never stops a sign up.
+async function checkPlan(env, s, sub) {
+  if (!sub || !sub.id || hitLimit('plancheck|' + sub.id, 1, 3600e3)) return;
+  const md = (s && s.metadata) || {};
+  const freeEnd = parseInt(md.free_end, 10), told = parseInt(md.first_charge, 10);
+  const when = (t) => (t > 0 ? new Date(t * 1000).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix' }) : 'no date');
+  const off = [];
+  try {
+    if (sub.trial_end !== freeEnd) off.push('The day the free month ends. They were told ' + when(freeEnd) + '. Stripe has ' + when(sub.trial_end) + '.');
+    // Bills must line up on the 1st at noon Arizona time (19:00 UTC).
+    const a = new Date((sub.billing_cycle_anchor || 0) * 1000);
+    if (a.getUTCDate() !== 1) off.push('The billing day. They were told the 1st of each month. Stripe has day ' + a.getUTCDate() + ' (' + when(sub.billing_cycle_anchor) + ').');
+    const next = await stripe(env, 'POST', 'invoices/create_preview', { subscription: sub.id });
+    if (told > 0 && Math.abs((next.amount_due || 0) - told) > 2) off.push('The first charge. They were told ' + money(told) + '. Stripe plans to charge ' + money(next.amount_due || 0) + '.');
+  } catch (e) {
+    await logError(env, 'server', '/api/checkout', 'A new plan could not be checked against Stripe (the sign up itself went through)', sub.id + ' ' + clean(e && e.message, 300));
+    return;
+  }
+  if (!off.length) return;
+  let c = null;
+  try { c = (await db(env, 'GET', 'customers?id=eq.' + uuid(s.client_reference_id || md.user_id) + '&select=name,email,phone'))[0]; } catch (x) { c = null; }
+  await logError(env, 'server', '/api/checkout', 'Stripe does not match what a new customer was told about their first bill', sub.id + ' ' + off.join(' '));
+  await mail(env, owner(env), 'CHECK BILLING: Stripe does not match what ' + (c ? c.name : 'a new customer') + ' was told', [
+    'A new sign up was held up against Stripe, and something does not match what the customer saw at the card step.',
+    'Nothing has been charged. The first charge is not until the free month ends, so there is time to fix it.', '',
+    'What does not match:'
+  ].concat(off.map((x, i) => (i + 1) + '. ' + x), ['',
+    c ? 'Name: ' + c.name + '\nMobile: ' + c.phone + '\nEmail: ' + c.email : 'Customer row: not found',
+    'Stripe customer: ' + idOf(sub.customer),
+    'Stripe plan: ' + sub.id, '',
+    'Tell Joe today. Do not change the plan in Stripe by hand.'
+  ]).join('\n'));
+}
 
 const HOME_WORDS = { street: 'st', avenue: 'ave', road: 'rd', drive: 'dr', lane: 'ln', court: 'ct', place: 'pl', boulevard: 'blvd', circle: 'cir', trail: 'trl', parkway: 'pkwy', north: 'n', south: 's', east: 'e', west: 'w' };
 const homeKey = (a) => String(a || '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter(Boolean).map((w) => HOME_WORDS[w] || w).join('');
 const sameHome = (a, b) => !!homeKey(a) && homeKey(a) === homeKey(b);
 
+// 'ok' when Stripe signed this with our webhook secret. 'bad' for junk and for old events played back. 'mismatch' when
+// it has the shape and the fresh time stamp of a real Stripe event but was signed with some other secret.
 async function verifyStripe(payload, header, secret) {
-  if (!secret || !header) return false;
+  if (!header) return 'bad';
   let t = null;
   const v1 = [];
   for (const part of header.split(',')) {
@@ -528,7 +606,8 @@ async function verifyStripe(payload, header, secret) {
     if (k === 't') t = v;
     if (k === 'v1') v1.push(v);
   }
-  if (!t || !v1.length || Math.abs(Date.now() / 1000 - Number(t)) > 300) return false;
+  if (!t || !v1.some((s) => /^[0-9a-f]{64}$/.test(s)) || Math.abs(Date.now() / 1000 - Number(t)) > 300) return 'bad';
+  if (!secret) return 'mismatch';
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   const mac = new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode(t + '.' + payload)));
@@ -538,12 +617,21 @@ async function verifyStripe(payload, header, secret) {
     let diff = 0;
     for (let i = 0; i < s.length; i++) diff |= s.charCodeAt(i) ^ hex.charCodeAt(i);
     return diff === 0;
-  });
+  }) ? 'ok' : 'mismatch';
 }
 
 async function webhook(request, env, ctx) {
   const payload = await request.text();
-  if (!(await verifyStripe(payload, request.headers.get('stripe-signature'), env.STRIPE_WEBHOOK_SECRET))) return fail(400, 'Bad signature.');
+  const signed = await verifyStripe(payload, request.headers.get('stripe-signature'), env.STRIPE_WEBHOOK_SECRET);
+  if (signed !== 'ok') {
+    // A real looking event signed with another secret is what a wrong STRIPE_WEBHOOK_SECRET looks like. While that is
+    // so, cancels, failed payments and paid bills never reach the office, so say it on the Health tab (once an hour).
+    if (signed === 'mismatch' && !hitLimit('badsig', 1, 3600e3)) {
+      ctx.waitUntil(logError(env, 'server', '/api/stripe-webhook', 'A Stripe event was refused: its signature does not match STRIPE_WEBHOOK_SECRET',
+        'If this keeps coming back, the webhook secret in Cloudflare is not the one Stripe shows for this webhook (a test mode secret with live keys does this, and so does a test mode webhook still pointed at the site). Until it is fixed, cancels, failed payments and paid bills from Stripe do not reach the office.'));
+    }
+    return fail(400, 'Bad signature.');
+  }
   const evt = JSON.parse(payload);
   const o = evt.data && evt.data.object || {};
   const was = (evt.data && evt.data.previous_attributes) || {};
@@ -553,9 +641,10 @@ async function webhook(request, env, ctx) {
     // Sign up: the card form (setup mode) is done, so start the plan. Other kinds of checkout are not ours.
     if (o.mode === 'setup' && o.status !== 'expired') {
       try { await startPlan(env, ctx, o); } catch (e) {
-        // Stripe sends this event again for up to three days. Tell the office on the first tries only.
+        // Stripe sends this event again for up to three days, and each time the plan is tried again. Tell the office
+        // on the first tries only.
         await planAlert(env, o, e, Date.now() / 1000 - (evt.created || 0) < 900);
-        throw e;
+        throw planError(o, e);
       }
     }
   } else if (evt.type === 'customer.subscription.updated' || evt.type === 'customer.subscription.deleted' || evt.type === 'customer.subscription.created') {
@@ -568,12 +657,24 @@ async function webhook(request, env, ctx) {
     // goes out once (see booked). After that there is nothing left for this event to change.
     if (good && uid && await booked(env, ctx, uid, o, cust, null)) return ok({ received: true });
     // Stripe moved the plan to past due (a bill failed) or back from it (the bill got paid).
-    if (status === 'past_due') await cardFailed(env, ctx, filter, null, o);
+    // Stripe does not promise the order of its events, and it sends one again for up to three days when we did not
+    // answer. A late "past due" for a bill that has since been paid must not put a paid customer back on hold, and a
+    // late "paid" must not lift a hold that is real. So before a hold is set or lifted, ask Stripe where the plan
+    // stands right now. If that is not what this event says, the event is old news: a newer one carries the truth.
+    let cur = o;
+    if (!gone && o.id && (status === 'past_due' || (good && was.status === 'past_due'))) {
+      cur = await stripe(env, 'GET', 'subscriptions/' + encodeURIComponent(o.id));
+      if ((cur.pause_collection ? 'paused' : cur.status) !== status) return ok({ received: true });
+    }
+    if (status === 'past_due') await cardFailed(env, ctx, filter, null, cur);
     if (good && was.status === 'past_due') await backOn(env, ctx, filter, status);
     const patch = { status, stripe_subscription_id: o.id, updated_at: now };
     if (gone) patch.gate_code = null;
     // A customer on hold for a failed bill only comes off hold through backOn. Other changes to the plan do not lift it.
-    const rows = await db(env, 'PATCH', 'customers?' + filter + (good ? '&status=neq.past_due' : ''), patch, 'return=representation');
+    // And late news about a plan the row already shows as canceled must not bring that customer back. (A new plan
+    // made for a canceled customer has a new id, so that one does bring them back.)
+    const old = gone || !o.id ? '' : '&or=(status.neq.canceled,stripe_subscription_id.is.null,stripe_subscription_id.neq.' + encodeURIComponent(o.id) + ')';
+    const rows = await db(env, 'PATCH', 'customers?' + filter + (good ? '&status=neq.past_due' : '') + old, patch, 'return=representation');
     // Canceled or paused: take them off any route that has not happened yet.
     if ((gone || patch.status === 'paused') && rows && rows[0]) {
       await db(env, 'DELETE', 'stops?customer_id=eq.' + rows[0].id + '&status=in.(scheduled,skipped)&day=gte.' + azToday(), null, 'return=minimal').catch((e) => console.error('route cleanup', e));
@@ -583,7 +684,14 @@ async function webhook(request, env, ctx) {
     if (!gone && was.pause_collection && !o.pause_collection && o.status === 'active') await resumeCharge(env, ctx, o, rows && rows[0]);
   } else if (evt.type === 'invoice.payment_failed') {
     // Only a live plan goes on hold. A failed early cancel charge leaves a canceled customer canceled.
-    if (cust) await cardFailed(env, ctx, 'stripe_customer_id=eq.' + encodeURIComponent(cust), o, null);
+    // Stripe is asked about the bill first: a late copy of this event for a bill that has since been paid, or that
+    // the office voided, must not put the customer on hold.
+    const who = 'stripe_customer_id=eq.' + encodeURIComponent(cust);
+    const inGood = cust && o.id ? await db(env, 'GET', 'customers?' + who + '&status=in.(trialing,active)&select=id') : null;
+    if (inGood && inGood[0]) {
+      const bill = await stripe(env, 'GET', 'invoices/' + encodeURIComponent(o.id));
+      if (bill.status === 'open' && bill.amount_remaining > 0) await cardFailed(env, ctx, who, bill, null);
+    }
   } else if (evt.type === 'invoice.paid') {
     if (cust) await billPaid(env, ctx, cust, o);
   } else if (evt.type === 'customer.updated') {
@@ -696,6 +804,12 @@ async function newCard(env, cu, was) {
   }
 }
 
+// Has this one time charge been billed before? The bill carries a tag, and the customer's bills are looked through for it.
+async function billedBefore(env, customer, tag, value) {
+  const list = await stripe(env, 'GET', 'invoices', { customer: idOf(customer), limit: 100 });
+  return (list.data || []).some((i) => i.status !== 'void' && i.metadata && i.metadata[tag] === value);
+}
+
 // The free month stays free when the customer keeps the plan for 60 days. A cancel requested before that
 // (canceled_at is when they asked, even for cancel at period end) brings what they have paid up to one month
 // at plan price. Subscriptions made before the 60 day rule only have free_end, so they keep the older rule.
@@ -712,6 +826,10 @@ async function freeMonthCharge(env, ctx, sub, row) {
   const who = row ? row.name + ', ' + row.address + ', ' + row.zip : sub.customer;
   let amount = month;
   try {
+    // One early cancel charge for one plan, ever. Stripe only remembers the keys below for a day, and it can send
+    // the cancel event again after that (it retries for three days, and anyone can resend one from the Dashboard),
+    // so the bill itself carries a tag and a plan that already has that bill is not charged again.
+    if (await billedBefore(env, sub.customer, 'early_cancel', sub.id)) return;
     if (md.min_end) {
       const paid = await stripe(env, 'GET', 'invoices', { subscription: sub.id, status: 'paid', limit: 24 });
       amount = month - (paid.data || []).reduce((n, i) => n + (i.amount_paid || 0), 0);
@@ -720,7 +838,8 @@ async function freeMonthCharge(env, ctx, sub, row) {
     await stripe(env, 'POST', 'invoiceitems', { customer: sub.customer, amount, currency: 'usd',
       description: 'Early cancel charge: one month at plan price, minus what was paid' }, 'apw-early-item-' + sub.id);
     const inv = await stripe(env, 'POST', 'invoices', Object.assign({ customer: sub.customer, collection_method: 'charge_automatically',
-      auto_advance: 'true', pending_invoice_items_behavior: 'include', description: 'You canceled in your first 60 days, so we charge one month at your plan price, minus anything you paid.' },
+      auto_advance: 'true', pending_invoice_items_behavior: 'include', description: 'You canceled in your first 60 days, so we charge one month at your plan price, minus anything you paid.',
+      metadata: { early_cancel: sub.id } },
       sub.default_payment_method ? { default_payment_method: sub.default_payment_method } : {}), 'apw-early-inv-' + sub.id);
     await stripe(env, 'POST', 'invoices/' + inv.id + '/finalize', {}, 'apw-early-fin-' + sub.id);
     await stripe(env, 'POST', 'invoices/' + inv.id + '/pay', {}, 'apw-early-pay-' + sub.id);
@@ -748,9 +867,11 @@ async function resumeCharge(env, ctx, sub, row) {
     amount = Math.round(month * (days - az.getUTCDate() + 1) / days);
     if (amount < 50) return;
     const key = sub.id + '-' + tag;
+    // One back from pause charge for one plan in one month, also when Stripe sends the event again days later.
+    if (await billedBefore(env, sub.customer, 'resume', key)) return;
     await stripe(env, 'POST', 'invoiceitems', { customer: sub.customer, amount, currency: 'usd', description: 'Back from pause: the days left in this month' }, 'apw-resume-item-' + key);
     const inv = await stripe(env, 'POST', 'invoices', Object.assign({ customer: sub.customer, collection_method: 'charge_automatically', auto_advance: 'true', pending_invoice_items_behavior: 'include',
-      description: 'You started again in the middle of the month, so this covers the days left in the month.' }, sub.default_payment_method ? { default_payment_method: sub.default_payment_method } : {}), 'apw-resume-inv-' + key);
+      description: 'You started again in the middle of the month, so this covers the days left in the month.', metadata: { resume: key } }, sub.default_payment_method ? { default_payment_method: sub.default_payment_method } : {}), 'apw-resume-inv-' + key);
     await stripe(env, 'POST', 'invoices/' + inv.id + '/finalize', {}, 'apw-resume-fin-' + key);
     await stripe(env, 'POST', 'invoices/' + inv.id + '/pay', {}, 'apw-resume-pay-' + key);
   } catch (e) {

@@ -197,6 +197,7 @@ for (const [zip, n0, la0, la1, lo0, lo1] of BOX) for (let i = 0; i < n0 * N / 50
 Object.assign(env, { STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_PUBLISHABLE_KEY: 'pk_test_x', STRIPE_WEBHOOK_SECRET: 'whsec_test', RESEND_API_KEY: 're_test' });
 const mails = [], charges = [], subPosts = [], payCalls = [];
 let invoiceList = [], invN = 0, lastItem = null;
+const madeBills = [];
 const pay = fakeStripe(reply);
 const sessions = pay.sessions, metaOverride = pay.metaOverride, subItems = pay.subItems, prepaidSubs = pay.prepaid, metaOf = pay.metaOf;
 const deskFetch = globalThis.fetch;
@@ -217,10 +218,10 @@ globalThis.fetch = async (u, init = {}) => {
     if (p === 'subscription_items' && m === 'POST') { (subItems[f.get('subscription')] ||= []).push({ id: 'si_x', price: { id: f.get('price') }, quantity: Number(f.get('quantity')) }); itemCalls.push('add ' + f.get('quantity') + ' ' + f.get('proration_behavior')); return reply({ id: 'si_x' }); }
     if (p.startsWith('subscription_items/')) { itemCalls.push((m === 'DELETE' ? 'remove' : 'set ' + f.get('quantity')) + ' ' + f.get('proration_behavior')); return reply({ id: 'si_x' }); }
     if (p.startsWith('subscriptions/') && m === 'POST') { subPosts.push(p.slice(14) + ' ' + String(init.body)); return reply({ id: p.slice(14), status: 'active' }); }
-    if (p === 'invoices' && m === 'GET') return reply({ data: invoiceList });
+    if (p === 'invoices' && m === 'GET') return reply({ data: invoiceList.concat(madeBills.filter((b) => b.customer === new URLSearchParams(query).get('customer'))) });
     if (/^invoices\/in_open\d*\/pay$/.test(p)) { payCalls.push(p + ' ' + ((init.headers || {})['idempotency-key'] || '')); return reply({ id: 'in', status: 'paid' }); }
     if (p === 'invoiceitems') { lastItem = { amount: Number(f.get('amount')), description: f.get('description') }; if (lastItem.amount > 0) charges.push(lastItem); return reply({ id: 'ii_1' }); }
-    if (p === 'invoices') return reply({ id: 'in_' + (++invN), status: 'draft' });
+    if (p === 'invoices') { const b = { id: 'in_' + (++invN), status: 'draft', customer: f.get('customer'), metadata: Object.fromEntries([...f.entries()].filter(([k]) => k.startsWith('metadata[')).map(([k, v]) => [k.slice(9, -1), v])) }; madeBills.push(b); return reply(b); }
     if (/^invoices\/in_\d+\/(finalize|pay)$/.test(p)) return reply({ id: 'in', status: 'paid' });
     return reply({ error: { message: 'unmocked stripe ' + p } }, 500);
   }
@@ -294,6 +295,9 @@ for (let i = 0; i < N; i++) await hook(pay.sessionEvt('sub_' + ids[i].n, ids[i].
 for (let i = 0; i < 5; i++) { await call('/api/checkout/done', 'POST', { session: 'cs_sub_' + ids[i].n }, ids[i].token); await hook({ type: 'customer.subscription.created', data: { object: subObj(i, { status: 'trialing' }) } }); }
 await Promise.all(waits.splice(0));
 ok('Stripe sending every webhook twice changes nothing', (await count('select count(*)::int n from customers')) === N && (await count("select count(*)::int n from customers where status = 'trialing'")) === N);
+ok('every new plan had its first bill looked at in Stripe once', pay.previews.length === N && new Set(pay.previews).size === N, pay.previews.length);
+ok('Stripe’s first bill, worked out by the second and line by line, matches what every customer was told', mails.filter((x) => /^CHECK BILLING/.test(x.subject)).length === 0
+  && ids.every((x) => Math.abs(pay.firstBill('sub_' + x.n) - Number(pay.made['sub_' + x.n].get('metadata[first_charge]'))) <= 1), mails.filter((x) => /^CHECK BILLING/.test(x.subject)).map((x) => x.text).slice(0, 2));
 ok('one plan and one welcome email for each sign up, however many times it is reported', Object.keys(pay.made).length === N && plansMade === N && bookedMails === N && mails.filter((x) => /^You are booked/.test(x.subject)).length === N, [plansMade, bookedMails]);
 { const f = pay.made['sub_' + ids[3].n], h = HOMES[3];
   ok('the server starts each plan with our prices, a free month and bills on the 1st', f.get('items[0][price]') === 'price_' + h[3] + '_base' && f.get('metadata[user_id]') === ids[3].uid && Number(f.get('trial_end')) > Date.now() / 1000 + 30 * 86400
@@ -372,6 +376,11 @@ ok('My Yard lets a customer save a gate code but not change plan, dogs or status
 r = await call('/api/me', 'GET', null, ids[5].token);
 ok('a customer sees only their own account', r.d.customer.name === HOMES[5][0] && !('stripe_customer_id' in r.d.customer));
 ok('a fake webhook is refused', (await hook({ type: 'customer.subscription.deleted', data: { object: subObj(6) } }, { secret: 'whsec_guess' })) === 400);
+await Promise.all(waits.splice(0));
+ok('an event signed with some other secret leaves one note on the Health tab (what a wrong webhook secret looks like)', (await count("select count(*)::int n from errors where path = '/api/stripe-webhook' and message like '%does not match STRIPE_WEBHOOK_SECRET%'")) === 1);
+await hook({ type: 'customer.subscription.deleted', data: { object: subObj(6) } }, { secret: 'whsec_guess' });
+await Promise.all(waits.splice(0));
+ok('and only one an hour, however many come', (await count("select count(*)::int n from errors where path = '/api/stripe-webhook'")) === 1);
 ok('an old webhook played back later is refused', (await hook({ type: 'customer.subscription.deleted', data: { object: subObj(6) } }, { old: 3600 })) === 400);
 ok('customer 7 is still on the free month after both fakes', (await db.query('select status from customers where id = $1', [ids[6].uid])).rows[0].status === 'trialing');
 r = await call('/api/track/ZZZZZZ', 'GET');
@@ -387,14 +396,19 @@ ok('canceled customer is off every future route', (await count("select count(*):
 charges.length = 0; invoiceList = [{ amount_paid: 2000, billing_reason: 'subscription_cycle', status: 'paid', created: Math.floor(Date.now() / 1000) }];
 await hook({ type: 'customer.subscription.deleted', data: { object: subObj(10, { status: 'canceled', canceled_at: Math.floor(Date.now() / 1000) }) } });
 ok('cancel early after paying $20: charged the month minus $20', charges.length === 1 && charges[0].amount === monthOf(10) - 2000, charges);
+ok('the early cancel bill is tagged with the plan it is for', madeBills.some((b) => b.customer === 'cus_' + ids[10].n && b.metadata.early_cancel === 'sub_' + ids[10].n), madeBills.slice(-2));
 await hook({ type: 'customer.subscription.deleted', data: { object: subObj(10, { status: 'canceled', canceled_at: Math.floor(Date.now() / 1000) }) } });
-ok('the early cancel charge uses a once only key', true);
+ok('the same cancel event sent again (even days later) does not charge the early cancel fee again', charges.length === 1, charges);
+await hook({ type: 'customer.subscription.updated', data: { object: subObj(10, { status: 'active' }) } });
+await hook({ type: 'customer.subscription.updated', data: { object: subObj(10, { status: 'trialing' }) } });
+ok('late news about a plan that was canceled does not bring the customer back', (await db.query('select status from customers where id = $1', [ids[10].uid])).rows[0].status === 'canceled');
 charges.length = 0; invoiceList = [];
 metaOverride['sub_' + ids[11].n] = { min_end: String(Math.floor(Date.now() / 1000) - 86400) };
 await hook({ type: 'customer.subscription.deleted', data: { object: subObj(11, { status: 'canceled', canceled_at: Math.floor(Date.now() / 1000) }) } });
 ok('cancel after 60 days: no charge', charges.length === 0, charges);
 mails.length = 0;
 const failedInv = { id: 'in_open1', customer: 'cus_' + ids[12].n, status: 'open', amount_due: 4200, amount_remaining: 4200, attempted: true, collection_method: 'charge_automatically', hosted_invoice_url: 'https://invoice.stripe.com/i/acct_1/test_x' };
+pay.bills.in_open1 = failedInv;
 await hook({ type: 'invoice.payment_failed', data: { object: failedInv } });
 await Promise.all(waits.splice(0));
 const d12 = dayFor(AREA_DAY[list.find((c) => c.id === ids[12].uid).area]);
@@ -407,6 +421,7 @@ ok('card failed: the customer is emailed that day with the bill link and My Yard
   r = await call('/api/crew/today', 'GET', null, maria);
   ok('the scooper’s route does not show the billing text', r.status === 200 && !(r.d.texts || []).some((t) => t.kind === 'card_failed')); }
 await hook({ type: 'invoice.payment_failed', data: { object: failedInv } });
+pay.status['sub_' + ids[12].n] = 'past_due';
 await hook({ type: 'customer.subscription.updated', data: { previous_attributes: { status: 'trialing' }, object: subObj(12, { status: 'past_due' }) } });
 await Promise.all(waits.splice(0));
 ok('Stripe’s retries do not email or text again', mails.filter((x) => x.subject === 'Your card did not work').length === 1 && mails.filter((x) => /^Card failed/.test(x.subject)).length === 1 && (await count("select count(*)::int n from messages where kind = 'card_failed'")) === 1);
@@ -414,7 +429,8 @@ r = await call('/api/office/plan', 'POST', { date: d12 }, owner);
 ok('a customer on hold is left off a new route and counted for the office', r.d.unpaid >= 1 && (d12 === today || (await count("select count(*)::int n from stops where day = '" + d12 + "' and customer_id = '" + ids[12].uid + "'")) === 0), r.d);
 r = await call('/api/me/plan', 'GET', null, ids[12].token);
 ok('My Yard shows the hold and no next visits', r.d.plan.hold === true && r.d.plan.next.length === 0, r.d);
-await hook({ type: 'invoice.payment_failed', data: { object: { customer: 'cus_' + ids[9].n } } });
+pay.bills.in_fee9 = { id: 'in_fee9', customer: 'cus_' + ids[9].n, status: 'open', amount_due: 100, amount_remaining: 100 };
+await hook({ type: 'invoice.payment_failed', data: { object: pay.bills.in_fee9 } });
 ok('a failed early cancel charge does not bring a canceled customer back', (await db.query('select status from customers where id = $1', [ids[9].uid])).rows[0].status === 'canceled');
 await hook({ type: 'customer.subscription.updated', data: { object: subObj(12, { status: 'active' }) } });
 ok('a plan change that is not a payment does not lift the hold', (await db.query('select status from customers where id = $1', [ids[12].uid])).rows[0].status === 'past_due');
@@ -428,6 +444,14 @@ await Promise.all(waits.splice(0));
 ok('card fixed: customer is active again', (await db.query('select status from customers where id = $1', [ids[12].uid])).rows[0].status === 'active');
 ok('card fixed: thanked once, office told once, the unsent text leaves the list', mails.filter((x) => x.subject === 'Your payment went through').length === 1 && mails.filter((x) => /^Paid: /.test(x.subject)).length === 1
   && (await db.query("select status from messages where kind = 'card_failed'")).rows[0].status === 'skipped', mails.map((x) => x.subject));
+{ // Stripe sends old events again, or out of order. The bill is paid and the plan is active in Stripe now.
+  const n = mails.length;
+  failedInv.status = 'paid'; failedInv.amount_remaining = 0;
+  await hook({ type: 'invoice.payment_failed', data: { object: Object.assign({}, failedInv, { status: 'open', amount_remaining: 4200 }) } });
+  await hook({ type: 'customer.subscription.updated', data: { previous_attributes: { status: 'active' }, object: subObj(12, { status: 'past_due' }) } });
+  await Promise.all(waits.splice(0));
+  ok('a late "payment failed" or "past due" for a bill that has since been paid does not put the customer back on hold', (await db.query('select status from customers where id = $1', [ids[12].uid])).rows[0].status === 'active' && mails.length === n
+    && (await count("select count(*)::int n from messages where kind = 'card_failed' and status = 'queued'")) === 0, mails.slice(n).map((x) => x.subject)); }
 r = await call('/api/office/plan', 'POST', { date: d12 }, owner);
 ok('back on the next route for their day', d12 === today || (await count("select count(*)::int n from stops where day = '" + d12 + "' and customer_id = '" + ids[12].uid + "'")) === 1 || HOMES[12][3] === 'eow', r.d);
 // pause over the 1st, then come back: the rest of the month is charged
@@ -527,8 +551,8 @@ r = await call('/api/waitlist', 'POST', { name: 'Bot', phone: '6025550100', addr
 ok('a bot that fills the hidden field is dropped', r.status === 200 && (await count("select count(*)::int n from leads where kind = 'waitlist'")) === 40);
 
 await Promise.all(waits.splice(0));
-const errs = await count('select count(*)::int n from errors');
-ok('no server crashes logged during the whole run', errs === 0, errs);
+const errs = await count("select count(*)::int n from errors where message not like '%does not match STRIPE_WEBHOOK_SECRET%'");
+ok('no server crashes logged during the whole run (only the note about the wrong webhook secret)', errs === 0, errs);
 console.log('\n' + pass + ' passed, ' + failN + ' failed');
 await db.end();
 process.exit(failN ? 1 : 0);

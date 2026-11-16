@@ -2,16 +2,37 @@
 // It follows the real order of a sign up: the card form (a setup mode Checkout Session) saves a card, then the server
 // starts the plan itself with POST /v1/subscriptions. Ids are tied together so a test can follow one customer:
 // cus_7 gets session cs_sub_7, card pm_7, setup intent seti_7 and plan sub_7.
+const UNIT = { week: [10800, 1300], twice: [18900, 1300], eow: [7500, 900] };
 export function fakeStripe(reply) {
-  const st = { cusN: 0, sessions: {}, made: {}, keys: {}, metaOverride: {}, prepaid: new Set(), subItems: {}, status: {} };
+  const st = { cusN: 0, sessions: {}, made: {}, keys: {}, metaOverride: {}, prepaid: new Set(), subItems: {}, status: {}, bills: {}, previews: [] };
   const meta = (f) => (f ? Object.fromEntries([...f.entries()].filter(([k]) => k.startsWith('metadata[')).map(([k, v]) => [k.slice(9, -1), v])) : {});
   const card = (n) => ({ id: 'pm_' + n, type: 'card', card: { funding: st.prepaid.has('sub_' + n) ? 'prepaid' : 'credit' } });
-  const plan = (sub) => ({ id: sub, object: 'subscription', customer: 'cus_' + sub.slice(4), status: st.status[sub] || 'trialing', pause_collection: null, metadata: st.metaOf(sub), items: { data: st.subItems[sub] || [] } });
+  // The dates are the ones the server sent when it started the plan. With no billing day sent, Stripe lines the bills
+  // up on the day the free month ends.
+  const dates = (sub) => { const f = st.made[sub]; return f ? { trial_end: Number(f.get('trial_end')), billing_cycle_anchor: Number(f.get('billing_cycle_anchor') || f.get('trial_end')) } : {}; };
+  const plan = (sub) => Object.assign({ id: sub, object: 'subscription', customer: 'cus_' + sub.slice(4), status: st.status[sub] || 'trialing', pause_collection: null, metadata: st.metaOf(sub), items: { data: st.subItems[sub] || [] } }, dates(sub));
   // What the plan remembers: what the server saved on it when it started the plan (before that, what rode on the card form).
   st.metaOf = (sub) => Object.assign({}, meta(st.made[sub] || st.sessions[sub]), st.metaOverride[sub] || {});
+  // The first bill, worked out the way Stripe does it and not the way the server does: line by line, by the second,
+  // from the day the free month ends to the billing day, over the length of the month that ends on the billing day.
+  st.firstBill = (sub) => {
+    const f = st.made[sub];
+    if (!f) return null;
+    const end = Number(f.get('trial_end')), day = Number(f.get('billing_cycle_anchor') || 0);
+    let total = 0;
+    for (let i = 0; f.get('items[' + i + '][price]'); i++) {
+      const m = /^price_(week|twice|eow)_(base|extra)$/.exec(f.get('items[' + i + '][price]'));
+      const amount = UNIT[m[1]][m[2] === 'base' ? 0 : 1] * Number(f.get('items[' + i + '][quantity]'));
+      if (!(day > end)) { total += amount; continue; }
+      const d = new Date(day * 1000);
+      const monthStart = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()) / 1000;
+      total += Math.round(amount * (day - end) / (day - monthStart));
+    }
+    return total;
+  };
   // The event Stripe sends when the customer finishes the card form.
   st.sessionEvt = (sub, uid) => ({ type: 'checkout.session.completed', created: Math.floor(Date.now() / 1000), data: { object: {
-    id: 'cs_' + sub, object: 'checkout.session', mode: 'setup', status: 'complete', client_reference_id: uid, customer: 'cus_' + sub.slice(4), setup_intent: 'seti_' + sub.slice(4), metadata: meta(st.sessions[sub]) } } });
+    id: 'cs_' + sub, object: 'checkout.session', created: Math.floor(Date.now() / 1000), mode: 'setup', status: 'complete', client_reference_id: uid, customer: 'cus_' + sub.slice(4), setup_intent: 'seti_' + sub.slice(4), metadata: meta(st.sessions[sub]) } } });
   // Answers one request, or returns null when the path is not one of these (the test answers the rest).
   st.handle = (m, p, query, f, key) => {
     if (p === 'customers' && m === 'POST') return reply({ id: 'cus_' + (++st.cusN) });
@@ -31,6 +52,10 @@ export function fakeStripe(reply) {
       return reply(plan(sub));
     }
     if (p.startsWith('subscriptions/') && m === 'GET') return reply(plan(p.slice(14)));
+    // The look at a new plan's first bill (it changes nothing).
+    if (p === 'invoices/create_preview' && m === 'POST') { const sub = f.get('subscription'); st.previews.push(sub); return st.made[sub] ? reply({ object: 'invoice', amount_due: st.firstBill(sub) }) : reply({ error: { message: 'No upcoming invoices for customer' } }, 404); }
+    // One bill, as Stripe has it right now (a test puts it in st.bills).
+    if (m === 'GET' && /^invoices\/[A-Za-z0-9_]+$/.test(p)) return st.bills[p.slice(9)] ? reply(st.bills[p.slice(9)]) : reply({ error: { message: 'No such invoice' } }, 404);
     return null;
   };
   return st;

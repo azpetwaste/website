@@ -75,7 +75,8 @@ function rest(method, rel, body, prefer) {
 
 /* ---------- pretend Stripe ---------- */
 const S = { n: 0, customers: {}, prices: [{ id: 'price_wb', lookup_key: 'apw_week_base' }], sessions: {}, intents: {}, cards: {}, subs: {}, keys: {}, invoices: {}, calls: [], posts: [],
-  funding: 'credit', failPlan: null, paidSoFar: [], subMeta: null, subPosts: [], items: [], payCalls: [] };
+  funding: 'credit', failPlan: null, paidSoFar: [], subMeta: null, subPosts: [], items: [], payCalls: [],
+  busy: 0, preview: null, badAnchor: 0, made: [] };
 const id = (p) => p + '_' + (++S.n);
 const metaOf = (f, prefix) => Object.fromEntries([...f.entries()].filter(([k]) => k.startsWith(prefix + '[')).map(([k, v]) => [k.slice(prefix.length + 1, -1), v]));
 function stripeApi(m, url, init) {
@@ -98,7 +99,7 @@ function stripeApi(m, url, init) {
     if (S.refuseAll) return reply({ error: { message: 'Invalid request' } }, 400);
     const card = { id: id('pm'), type: 'card', card: { funding: S.funding } }; S.cards[card.id] = card;
     const si = { id: id('seti'), status: 'succeeded', payment_method: card.id }; S.intents[si.id] = si;
-    const s = { id: id('cs_test'), object: 'checkout.session', mode: f.get('mode'), status: 'open', client_reference_id: f.get('client_reference_id'), customer: f.get('customer'), setup_intent: si.id, metadata: metaOf(f, 'metadata'), form: f };
+    const s = { id: id('cs_test'), object: 'checkout.session', created: Math.floor(Date.now() / 1000), mode: f.get('mode'), status: 'open', client_reference_id: f.get('client_reference_id'), customer: f.get('customer'), setup_intent: si.id, metadata: metaOf(f, 'metadata'), form: f };
     S.sessions[s.id] = s;
     return reply({ id: s.id, client_secret: s.id + '_secret_abc' });
   }
@@ -112,8 +113,9 @@ function stripeApi(m, url, init) {
   if (p === 'subscriptions' && m === 'GET') return reply({ data: Object.values(S.subs).filter((x) => x.customer === q.get('customer')) });
   if (p === 'subscriptions' && m === 'POST') {
     if (S.failPlan) return reply({ error: { message: S.failPlan } }, 400);
+    if (S.busy > 0) { S.busy--; return reply({ error: { type: 'idempotency_error', message: 'There is currently another in-progress request using this Idempotent Key' } }, 409); }
     if (key && S.keys[key]) return reply(S.keys[key]);
-    const sub = { id: id('sub'), object: 'subscription', status: 'trialing', customer: f.get('customer'), trial_end: Number(f.get('trial_end')), billing_cycle_anchor: Number(f.get('billing_cycle_anchor') || f.get('trial_end')),
+    const sub = { id: id('sub'), object: 'subscription', status: 'trialing', customer: f.get('customer'), trial_end: Number(f.get('trial_end')), billing_cycle_anchor: S.badAnchor || Number(f.get('billing_cycle_anchor') || f.get('trial_end')),
       pause_collection: null, latest_invoice: null, metadata: metaOf(f, 'metadata'), form: f };
     S.subs[sub.id] = sub; if (key) S.keys[key] = sub;
     return reply(sub);
@@ -128,9 +130,14 @@ function stripeApi(m, url, init) {
   if (p === 'invoices' && m === 'GET') {
     if (q.get('subscription')) return reply({ data: S.paidSoFar.map((n) => ({ amount_paid: n })) });
     if (q.get('status') === 'open') return reply({ data: Object.values(S.invoices).filter((i) => i.customer === q.get('customer') && i.status === 'open') });
-    return reply({ data: [{ created: 1795000000, total: 4290, status: 'paid', hosted_invoice_url: 'https://invoice.stripe.com/i/test' }, { created: 1795000001, total: 100, status: 'draft' }] });
+    return reply({ data: S.made.filter((i) => i.customer === q.get('customer')).concat([{ created: 1795000000, total: 4290, status: 'paid', hosted_invoice_url: 'https://invoice.stripe.com/i/test' }, { created: 1795000001, total: 100, status: 'draft' }]) });
   }
-  if (p === 'invoices') return reply({ id: 'in_new', status: 'draft' });
+  if (p === 'invoices') { const i = { id: 'in_new', status: 'draft', customer: f.get('customer'), metadata: metaOf(f, 'metadata') }; S.made.push(i); return reply(i); }
+  if (p === 'invoices/create_preview') {
+    const sub = S.subs[f.get('subscription')];
+    if (S.preview === 'fail' || !sub) return reply({ error: { message: 'No upcoming invoices for customer' } }, 404);
+    return reply({ object: 'invoice', status: 'draft', amount_due: S.preview != null ? S.preview : Number(sub.metadata.first_charge), subscription: sub.id });
+  }
   if (/^invoices\/[^/]+\/finalize$/.test(p)) return reply({ id: 'in_new', status: 'open' });
   if (/^invoices\/[^/]+\/pay$/.test(p)) { const i = S.invoices[p.split('/')[1]]; S.payCalls.push({ id: p.split('/')[1], key }); if (i) i.status = 'paid'; return reply({ id: p.split('/')[1], status: 'paid' }); }
   if (p.startsWith('invoices/')) return reply(S.invoices[p.slice(9)] || { error: { message: 'No such invoice' } }, S.invoices[p.slice(9)] ? 200 : 404);
@@ -176,6 +183,14 @@ head('Config and sign in');
 { const r = await call('/api/config');
   ok('config says live, with the day settings the sign up page needs', r.d.live === true && r.d.firstVisitFrom === '2026-11-20' && r.d.scheduleDays === 7 && r.d.stripeKey === 'pk_test_1', r.d);
   ok('no secret key in config', !JSON.stringify(r.d).includes('sk_test') && !JSON.stringify(r.d).includes('sb_secret') && !JSON.stringify(r.d).includes('whsec'));
+  const h = await call('/api/health');
+  ok('the health check says which Stripe mode the keys are for, and if the webhook secret and mail are set', h.d.ok === true && h.d.live === true && h.d.keys === 'test' && h.d.hook === true && h.d.mail === true, h.d);
+  ok('the health check shows no key', !/_test_\d|whsec|re_test|sb_/.test(JSON.stringify(h.d)), h.d);
+  env = Object.assign({}, baseEnv, { STRIPE_SECRET_KEY: 'sk_live_abcdef' });
+  ok('one test key and one live key reads as mixed', (await call('/api/health')).d.keys === 'mixed');
+  env = Object.assign({}, baseEnv, { STRIPE_SECRET_KEY: 'rk_live_abcdef', STRIPE_PUBLISHABLE_KEY: 'pk_live_1', STRIPE_WEBHOOK_SECRET: '' });
+  { const l = await call('/api/health'); ok('two live keys read as live (a restricted key too), and a missing webhook secret shows', l.d.keys === 'live' && l.d.hook === false, l.d); }
+  env = Object.assign({}, baseEnv);
   ok('checkout with no sign in is refused', (await call('/api/checkout', 'POST', good)).status === 401);
   ok('a ZIP we do not serve cannot check out', (await call('/api/checkout', 'POST', Object.assign({}, good, { zip: '85001' }), 'good')).status === 400);
   T.customers.push({ id: 'other', phone: '0000000000', address: '4321 West Example Street', zip: good.zip, stripe_subscription_id: 'sub_old', status: 'canceled' });
@@ -314,12 +329,117 @@ head('Sign up: Stripe refuses to start the plan');
   ok('the webhook answers 500 so Stripe sends it again', (await hook(sessionEvt(q.s.id))) === 500 && row(U1).status === 'checkout');
   const a = sent(/^ACTION NEEDED: card saved but the plan did not start: Test Person/);
   ok('the office is told right away, with who and why', a.length === 1 && /Stripe checkout session: cs_test_/.test(a[0].text) && /Something is wrong with this request/.test(a[0].text) && /Mobile: 6235550100/.test(a[0].text), mails.map((m) => m.subject));
+  ok('the email says the site keeps trying and never says to start a plan by hand', /tries again on its own for up to 3 days/.test(a[0].text) && /If a plan is there, do not start a second one\. Two plans means two bills\./.test(a[0].text) && !/Start it by hand/.test(a[0].text), a[0] && a[0].text);
+  await settle();
+  ok('the Health tab line says what happened in plain words', T.errors.some((e) => e.path === '/api/stripe-webhook' && /^Card saved but the plan did not start \(cs_test_\d+\)\. stripe 400 Something is wrong/.test(e.message)), T.errors.slice(-2));
   mails.length = 0;
   ok('an old retry of that event does not email the office again', (await hook(Object.assign(sessionEvt(q.s.id), { created: Math.floor(Date.now() / 1000) - 7200 }))) === 500 && mails.length === 0);
   const d = await call('/api/checkout/done', 'POST', { session: q.s.id }, 'good'); await settle();
   ok('the sign up page gets an error too', d.status === 500);
+  for (let i = 0; i < 3; i++) await call('/api/checkout/done', 'POST', { session: q.s.id }, 'good');
+  await settle();
+  ok('asking again and again does not email the office again', mails.length === 0);
   S.failPlan = null; mails.length = 0;
   ok('once Stripe takes it, the next retry books them', (await hook(sessionEvt(q.s.id))) === 200 && row(U1).status === 'trialing' && sent(/^You are booked/).length === 1);
+}
+
+head('Sign up: Stripe is busy with the same request');
+{ for (const k of Object.keys(S.subs)) delete S.subs[k];
+  q = await quote('2027-03-10', 'week', 3); reset(); T.errors.length = 0;
+  S.busy = 2;
+  const st = await hook(sessionEvt(q.s.id));
+  const posts = S.calls.filter((c) => c.m === 'POST' && c.p === 'subscriptions');
+  ok('Stripe says twice that the other caller is still at it: the server asks again with the same key and books them', st === 200 && row(U1).status === 'trialing' && Object.keys(S.subs).length === 1
+    && posts.length === 3 && posts.every((c) => c.key === 'apw-plan-' + q.s.id && String(c.f) === String(posts[0].f)) && sent(/^ACTION NEEDED/).length === 0 && sent(/^You are booked/).length === 1, [st, posts.length]);
+  for (const k of Object.keys(S.subs)) delete S.subs[k];
+  q = await quote('2027-03-10', 'week', 3); reset(); S.busy = 9;
+  ok('if Stripe stays busy the webhook gives up with a 500 so Stripe sends the event again', (await hook(sessionEvt(q.s.id))) === 500 && S.calls.filter((c) => c.m === 'POST' && c.p === 'subscriptions').length === 4 && row(U1).status === 'checkout');
+  S.busy = 0;
+}
+head('Sign up: the first bill is checked against Stripe');
+{ for (const k of Object.keys(S.subs)) delete S.subs[k];
+  q = await quote('2027-03-10', 'week', 3); reset(); T.errors.length = 0;
+  await hook(sessionEvt(q.s.id));
+  const pv = S.calls.filter((c) => c.p === 'invoices/create_preview');
+  ok('a new plan gets one look at its first bill in Stripe, and the look changes nothing', pv.length === 1 && pv[0].m === 'POST' && pv[0].f.get('subscription') === row(U1).stripe_subscription_id && [...pv[0].f.keys()].length === 1, pv.map((c) => String(c.f)));
+  ok('Stripe agrees with what the customer was told: nobody is emailed and nothing is logged', sent(/^CHECK BILLING/).length === 0 && T.errors.length === 0, T.errors);
+  await hook(sessionEvt(q.s.id)); await call('/api/checkout/done', 'POST', { session: q.s.id }, 'good'); await settle();
+  ok('reporting the sign up again does not look again', S.calls.filter((c) => c.p === 'invoices/create_preview').length === 1);
+
+  for (const k of Object.keys(S.subs)) delete S.subs[k];
+  q = await quote('2027-03-10', 'week', 3); reset(); T.errors.length = 0;
+  S.preview = 12100; // Stripe would charge a full month, the customer was told the part month
+  await hook(sessionEvt(q.s.id)); S.preview = null;
+  const a = sent(/^CHECK BILLING: Stripe does not match what Test Person was told$/);
+  ok('if Stripe would charge something else, the office hears about it that day', a.length === 1 && /1\. The first charge\. They were told \$56\.47\. Stripe plans to charge \$121\./.test(a[0].text) && /Nothing has been charged/.test(a[0].text)
+    && /Do not change the plan in Stripe by hand/.test(a[0].text) && a[0].text.includes('Stripe plan: ' + row(U1).stripe_subscription_id), a[0] && a[0].text);
+  ok('and it is on the Health tab', T.errors.length === 1 && /does not match what a new customer was told/.test(T.errors[0].message) && /They were told \$56\.47/.test(T.errors[0].detail), T.errors);
+  ok('the sign up itself still went through', row(U1).status === 'trialing' && sent(/^You are booked/).length === 1 && sent(/^New booking/).length === 1);
+
+  for (const k of Object.keys(S.subs)) delete S.subs[k];
+  q = await quote('2027-03-10', 'week', 3); reset(); T.errors.length = 0;
+  S.preview = Number(q.md.first_charge) + 1;
+  await hook(sessionEvt(q.s.id)); S.preview = null;
+  ok('one cent of rounding is not a mismatch', sent(/^CHECK BILLING/).length === 0 && T.errors.length === 0);
+
+  // A free month that ends on a 1st sends no billing day. If Stripe ever lined the bills up on some other day, we would know.
+  for (const k of Object.keys(S.subs)) delete S.subs[k];
+  q = await quote('2027-03-24', 'week', 2); reset(); T.errors.length = 0;
+  S.badAnchor = Math.floor(Date.UTC(2027, 2, 24, 22, 15) / 1000); // the day of the sign up, not the 1st
+  await hook(sessionEvt(q.s.id)); S.badAnchor = 0;
+  const b = sent(/^CHECK BILLING/);
+  ok('a billing day that is not the 1st is caught', b.length === 1 && /1\. The billing day\. They were told the 1st of each month\. Stripe has day 24 \(March 24, 2027/.test(b[0].text) && !/\d\. The first charge/.test(b[0].text) && !/\d\. The day the free month ends/.test(b[0].text), b[0] && b[0].text);
+
+  for (const k of Object.keys(S.subs)) delete S.subs[k];
+  q = await quote('2027-03-10', 'week', 3); reset(); T.errors.length = 0;
+  S.preview = 'fail';
+  const st = await hook(sessionEvt(q.s.id)); S.preview = null;
+  ok('if the look itself fails, the sign up still goes through, the Health tab gets a note and nobody is emailed', st === 200 && row(U1).status === 'trialing' && sent(/^CHECK BILLING/).length === 0 && sent(/^ACTION NEEDED/).length === 0
+    && T.errors.length === 1 && /could not be checked against Stripe/.test(T.errors[0].message), T.errors);
+}
+head('Sign up: an old sign up reported again starts nothing');
+{ // The customer from the last sign up cancels. A day later Stripe has forgotten the "only once" key.
+  const sid = q.s.id, plan = row(U1).stripe_subscription_id;
+  S.subs[plan].status = 'canceled'; row(U1).status = 'canceled';
+  for (const k of Object.keys(S.keys)) delete S.keys[k];
+  reset();
+  const writes = () => S.calls.filter((c) => c.m === 'POST' && (c.p === 'subscriptions' || c.p.startsWith('customers/'))).length;
+  const d = await call('/api/checkout/done', 'POST', { session: sid }, 'good'); await settle();
+  ok('the page reports the old sign up of a customer who canceled: no new plan, nothing written to Stripe', d.status === 200 && d.d.booked === false && writes() === 0 && row(U1).status === 'canceled' && mails.length === 0, d);
+  ok('Stripe sends the old event again: the same', (await hook(sessionEvt(sid))) === 200 && writes() === 0 && row(U1).status === 'canceled' && Object.values(S.subs).filter((x) => x.status !== 'canceled').length === 0);
+  // Even if the row were put back at the card step by hand, the plan from this sign up was canceled: no second one.
+  row(U1).status = 'checkout';
+  ok('a sign up whose plan was canceled never makes a second plan', (await hook(sessionEvt(sid))) === 200 && writes() === 0 && row(U1).status === 'checkout' && mails.length === 0);
+}
+{ // The free month end on the sign up has passed (a card form finished very late, or a broken sign up asked about again).
+  for (const k of Object.keys(S.subs)) delete S.subs[k];
+  q = await quote('2027-03-10', 'week', 2); reset();
+  S.sessions[q.s.id].metadata.free_end = String(Math.floor(Date.now() / 1000) - 86400);
+  ok('a sign up with dates in the past is refused before anything is written to Stripe', (await hook(sessionEvt(q.s.id))) === 500 && !S.calls.some((c) => c.m === 'POST' && (c.p === 'subscriptions' || c.p.startsWith('customers/')))
+    && S.customers[row(U1).stripe_customer_id].invoice_settings.default_payment_method === null && row(U1).status === 'checkout');
+}
+{ // Two tabs: the row holds the last choice, the customer finishes the older card form.
+  for (const k of Object.keys(S.subs)) delete S.subs[k];
+  const first = await quote('2027-03-10', 'week', 3);
+  const second = await call('/api/checkout', 'POST', Object.assign({}, good, { plan: 'eow', dogs: 1 }), 'good');
+  reset();
+  ok('two card forms open: the row holds the last choice', row(U1).plan === 'eow' && row(U1).dogs === 1 && second.d.session !== first.s.id);
+  await hook(sessionEvt(first.s.id));
+  ok('the row follows the plan that was finished, since that is the plan Stripe bills', row(U1).plan === 'week' && row(U1).dogs === 3 && /Plan: Every week, 3 dogs, \$121 a month/.test(sent(/^New booking/)[0].text), [row(U1).plan, row(U1).dogs]);
+  ok('the other card form is finished too: still one plan, one welcome', (await hook(sessionEvt(second.d.session))) === 200 && Object.keys(S.subs).length === 1 && sent(/^You are booked/).length === 1 && row(U1).plan === 'week');
+}
+head('The webhook secret');
+{ T.errors.length = 0;
+  const evt = JSON.stringify({ type: 'invoice.paid', data: { object: {} } }), t = Math.floor(Date.now() / 1000);
+  const other = 't=' + t + ',v1=' + crypto.createHmac('sha256', 'whsec_from_test_mode').update(t + '.' + evt).digest('hex');
+  const post = (sig) => worker.fetch(new Request('https://arizonapetwaste.com/api/stripe-webhook', { method: 'POST', body: evt, headers: sig ? { 'stripe-signature': sig } : {} }), env, ctx);
+  ok('junk with no signature is refused and not logged', (await post('')).status === 400 && (await post('t=1,v1=deadbeef')).status === 400 && (await settle(), T.errors.length === 0));
+  const r1 = await post(other); await settle();
+  ok('a real looking event signed with another secret is refused, and the Health tab says the secret does not match', r1.status === 400 && T.errors.length === 1 && /does not match STRIPE_WEBHOOK_SECRET/.test(T.errors[0].message), T.errors);
+  for (let i = 0; i < 5; i++) await post(other);
+  await settle();
+  ok('that note is written once an hour, not once an event', T.errors.length === 1);
+  ok('no secret shows in the note', !/whsec_/.test(JSON.stringify(T.errors)));
 }
 
 /* ---------- a payment fails ---------- */
@@ -343,7 +463,11 @@ ok('failed payment event is taken', (await hook({ type: 'invoice.payment_failed'
   ok('the office is told, and told to send the text today', !!o && /A payment of \$50\.40 failed/.test(o.text) && /A text to them is waiting in the Texts tab\. Send it today\./.test(o.text) && /Their visits are on hold/.test(o.text), o && o.text);
   const before = mails.length;
   await hook({ type: 'invoice.payment_failed', data: { object: Object.assign({}, inv, { attempt_count: 2 }) } });
-  await hook(subEvt('updated', liveSub, { status: 'past_due', latest_invoice: 'in_fail' }, { status: 'trialing' }));
+  liveSub.status = 'past_due'; liveSub.latest_invoice = 'in_fail';
+  ok('before it puts anyone on hold the server asks Stripe about the bill', S.calls.some((c) => c.m === 'GET' && c.p === 'invoices/in_fail'));
+  S.calls.length = 0;
+  await hook(subEvt('updated', liveSub, {}, { status: 'trialing' }));
+  ok('and about the plan', S.calls.some((c) => c.m === 'GET' && c.p === 'subscriptions/' + liveSub.id));
   await hook({ type: 'invoice.payment_failed', data: { object: Object.assign({}, inv, { attempt_count: 3 }) } });
   ok('Stripe’s retries do not email or text again', mails.length === before && T.messages.filter((x) => x.kind === 'card_failed').length === 1 && row(U1).status === 'past_due');
   const p = await call('/api/me/plan', 'GET', null, 'good');
@@ -374,8 +498,8 @@ head('The bill gets paid: visits come back');
 }
 head('The other order, and a customer with no texts');
 { reset(); T.messages.length = 0;
-  row(U1).texts_visit = false; inv.status = 'open'; liveSub.status = 'past_due';
-  await hook(subEvt('updated', liveSub, { status: 'past_due', latest_invoice: 'in_fail' }, { status: 'active' }));
+  row(U1).texts_visit = false; inv.status = 'open'; liveSub.status = 'past_due'; liveSub.latest_invoice = 'in_fail';
+  await hook(subEvt('updated', liveSub, {}, { status: 'active' }));
   ok('Stripe’s plan event lands first: on hold, emailed with the bill link, no text queued', row(U1).status === 'past_due' && sent(/^Your card did not work$/).length === 1 && sent(/^Your card did not work$/)[0].text.includes('https://invoice.stripe.com/i/acct_1/test_abc') && T.messages.length === 0);
   ok('the office is told to call (no text consent)', /They did not agree to texts, so no text is waiting\. Call them today\./.test(sent(/^Card failed/)[0].text));
   await hook({ type: 'invoice.payment_failed', data: { object: inv } });
@@ -403,6 +527,33 @@ head('A new card while on hold is tried right away');
   S.payCalls.length = 0;
   await hook({ type: 'customer.updated', data: { object: cu, previous_attributes: { invoice_settings: { default_payment_method: 'pm_new' } } } });
   ok('a new card when nothing is owed tries nothing', S.payCalls.length === 0);
+}
+head('Old news from Stripe changes nothing');
+{ // Stripe does not promise the order of its events, and it sends one again for up to three days when it got no answer.
+  reset(); T.messages.length = 0;
+  const failed = () => ({ type: 'invoice.payment_failed', data: { object: Object.assign({}, inv, { status: 'open', amount_remaining: 5040 }) } });
+  // The customer is paid up: the plan is active and the bill is paid.
+  row(U1).status = 'active'; liveSub.status = 'active'; liveSub.latest_invoice = 'in_fail'; inv.status = 'paid'; inv.amount_remaining = 0;
+  ok('a late "payment failed" is answered', (await hook(failed())) === 200);
+  ok('a late "payment failed" for a bill that has since been paid: no hold, no email, no text, visits stay', row(U1).status === 'active' && mails.length === 0 && T.messages.length === 0 && deleted.length === 0, [row(U1).status, mails.length, deleted]);
+  await hook(subEvt('updated', liveSub, { status: 'past_due' }, { status: 'active' }));
+  ok('a late "past due" for a plan Stripe now shows as paid: no hold, no email', row(U1).status === 'active' && mails.length === 0 && deleted.length === 0);
+  inv.status = 'void';
+  await hook(failed());
+  ok('a bill the office voided does not put anyone on hold', row(U1).status === 'active' && mails.length === 0);
+  // Now a real failure, then an old "paid" shows up late.
+  inv.status = 'open'; inv.amount_remaining = 5040; liveSub.status = 'past_due';
+  await hook(failed());
+  ok('a bill that is still unpaid in Stripe does put them on hold', row(U1).status === 'past_due' && sent(/^Your card did not work$/).length === 1);
+  const before = mails.length;
+  await hook(subEvt('updated', liveSub, { status: 'active' }, { status: 'past_due' }));
+  ok('a late "paid" while Stripe still shows the plan past due: the hold stays and nobody is thanked', row(U1).status === 'past_due' && mails.length === before);
+  S.calls.length = 0;
+  await hook(failed()); await hook(failed());
+  ok('more failed tries while on hold do not ask Stripe anything', S.calls.length === 0 && mails.length === before);
+  liveSub.status = 'active'; inv.status = 'paid'; inv.amount_remaining = 0;
+  await hook(subEvt('updated', liveSub, {}, { status: 'past_due' }));
+  ok('the real "paid" lifts it', row(U1).status === 'active' && sent(/^Your payment went through$/).length === 1);
 }
 { reset();
   T.customers.push({ id: U2, name: 'Gone Person', email: 'two@example.com', phone: '6235550122', status: 'canceled', stripe_customer_id: 'cus_gone', texts_visit: true });
@@ -432,15 +583,30 @@ head('Free month rule: a cancel in the first 60 days is charged up to one month'
 { const now = Math.floor(Date.now() / 1000);
   const gone = (canceledAt, meta) => ({ type: 'customer.subscription.deleted', data: { object: { id: 'sub_9', customer: cus, status: 'canceled', canceled_at: canceledAt, metadata: Object.assign({ user_id: U1 }, meta), items: { data: [{ price: { unit_amount: 9900 }, quantity: 1 }] } } } });
   const charged = () => S.items.map((c) => c.f.get('amount')).join(',') || 'none';
-  const run = async (label, paid, meta, want) => { reset(); S.paidSoFar = paid; row(U1).status = 'active'; await hook(gone(now, meta)); ok(label + ' (charged ' + want + ')', charged() === want && row(U1).status === 'canceled', charged()); };
+  const run = async (label, paid, meta, want) => { reset(); S.made.length = 0; S.paidSoFar = paid; row(U1).status = 'active'; await hook(gone(now, meta)); ok(label + ' (charged ' + want + ')', charged() === want && row(U1).status === 'canceled', charged()); };
   await run('cancel on day 20, nothing paid', [], { min_end: String(now + 40 * 86400) }, '9900');
   ok('the early cancel charge is made once, billed and paid', S.items[0].key === 'apw-early-item-sub_9' && S.calls.filter((c) => /^invoices/.test(c.p) && c.m === 'POST').map((c) => c.p).join(' ') === 'invoices invoices/in_new/finalize invoices/in_new/pay' && sent(/^Free month charged/).length === 1 && sent(/^Canceled: Test Person/).length === 1);
+  ok('the bill carries a tag that names the plan', S.made.length === 1 && S.made[0].metadata.early_cancel === 'sub_9' && S.calls.some((c) => c.m === 'GET' && c.p === 'invoices' && c.q.get('customer') === cus && c.q.get('limit') === '100'), S.made);
+  { // Days later Stripe has forgotten the "only once" keys and the same cancel event shows up again.
+    S.items.length = 0; mails.length = 0; S.calls.length = 0;
+    await hook(gone(now, { min_end: String(now + 40 * 86400) }));
+    ok('the same cancel event days later does not charge the early cancel fee again', S.items.length === 0 && !S.calls.some((c) => c.m === 'POST' && /^invoice/.test(c.p)) && sent(/^Free month charged/).length === 0 && row(U1).status === 'canceled', S.calls.map((c) => c.m + ' ' + c.p));
+  }
   await run('cancel on day 45, paid the part month $56.47', [5647], { min_end: String(now + 15 * 86400) }, '4253');
   await run('cancel on day 55, paid over a month', [5647, 9900], { min_end: String(now + 5 * 86400) }, 'none');
   await run('cancel on day 61', [], { min_end: String(now - 86400) }, 'none');
   await run('older plan with only a free month end date, canceled inside it', [], { free_end: String(now + 10 * 86400) }, '9900');
   await run('older plan canceled after the free month', [], { free_end: String(now - 86400) }, 'none');
   ok('a canceled customer loses the gate code', row(U1).gate_code === null);
+  // Late news about the plan that was canceled must not bring the customer back.
+  reset();
+  await hook({ type: 'customer.subscription.updated', data: { object: { id: 'sub_9', customer: cus, status: 'active', metadata: { user_id: U1 } } } });
+  ok('a late "active" for the canceled plan leaves the customer canceled', row(U1).status === 'canceled' && mails.length === 0);
+  await hook({ type: 'customer.subscription.updated', data: { object: { id: 'sub_9', customer: cus, status: 'active', pause_collection: { behavior: 'void' }, metadata: { user_id: U1 } } } });
+  await hook({ type: 'customer.subscription.updated', data: { object: { id: 'sub_9', customer: cus, status: 'unpaid', metadata: {} } } });
+  ok('so does a late "paused" or "unpaid"', row(U1).status === 'canceled');
+  await hook({ type: 'customer.subscription.created', data: { object: { id: 'sub_fresh', customer: cus, status: 'active', metadata: {} } } });
+  ok('a new plan the office starts for them in Stripe brings them back', row(U1).status === 'active' && row(U1).stripe_subscription_id === 'sub_fresh');
 }
 
 /* ---------- My Yard ---------- */
