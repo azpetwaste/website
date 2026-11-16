@@ -42,8 +42,8 @@ npm run check      # one H1 per page, titles, no dashes in copy, links, structur
 | `SUPABASE_URL` | Supabase > Project Settings > API | text |
 | `SUPABASE_ANON_KEY` | Supabase publishable key (or legacy anon key) | text |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase secret key (or legacy service role key) | secret |
-| `STRIPE_PUBLISHABLE_KEY` | Stripe > Developers > API keys (`pk_test_` first) | text |
-| `STRIPE_SECRET_KEY` | Stripe > Developers > API keys (`sk_test_` first) | secret |
+| `STRIPE_PUBLISHABLE_KEY` | Stripe > Developers > API keys (`pk_test_` first, `pk_live_` to take real cards) | text |
+| `STRIPE_SECRET_KEY` | Stripe > Developers > API keys (`sk_test_` first, `sk_live_` to take real cards) | secret |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook for `https://arizonapetwaste.com/api/stripe-webhook` | secret |
 | `RESEND_API_KEY` | Resend > API Keys (booking emails to you and the customer) | secret |
 | `MAIL_FROM` | `Arizona Pet Waste <info@arizonapetwaste.com>` | text |
@@ -57,7 +57,9 @@ Check the server any time at `/api/health`.
 
 ## Stripe webhook events
 
-`checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
+`checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`, `customer.updated`
+
+How billing works: the card form saves a card and charges $0 (Checkout in setup mode). The server then starts the plan (`startPlan`): free until the free month ends, a part month that day for the days left up to the 1st, then the full price on the 1st of each month. A failed payment puts visits on hold until the bill is paid. `GO_LIVE.md` part 5 has the Stripe settings and part 8 has every Cloudflare setting.
 
 Prices are created in Stripe on the first sign up (lookup keys `apw_week_base`, `apw_week_extra`, `apw_twice_base`, `apw_twice_extra`, `apw_eow_base`, `apw_eow_extra`). To change a price later, make a new price in Stripe and move the lookup key to it.
 

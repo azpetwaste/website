@@ -1,135 +1,556 @@
-// Runs the server against fake Supabase and Stripe answers to check every request it builds.
+// Runs the server against a pretend Supabase and a pretend Stripe, and checks every request it builds.
+// No database and no keys. `node build/worker.test.mjs` prints each check and exits 1 if one fails.
+//
+// Optional: STRIPE_SPEC=/path/to/spec3.json (the public file from github.com/stripe/openapi) also checks every
+// Stripe request this server makes against Stripe's own list of fields and allowed values.
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import worker from '../src/worker/worker.js';
 
 const SB = 'https://demo.supabase.co';
-const env = {
+const U1 = '11111111-1111-4111-8111-111111111111', U2 = '22222222-2222-4222-8222-222222222222';
+const baseEnv = {
   SUPABASE_URL: SB, SUPABASE_ANON_KEY: 'sb_publishable_test', SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_test',
   STRIPE_SECRET_KEY: 'sk_test_123456', STRIPE_PUBLISHABLE_KEY: 'pk_test_1', STRIPE_WEBHOOK_SECRET: 'whsec_test', RESEND_API_KEY: 're_test',
   ASSETS: { fetch: async () => new Response('static') }
 };
-const ctx = { waitUntil: (p) => p };
-const calls = [];
-let stored = null, session = null;
+let env = Object.assign({}, baseEnv);
+const waits = [];
+const ctx = { waitUntil: (p) => { waits.push(Promise.resolve(p).catch(() => { })); } };
+const settle = async () => { while (waits.length) await Promise.all(waits.splice(0)); };
+
+let pass = 0, failN = 0;
+const ok = (label, cond, extra) => {
+  if (cond) pass++; else failN++;
+  console.log((cond ? '  ok   ' : '  FAIL ') + label + (cond || extra === undefined ? '' : '  ' + JSON.stringify(extra).slice(0, 400)));
+};
+const head = (t) => console.log('\n' + t);
+// The server logs the failures this test causes on purpose. Keep them out of the way unless asked for.
+const logged = [];
+if (!process.env.VERBOSE) console.error = (...a) => { logged.push(a.map(String).join(' ').slice(0, 200)); };
+
+/* ---------- pretend Supabase: two small tables and the filters this server uses ---------- */
+const T = { customers: [], messages: [], consent_log: [], leads: [], stops: [], errors: [], area_days: [], settings: [], staff: [] };
+const tokens = { good: { id: U1, email: 'Test@Example.com' }, two: { id: U2, email: 'two@example.com' } };
+const deleted = [];
+function match(row, k, expr) {
+  const i = expr.indexOf('.'), op = expr.slice(0, i), v = expr.slice(i + 1);
+  const x = row[k];
+  if (op === 'eq') return String(x) === v;
+  if (op === 'neq') return String(x) !== v;
+  if (op === 'in') return v.replace(/^\(|\)$/g, '').split(',').includes(String(x));
+  if (op === 'not' && v === 'is.null') return x != null;
+  if (op === 'is' && v === 'null') return x == null;
+  if (op === 'gt') return String(x) > v;
+  if (op === 'gte') return String(x) >= v;
+  throw new Error('pretend Supabase: no filter ' + op);
+}
+function restRows(table, qs) {
+  const params = [...new URLSearchParams(qs || '')].filter(([k]) => !['select', 'order', 'limit', 'offset', 'on_conflict'].includes(k));
+  return T[table].filter((row) => params.every(([k, v]) => {
+    if (k === 'or') return v.replace(/^\(|\)$/g, '').split(',').some((p) => { const i = p.indexOf('.'); return match(row, p.slice(0, i), p.slice(i + 1)); });
+    return match(row, k, v);
+  }));
+}
+function rest(method, rel, body, prefer) {
+  const [table, qs] = rel.split('?');
+  if (!T[table]) return reply({ message: 'no table ' + table }, 404);
+  if (method === 'GET') return reply(restRows(table, qs).map((r) => Object.assign({}, r)));
+  if (method === 'POST') {
+    const rows = Array.isArray(body) ? body : [body];
+    for (const r of rows) {
+      const old = /on_conflict=id/.test(qs || '') && T[table].find((x) => x.id === r.id);
+      if (old) Object.assign(old, r); else T[table].push(Object.assign(table === 'messages' ? { id: T.messages.length + 1, status: 'queued' } : {}, r));
+    }
+    return reply(/return=representation/.test(prefer || '') ? rows : '', 201);
+  }
+  if (method === 'PATCH') {
+    const hit = restRows(table, qs);
+    for (const r of hit) Object.assign(r, body);
+    return reply(/return=representation/.test(prefer || '') ? hit.map((r) => Object.assign({}, r)) : '');
+  }
+  if (method === 'DELETE') { deleted.push(rel); return reply(''); }
+  return reply({ message: 'bad method' }, 400);
+}
+
+/* ---------- pretend Stripe ---------- */
+const S = { n: 0, customers: {}, prices: [{ id: 'price_wb', lookup_key: 'apw_week_base' }], sessions: {}, intents: {}, cards: {}, subs: {}, keys: {}, invoices: {}, calls: [], posts: [],
+  funding: 'credit', failPlan: null, paidSoFar: [], subMeta: null, subPosts: [], items: [], payCalls: [] };
+const id = (p) => p + '_' + (++S.n);
+const metaOf = (f, prefix) => Object.fromEntries([...f.entries()].filter(([k]) => k.startsWith(prefix + '[')).map(([k, v]) => [k.slice(prefix.length + 1, -1), v]));
+function stripeApi(m, url, init) {
+  const u = new URL(url), p = u.pathname.slice(4), q = u.searchParams;
+  const f = new URLSearchParams(m === 'GET' ? '' : String(init.body || ''));
+  const key = init.headers['idempotency-key'] || '';
+  S.calls.push({ m, p, q, f, key, version: init.headers['stripe-version'] });
+  if (p === 'customers' && m === 'POST') { const c = { id: id('cus'), invoice_settings: { default_payment_method: null } }; S.customers[c.id] = c; return reply(c); }
+  if (p.startsWith('customers/')) {
+    const c = S.customers[p.slice(10)]; if (!c) return reply({ error: { message: 'No such customer' } }, 404);
+    if (m === 'POST' && f.get('invoice_settings[default_payment_method]')) c.invoice_settings.default_payment_method = f.get('invoice_settings[default_payment_method]');
+    return reply(Object.assign({}, c, q.get('expand[0]') ? { invoice_settings: { default_payment_method: S.cards[c.invoice_settings.default_payment_method] || null } } : {}));
+  }
+  if (p === 'prices' && m === 'GET') { const want = [...q.entries()].filter(([k]) => k.startsWith('lookup_keys')).map(([, v]) => v); return reply({ data: S.prices.filter((x) => want.includes(x.lookup_key)) }); }
+  if (p.startsWith('products/')) return reply({ error: { message: 'No such product' } }, 404);
+  if (p === 'products') return reply({ id: f.get('id') });
+  if (p === 'prices') { const pr = { id: 'price_' + f.get('lookup_key'), lookup_key: f.get('lookup_key'), unit_amount: Number(f.get('unit_amount')) }; S.prices.push(pr); return reply(pr); }
+  if (p === 'checkout/sessions') {
+    if (S.refuseList && f.has('allowed_payment_method_types[0]')) return reply({ error: { message: 'Received unknown parameter: allowed_payment_method_types' } }, 400);
+    if (S.refuseAll) return reply({ error: { message: 'Invalid request' } }, 400);
+    const card = { id: id('pm'), type: 'card', card: { funding: S.funding } }; S.cards[card.id] = card;
+    const si = { id: id('seti'), status: 'succeeded', payment_method: card.id }; S.intents[si.id] = si;
+    const s = { id: id('cs_test'), object: 'checkout.session', mode: f.get('mode'), status: 'open', client_reference_id: f.get('client_reference_id'), customer: f.get('customer'), setup_intent: si.id, metadata: metaOf(f, 'metadata'), form: f };
+    S.sessions[s.id] = s;
+    return reply({ id: s.id, client_secret: s.id + '_secret_abc' });
+  }
+  if (p.startsWith('checkout/sessions/')) {
+    const s = S.sessions[p.slice(18)]; if (!s) return reply({ error: { message: 'No such session' } }, 404);
+    const si = S.intents[s.setup_intent];
+    return reply(Object.assign({}, s, { form: undefined, setup_intent: Object.assign({}, si, { payment_method: S.cards[si.payment_method] }) }));
+  }
+  if (p.startsWith('setup_intents/')) { const si = S.intents[p.slice(14)]; return reply(Object.assign({}, si, { payment_method: q.get('expand[0]') ? S.cards[si.payment_method] : si.payment_method })); }
+  if (p.startsWith('payment_methods/')) return reply(S.cards[p.slice(16)]);
+  if (p === 'subscriptions' && m === 'GET') return reply({ data: Object.values(S.subs).filter((x) => x.customer === q.get('customer')) });
+  if (p === 'subscriptions' && m === 'POST') {
+    if (S.failPlan) return reply({ error: { message: S.failPlan } }, 400);
+    if (key && S.keys[key]) return reply(S.keys[key]);
+    const sub = { id: id('sub'), object: 'subscription', status: 'trialing', customer: f.get('customer'), trial_end: Number(f.get('trial_end')), billing_cycle_anchor: Number(f.get('billing_cycle_anchor') || f.get('trial_end')),
+      pause_collection: null, latest_invoice: null, metadata: metaOf(f, 'metadata'), form: f };
+    S.subs[sub.id] = sub; if (key) S.keys[key] = sub;
+    return reply(sub);
+  }
+  if (p.startsWith('subscriptions/') && m === 'GET') {
+    const sub = S.subs[p.slice(14)];
+    if (sub) return reply(Object.assign({}, sub, { form: undefined }));
+    return reply({ id: p.slice(14), status: 'active', metadata: S.subMeta || {} });
+  }
+  if (p.startsWith('subscriptions/') && m === 'POST') { S.subPosts.push(String(init.body)); return reply({ id: p.slice(14), status: 'active' }); }
+  if (p === 'invoiceitems') { S.items.push({ f, key }); return reply({ id: 'ii_1' }); }
+  if (p === 'invoices' && m === 'GET') {
+    if (q.get('subscription')) return reply({ data: S.paidSoFar.map((n) => ({ amount_paid: n })) });
+    if (q.get('status') === 'open') return reply({ data: Object.values(S.invoices).filter((i) => i.customer === q.get('customer') && i.status === 'open') });
+    return reply({ data: [{ created: 1795000000, total: 4290, status: 'paid', hosted_invoice_url: 'https://invoice.stripe.com/i/test' }, { created: 1795000001, total: 100, status: 'draft' }] });
+  }
+  if (p === 'invoices') return reply({ id: 'in_new', status: 'draft' });
+  if (/^invoices\/[^/]+\/finalize$/.test(p)) return reply({ id: 'in_new', status: 'open' });
+  if (/^invoices\/[^/]+\/pay$/.test(p)) { const i = S.invoices[p.split('/')[1]]; S.payCalls.push({ id: p.split('/')[1], key }); if (i) i.status = 'paid'; return reply({ id: p.split('/')[1], status: 'paid' }); }
+  if (p.startsWith('invoices/')) return reply(S.invoices[p.slice(9)] || { error: { message: 'No such invoice' } }, S.invoices[p.slice(9)] ? 200 : 404);
+  if (p === 'billing_portal/sessions') return reply({ url: 'https://billing.stripe.com/p/session/test' });
+  return reply({ error: { message: 'unmocked stripe ' + m + ' ' + p } }, 500);
+}
+
 const mails = [];
-const credits = [];
-let paidSoFar = [];
-let others = [];
-let subMeta = null;
-const subPosts = [];
 const reply = (data, status = 200) => new Response(data === '' ? '' : JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
 globalThis.fetch = async (url, init = {}) => {
+  url = String(url);
   const m = init.method || 'GET';
-  calls.push(m + ' ' + url.replace(SB, '{sb}') + (init.body && !String(url).includes('resend') ? '  ' + String(init.body).slice(0, 400) : ''));
-  if (url === SB + '/auth/v1/user') return init.headers.authorization === 'Bearer good' ? reply({ id: 'u1', email: 'Test@Example.com' }) : reply({ msg: 'bad' }, 401);
-  if (url.startsWith(SB + '/rest/v1/customers?id=eq.u1&select=') && m === 'GET') return reply(stored ? [stored] : []);
-  if (url.startsWith(SB + '/rest/v1/customers?on_conflict=id')) { stored = JSON.parse(init.body)[0]; return reply('', 201); }
-  if (url.startsWith(SB + '/rest/v1/customers?id=eq.u1') && m === 'PATCH') { Object.assign(stored, JSON.parse(init.body)); return reply([stored]); }
-  if (url.startsWith(SB + '/rest/v1/consent_log')) return reply('', 201);
-  if (url.startsWith('https://api.stripe.com/v1/customers')) return reply({ id: 'cus_1' });
-  if (url.startsWith('https://api.stripe.com/v1/prices?')) return reply({ data: [{ id: 'price_wb', lookup_key: 'apw_week_base' }] });
-  if (url.startsWith('https://api.stripe.com/v1/products/')) return reply({ error: { message: 'No such product' } }, 404);
-  if (url === 'https://api.stripe.com/v1/products') return reply({ id: new URLSearchParams(init.body).get('id') });
-  if (url === 'https://api.stripe.com/v1/prices') return reply({ id: 'price_' + new URLSearchParams(init.body).get('lookup_key') });
-  if (url === 'https://api.stripe.com/v1/checkout/sessions') { session = new URLSearchParams(init.body); return reply({ client_secret: 'cs_test_secret' }); }
+  if (url === SB + '/auth/v1/user') { const u = tokens[String(init.headers.authorization || '').slice(7)]; return u ? reply(u) : reply({ msg: 'bad' }, 401); }
+  if (url.startsWith(SB + '/rest/v1/')) return rest(m, url.slice((SB + '/rest/v1/').length), init.body ? JSON.parse(init.body) : null, init.headers && init.headers.prefer);
+  if (url.startsWith('https://api.stripe.com/v1/')) return stripeApi(m, url, init);
   if (url === 'https://api.resend.com/emails') { mails.push(JSON.parse(init.body)); return reply({ id: 'm1' }); }
-  if (url === 'https://api.stripe.com/v1/invoiceitems') { credits.push({ body: new URLSearchParams(init.body), idem: init.headers['idempotency-key'] }); return reply({ id: 'ii_1' }); }
-  if (url.startsWith('https://api.stripe.com/v1/invoices?subscription=')) return reply({ data: paidSoFar.map((n) => ({ amount_paid: n })) });
-  if (url.startsWith('https://api.stripe.com/v1/invoices?customer=')) return reply({ data: [{ created: 1795000000, total: 4290, status: 'paid', hosted_invoice_url: 'https://invoice.stripe.com/i/test' }, { created: 1795000001, total: 100, status: 'draft' }] });
-  if (url.startsWith(SB + '/rest/v1/stops?customer_id=eq.u1') && m === 'DELETE') return reply('', 200);
-  if (url.startsWith(SB + '/rest/v1/customers?id=neq.u1') && m === 'GET') return reply(others);
-  if (url.startsWith(SB + '/rest/v1/leads?kind=eq.') && m === 'GET') return reply([]);
-  if (url === 'https://api.stripe.com/v1/subscriptions/sub_1' && m === 'GET' && subMeta) return reply({ id: 'sub_1', status: 'active', metadata: subMeta });
-  if (url.startsWith('https://api.stripe.com/v1/subscriptions/sub_1') && m === 'POST') { subPosts.push(String(init.body)); return reply({ id: 'sub_1', status: 'active' }); }
-  if (url === 'https://api.stripe.com/v1/invoices') return reply({ id: 'in_1', status: 'draft' });
-  if (url === 'https://api.stripe.com/v1/invoices/in_1/finalize') return reply({ id: 'in_1', status: 'open' });
-  if (url === 'https://api.stripe.com/v1/invoices/in_1/pay') return reply({ id: 'in_1', status: 'paid' });
-  if (url.startsWith('https://api.stripe.com/v1/subscriptions/')) return reply({ status: 'trialing', trial_end: Number(session.get('subscription_data[trial_end]')), metadata: Object.fromEntries([...session.entries()].filter(([k]) => k.startsWith('subscription_data[metadata]')).map(([k, v]) => [k.slice(28, -1), v])) });
-  return reply({ error: 'unmocked ' + url }, 500);
+  return reply({ error: 'unmocked ' + url }, 500); // the Census map pin lookup and the route tables: placeCustomer shrugs these off
 };
-const call = (path, method = 'GET', body, auth) => worker.fetch(new Request('https://arizonapetwaste.com' + path, {
-  method, body: body ? JSON.stringify(body) : undefined, headers: Object.assign({ 'content-type': 'application/json' }, auth ? { authorization: 'Bearer ' + auth } : {})
-}), env, ctx);
-const show = async (label, res) => console.log(label, res.status, JSON.stringify(await res.json()));
+const call = async (path, method = 'GET', body, auth) => {
+  const r = await worker.fetch(new Request('https://arizonapetwaste.com' + path, {
+    method, body: body ? JSON.stringify(body) : undefined, headers: Object.assign({ 'content-type': 'application/json' }, auth ? { authorization: 'Bearer ' + auth } : {})
+  }), env, ctx);
+  let d = null; try { d = await r.json(); } catch (e) { }
+  return { status: r.status, d };
+};
+const hook = async (evt, sig) => {
+  const body = JSON.stringify(Object.assign({ created: Math.floor(Date.now() / 1000) }, evt)), t = Math.floor(Date.now() / 1000);
+  const s = sig || 't=' + t + ',v1=' + crypto.createHmac('sha256', env.STRIPE_WEBHOOK_SECRET).update(t + '.' + body).digest('hex');
+  const r = await worker.fetch(new Request('https://arizonapetwaste.com/api/stripe-webhook', { method: 'POST', body, headers: { 'stripe-signature': s } }), env, ctx);
+  await settle();
+  return r.status;
+};
+const row = (uid) => T.customers.find((c) => c.id === uid);
+const sent = (re) => mails.filter((m) => re.test(m.subject));
+const sessionEvt = (sid) => { const s = S.sessions[sid]; s.status = 'complete'; return { type: 'checkout.session.completed', data: { object: { id: s.id, object: 'checkout.session', mode: s.mode, status: 'complete', client_reference_id: s.client_reference_id, customer: s.customer, setup_intent: s.setup_intent, metadata: s.metadata } } }; };
+const subEvt = (type, sub, over, was) => ({ type: 'customer.subscription.' + type, data: { object: Object.assign({}, sub, { form: undefined }, over || {}), previous_attributes: was } });
+const reset = () => { mails.length = 0; deleted.length = 0; S.calls.length = 0; S.items.length = 0; S.payCalls.length = 0; };
+const good = { zip: '85396', plan: 'week', dogs: 3, name: 'Test Person', phone: '(623) 555-0100', address: '123 W Test St', textsVisit: true, textsDeals: false, page: '/book/' };
+const day = (unixSec) => new Date(unixSec * 1000).toISOString().slice(0, 16);
 
-await show('config', await call('/api/config'));
-await show('checkout without sign in', await call('/api/checkout', 'POST', {}, null));
-const good = { zip: '85396', plan: 'week', dogs: 3, name: 'Test Person', phone: '(623) 555-0100', address: '123 W Test St', textsVisit: true, textsDeals: false, page: '/' };
-await show('checkout bad zip', await call('/api/checkout', 'POST', Object.assign({}, good, { zip: '85001' }), 'good'));
-others = [{ phone: '0000000000', address: '4321 West Example Street', zip: good.zip }];
-{ const r = await call('/api/checkout', 'POST', Object.assign({}, good, { address: '4321 W. Example St' }), 'good'); await show('second free month at the same home is blocked', r); if (r.status !== 409) throw new Error('same home should not get a second free month'); }
-others = [];
-await show('checkout ok', await call('/api/checkout', 'POST', good, 'good'));
-console.log('first charge:', new Date(Number(session.get('subscription_data[trial_end]')) * 1000).toISOString());
-console.log('stripe note:', session.get('subscription_data[description]'));
-console.log('credit meta:', session.get('subscription_data[metadata][credit]'), 'first charge cents:', session.get('subscription_data[metadata][first_charge]'));
-console.log('pay button note:', session.get('custom_text[submit][message]'));
-console.log('\nrequests made:\n  ' + calls.join('\n  '));
+/* ---------- the basics ---------- */
+head('Config and sign in');
+{ const r = await call('/api/config');
+  ok('config says live, with the day settings the sign up page needs', r.d.live === true && r.d.firstVisitFrom === '2026-11-20' && r.d.scheduleDays === 7 && r.d.stripeKey === 'pk_test_1', r.d);
+  ok('no secret key in config', !JSON.stringify(r.d).includes('sk_test') && !JSON.stringify(r.d).includes('sb_secret') && !JSON.stringify(r.d).includes('whsec'));
+  ok('checkout with no sign in is refused', (await call('/api/checkout', 'POST', good)).status === 401);
+  ok('a ZIP we do not serve cannot check out', (await call('/api/checkout', 'POST', Object.assign({}, good, { zip: '85001' }), 'good')).status === 400);
+  T.customers.push({ id: 'other', phone: '0000000000', address: '4321 West Example Street', zip: good.zip, stripe_subscription_id: 'sub_old', status: 'canceled' });
+  const again = await call('/api/checkout', 'POST', Object.assign({}, good, { address: '4321 W. Example St' }), 'good');
+  ok('a second free month at the same home is blocked', again.status === 409 && again.d.code === 'had_free_month', again);
+  T.customers.length = 0; }
 
-const evt = JSON.stringify({ type: 'checkout.session.completed', data: { object: { mode: 'subscription', client_reference_id: 'u1', subscription: 'sub_1', customer: 'cus_1' } } });
-const t = Math.floor(Date.now() / 1000);
-const sig = crypto.createHmac('sha256', env.STRIPE_WEBHOOK_SECRET).update(t + '.' + evt).digest('hex');
-const hook = (s) => worker.fetch(new Request('https://arizonapetwaste.com/api/stripe-webhook', { method: 'POST', body: evt, headers: { 'stripe-signature': s } }), env, ctx);
-await show('\nwebhook bad signature', await hook('t=' + t + ',v1=deadbeef'));
-await show('webhook good signature', await hook('t=' + t + ',v1=' + sig));
-console.log('stored row status after webhook:', stored.status, stored.stripe_subscription_id);
-await show('waitlist old form (no name)', await call('/api/waitlist', 'POST', { email: 'nope', zip: '85001' }));
-await show('static page passes through', { status: (await call('/')).status, json: async () => 'served by ASSETS' });
-for (const m of mails) console.log('\nEMAIL to ' + m.to + ': ' + m.subject + '\n' + m.text);
-for (const c of credits) console.log('\nCREDIT', c.body.get('amount'), c.body.get('description'), 'idem:', c.idem);
-mails.length = 0;
-await show('\nwaitlist missing phone', await call('/api/waitlist', 'POST', { name: 'Wendy Wait', phone: '623', address: '1 W Main St', zip: '85301' }));
-await show('waitlist ok', await call('/api/waitlist', 'POST', { name: 'Wendy Wait', phone: '(623) 555-0111', address: '1 W Main St', zip: '85301', texts: true }));
-await show('sign up request ok', await call('/api/request', 'POST', Object.assign({}, good, { email: 'req@example.com', textsDeals: true })));
-for (const m of mails) console.log('\nEMAIL to ' + m.to + ': ' + m.subject + '\n' + m.text);
-const noMail = Object.assign({}, env); delete noMail.RESEND_API_KEY; delete noMail.SUPABASE_URL;
-const r = await worker.fetch(new Request('https://arizonapetwaste.com/api/waitlist', { method: 'POST', body: JSON.stringify({ name: 'No Mail', phone: '6235550199', address: '2 W Main St', zip: '85301' }), headers: { 'content-type': 'application/json' } }), noMail, ctx);
-console.log('\nwaitlist with no email set up', r.status, JSON.stringify(await r.json()));
+/* ---------- the money dates ---------- */
+head('What the customer is told and what Stripe is told (first visit from a set day, so the dates do not move)');
+async function quote(from, plan, dogs, token, extraEnv) {
+  env = Object.assign({}, baseEnv, { FIRST_VISIT_FROM: from }, extraEnv || {});
+  T.customers.length = 0; T.consent_log.length = 0;
+  const r = await call('/api/checkout', 'POST', Object.assign({}, good, { plan, dogs }), token || 'good');
+  const s = S.sessions[r.d && r.d.session];
+  return { r, s, md: s ? s.metadata : {}, note: s ? s.form.get('custom_text[submit][message]') : '' };
+}
+{ // Start 2027-03-10: one month is April 10, plus the 7 day window is April 17. The 1st after that is May 1.
+  const q = await quote('2027-03-10', 'week', 3);
+  ok('free month ends April 17 at noon Arizona time', day(Number(q.md.free_end)) === '2027-04-17T19:00', q.md);
+  ok('bills line up on May 1 at noon Arizona time', day(Number(q.md.anchor)) === '2027-05-01T19:00', q.md);
+  // April has 30 days and 14 are left (April 17 to May 1). Plan $108, one extra dog $13: each line on its own.
+  const want = Math.round(10800 * 14 / 30) + Math.round(1300 * 14 / 30);
+  ok('part month is worked out line by line: $' + (want / 100).toFixed(2), Number(q.md.first_charge) === want && want === 5647, q.md.first_charge);
+  ok('the 60 day date is May 9', q.md.min_label === 'May 9' && day(Number(q.md.min_end)) === '2027-05-09T19:00', q.md);
+  ok('the note by the button says $0 today, the part month, the 1st, cancel anytime and the 60 day rule',
+    q.note === 'You pay $0 today. Your free month runs until April 17. That day we charge $56.47 for April 17 to May 1. Then $121 on the 1st of each month. Cancel anytime in My Yard. Keep your plan until May 9 and your free month stays free. If you cancel before May 9, we charge one month at your plan price, minus anything you have paid.', q.note);
+  ok('the note fits Stripe’s 1200 letter limit', q.note.length < 1200);
+  const f = q.s.form;
+  ok('the card form only saves a card: setup mode, embedded, never leaves the page', f.get('mode') === 'setup' && f.get('ui_mode') === 'embedded_page' && f.get('redirect_on_completion') === 'never' && f.get('currency') === 'usd');
+  ok('cards and Link only (Apple Pay and Google Pay ride on cards)', f.get('allowed_payment_method_types[0]') === 'card' && f.get('allowed_payment_method_types[1]') === 'link' && !f.get('allowed_payment_method_types[2]'));
+  ok('no field that Stripe refuses in setup mode', ![...f.keys()].some((k) => /^(payment_method_collection|subscription_data|line_items|payment_method_types|customer_update|success_url|return_url)/.test(k)), [...f.keys()]);
+  ok('the session is tied to the signed in person', f.get('client_reference_id') === U1 && q.md.user_id === U1 && f.get('customer') === row(U1).stripe_customer_id);
+  ok('the page gets the card form secret and the session id', /^cs_test_\d+_secret_/.test(q.r.d.clientSecret) && q.r.d.session === q.s.id, q.r.d);
+  ok('the row waits at "checkout" with the text choices saved', row(U1).status === 'checkout' && row(U1).texts_visit === true && row(U1).texts_deals === false && T.consent_log.length === 2);
+}
+{ // A free month that ends on a 1st: start 2027-02-22, one month is March 22, plus 7 days is March 29... so use a start that lands on the 1st.
+  // Start 2027-03-25: one month is April 25, plus 7 days is May 2. Start 2027-03-24: April 24 plus 7 is May 1.
+  const q = await quote('2027-03-24', 'eow', 2);
+  ok('free month ends on May 1: no part month, first charge is the full $75', day(Number(q.md.free_end)) === '2027-05-01T19:00' && q.md.anchor === q.md.free_end && q.md.first_charge === '7500', q.md);
+  ok('the note says so', /^You pay \$0 today\. Your free month runs until May 1\. That day we charge \$75 for the month ahead\. Then \$75 on the 1st of each month\./.test(q.note), q.note);
+}
+{ // One day left in the month.
+  const q = await quote('2027-06-23', 'twice', 6);
+  ok('free month ends July 30: 2 days of a 31 day month', day(Number(q.md.free_end)) === '2027-07-30T19:00' && day(Number(q.md.anchor)) === '2027-08-01T19:00'
+    && Number(q.md.first_charge) === Math.round(18900 * 2 / 31) + Math.round(5200 * 2 / 31), q.md);
+  // Month ends: January 31 plus a month is the last day of February.
+  const w = await quote('2027-01-31', 'week', 1);
+  ok('a start on January 31 runs to February 28 plus the window: March 7', day(Number(w.md.free_end)) === '2027-03-07T19:00' && Number(w.md.first_charge) === Math.round(10800 * 25 / 31), w.md);
+  // December into January.
+  const x = await quote('2027-11-28', 'week', 2);
+  ok('a free month can end in the new year: January 4, 2028, bills line up on February 1', day(Number(x.md.free_end)) === '2028-01-04T19:00' && day(Number(x.md.anchor)) === '2028-02-01T19:00' && Number(x.md.first_charge) === Math.round(10800 * 28 / 31), x.md);
+  const y = await quote('2027-03-10', 'week', 3, 'good', { SCHEDULE_DAYS: '3' });
+  ok('the scheduling window can be changed in Cloudflare (3 days: April 13)', day(Number(y.md.free_end)) === '2027-04-13T19:00', y.md);
+  for (const plan of ['week', 'twice', 'eow']) for (let dogs = 1; dogs <= 6; dogs++) {
+    const z = await quote('2027-03-10', plan, dogs);
+    const base = { week: 10800, twice: 18900, eow: 7500 }[plan], extra = Math.max(0, dogs - 2) * { week: 1300, twice: 1300, eow: 900 }[plan];
+    if (Number(z.md.first_charge) !== Math.round(base * 14 / 30) + Math.round(extra * 14 / 30) || Number(z.md.first_charge) < 50) { ok('part month for ' + plan + ' ' + dogs, false, z.md); }
+  }
+  ok('every plan and dog count gives a part month Stripe can charge (50 cents or more)', true);
+}
 
-// Free month rule: cancel asked before the free month ends is charged one month; after it, nothing.
-const now = Math.floor(Date.now() / 1000);
-const subEvt = (canceledAt, freeEnd) => JSON.stringify({ type: 'customer.subscription.deleted', data: { object: { id: 'sub_9', customer: 'cus_1', status: 'canceled',
-  canceled_at: canceledAt, default_payment_method: 'pm_1', metadata: { user_id: 'u1', free_end: String(freeEnd) }, items: { data: [{ price: { unit_amount: 9900 }, quantity: 1 }] } } } });
-const sendEvt = (body) => { const tt = Math.floor(Date.now() / 1000); const sg = crypto.createHmac('sha256', env.STRIPE_WEBHOOK_SECRET).update(tt + '.' + body).digest('hex');
-  return worker.fetch(new Request('https://arizonapetwaste.com/api/stripe-webhook', { method: 'POST', body, headers: { 'stripe-signature': 't=' + tt + ',v1=' + sg } }), env, ctx); };
-credits.length = 0; calls.length = 0; mails.length = 0;
-await show('\ncancel during free month', await sendEvt(subEvt(now, now + 10 * 86400)));
-console.log('early charge items:', credits.map((c) => c.body.get('amount') + ' ' + c.idem).join(' | '));
-console.log('invoice calls:', calls.filter((c) => c.includes('/v1/invoices')).map((c) => c.split('  ')[0]).join(' | '));
-console.log('owner mail:', mails.map((m) => m.subject).join(' | '));
-credits.length = 0; calls.length = 0;
-await show('cancel after free month', await sendEvt(subEvt(now, now - 86400)));
-console.log('charges after free month (should be none):', credits.length, calls.filter((c) => c.includes('/v1/invoices')).length);
+/* ---------- a sign up, start to finish ---------- */
+head('Sign up: the Stripe webhook starts the plan');
+let q = await quote('2027-03-10', 'week', 3);
+reset();
+ok('webhook with a bad signature is refused', (await hook(sessionEvt(q.s.id), 't=1,v1=deadbeef')) === 400 && row(U1).status === 'checkout');
+ok('webhook with a good signature is taken', (await hook(sessionEvt(q.s.id))) === 200);
+{ const posts = S.calls.filter((c) => c.m === 'POST' && c.p === 'subscriptions');
+  const f = posts[0] && posts[0].f;
+  ok('one plan is made in Stripe', posts.length === 1 && Object.keys(S.subs).length === 1);
+  ok('free until April 17, bills on the 1st from May 1, Stripe charges the days in between',
+    f.get('trial_end') === q.md.free_end && f.get('billing_cycle_anchor') === q.md.anchor && f.get('proration_behavior') === 'create_prorations', String(f));
+  ok('the plan has the base price and one extra dog', f.get('items[0][price]') === 'price_wb' && f.get('items[0][quantity]') === '1' && f.get('items[1][price]') === 'price_apw_week_extra' && f.get('items[1][quantity]') === '1');
+  ok('the plan remembers the dates the customer saw', f.get('metadata[user_id]') === U1 && f.get('metadata[min_end]') === q.md.min_end && f.get('metadata[free_label]') === 'April 17' && f.get('metadata[next_label]') === 'May 1' && f.get('metadata[first_charge]') === '5647' && f.get('metadata[session]') === q.s.id);
+  ok('Stripe is told to make this plan only once for this sign up', posts[0].key === 'apw-plan-' + q.s.id);
+  const cust = S.customers[row(U1).stripe_customer_id];
+  ok('the saved card is the card on file for every bill (set on the customer, not on the plan)', cust.invoice_settings.default_payment_method === S.intents[q.s.setup_intent].payment_method && !f.get('default_payment_method'));
+  ok('the card is set before the plan is made', S.calls.findIndex((c) => c.m === 'POST' && c.p.startsWith('customers/')) < S.calls.findIndex((c) => c.m === 'POST' && c.p === 'subscriptions'));
+  ok('the row is on its free month with the plan id', row(U1).status === 'trialing' && row(U1).stripe_subscription_id === Object.keys(S.subs)[0]);
+  ok('the office gets one new booking email', sent(/^New booking: Test Person/).length === 1 && /Billing: Your free month runs until April 17\. That day we charge \$56\.47 for April 17 to May 1\. Then \$121 on the 1st of each month\./.test(sent(/^New booking/)[0].text), mails.map((m) => m.subject));
+  const hi = sent(/^You are booked/)[0];
+  ok('the customer gets one welcome email with the dates, cancel anytime and the 60 day date', sent(/^You are booked/).length === 1 && hi.to[0] === 'test@example.com'
+    && /We did not charge it today/.test(hi.text) && /That day we charge \$56\.47/.test(hi.text) && /You can cancel anytime in My Yard\. Keep your plan until May 9/.test(hi.text), hi && hi.text);
+  ok('every Stripe request names the API version', S.calls.every((c) => c.version === '2026-10-28.endive'));
+}
+head('Sign up: nothing doubles up');
+{ const before = mails.length, subsBefore = Object.keys(S.subs).length;
+  ok('Stripe sends the same event again: still one plan, no second welcome', (await hook(sessionEvt(q.s.id))) === 200 && Object.keys(S.subs).length === subsBefore && mails.length === before);
+  const d = await call('/api/checkout/done', 'POST', { session: q.s.id }, 'good'); await settle();
+  ok('the sign up page reports in after the webhook: still one plan, no second welcome', d.status === 200 && d.d.booked === true && Object.keys(S.subs).length === subsBefore && mails.length === before, d);
+  const sub = Object.values(S.subs)[0];
+  ok('the plan events from Stripe change nothing more', (await hook(subEvt('created', sub))) === 200 && (await hook(subEvt('updated', sub))) === 200 && mails.length === before && row(U1).status === 'trialing');
+  ok('a booked customer who opens sign up again is told they have a plan', (await call('/api/checkout', 'POST', good, 'good')).d.already === true);
+}
+{ // The page gets there first, the webhook second.
+  for (const k of Object.keys(S.subs)) delete S.subs[k];
+  q = await quote('2027-03-10', 'eow', 1, 'two'); reset();
+  S.sessions[q.s.id].status = 'open';
+  let d = await call('/api/checkout/done', 'POST', { session: q.s.id }, 'two');
+  ok('a card form that is not finished starts nothing', d.status === 200 && d.d.booked === false && Object.keys(S.subs).length === 0 && row(U2).status === 'checkout', d);
+  S.sessions[q.s.id].status = 'complete';
+  ok('someone else cannot finish this sign up', (await call('/api/checkout/done', 'POST', { session: q.s.id }, 'good')).status === 403);
+  ok('a made up session id is refused', (await call('/api/checkout/done', 'POST', { session: 'cs_../../customers' }, 'two')).status === 400);
+  d = await call('/api/checkout/done', 'POST', { session: q.s.id }, 'two'); await settle();
+  ok('the sign up page starts the plan when the webhook is late', d.status === 200 && d.d.booked === true && Object.keys(S.subs).length === 1 && row(U2).status === 'trialing' && sent(/^You are booked/).length === 1, d);
+  const f = S.calls.filter((c) => c.m === 'POST' && c.p === 'subscriptions')[0].f;
+  ok('one or two dogs: one line on the plan', f.get('items[0][quantity]') === '1' && !f.get('items[1][price]'));
+  ok('then the webhook lands: still one plan, one welcome', (await hook(sessionEvt(q.s.id))) === 200 && Object.keys(S.subs).length === 1 && sent(/^You are booked/).length === 1 && sent(/^New booking/).length === 1);
+}
+{ // Stripe's "plan created" event can beat startPlan to the row.
+  for (const k of Object.keys(S.subs)) delete S.subs[k];
+  q = await quote('2027-03-10', 'week', 2); reset();
+  const fake = { id: 'sub_early', status: 'trialing', customer: row(U1).stripe_customer_id, pause_collection: null, metadata: { user_id: U1, free_label: 'April 17', next_label: 'May 1', first_charge: '5040', min_label: 'May 9' } };
+  S.subs.sub_early = Object.assign({ form: new URLSearchParams() }, fake);
+  ok('the plan event books the sign up and sends the welcome', (await hook(subEvt('created', fake))) === 200 && row(U1).status === 'trialing' && row(U1).stripe_subscription_id === 'sub_early' && sent(/^You are booked/).length === 1);
+  ok('then the session event finds the plan and adds nothing', (await hook(sessionEvt(q.s.id))) === 200 && Object.keys(S.subs).length === 1 && sent(/^You are booked/).length === 1 && !S.calls.some((c) => c.m === 'POST' && c.p === 'subscriptions'));
+}
+{ // A free month that ends on a 1st: no anchor is sent, Stripe bills from the day the free month ends.
+  for (const k of Object.keys(S.subs)) delete S.subs[k];
+  q = await quote('2027-03-24', 'week', 2); reset();
+  await hook(sessionEvt(q.s.id));
+  const f = S.calls.filter((c) => c.m === 'POST' && c.p === 'subscriptions')[0].f;
+  ok('free month ends on a 1st: Stripe gets the free month end and no second date', f.get('trial_end') === q.md.free_end && !f.has('billing_cycle_anchor') && !f.has('proration_behavior'), String(f));
+  ok('the welcome says the full price that day', /Your free month runs until May 1\. That day we charge \$108 for the month ahead\. Then \$108 on the 1st of each month\./.test(sent(/^You are booked/)[0].text));
+}
+{ // A prepaid card is flagged for the office.
+  for (const k of Object.keys(S.subs)) delete S.subs[k];
+  S.funding = 'prepaid'; q = await quote('2027-03-10', 'week', 2); S.funding = 'credit'; reset();
+  await hook(sessionEvt(q.s.id));
+  ok('a prepaid card is flagged for the office', sent(/^Prepaid card: Test Person/).length === 1 && sent(/^PREPAID CARD\. New booking/).length === 1);
+}
+head('Sign up: Stripe refuses to start the plan');
+{ for (const k of Object.keys(S.subs)) delete S.subs[k];
+  q = await quote('2027-03-10', 'week', 2); reset();
+  S.failPlan = 'Something is wrong with this request';
+  ok('the webhook answers 500 so Stripe sends it again', (await hook(sessionEvt(q.s.id))) === 500 && row(U1).status === 'checkout');
+  const a = sent(/^ACTION NEEDED: card saved but the plan did not start: Test Person/);
+  ok('the office is told right away, with who and why', a.length === 1 && /Stripe checkout session: cs_test_/.test(a[0].text) && /Something is wrong with this request/.test(a[0].text) && /Mobile: 6235550100/.test(a[0].text), mails.map((m) => m.subject));
+  mails.length = 0;
+  ok('an old retry of that event does not email the office again', (await hook(Object.assign(sessionEvt(q.s.id), { created: Math.floor(Date.now() / 1000) - 7200 }))) === 500 && mails.length === 0);
+  const d = await call('/api/checkout/done', 'POST', { session: q.s.id }, 'good'); await settle();
+  ok('the sign up page gets an error too', d.status === 500);
+  S.failPlan = null; mails.length = 0;
+  ok('once Stripe takes it, the next retry books them', (await hook(sessionEvt(q.s.id))) === 200 && row(U1).status === 'trialing' && sent(/^You are booked/).length === 1);
+}
 
-// 60 day rule: a cancel in the first 60 days brings what was paid up to one month at plan price.
-const subEvt60 = (canceledAt, minEnd) => JSON.stringify({ type: 'customer.subscription.deleted', data: { object: { id: 'sub_60', customer: 'cus_1', status: 'canceled',
-  canceled_at: canceledAt, default_payment_method: 'pm_1', metadata: { user_id: 'u1', free_end: String(now - 5 * 86400), min_end: String(minEnd) }, items: { data: [{ price: { unit_amount: 9900 }, quantity: 1 }] } } } });
-const charged = () => credits.map((c) => c.body.get('amount')).join(',') || 'none';
-credits.length = 0; paidSoFar = [];
-await show('\ncancel on day 20, nothing paid', await sendEvt(subEvt60(now, now + 40 * 86400))); console.log('charged (want 9900):', charged());
-credits.length = 0; paidSoFar = [4290];
-await show('cancel on day 45, paid $42.90', await sendEvt(subEvt60(now, now + 15 * 86400))); console.log('charged (want 5610):', charged());
-credits.length = 0; paidSoFar = [4290, 9900];
-await show('cancel on day 55, paid over a month', await sendEvt(subEvt60(now, now + 5 * 86400))); console.log('charged (want none):', charged());
-credits.length = 0; paidSoFar = [];
-await show('cancel on day 61', await sendEvt(subEvt60(now, now - 86400))); console.log('charged (want none):', charged());
+/* ---------- a payment fails ---------- */
+head('A payment fails: same day notice, visits on hold');
+const cus = row(U1).stripe_customer_id, subId = row(U1).stripe_subscription_id;
+const liveSub = S.subs[subId];
+const inv = { id: 'in_fail', object: 'invoice', customer: cus, status: 'open', amount_due: 5040, amount_remaining: 5040, amount_paid: 0, attempted: true, attempt_count: 1, collection_method: 'charge_automatically', hosted_invoice_url: 'https://invoice.stripe.com/i/acct_1/test_abc' };
+S.invoices.in_fail = inv;
+row(U1).service_day = 2;
+reset();
+ok('failed payment event is taken', (await hook({ type: 'invoice.payment_failed', data: { object: inv } })) === 200);
+{ ok('the customer is on hold', row(U1).status === 'past_due');
+  ok('visits after today come off the routes', deleted.some((d) => d.startsWith('stops?customer_id=eq.' + U1 + '&status=in.(scheduled,skipped)&day=gt.')), deleted);
+  const m = sent(/^Your card did not work$/)[0];
+  ok('the customer is emailed the same day: what failed, the hold, and two ways to fix it', !!m && m.to[0] === 'test@example.com' && /We tried to charge your card \$50\.40/.test(m.text) && /Your visits are on hold until this bill is paid/.test(m.text)
+    && m.text.includes('1. Pay this bill now: https://invoice.stripe.com/i/acct_1/test_abc') && /2\. Use a new card\. Sign in to My Yard, tap Change my card/.test(m.text) && m.text.includes('https://arizonapetwaste.com/account/') && /623\.309\.6104/.test(m.text), m && m.text);
+  const t = T.messages.filter((x) => x.kind === 'card_failed');
+  ok('a text waits for staff to send (they said yes to visit texts)', t.length === 1 && t[0].status === 'queued' && t[0].channel === 'sms' && t[0].to_addr === '6235550100' && t[0].stop_id === null && t[0].customer_id === U1, t);
+  ok('the text is one text long, names us, and says how to stop', t[0].body.length <= 160 && /^Arizona Pet Waste: /.test(t[0].body) && /Reply STOP to opt out\.$/.test(t[0].body) && t[0].body.includes('arizonapetwaste.com/account') && t[0].body.includes('623.309.6104'), t[0].body + ' (' + t[0].body.length + ')');
+  const o = sent(/^Card failed: Test Person$/)[0];
+  ok('the office is told, and told to send the text today', !!o && /A payment of \$50\.40 failed/.test(o.text) && /A text to them is waiting in the Texts tab\. Send it today\./.test(o.text) && /Their visits are on hold/.test(o.text), o && o.text);
+  const before = mails.length;
+  await hook({ type: 'invoice.payment_failed', data: { object: Object.assign({}, inv, { attempt_count: 2 }) } });
+  await hook(subEvt('updated', liveSub, { status: 'past_due', latest_invoice: 'in_fail' }, { status: 'trialing' }));
+  await hook({ type: 'invoice.payment_failed', data: { object: Object.assign({}, inv, { attempt_count: 3 }) } });
+  ok('Stripe’s retries do not email or text again', mails.length === before && T.messages.filter((x) => x.kind === 'card_failed').length === 1 && row(U1).status === 'past_due');
+  const p = await call('/api/me/plan', 'GET', null, 'good');
+  ok('My Yard shows the hold and no next visits', p.d.plan.hold === true && p.d.plan.next.length === 0 && p.d.plan.canPause === false, p.d);
+  await hook(subEvt('updated', liveSub, { status: 'active' }));
+  ok('a plan change that is not a payment does not lift the hold', row(U1).status === 'past_due' && mails.length === before);
+}
+head('The bill gets paid: visits come back');
+{ reset();
+  liveSub.status = 'past_due';
+  await hook({ type: 'invoice.paid', data: { object: Object.assign({}, inv, { id: 'in_other', status: 'paid', amount_paid: 900, amount_remaining: 0 }) } });
+  ok('another bill is paid but the plan is still past due in Stripe: still on hold', row(U1).status === 'past_due' && mails.length === 0);
+  await hook({ type: 'invoice.paid', data: { object: { id: 'in_zero', customer: cus, status: 'paid', amount_paid: 0 } } });
+  ok('a $0 bill changes nothing', row(U1).status === 'past_due' && mails.length === 0);
+  liveSub.status = 'active'; inv.status = 'paid';
+  ok('paid event is taken', (await hook({ type: 'invoice.paid', data: { object: Object.assign({}, inv, { status: 'paid', amount_paid: 5040, amount_remaining: 0 }) } })) === 200);
+  ok('the customer is off hold', row(U1).status === 'active');
+  ok('the text nobody sent leaves the list', T.messages.filter((x) => x.kind === 'card_failed')[0].status === 'skipped');
+  const m = sent(/^Your payment went through$/)[0];
+  ok('the customer is thanked and told their day', !!m && /your visits are back on/.test(m.text) && /We come on your next Tuesday\./.test(m.text), m && m.text);
+  ok('the office is told they are back on the schedule', sent(/^Paid: Test Person$/).length === 1);
+  const before = mails.length;
+  await hook({ type: 'invoice.paid', data: { object: Object.assign({}, inv, { status: 'paid', amount_paid: 5040 }) } });
+  await hook(subEvt('updated', liveSub, { status: 'active' }, { status: 'past_due' }));
+  ok('the same news twice sends nothing more', mails.length === before && row(U1).status === 'active');
+  const p = await call('/api/me/plan', 'GET', null, 'good');
+  ok('My Yard shows next visits again', p.d.plan.hold === false && p.d.plan.next.length === 3, p.d);
+}
+head('The other order, and a customer with no texts');
+{ reset(); T.messages.length = 0;
+  row(U1).texts_visit = false; inv.status = 'open'; liveSub.status = 'past_due';
+  await hook(subEvt('updated', liveSub, { status: 'past_due', latest_invoice: 'in_fail' }, { status: 'active' }));
+  ok('Stripe’s plan event lands first: on hold, emailed with the bill link, no text queued', row(U1).status === 'past_due' && sent(/^Your card did not work$/).length === 1 && sent(/^Your card did not work$/)[0].text.includes('https://invoice.stripe.com/i/acct_1/test_abc') && T.messages.length === 0);
+  ok('the office is told to call (no text consent)', /They did not agree to texts, so no text is waiting\. Call them today\./.test(sent(/^Card failed/)[0].text));
+  await hook({ type: 'invoice.payment_failed', data: { object: inv } });
+  ok('then the bill event lands: nothing more', sent(/^Your card did not work$/).length === 1 && sent(/^Card failed/).length === 1);
+  liveSub.status = 'active';
+  await hook(subEvt('updated', liveSub, { status: 'active' }, { status: 'past_due' }));
+  ok('Stripe says the plan went from past due to paid: off hold, thanked once', row(U1).status === 'active' && sent(/^Your payment went through$/).length === 1);
+  row(U1).texts_visit = true;
+}
+head('A new card while on hold is tried right away');
+{ reset(); inv.status = 'open'; liveSub.status = 'past_due';
+  await hook({ type: 'invoice.payment_failed', data: { object: inv } });
+  const cu = { id: cus, object: 'customer', invoice_settings: { default_payment_method: 'pm_new' } };
+  await hook({ type: 'customer.updated', data: { object: cu, previous_attributes: { name: 'Old Name' } } });
+  ok('a change that is not the card tries nothing', S.payCalls.length === 0);
+  await hook({ type: 'customer.updated', data: { object: cu, previous_attributes: { invoice_settings: { default_payment_method: 'pm_old' } } } });
+  ok('a new card on file: the open bill is tried on it, once for that card', S.payCalls.length === 1 && S.payCalls[0].id === 'in_fail' && S.payCalls[0].key === 'apw-newcard-in_fail-pm_new', S.payCalls);
+  S.invoices.in_old = Object.assign({}, inv, { id: 'in_old', created: Math.floor(Date.now() / 1000) - 90 * 86400 }); S.payCalls.length = 0; inv.status = 'open'; inv.created = Math.floor(Date.now() / 1000) - 3 * 86400;
+  await hook({ type: 'customer.updated', data: { object: Object.assign({}, cu, { invoice_settings: { default_payment_method: 'pm_newer' } }), previous_attributes: { invoice_settings: { default_payment_method: 'pm_new' } } } });
+  ok('a bill left open for three months is not charged to the new card on its own', S.payCalls.length === 1 && S.payCalls[0].id === 'in_fail', S.payCalls);
+  delete S.invoices.in_old;
+  liveSub.status = 'active';
+  await hook({ type: 'invoice.paid', data: { object: Object.assign({}, inv, { status: 'paid', amount_paid: 5040 }) } });
+  ok('and when it goes through they are off hold', row(U1).status === 'active');
+  S.payCalls.length = 0;
+  await hook({ type: 'customer.updated', data: { object: cu, previous_attributes: { invoice_settings: { default_payment_method: 'pm_new' } } } });
+  ok('a new card when nothing is owed tries nothing', S.payCalls.length === 0);
+}
+{ reset();
+  T.customers.push({ id: U2, name: 'Gone Person', email: 'two@example.com', phone: '6235550122', status: 'canceled', stripe_customer_id: 'cus_gone', texts_visit: true });
+  await hook({ type: 'invoice.payment_failed', data: { object: Object.assign({}, inv, { customer: 'cus_gone' }) } });
+  ok('a failed bill for a canceled customer leaves them canceled and sends nothing', row(U2).status === 'canceled' && mails.length === 0);
+  ok('an event we do not use is answered and ignored', (await hook({ type: 'charge.succeeded', data: { object: {} } })) === 200 && (await hook({ type: 'checkout.session.completed', data: { object: { mode: 'payment' } } })) === 200);
+}
 
-// My Yard self service
-const az = (n) => new Date(Date.now() - 7 * 3600e3 + n * 86400e3).toISOString().slice(0, 10);
-const wd = (d) => new Date(d + 'T19:00:00Z').getUTCDay();
-Object.assign(stored, { status: 'active', plan: 'week', stripe_subscription_id: 'sub_1', stripe_customer_id: 'cus_1', service_day: wd(az(3)), service_day2: null, skips: [], first_visit: null, pause_from: null, pause_until: null });
-await show('\nbills', await call('/api/me/invoices', 'GET', null, 'good'));
-await show('plan', await call('/api/me/plan', 'GET', null, 'good'));
-await show('skip next visit', await call('/api/me/skip', 'POST', { date: az(3) }, 'good'));
-console.log('stored skips:', JSON.stringify(stored.skips));
-await show('skip a day that is not a visit', await call('/api/me/skip', 'POST', { date: az(4) }, 'good'));
-await show('undo skip', await call('/api/me/skip', 'POST', { date: az(3), undo: true }, 'good'));
-await show('pause too long', await call('/api/me/pause', 'POST', { until: az(200) }, 'good'));
-subMeta = { min_end: String(Math.floor(Date.now() / 1000) + 30 * 86400) };
-{ const r = await call('/api/me/pause', 'POST', { until: az(30) }, 'good'); await show('pause inside the first 60 days is blocked', r); if (r.status !== 400) throw new Error('pause should be blocked in the first 60 days'); }
-{ const r = await call('/api/me/plan', 'GET', null, 'good'); const j = await r.clone().json(); if (j.plan.canPause || !j.plan.pauseAfter) throw new Error('plan should say when pausing opens'); }
-subMeta = { min_end: String(Math.floor(Date.now() / 1000) - 86400) };
-await show('pause 30 days', await call('/api/me/pause', 'POST', { until: az(30) }, 'good'));
-console.log('stripe pause call:', decodeURIComponent(subPosts[0] || ''), '| row:', stored.status, stored.pause_from, stored.pause_until);
-await show('start again', await call('/api/me/resume', 'POST', {}, 'good'));
-console.log('stripe resume call:', decodeURIComponent(subPosts[1] || ''), '| row:', stored.status, stored.pause_until);
+/* ---------- forms that do not need a card ---------- */
+head('Waitlist and sign up requests');
+env = Object.assign({}, baseEnv, { FIRST_VISIT_FROM: '2027-03-10' });
+{ reset();
+  ok('waitlist with no name is refused', (await call('/api/waitlist', 'POST', { email: 'nope', zip: '85001' })).status === 400);
+  ok('waitlist with a short phone is refused', (await call('/api/waitlist', 'POST', { name: 'Wendy Wait', phone: '623', address: '1 W Main St', zip: '85301' })).status === 400);
+  ok('waitlist ok', (await call('/api/waitlist', 'POST', { name: 'Wendy Wait', phone: '(623) 555-0111', address: '1 W Main St', zip: '85301', texts: true })).status === 200 && sent(/^Waitlist: Wendy Wait/).length === 1);
+  const r = await call('/api/request', 'POST', Object.assign({}, good, { email: 'req@example.com', textsDeals: true }));
+  const m = sent(/^New sign up request: Test Person/)[0];
+  ok('a sign up request (checkout closed) emails the office the same billing words', r.status === 200 && !!m && /Billing they saw: Your free month runs until April 17\. That day we charge \$56\.47 for April 17 to May 1\. Then \$121 on the 1st of each month\./.test(m.text), m && m.text);
+  const noMail = Object.assign({}, env); delete noMail.RESEND_API_KEY; delete noMail.SUPABASE_URL;
+  const x = await worker.fetch(new Request('https://arizonapetwaste.com/api/waitlist', { method: 'POST', body: JSON.stringify({ name: 'No Mail', phone: '6235550199', address: '2 W Main St', zip: '85301' }), headers: { 'content-type': 'application/json' } }), noMail, ctx);
+  ok('with no email set up the waitlist says to text us, so no lead is lost quietly', x.status === 503);
+  ok('a page that is not /api/ is served as a static page', (await worker.fetch(new Request('https://arizonapetwaste.com/'), env, ctx)).status === 200);
+}
+
+/* ---------- the 60 day rule ---------- */
+head('Free month rule: a cancel in the first 60 days is charged up to one month');
+{ const now = Math.floor(Date.now() / 1000);
+  const gone = (canceledAt, meta) => ({ type: 'customer.subscription.deleted', data: { object: { id: 'sub_9', customer: cus, status: 'canceled', canceled_at: canceledAt, metadata: Object.assign({ user_id: U1 }, meta), items: { data: [{ price: { unit_amount: 9900 }, quantity: 1 }] } } } });
+  const charged = () => S.items.map((c) => c.f.get('amount')).join(',') || 'none';
+  const run = async (label, paid, meta, want) => { reset(); S.paidSoFar = paid; row(U1).status = 'active'; await hook(gone(now, meta)); ok(label + ' (charged ' + want + ')', charged() === want && row(U1).status === 'canceled', charged()); };
+  await run('cancel on day 20, nothing paid', [], { min_end: String(now + 40 * 86400) }, '9900');
+  ok('the early cancel charge is made once, billed and paid', S.items[0].key === 'apw-early-item-sub_9' && S.calls.filter((c) => /^invoices/.test(c.p) && c.m === 'POST').map((c) => c.p).join(' ') === 'invoices invoices/in_new/finalize invoices/in_new/pay' && sent(/^Free month charged/).length === 1 && sent(/^Canceled: Test Person/).length === 1);
+  await run('cancel on day 45, paid the part month $56.47', [5647], { min_end: String(now + 15 * 86400) }, '4253');
+  await run('cancel on day 55, paid over a month', [5647, 9900], { min_end: String(now + 5 * 86400) }, 'none');
+  await run('cancel on day 61', [], { min_end: String(now - 86400) }, 'none');
+  await run('older plan with only a free month end date, canceled inside it', [], { free_end: String(now + 10 * 86400) }, '9900');
+  await run('older plan canceled after the free month', [], { free_end: String(now - 86400) }, 'none');
+  ok('a canceled customer loses the gate code', row(U1).gate_code === null);
+}
+
+/* ---------- My Yard ---------- */
+head('My Yard: bills, skips, pause');
+{ const az = (n) => new Date(Date.now() - 7 * 3600e3 + n * 86400e3).toISOString().slice(0, 10);
+  const wd = (d) => new Date(d + 'T19:00:00Z').getUTCDay();
+  Object.assign(row(U1), { status: 'active', plan: 'week', stripe_subscription_id: 'sub_1', stripe_customer_id: cus, service_day: wd(az(3)), service_day2: null, skips: [], first_visit: null, pause_from: null, pause_until: null });
+  let r = await call('/api/me/invoices', 'GET', null, 'good');
+  ok('bills list leaves out drafts and links to the bill', r.d.invoices.length === 1 && r.d.invoices[0].amount === 4290 && /^https:\/\/invoice\.stripe\.com\//.test(r.d.invoices[0].url), r.d);
+  r = await call('/api/me/plan', 'GET', null, 'good');
+  ok('plan shows the day and the next three visits', r.d.plan.next.length === 3 && r.d.plan.next[0].day === az(3) && r.d.plan.hold === false, r.d);
+  r = await call('/api/me/skip', 'POST', { date: az(3) }, 'good');
+  ok('skip the next visit', r.status === 200 && row(U1).skips.includes(az(3)));
+  ok('a day that is not a visit cannot be skipped', (await call('/api/me/skip', 'POST', { date: az(4) }, 'good')).status === 400);
+  ok('undo the skip', (await call('/api/me/skip', 'POST', { date: az(3), undo: true }, 'good')).status === 200 && row(U1).skips.length === 0);
+  ok('a pause over 120 days is refused', (await call('/api/me/pause', 'POST', { until: az(200) }, 'good')).status === 400);
+  S.subMeta = { min_end: String(Math.floor(Date.now() / 1000) + 30 * 86400) };
+  ok('a pause inside the first 60 days is blocked', (await call('/api/me/pause', 'POST', { until: az(30) }, 'good')).status === 400);
+  r = await call('/api/me/plan', 'GET', null, 'good');
+  ok('the plan says when pausing opens', !r.d.plan.canPause && !!r.d.plan.pauseAfter, r.d);
+  S.subMeta = { min_end: String(Math.floor(Date.now() / 1000) - 86400) };
+  S.subPosts.length = 0;
+  r = await call('/api/me/pause', 'POST', { until: az(30) }, 'good');
+  ok('pause 30 days: Stripe stops billing until the day picked', r.status === 200 && /^pause_collection%5Bbehavior%5D=void&pause_collection%5Bresumes_at%5D=\d+$/.test(S.subPosts[0]) && row(U1).status === 'paused' && row(U1).pause_until === az(29), S.subPosts[0]);
+  r = await call('/api/me/resume', 'POST', {}, 'good');
+  ok('start again', r.status === 200 && S.subPosts[1] === 'pause_collection=' && row(U1).status === 'active' && row(U1).pause_until === null, S.subPosts[1]);
+  r = await call('/api/portal', 'POST', {}, 'good');
+  ok('Change card opens Stripe’s billing page and comes back to My Yard', r.status === 200 && /^https:\/\/billing\.stripe\.com\//.test(r.d.url) && S.calls.filter((c) => c.p === 'billing_portal/sessions')[0].f.get('return_url') === 'https://arizonapetwaste.com/account/');
+}
+
+/* ---------- nothing assumes test mode ---------- */
+head('Live keys work the same');
+{ env = Object.assign({}, baseEnv, { STRIPE_SECRET_KEY: 'sk_live_abcdef', STRIPE_PUBLISHABLE_KEY: 'pk_live_1', FIRST_VISIT_FROM: '2027-03-10' });
+  S.prices.length = 0; T.customers.length = 0; for (const k of Object.keys(S.subs)) delete S.subs[k];
+  reset();
+  const c = await call('/api/config');
+  ok('config hands the live publishable key to the page', c.d.live === true && c.d.stripeKey === 'pk_live_1');
+  const r = await call('/api/checkout', 'POST', Object.assign({}, good, { plan: 'twice', dogs: 4 }), 'good');
+  const made = S.calls.filter((x) => x.m === 'POST' && x.p === 'prices').map((x) => x.f.get('lookup_key') + ' ' + x.f.get('unit_amount') + ' ' + x.f.get('recurring[interval]') + ' ' + x.f.get('product'));
+  ok('a new Stripe mode has no prices: the first sign up makes all six, by lookup key', r.status === 200 && made.length === 6 && made.includes('apw_twice_base 18900 month apw_twice') && made.includes('apw_eow_extra 900 month apw_extra_dog') && made.includes('apw_week_base 10800 month apw_week'), made);
+  ok('and the four products', S.calls.filter((x) => x.m === 'POST' && x.p === 'products').map((x) => x.f.get('id')).sort().join(',') === 'apw_eow,apw_extra_dog,apw_extra_dog,apw_extra_dog,apw_twice,apw_week', S.calls.filter((x) => x.m === 'POST' && x.p === 'products').map((x) => x.f.get('id')));
+  await hook(sessionEvt(r.d.session));
+  const f = S.calls.filter((x) => x.m === 'POST' && x.p === 'subscriptions')[0].f;
+  ok('the plan uses the prices that were just made', f.get('items[0][price]') === 'price_apw_twice_base' && f.get('items[1][price]') === 'price_apw_twice_extra' && f.get('items[1][quantity]') === '2' && row(U1).status === 'trialing');
+  // If Stripe ever refuses the list of allowed ways to pay, the card form still loads, and the office can see why.
+  T.customers.length = 0; T.errors.length = 0; S.refuseList = true;
+  const loose = await call('/api/checkout', 'POST', good, 'good'); await settle(); S.refuseList = false;
+  ok('if Stripe refuses the list of ways to pay, the card form still loads and the Health tab gets a note', loose.status === 200 && !!loose.d.clientSecret && !S.sessions[loose.d.session].form.has('allowed_payment_method_types[0]') && T.errors.length === 1 && /ways to pay/.test(T.errors[0].message), [loose, T.errors]);
+  T.customers.length = 0; S.refuseAll = true;
+  const broken = await call('/api/checkout', 'POST', good, 'good'); S.refuseAll = false;
+  ok('if Stripe refuses the card form outright, the page gets an error, not a blank form', broken.status === 500 && !broken.d.clientSecret, broken);
+  // A row left over from test mode: its Stripe customer id means nothing to the live keys.
+  T.customers.length = 0; for (const k of Object.keys(S.subs)) delete S.subs[k];
+  T.customers.push({ id: U1, email: 'test@example.com', status: 'checkout', stripe_customer_id: 'cus_from_test_mode', stripe_subscription_id: null });
+  const again = await call('/api/checkout', 'POST', good, 'good');
+  ok('a Stripe customer id from test mode is replaced by a new live one', again.status === 200 && /^cus_\d+$/.test(row(U1).stripe_customer_id) && S.sessions[again.d.session].customer === row(U1).stripe_customer_id, again);
+  const src = fs.readFileSync(new URL('../src/worker/worker.js', import.meta.url), 'utf8');
+  ok('no key or test mode value is written into the server', !/[sprw]k_(test|live)_[A-Za-z0-9]{6,}/.test(src) && !/whsec_[A-Za-z0-9]{6,}/.test(src) && !/cs_test_/.test(src));
+  ok('the webhook lives at /api/stripe-webhook', src.includes("path === '/api/stripe-webhook' && m === 'POST'"));
+}
+
+/* ---------- every Stripe request against Stripe's own field list (optional) ---------- */
+if (process.env.STRIPE_SPEC) {
+  head('Stripe requests checked against ' + process.env.STRIPE_SPEC);
+  const spec = JSON.parse(fs.readFileSync(process.env.STRIPE_SPEC, 'utf8'));
+  const deref = (s) => { while (s && s.$ref) s = spec.components.schemas[s.$ref.split('/').pop()]; return s; };
+  const paths = Object.keys(spec.paths).map((p) => ({ p, re: new RegExp('^' + p.replace(/\{[^}]+\}/g, '[^/]+') + '$'), n: (p.match(/\{/g) || []).length })).sort((a, b) => a.n - b.n);
+  const walk = (schema, parts, value) => {
+    schema = deref(schema);
+    if (!schema) return 'no such field';
+    if (schema.anyOf) { const errs = schema.anyOf.map((a) => walk(a, parts, value)); return errs.includes(null) ? null : errs[0]; }
+    if (!parts.length) {
+      if (schema.type === 'object' || schema.type === 'array') return 'needs more than a plain value';
+      if (schema.enum && !schema.enum.includes(value)) return 'value ' + JSON.stringify(value) + ' is not one of ' + schema.enum.slice(0, 12).join(', ');
+      if (schema.type === 'integer' && !/^-?\d+$/.test(value)) return 'value ' + JSON.stringify(value) + ' is not a whole number';
+      if (schema.type === 'boolean' && !/^(true|false)$/.test(value)) return 'value ' + JSON.stringify(value) + ' is not true or false';
+      if (schema.maxLength && value.length > schema.maxLength) return 'value is longer than ' + schema.maxLength;
+      return null;
+    }
+    const [h, ...rest] = parts;
+    if (schema.type === 'array') return /^\d+$/.test(h) ? walk(schema.items, rest, value) : 'expected a list';
+    if (schema.type === 'object') {
+      if (schema.properties && schema.properties[h]) return walk(schema.properties[h], rest, value);
+      if (schema.additionalProperties) return rest.length ? 'too deep' : null;
+      return 'no such field';
+    }
+    return 'not a group';
+  };
+  const seen = new Set(); let bad = 0, checked = 0;
+  for (const c of S.calls.concat(S.subPosts.map((b) => ({ m: 'POST', p: 'subscriptions/sub_1', f: new URLSearchParams(b), q: new URLSearchParams() })))) {
+    const hit = paths.find((x) => x.re.test('/v1/' + c.p));
+    const op = hit && spec.paths[hit.p][c.m.toLowerCase()];
+    if (!op) { bad++; console.log('  FAIL Stripe has no ' + c.m + ' /v1/' + c.p); continue; }
+    const pairs = c.m === 'GET' ? [...c.q.entries()] : [...c.f.entries()];
+    const top = c.m === 'GET' ? { type: 'object', properties: Object.fromEntries((op.parameters || []).filter((x) => x.in === 'query').map((x) => [x.name, x.schema])) }
+      : op.requestBody.content['application/x-www-form-urlencoded'].schema;
+    for (const [k, v] of pairs) {
+      const tag = c.m + ' ' + hit.p + ' ' + k.replace(/\[\d+\]/g, '[]').replace(/metadata\[[^\]]+\]/, 'metadata[x]') + '=' + (/^(mode|ui_mode|status|proration_behavior|redirect_on_completion|currency|collection_method)$/.test(k) || /allowed_payment_method_types|behavior|interval/.test(k) ? v : '');
+      if (seen.has(tag)) continue; seen.add(tag); checked++;
+      const err = walk(top, k.match(/[^\[\]]+/g), v);
+      if (err) { bad++; console.log('  FAIL ' + c.m + ' ' + hit.p + '  ' + k + ': ' + err); }
+    }
+  }
+  ok(checked + ' kinds of Stripe field checked against API version ' + spec.info.version + ', none refused', bad === 0 && checked > 40);
+  // The checker itself: it must refuse a made up field, a wrong value and a field Stripe took away.
+  const cs = spec.paths['/v1/checkout/sessions'].post.requestBody.content['application/x-www-form-urlencoded'].schema;
+  ok('the checker refuses a made up field, a wrong value and a removed field', !!walk(cs, ['bogus_field'], '1') && !!walk(cs, ['mode'], 'subscribe') && !!walk(cs, ['subscription_data', 'trial_endd'], '5')
+    && !!walk(cs, ['payment_method_types', '0'], 'card') && !walk(cs, ['allowed_payment_method_types', '1'], 'link') && !walk(cs, ['metadata', 'anything'], 'x'));
+  failN += bad;
+}
+
+console.log('\n' + pass + ' passed, ' + failN + ' failed');
+process.exit(failN ? 1 : 0);

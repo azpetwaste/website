@@ -208,7 +208,8 @@ ok('set Buckeye service day', r.status === 200 && r.d.areas.find((a) => a.area =
 console.log('\nA website sign up lands in the CRM');
 const cid = await authUser('sam@example.com');
 await db.query(`insert into public.customers (id, email, name, phone, address, zip, area, plan, dogs, status, texts_visit) values ($1,'sam@example.com','Sam Rivera','6235550100','123 W Test St','85396','buckeye','week',2,'checkout',true)`, [cid]);
-const evt = JSON.stringify({ type: 'checkout.session.completed', data: { object: { mode: 'subscription', client_reference_id: cid, subscription: null, customer: 'cus_1' } } });
+// The card form saves a card, then the server starts the plan. Stripe's "plan created" event is what books the row here.
+const evt = JSON.stringify({ type: 'customer.subscription.created', data: { object: { id: 'sub_1', customer: 'cus_1', status: 'trialing', metadata: { user_id: cid } } } });
 const t = Math.floor(Date.now() / 1000);
 env.STRIPE_WEBHOOK_SECRET = 'whsec_test'; env.STRIPE_SECRET_KEY = 'sk_test_1'; env.STRIPE_PUBLISHABLE_KEY = 'pk_test_1';
 const sig = crypto.createHmac('sha256', env.STRIPE_WEBHOOK_SECRET).update(t + '.' + evt).digest('hex');

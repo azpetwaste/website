@@ -744,7 +744,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - Twice a week: $189 for 1 or 2 dogs. That is about $44 a week. Each dog after two adds $13.
 - Every other week: $75 for 1 or 2 dogs. That is about $17 a week. Each dog after two adds $9.
 - Turf odor treatment: $35. One time cleanup: $95. Same day pickup for a party or guests: $49, added to the next bill.
-- Billing: everyone is billed on the 1st of each month.[[bf: During the Black Friday sale (sign up by November 30, 2026) the first month is free, and the first charge only covers the days after the free month. Then the full price on the 1st. A card is saved at sign up and nothing is charged that day.||]]
+- Billing: everyone is billed on the 1st of each month.[[bf: During the Black Friday sale (sign up by November 30, 2026) the first month is free. A card is saved at sign up and nothing is charged that day. The first charge is on the day the free month ends and only covers the days left until the 1st. Then the full price on the 1st of each month. If a payment fails, the customer is emailed that day and visits are on hold until the bill is paid.||]]
 [[bf:- Black Friday sale: sign up by Monday, November 30, 2026 and the first month is free. The sale ends at midnight on November 30. The free month stays free when the customer keeps the plan for 60 days. Canceling in the first 60 days is charged one month at the plan price, minus anything already paid. Canceling is done online in My Yard, with no phone call.||- Offer: the first cleanup is free. The Black Friday free month sale ended on November 30, 2026. Customers who signed up in the sale keep the free month when they keep the plan for 60 days.]]
 
 ## Service area (every home in these ZIP codes)
@@ -826,7 +826,7 @@ ${FILE_PAGES.filter((x) => x.type !== 'blogindex').map((x) => '- [' + x.h1 + '](
 fs.writeFileSync(path.join(DIST, '_headers'), `/*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: camera=(self), microphone=(), geolocation=(self), payment=(self "https://js.stripe.com")
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(self), payment=(self "https://js.stripe.com" "https://checkout.stripe.com" "https://*.stripe.com")
   Strict-Transport-Security: max-age=31536000; includeSubDomains
   X-Frame-Options: DENY
   Content-Security-Policy: frame-ancestors 'none'; base-uri 'self'; object-src 'none'

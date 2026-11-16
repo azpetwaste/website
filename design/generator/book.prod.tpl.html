@@ -25,6 +25,15 @@
 .apw .note{display:flex;gap:12px;align-items:flex-start;margin-top:14px;padding:14px 16px;border-radius:12px;background:var(--bg2);font-size:15px;line-height:1.5;color:var(--ink2)}
 .apw .demo{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:6px 12px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);font-size:13px;font-weight:700;color:var(--mute)}
 .apw .paybox{margin-top:16px;min-height:120px;border-radius:12px;overflow:hidden}
+.apw .psum{margin-top:16px;border-radius:12px;border:1px solid var(--line);background:var(--card);overflow:hidden}
+.apw .prow{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:13px 16px;border-top:1px solid var(--line);font-size:15px}
+.apw .prow:first-child{border-top:0}
+.apw .prow span{color:var(--mute)}
+.apw .prow small{display:block;margin-top:2px;font-size:13px}
+.apw .prow b{font-weight:700;text-align:right;white-space:nowrap}
+.apw .ptoday{background:var(--bg2)}
+.apw .ptoday span{font-size:17px;font-weight:800;color:var(--ink)}
+.apw .ptoday b{font-size:30px;font-family:var(--f-head);font-stretch:86%;font-weight:800;line-height:1}
 </style>
 </helmet>
 <div class="apw bk {{ themeClass }}" style="width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); color: var(--ink);">
@@ -153,15 +162,16 @@
   <sc-if value="{{ s4 }}" hint-placeholder-val="{{ false }}">
     <h1 class="bh1" tabindex="-1">Start your free month.</h1>
     [[bf:<p class="bf-chip" data-deal-end="2026-12-01T06:59:59Z"><span>Black Friday sale</span>First month free. Ends Mon, Nov 30.</p>||]]
-    <div style="margin-top: 18px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); overflow: hidden;">
-      <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">Plan</span><span style="font-size: 15px; font-weight: 700; text-align: right;">{{ planName }} · {{ dogsLabel }}</span></div>
-      <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">First visit</span><span style="font-size: 15px; font-weight: 700; text-align: right;">We reach out to set it</span></div>
-      <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">First month</span><span style="font-size: 15px; font-weight: 700; color: var(--ok);">Free until {{ freeShort }}</span></div>
-      <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">After that</span><span style="font-size: 15px; font-weight: 700;">{{ priceLabel }} a month, on the 1st</span></div>
-      <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 16px; background: var(--bg2);"><span style="font-size: 17px; font-weight: 800;">Due today</span><span style="font-size: 30px; font-family: var(--f-head); font-stretch: 86%; font-weight: 800;">$0.00</span></div>
+    <p class="lead" style="font-size: 17px;">[[bf:You pay $0 today. Cancel anytime.||First month free. Cancel anytime.]]</p>
+    <div class="psum">
+      <div class="prow"><span>{{ planName }} · {{ dogsLabel }}</span><b>{{ priceLabel }} a month</b></div>
+      <div class="prow ptoday"><span>Today</span><b>$0.00</b></div>
+      <div class="prow"><span>Free until</span><b style="color: var(--ok);">{{ freeShort }}</b></div>
+      <sc-if value="{{ hasPart }}" hint-placeholder-val="{{ true }}"><div class="prow"><span>{{ freeShort }}<small>{{ partNote }}</small></span><b>{{ partAmount }}</b></div></sc-if>
+      <div class="prow"><span>{{ thenLabel }}<small>Then the 1st of each month</small></span><b>{{ priceLabel }}</b></div>
     </div>
-    <p style="margin: 10px 0 0; font-size: 14px; line-height: 1.5; color: var(--mute);">{{ billLine }}</p>
-    <p style="margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: var(--mute);">Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.</p>
+    <p style="margin: 12px 0 0; font-size: 14px; line-height: 1.5; color: var(--mute);">Cancel anytime in My Yard, with no phone call. Keep your plan until {{ minDay }} and your free month stays free. If you cancel before {{ minDay }}, we charge one month at your plan price, minus anything you have paid.</p>
+    <p style="margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: var(--mute);">We reach out to set your first visit.</p>
     <p class="fine">By starting your free month, you agree to our <a href="/terms/">Terms</a> and <a href="/privacy/">Privacy Policy</a>.</p>
     <sc-if value="{{ payDemo }}" hint-placeholder-val="{{ false }}">
       <p class="demo">Demo mode: no card is charged</p>
@@ -188,7 +198,7 @@
       </div>
     </sc-if>
     <sc-if value="{{ payLive }}" hint-placeholder-val="{{ false }}"><div class="paybox" data-pay-mount></div></sc-if>
-    <p style="margin: 14px 0 0; display: flex; align-items: center; gap: 8px; font-size: 14px; line-height: 1.5; color: var(--mute);">@@ICON_LOCK@@Secure checkout with Stripe. We never see or store your card number. Apple Pay works on iPhone.</p>
+    <p style="margin: 14px 0 0; display: flex; align-items: center; gap: 8px; font-size: 14px; line-height: 1.5; color: var(--mute);">@@ICON_LOCK@@Secure checkout with Stripe. We never see or store your card number. Apple Pay and Google Pay show up if your phone has them.</p>
   </sc-if>
 
   <sc-if value="{{ s5 }}" hint-placeholder-val="{{ false }}">
@@ -296,33 +306,31 @@ class Component extends DCLogic {
     const h = this.__root.querySelector('.bh1');
     if (h && h.focus) { try { h.focus({ preventScroll: true }); } catch (e) { h.focus(); } }
   }
-  // Everyone pays on the 1st. The free month runs one month and one week from the soonest start day (that week is our
-  // window to set the first visit). The first charge is on the 1st of the month the free month ends in and only covers the
-  // days after it. The worker uses the same rule, so these numbers match what Stripe charges.
-  _bill(price) {
+  // The same rule as firstCharge in the server, so these numbers match what Stripe charges. The card is saved and
+  // nothing is charged. The free month runs one month and one week from the soonest start day (that week is our window
+  // to set the first visit). The day it ends we charge the days left up to the 1st, then the full price on each 1st.
+  // All in Arizona time (noon there is always 19:00 UTC), so it reads the same from any time zone.
+  _bill(plan, dogs) {
     const cfg = this._cfg ? this._cfg() : {};
-    const d = new Date();
-    d.setHours(12, 0, 0, 0);
-    d.setDate(d.getDate() + 1);
-    const f = new Date((cfg.firstVisitFrom || '2026-11-20') + 'T12:00:00');
-    if (f > d) d.setTime(f.getTime());
-    const dd = d.getDate();
-    d.setDate(1);
-    d.setMonth(d.getMonth() + 1);
-    d.setDate(Math.min(dd, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
-    d.setDate(d.getDate() + (typeof cfg.scheduleDays === 'number' ? cfg.scheduleDays : 7));
-    const first = new Date(d.getFullYear(), d.getMonth(), 1, 12);
-    const next = new Date(d.getFullYear(), d.getMonth() + 1, 1, 12);
-    const monthDays = Math.round((next - first) / 864e5);
-    const paidDays = Math.round((next - d) / 864e5);
-    const cents = Math.round(price * 100 * paidDays / monthDays);
-    const day = (x) => x.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
-    const b = { freeEnd: day(d), first: day(first), next: day(next), full: paidDays === monthDays,
-      amount: '$' + (cents / 100).toFixed(cents % 100 ? 2 : 0), freeShort: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) };
-    b.line = (b.full ? 'Your free month runs until ' + b.freeEnd + '. Then we charge $' + price + ' on the 1st of each month, starting ' + b.first + '.'
-      : 'Your free month runs until ' + b.freeEnd + '. On ' + b.first + ', we charge ' + b.amount + ' for ' + b.freeEnd + ' to ' + b.next + '. Then $' + price + ' on the 1st of each month.')
-      + ' Cancel before ' + b.first + ' and you pay $0.';
-    return b;
+    const base = this._price(plan, 2) * 100, extra = this._price(plan, dogs) * 100 - base, total = base + extra;
+    const noon = (iso) => new Date(iso + 'T19:00:00Z');
+    const today = new Date(Date.now() - 7 * 3600e3).toISOString().slice(0, 10);
+    const start = new Date(Math.max(noon(today).getTime() + 864e5, noon(cfg.firstVisitFrom || '2026-11-20').getTime()));
+    const end = new Date(start.getTime());
+    const dd = end.getUTCDate();
+    end.setUTCDate(1);
+    end.setUTCMonth(end.getUTCMonth() + 1);
+    end.setUTCDate(Math.min(dd, new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 1, 0)).getUTCDate()));
+    end.setUTCDate(end.getUTCDate() + (Number(cfg.scheduleDays) || 7));
+    const full = end.getUTCDate() === 1;
+    const anchor = full ? end : new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 1, 1, 19));
+    const monthStart = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() - 1, 1, 19));
+    const monthDays = Math.round((anchor - monthStart) / 864e5), paidDays = Math.round((anchor - end) / 864e5);
+    const part = (c) => Math.round(c * paidDays / monthDays);
+    const cents = full ? total : part(base) + part(extra);
+    const day = (x, m) => x.toLocaleDateString('en-US', { month: m, day: 'numeric', timeZone: 'America/Phoenix' });
+    const money = (c) => '$' + (c / 100).toFixed(c % 100 ? 2 : 0);
+    return { full: full, amount: money(cents), freeShort: day(end, 'short'), nextShort: day(anchor, 'short'), minDay: day(new Date(start.getTime() + 60 * 864e5), 'long') };
   }
   _digits(v, n) { return String(v || '').replace(/\D/g, '').slice(0, n); }
   _phone10() { let p = String(this.state.phone || '').replace(/\D/g, ''); if (p.length === 11 && p[0] === '1') p = p.slice(1); return p; }
@@ -429,6 +437,7 @@ class Component extends DCLogic {
       }, true);
       if (tok !== this._payTok) return;
       if (r && r.already) { this.setState({ payState: 'already' }); return; }
+      this._session = r.session || '';
       const stripe = await a.stripe();
       if (tok !== this._payTok || this.state.step !== 4) return;
       const init = (stripe.initEmbeddedCheckout || stripe.createEmbeddedCheckoutPage).bind(stripe);
@@ -447,11 +456,14 @@ class Component extends DCLogic {
     if (this._checkout) { try { this._checkout.destroy(); } catch (e) { } this._checkout = null; }
   }
   _paid() {
+    const a = this._apw(), id = this._session;
     this._stopPay();
     this._clearDraft();
-    const a = this._apw();
     if (a && a.track) a.track('booked');
     this.setState({ step: 5, payState: 'idle' });
+    // The card is saved. Tell the server so the plan starts now. Stripe tells the server too (the webhook), so if this
+    // call is lost the sign up still finishes, and if both arrive the plan is still made once.
+    if (a && id) a.post('/api/checkout/done', { session: id }, true).catch(function () { });
   }
   open(o) {
     const s = this.state;
@@ -474,7 +486,7 @@ class Component extends DCLogic {
     const zipOk = !!zips[s.zip];
     const price = this._price(s.plan, s.dogs);
     const dogsLabel = s.dogs === 1 ? '1 dog' : s.dogs + ' dogs';
-    const bill = this._bill(price);
+    const bill = this._bill(s.plan, s.dogs);
     const inFlow = s.step > 0 && s.step < 5;
     const demo = this._demo();
     const errs = s.tried ? this._errs() : { name: '', phone: '', email: '', addr: '', zip: '' };
@@ -552,8 +564,12 @@ class Component extends DCLogic {
       planName: names[s.plan],
       dogsLabel: dogsLabel,
       priceLabel: '$' + price,
-      billLine: bill.line,
       freeShort: bill.freeShort,
+      hasPart: !bill.full,
+      partNote: 'For ' + bill.freeShort + ' to ' + bill.nextShort,
+      partAmount: bill.amount,
+      thenLabel: bill.nextShort,
+      minDay: bill.minDay,
       payDemo: demo,
       payLive: !demo && s.payState !== 'already',
       payLoading: !demo && s.payState === 'loading',

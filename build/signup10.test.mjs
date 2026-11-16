@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
+import { fakeStripe } from './stripe.fake.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const require = createRequire(import.meta.url);
@@ -193,8 +194,8 @@ const HOMES = [
   ['Jon West', '20304 W White Tank Mountain Rd', '85355', 'week', 2, 33.5650, -112.4990]
 ];
 Object.assign(env, { STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_PUBLISHABLE_KEY: 'pk_test_x', STRIPE_WEBHOOK_SECRET: 'whsec_test', RESEND_API_KEY: 're_test' });
-const sessions = {}, mails = [];
-let cusN = 0;
+const mails = [];
+const pay = fakeStripe(reply);
 const deskFetch = globalThis.fetch;
 globalThis.fetch = async (u, init = {}) => {
   u = String(u);
@@ -207,11 +208,8 @@ globalThis.fetch = async (u, init = {}) => {
   if (u.startsWith('https://api.resend.com/')) { mails.push(JSON.parse(init.body)); return reply({ id: 'm' }); }
   if (u.startsWith('https://api.stripe.com/v1/')) {
     const p = u.slice('https://api.stripe.com/v1/'.length).split('?')[0], query = u.split('?')[1] || '';
-    if (p === 'customers' && m === 'POST') return reply({ id: 'cus_' + (++cusN) });
-    if (p.startsWith('customers/') && m === 'POST') return reply({ id: p.slice(10) });
-    if (p.startsWith('prices')) return reply({ data: ['week', 'twice', 'eow'].flatMap((k) => ['base', 'extra'].map((t) => ({ id: 'price_' + k + '_' + t, lookup_key: 'apw_' + k + '_' + t }))) });
-    if (p === 'checkout/sessions') { const f = new URLSearchParams(String(init.body)); const sub = 'sub_' + f.get('customer').slice(4); sessions[sub] = f; return reply({ client_secret: 'cs_' + sub }); }
-    if (p.startsWith('subscriptions/') && m === 'GET') { const f = sessions[p.slice(14)]; return reply({ id: p.slice(14), status: 'trialing', metadata: Object.fromEntries([...f.entries()].filter(([k]) => k.startsWith('subscription_data[metadata]')).map(([k, v]) => [k.slice(28, -1), v])) }); }
+    const hit = pay.handle(m, p, query, new URLSearchParams(m === 'GET' ? '' : String(init.body || '')), (init.headers || {})['idempotency-key']);
+    if (hit) return hit;
     if (p === 'invoiceitems') return reply({ id: 'ii_1' });
     return reply({ error: { message: 'unmocked stripe ' + p } }, 500);
   }
@@ -243,7 +241,7 @@ for (let i = 0; i < HOMES.length; i++) {
   tokens.push(s.access_token);
   r = await call('/api/checkout', 'POST', { zip, plan, dogs, name, phone: '623555' + String(1000 + i), address, textsVisit: true, textsDeals: i % 2 === 0, page: '/book/' }, s.access_token);
   const sub = r.d && r.d.clientSecret ? r.d.clientSecret.slice(3) : null;
-  const st = sub ? await hook({ type: 'checkout.session.completed', data: { object: { mode: 'subscription', client_reference_id: s.user.id, subscription: sub, customer: 'cus_' + sub.slice(4) } } }) : 0;
+  const st = sub ? await hook(pay.sessionEvt(sub, s.user.id)) : 0;
   ok((i + 1) + '. ' + name + ', ' + address + ' ' + zip + ' (' + plan + ', ' + dogs + ' dogs)', r.status === 200 && st === 200, r.status === 200 ? undefined : r.d);
 }
 await Promise.all(waits.splice(0));
@@ -256,6 +254,10 @@ r = await call('/api/office/customers', 'GET', null, owner);
 const list = r.d.customers || [];
 ok('10 customers in the office list', list.length === 10, list.length);
 ok('all 10 are on their free month', list.every((c) => c.status === 'trialing'));
+{ const f = pay.made['sub_3'], h = HOMES[2];
+  ok('each plan is started by the server: free until the free month ends, bills on the 1st, part month charged by Stripe', Object.keys(pay.made).length === 10
+    && Number(f.get('trial_end')) > Date.now() / 1000 + 30 * 86400 && (!f.has('billing_cycle_anchor') || (Number(f.get('billing_cycle_anchor')) > Number(f.get('trial_end')) && new Date(Number(f.get('billing_cycle_anchor')) * 1000).toISOString().slice(8, 13) === '01T19' && f.get('proration_behavior') === 'create_prorations'))
+    && f.get('items[0][price]') === 'price_' + h[3] + '_base' && f.get('items[1][price]') === 'price_' + h[3] + '_extra' && f.get('items[1][quantity]') === String(h[4] - 2), String(f)); }
 ok('all 10 have a map pin', list.every((c) => c.lat != null && c.lng != null));
 ok('all 10 got their area service day', list.every((c) => c.service_day === wd));
 ok('office got 10 new booking emails', mails.filter((x) => /^New booking/.test(x.subject)).length === 10);

@@ -42,30 +42,52 @@ Use info@arizonapetwaste.com for every account. Never paste a password, API key 
 
 ## 5. Stripe (payments, first month free)
 Stay in Test mode for now.
-1. Settings > Public details: business name Arizona Pet Waste, phone 623.309.6104, support email info@arizonapetwaste.com, website https://arizonapetwaste.com, Terms https://arizonapetwaste.com/terms/, Privacy https://arizonapetwaste.com/privacy/.
+1. Settings > Public details: business name Arizona Pet Waste, phone 623.309.6104, support email info@arizonapetwaste.com, website https://arizonapetwaste.com, Terms https://arizonapetwaste.com/terms/, Privacy https://arizonapetwaste.com/privacy/. Set a shortened statement descriptor of 10 letters or less, such as `AZPETWASTE`: on the first charge after a free month Stripe writes over everything past the 10th letter with `* TRIAL OVER`.
 2. Settings > Branding: upload the state logo (`static/assets/img/icon-512.png`), accent color `#FF4A1C`, brand color `#0A0F24`.
-3. Settings > Billing > Customer portal: turn on. Allow update payment method, view invoices, cancel subscription (at end of billing period). Save.
-4. Settings > Billing > Subscriptions and emails: turn on the email reminder before a free trial ends.
-5. Settings > Payment methods: cards, Apple Pay, Google Pay and Link on. Payment method domains: add `arizonapetwaste.com`.
-6. Developers > Webhooks (or Workbench > Event destinations) > Add endpoint `https://arizonapetwaste.com/api/stripe-webhook`.
-   Events: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`.
-   Copy the signing secret into Cloudflare as `STRIPE_WEBHOOK_SECRET`.
-7. Developers > API keys: copy the test publishable key and secret key into Cloudflare. Redeploy.
-Prices are made by the website on the first sign up. Nothing to create by hand.
+3. Settings > Billing > Customer portal: turn on. Allow update payment method, view invoices, cancel subscription (at end of billing period). Leave "Pause subscription", "Switch plan" and "Update quantities" OFF: pausing is done in My Yard, which holds it back for the first 60 days. Save. The portal is saved one time in test mode and one time in live mode.
+4. Settings > Billing > Subscriptions and emails: turn on "Send a reminder email 7 days before a free trial ends" (the card networks ask for this). Leave "Send emails when card payments fail" OFF: the site sends its own email the same day.
+5. Billing > Revenue recovery > Retries: Smart Retries on (new accounts start with up to 8 tries in 2 weeks). "If all retries for a payment fail": Cancel the subscription. Then nobody is billed month after month for visits they are not getting. Leave both "Pause the subscription" choices off.
+6. Settings > Payment methods: cards, Apple Pay, Google Pay and Link on. Settings > Payment method domains: add `arizonapetwaste.com` and `www.arizonapetwaste.com`. Add them in LIVE mode (that covers test mode too). Apple Pay and Google Pay do not show on our card form until this is done. If Stripe shows a file to put on the site for Apple Pay, hand the file to Claude: it goes in `static/.well-known/`.
+7. Developers > Webhooks (or Workbench > Event destinations) > Add endpoint `https://arizonapetwaste.com/api/stripe-webhook`.
+   Events, all seven: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`, `customer.updated`.
+   If it asks for an API version, take the newest one. Copy the signing secret into Cloudflare as `STRIPE_WEBHOOK_SECRET`.
+8. Developers > API keys: copy the test publishable key and secret key into Cloudflare. Redeploy.
+Prices and products are made by the website on the first sign up, in test mode and again in live mode. Nothing to create by hand.
+
+How a plan is billed (Joe, November 15, 2026):
+- Sign up saves the card and charges $0. The card form is a Stripe Checkout Session in setup mode.
+- The moment the card is saved, the server starts the plan itself (`startPlan`): free until the free month ends (`trial_end`), bills lined up on the 1st (`billing_cycle_anchor`), and Stripe charges the days in between as a part month (`proration_behavior=create_prorations`). Stripe Checkout cannot do a free month and a fixed billing day in one step, which is why the server does it.
+- The day the free month ends: the part month up to the 1st. Then the full price on the 1st of each month, for the month ahead. A free month that ends on a 1st has no part month.
+- A payment fails: the customer is emailed that day, a text waits in the office Texts tab for staff to send, the office is emailed, and the customer stays off new routes until the bill is paid. Stripe keeps retrying. When the bill is paid they are back on and get a thank you.
+- A customer who changes their card in My Yard while on hold: the open bill is tried on the new card right away (that is what `customer.updated` is for).
 
 ## 6. Check the setup
 Open https://arizonapetwaste.com/api/health. It must say `"live":true`. If it says false, a key is missing in Cloudflare.
 
 ## 7. Test on a phone and a computer (Joe)
-1. Tap Book now, use ZIP 85396, pick dogs and a day, fill in your real email, check the visit texts box.
+While the Stripe test keys are in Cloudflare, the public gets the "we call you" sign up. Open `https://arizonapetwaste.com/book/?test=1` to turn real checkout on for that browser tab.
+1. Tap your city, pick dogs and how often, fill in your real email, check the visit texts box.
 2. The 6 digit code arrives by email within a minute. Type it.
-3. Pay with test card `4242 4242 4242 4242`, any future date, any 3 numbers.
-4. You see "You are booked!". You get the booking email at info@arizonapetwaste.com and the customer email.
-5. Supabase > Table Editor > customers shows the row with status `trialing`. Stripe shows the subscription with the trial ending one month after the first visit.
-6. Open /account/, sign in with the code, save a gate code, tap "Manage card or cancel" and see the Stripe page.
+3. Write down what the pay step shows: the free until day, the part month amount and its day, and the 60 day date. Pay with test card `4242 4242 4242 4242`, any future date, any 3 numbers.
+4. You see "You are booked!". You get the booking email at info@arizonapetwaste.com and the customer email, one of each.
+5. Supabase > Table Editor > customers shows the row with status `trialing`. In Stripe (test mode) the customer has one subscription, status Trialing. Its trial ends on the free until day. Its "Upcoming invoice" is the part month amount from step 3, to the cent, and after that the billing day is the 1st. The customer's default payment method is the test card.
+6. Stripe > Developers > Webhooks > the endpoint: every delivery says 200.
+7. Open /account/, sign in with the code, save a gate code, tap "Change card or cancel" and see the Stripe page.
+8. Failed payment drill (test mode only). In Stripe open the test customer, add test card `4000 0000 0000 0341` and make it the default. Open the subscription > Actions > End trial now. Within about an hour Stripe tries the bill and it fails. Check: the customer email "Your card did not work", the office email "Card failed", a "card failed" text in /crew > Texts, status "Card problem" and the "Your card did not work" box in My Yard. Then make `4242 4242 4242 4242` the default again in "Change my card": the bill is paid right away, the customer gets "Your payment went through", and My Yard is back to normal.
 
 ## 8. Live money
-Switch Stripe to live mode. Repeat Stripe steps 3, 4, 5 and 6 in live mode (live mode has its own portal settings and its own webhook secret). Put the live publishable key, live secret key and live webhook secret into Cloudflare. Redeploy. Do one real sign up with your own card, then cancel it in My Yard.
+1. Delete the test sign ups first: Supabase > Table Editor > customers, remove the rows made in test mode. A row left from test mode blocks that email, phone and address from signing up again (one free month per home) and its Stripe ids mean nothing to the live keys.
+2. Switch Stripe to live mode. Repeat Stripe steps 1 and 3 to 7 in live mode: live mode has its own portal settings, its own retry and email settings, its own payment method domains and its own webhook with its own signing secret.
+3. Put the live publishable key, live secret key and live webhook secret into Cloudflare (`STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`). Redeploy the latest deployment so the settings load.
+4. Open https://arizonapetwaste.com/api/health: `"live":true`. Open /book/ with no `?test=1`: the pay step shows the card form (the live key turns real checkout on for everyone on its own).
+5. Do one real sign up with your own card. You are charged $0. Check Stripe live mode the same way as step 5 of the test. Then cancel it in My Yard. A cancel in the first 60 days is charged one month, so cancel it in Stripe and refund yourself if that charge goes through.
+
+Every setting the live site reads in Cloudflare Pages > Settings > Variables and Secrets:
+- Must have: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`.
+- Mail (without these no email leaves the site: no welcome, no "card did not work", no office notice): `RESEND_API_KEY`, `MAIL_FROM`, `NOTIFY_EMAIL`.
+- Good to set: `SITE_URL` (`https://arizonapetwaste.com`), `GOOGLE_MAPS_BROWSER_KEY`, `GOOGLE_MAPS_SERVER_KEY`, `TURNSTILE_SITE_KEY`, `CRON_SECRET`.
+- Only to change a default: `FIRST_VISIT_FROM` (2026-11-20), `SCHEDULE_DAYS` (7), `STOPS_PER_DAY`, `WORK_DAYS`, `ROUTE_START`, `ROUTE_START_LABEL`.
+- Build setting: `NODE_VERSION` = `22`.
 
 ## 9. Google, Bing, Apple
 1. Google Search Console: add a Domain property for arizonapetwaste.com (verify with the TXT record in Cloudflare DNS). Submit `https://arizonapetwaste.com/sitemap.xml`.

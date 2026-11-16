@@ -87,6 +87,12 @@
       <div class="yrow"><span>Status</span><b>{{ statusLine }}</b></div>
       <div class="yrow"><span>Address</span><b>{{ addrLine }}</b></div>
     </div>
+    <sc-if value="{{ cardBad }}" hint-placeholder-val="{{ false }}">
+      <div class="note" role="alert" style="flex-direction: column; gap: 10px;">
+        <p style="margin: 0;"><strong>Your card did not work.</strong> Your visits are on hold until your bill is paid. Add a new card and make it your default card. We try it right away. Or pay the bill under Bills and card.</p>
+        <button type="button" class="btn btn-dot" style="width: 100%;" onClick="{{ portal }}" disabled="{{ busy }}">Change my card</button>
+      </div>
+    </sc-if>
     <sc-if value="{{ needsFinish }}" hint-placeholder-val="{{ false }}">
       <div class="note" style="flex-direction: column; gap: 10px;">
         <p style="margin: 0;"><strong>You have not finished signing up.</strong> Add your card to start your free month. You pay $0 today.</p>
@@ -161,7 +167,7 @@
       <div class="ycard">
         <sc-for list="{{ billList }}" as="i" hint-placeholder-count="2">
           <div class="yrow vrow"><b class="vday">{{ i.amount }}<small>{{ i.sub }}</small></b>
-            <sc-if value="{{ i.url }}" hint-placeholder-val="{{ true }}"><a class="tlink" href="{{ i.url }}" target="_blank" rel="noopener">View bill</a></sc-if>
+            <sc-if value="{{ i.url }}" hint-placeholder-val="{{ true }}"><a class="tlink" href="{{ i.url }}" target="_blank" rel="noopener">{{ i.link }}</a></sc-if>
           </div>
         </sc-for>
       </div>
@@ -354,18 +360,19 @@ class Component extends DCLogic {
       saveErr: s.saveErr,
       skipHref: this._sms('Hi! Please skip my next visit. My address is ' + (me.address || '') + '.'),
       pauseHref: this._sms('Hi! Please pause my visits. My address is ' + (me.address || '') + '. Start again on: '),
-      dayLine: !paying ? 'Your visits show up here after you sign up.' : (pl && pl.paused ? 'Your visits are paused.' : (pl && pl.dayName ? 'Your day is ' + pl.dayName + '. We text you the night before with a 30 minute window.' : 'We are setting your day. We will reach out with your day and time.')),
+      cardBad: me.status === 'past_due' || me.status === 'unpaid',
+      dayLine: !paying ? 'Your visits show up here after you sign up.' : (me.status === 'past_due' ? 'Your visits are on hold until your bill is paid.' : pl && pl.paused ? 'Your visits are paused.' : (pl && pl.dayName ? 'Your day is ' + pl.dayName + '. We text you the night before with a 30 minute window.' : 'We are setting your day. We will reach out with your day and time.')),
       hasNext: selfSkip,
       nextList: selfSkip ? pl.next.map((v) => ({ label: nice(v.day, true), sub: v.skipped ? 'Skipped. We will not come.' : 'Scheduled', showBtn: v.skipped || (v.canSkip && pl.skipsLeft > 0),
         btn: v.skipped ? 'Undo' : 'Skip', tap: () => this._skip(v.day, v.skipped) })) : [],
       skipLine: pl ? 'You have ' + pl.skipsLeft + ' of 4 free skips left this year. Skip up to 24 hours before a visit.' : '',
-      skipByText: paying && !selfSkip && !(pl && pl.paused),
+      skipByText: paying && !selfSkip && !(pl && (pl.paused || pl.hold)),
       hasPast: s.visits.length > 0,
       pastList: s.visits.map((v) => ({ label: nice(v.day, true), sub: (pastNames[v.status] || 'Done') + (v.reason ? ': ' + v.reason : ''), photo: v.photo || '' })),
       isPaused: !!(pl && pl.paused),
       pausedLine: pl && pl.paused ? (pl.pauseUntil ? 'You are paused. We start again on ' + nice(pl.pauseUntil, true) + '. You do not pay while paused.' : 'You are paused. You do not pay while paused.') : '',
       canPause: !!(pl && pl.canPause && !pl.paused),
-      pauseByText: paying && !(pl && (pl.canPause || pl.paused || pl.pauseAfter)),
+      pauseByText: paying && !(pl && (pl.canPause || pl.paused || pl.pauseAfter || pl.hold)),
       pauseLater: !!(pl && pl.pauseAfter && !pl.paused),
       pauseLaterLine: pl && pl.pauseAfter ? 'You can pause after ' + pl.pauseAfter + '. Need a break before then? Skip a visit above, or text 623.309.6104.' : '',
       pauseMin: this._iso(1), pauseMax: pl ? pl.pauseMax : this._iso(120),
@@ -373,7 +380,7 @@ class Component extends DCLogic {
       pause: () => this._pause(), resume: () => this._resume(),
       actErr: s.actErr, actBusy: s.actBusy,
       hasBills: s.bills.length > 0, noBills: s.bills.length === 0,
-      billList: s.bills.map((i) => ({ amount: '$' + (i.amount / 100).toFixed(2), sub: nice(i.date) + ' · ' + (billNames[i.status] || i.status), url: i.url || '' })),
+      billList: s.bills.map((i) => ({ amount: '$' + (i.amount / 100).toFixed(2), sub: nice(i.date) + ' · ' + (billNames[i.status] || i.status), url: i.url || '', link: i.status === 'open' ? 'Pay bill' : 'View bill' })),
       portal: () => this._portal(),
       portalErr: s.portalErr,
       signOut: () => this._signOut()

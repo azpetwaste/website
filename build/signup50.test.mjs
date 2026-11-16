@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
+import { fakeStripe } from './stripe.fake.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const require = createRequire(import.meta.url);
@@ -194,8 +195,10 @@ for (const [zip, n0, la0, la1, lo0, lo1] of BOX) for (let i = 0; i < n0 * N / 50
     +(la0 + rnd() * (la1 - la0)).toFixed(5), +(lo0 + rnd() * (lo1 - lo0)).toFixed(5)]);
 }
 Object.assign(env, { STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_PUBLISHABLE_KEY: 'pk_test_x', STRIPE_WEBHOOK_SECRET: 'whsec_test', RESEND_API_KEY: 're_test' });
-const sessions = {}, mails = [], charges = [], subPosts = [];
-let invoiceList = [], cusN = 0, invN = 0, lastItem = null;
+const mails = [], charges = [], subPosts = [], payCalls = [];
+let invoiceList = [], invN = 0, lastItem = null;
+const pay = fakeStripe(reply);
+const sessions = pay.sessions, metaOverride = pay.metaOverride, subItems = pay.subItems, prepaidSubs = pay.prepaid, metaOf = pay.metaOf;
 const deskFetch = globalThis.fetch;
 globalThis.fetch = async (u, init = {}) => {
   u = String(u);
@@ -209,16 +212,13 @@ globalThis.fetch = async (u, init = {}) => {
   if (u.startsWith('https://api.stripe.com/v1/')) {
     const p = u.slice('https://api.stripe.com/v1/'.length).split('?')[0], query = u.split('?')[1] || '';
     const f = new URLSearchParams(String(init.body || ''));
-    if (p === 'customers' && m === 'POST') return reply({ id: 'cus_' + (++cusN) });
-    if (p.startsWith('customers/') && m === 'POST') return reply({ id: p.slice(10) });
-    if (p.startsWith('prices')) return reply({ data: ['week', 'twice', 'eow'].flatMap((k) => ['base', 'extra'].map((t) => ({ id: 'price_' + k + '_' + t, lookup_key: 'apw_' + k + '_' + t }))) });
-    if (p === 'checkout/sessions') { const sub = 'sub_' + f.get('customer').slice(4); sessions[sub] = f; return reply({ client_secret: 'cs_' + sub }); }
-    if (p.startsWith('subscriptions/') && m === 'GET') return reply({ id: p.slice(14), status: 'trialing', metadata: metaOf(p.slice(14)), items: { data: subItems[p.slice(14)] || [] },
-      default_payment_method: { card: { funding: prepaidSubs.has(p.slice(14)) ? 'prepaid' : 'credit' } } });
+    const hit = p.startsWith('subscriptions/') && m === 'POST' ? null : pay.handle(m, p, query, f, (init.headers || {})['idempotency-key']);
+    if (hit) return hit;
     if (p === 'subscription_items' && m === 'POST') { (subItems[f.get('subscription')] ||= []).push({ id: 'si_x', price: { id: f.get('price') }, quantity: Number(f.get('quantity')) }); itemCalls.push('add ' + f.get('quantity') + ' ' + f.get('proration_behavior')); return reply({ id: 'si_x' }); }
     if (p.startsWith('subscription_items/')) { itemCalls.push((m === 'DELETE' ? 'remove' : 'set ' + f.get('quantity')) + ' ' + f.get('proration_behavior')); return reply({ id: 'si_x' }); }
     if (p.startsWith('subscriptions/') && m === 'POST') { subPosts.push(p.slice(14) + ' ' + String(init.body)); return reply({ id: p.slice(14), status: 'active' }); }
     if (p === 'invoices' && m === 'GET') return reply({ data: invoiceList });
+    if (/^invoices\/in_open\d*\/pay$/.test(p)) { payCalls.push(p + ' ' + ((init.headers || {})['idempotency-key'] || '')); return reply({ id: 'in', status: 'paid' }); }
     if (p === 'invoiceitems') { lastItem = { amount: Number(f.get('amount')), description: f.get('description') }; if (lastItem.amount > 0) charges.push(lastItem); return reply({ id: 'ii_1' }); }
     if (p === 'invoices') return reply({ id: 'in_' + (++invN), status: 'draft' });
     if (/^invoices\/in_\d+\/(finalize|pay)$/.test(p)) return reply({ id: 'in', status: 'paid' });
@@ -226,8 +226,7 @@ globalThis.fetch = async (u, init = {}) => {
   }
   return deskFetch(u, init);
 };
-const metaOverride = {}, subItems = {}, itemCalls = [], prepaidSubs = new Set();
-function metaOf(sub) { const f = sessions[sub]; return Object.assign(Object.fromEntries([...f.entries()].filter(([k]) => k.startsWith('subscription_data[metadata]')).map(([k, v]) => [k.slice(28, -1), v])), metaOverride[sub] || {}); }
+const itemCalls = [];
 const PRICE = { week: [10800, 1300], twice: [18900, 1300], eow: [7500, 900] };
 function subObj(i, extra) { const h = HOMES[i], sub = 'sub_' + ids[i].n; const items = [{ price: { unit_amount: PRICE[h[3]][0] }, quantity: 1 }]; if (h[4] > 2) items.push({ price: { unit_amount: PRICE[h[3]][1] }, quantity: h[4] - 2 });
   return Object.assign({ id: sub, customer: 'cus_' + ids[i].n, status: 'active', metadata: metaOf(sub), items: { data: items } }, extra || {}); }
@@ -263,8 +262,7 @@ for (let b = 0; b < N / GROUP; b++) {
     const [a, twin] = await Promise.all([call('/api/checkout', 'POST', body, s.access_token), i % 10 === 0 ? call('/api/checkout', 'POST', body, s.access_token) : null]);
     const sub = a.d && a.d.clientSecret ? a.d.clientSecret.slice(3) : null;
     ids[i] = { uid: s.user.id, token: s.access_token, n: sub ? sub.slice(4) : null };
-    const evt = { type: 'checkout.session.completed', data: { object: { mode: 'subscription', client_reference_id: s.user.id, subscription: sub, customer: 'cus_' + (sub || '').slice(4) } } };
-    const st = sub ? await hook(evt) : 0;
+    const st = sub ? await hook(pay.sessionEvt(sub, s.user.id)) : 0;
     return a.status === 200 && st === 200 && (!twin || twin.status === 200);
   }));
   ok('sign ups ' + (b * GROUP + 1) + ' to ' + (b * GROUP + GROUP), res.every(Boolean), res.filter(Boolean).length + ' of ' + GROUP);
@@ -290,9 +288,18 @@ ok('all ' + N + ' have a map pin', list.every((c) => c.lat != null && c.lng != n
 ok('office got ' + N + ' booking emails', mails.filter((x) => /^New booking/.test(x.subject)).length === N);
 ok('every sign up saved its text consent records', (await count('select count(distinct user_id)::int n from consent_log')) === N);
 ok('double tap on Pay made no double customers', (await count('select count(*)::int n from customers')) === N);
-for (let i = 0; i < N; i++) await hook({ type: 'checkout.session.completed', data: { object: { mode: 'subscription', client_reference_id: ids[i].uid, subscription: 'sub_' + ids[i].n, customer: 'cus_' + ids[i].n } } });
+const bookedMails = mails.filter((x) => /^You are booked/.test(x.subject)).length, plansMade = Object.keys(pay.made).length;
+for (let i = 0; i < N; i++) await hook(pay.sessionEvt('sub_' + ids[i].n, ids[i].uid));
+// The sign up page reports in too, and Stripe sends its own "plan created" event: neither may double anything.
+for (let i = 0; i < 5; i++) { await call('/api/checkout/done', 'POST', { session: 'cs_sub_' + ids[i].n }, ids[i].token); await hook({ type: 'customer.subscription.created', data: { object: subObj(i, { status: 'trialing' }) } }); }
 await Promise.all(waits.splice(0));
 ok('Stripe sending every webhook twice changes nothing', (await count('select count(*)::int n from customers')) === N && (await count("select count(*)::int n from customers where status = 'trialing'")) === N);
+ok('one plan and one welcome email for each sign up, however many times it is reported', Object.keys(pay.made).length === N && plansMade === N && bookedMails === N && mails.filter((x) => /^You are booked/.test(x.subject)).length === N, [plansMade, bookedMails]);
+{ const f = pay.made['sub_' + ids[3].n], h = HOMES[3];
+  ok('the server starts each plan with our prices, a free month and bills on the 1st', f.get('items[0][price]') === 'price_' + h[3] + '_base' && f.get('metadata[user_id]') === ids[3].uid && Number(f.get('trial_end')) > Date.now() / 1000 + 30 * 86400
+    && (!f.has('billing_cycle_anchor') || new Date(Number(f.get('billing_cycle_anchor')) * 1000).toISOString().slice(8, 13) === '01T19'), String(f)); }
+r = await call('/api/checkout/done', 'POST', { session: 'cs_sub_' + ids[1].n }, ids[0].token);
+ok('a customer cannot finish someone else’s sign up', r.status === 403, r.status);
 r = await call('/api/checkout', 'POST', { zip: HOMES[0][2], plan: 'week', dogs: 1, name: HOMES[0][0], phone: '6235551000', address: HOMES[0][1] }, ids[0].token);
 ok('a customer with a plan cannot start a second one', r.status === 200 && r.d.already === true || r.status === 409, r.d);
 
@@ -340,8 +347,8 @@ for (const [label, patch] of [['a made up plan', { plan: 'free' }], ['0 dogs', {
   ok('checkout refuses ' + label, r.status === 400, r.status);
 }
 r = await call('/api/checkout', 'POST', Object.assign({}, base, { price: 1, amount: 1, total: 0, unit_amount: 1, trial_end: 9999999999, status: 'active', id: ids[0].uid }), sneak.access_token);
-const sent = sessions['sub_' + cusN];
-ok('a price typed into the request is ignored: Stripe gets our price', r.status === 200 && sent.get('line_items[0][price]') === 'price_week_base' && !String(sent).includes('unit_amount'), sent && sent.get('line_items[0][price]'));
+const sent = sessions['sub_' + pay.cusN];
+ok('a price or a date typed into the request is ignored: the card form carries only our plan and our dates', r.status === 200 && sent.get('mode') === 'setup' && sent.get('metadata[plan]') === 'week' && !/unit_amount|9999999999|line_items|price/.test(decodeURIComponent(String(sent)).replace(/\+/g, ' ').replace(/plan price/g, '')) && Number(sent.get('metadata[free_end]')) < Date.now() / 1000 + 80 * 86400, String(sent).slice(0, 300));
 ok('checkout cannot be aimed at another customer', sent.get('client_reference_id') === sneak.user.id);
 ok('a sign up that never paid is not a customer on a route', (await count("select count(*)::int n from customers where status = 'checkout'")) === 1 && !(await call('/api/office/plan', 'POST', { date: today }, owner)).d.added);
 r = await call('/api/checkout', 'POST', base, null);
@@ -386,13 +393,43 @@ charges.length = 0; invoiceList = [];
 metaOverride['sub_' + ids[11].n] = { min_end: String(Math.floor(Date.now() / 1000) - 86400) };
 await hook({ type: 'customer.subscription.deleted', data: { object: subObj(11, { status: 'canceled', canceled_at: Math.floor(Date.now() / 1000) }) } });
 ok('cancel after 60 days: no charge', charges.length === 0, charges);
-await hook({ type: 'invoice.payment_failed', data: { object: { customer: 'cus_' + ids[12].n } } });
+mails.length = 0;
+const failedInv = { id: 'in_open1', customer: 'cus_' + ids[12].n, status: 'open', amount_due: 4200, amount_remaining: 4200, attempted: true, collection_method: 'charge_automatically', hosted_invoice_url: 'https://invoice.stripe.com/i/acct_1/test_x' };
+await hook({ type: 'invoice.payment_failed', data: { object: failedInv } });
+await Promise.all(waits.splice(0));
 const d12 = dayFor(AREA_DAY[list.find((c) => c.id === ids[12].uid).area]);
 ok('card failed: customer is marked past due and taken off future routes', (await db.query('select status from customers where id = $1', [ids[12].uid])).rows[0].status === 'past_due' && (d12 === today || (await count("select count(*)::int n from stops where status = 'scheduled' and customer_id = '" + ids[12].uid + "'")) === 0));
+ok('card failed: the customer is emailed that day with the bill link and My Yard', mails.filter((x) => x.subject === 'Your card did not work' && x.to[0] === 'test13@example.com' && x.text.includes('https://invoice.stripe.com/i/acct_1/test_x') && x.text.includes('/account/')).length === 1, mails.map((x) => x.subject));
+{ const q = (await db.query("select kind, channel, status, stop_id, to_addr, body from messages where customer_id = $1 and kind = 'card_failed'", [ids[12].uid])).rows;
+  ok('card failed: one text waits for staff to send', q.length === 1 && q[0].status === 'queued' && q[0].channel === 'sms' && q[0].stop_id === null && q[0].body.length <= 160 && /Reply STOP to opt out\.$/.test(q[0].body), q);
+  r = await call('/api/office/texts', 'GET', null, owner);
+  ok('the office Texts tab lists it with the name and number', (r.d.texts || []).some((t) => t.kind === 'card_failed' && t.customer && t.customer.name === HOMES[12][0] && t.to_addr === '6235551012'), (r.d.texts || []).filter((t) => t.kind === 'card_failed'));
+  r = await call('/api/crew/today', 'GET', null, maria);
+  ok('the scooper’s route does not show the billing text', r.status === 200 && !(r.d.texts || []).some((t) => t.kind === 'card_failed')); }
+await hook({ type: 'invoice.payment_failed', data: { object: failedInv } });
+await hook({ type: 'customer.subscription.updated', data: { previous_attributes: { status: 'trialing' }, object: subObj(12, { status: 'past_due' }) } });
+await Promise.all(waits.splice(0));
+ok('Stripe’s retries do not email or text again', mails.filter((x) => x.subject === 'Your card did not work').length === 1 && mails.filter((x) => /^Card failed/.test(x.subject)).length === 1 && (await count("select count(*)::int n from messages where kind = 'card_failed'")) === 1);
+r = await call('/api/office/plan', 'POST', { date: d12 }, owner);
+ok('a customer on hold is left off a new route and counted for the office', r.d.unpaid >= 1 && (d12 === today || (await count("select count(*)::int n from stops where day = '" + d12 + "' and customer_id = '" + ids[12].uid + "'")) === 0), r.d);
+r = await call('/api/me/plan', 'GET', null, ids[12].token);
+ok('My Yard shows the hold and no next visits', r.d.plan.hold === true && r.d.plan.next.length === 0, r.d);
 await hook({ type: 'invoice.payment_failed', data: { object: { customer: 'cus_' + ids[9].n } } });
 ok('a failed early cancel charge does not bring a canceled customer back', (await db.query('select status from customers where id = $1', [ids[9].uid])).rows[0].status === 'canceled');
 await hook({ type: 'customer.subscription.updated', data: { object: subObj(12, { status: 'active' }) } });
+ok('a plan change that is not a payment does not lift the hold', (await db.query('select status from customers where id = $1', [ids[12].uid])).rows[0].status === 'past_due');
+invoiceList = [failedInv]; payCalls.length = 0;
+await hook({ type: 'customer.updated', data: { previous_attributes: { invoice_settings: { default_payment_method: 'pm_old' } }, object: { id: 'cus_' + ids[12].n, invoice_settings: { default_payment_method: 'pm_new' } } } });
+ok('a new card while on hold: the open bill is tried on it right away', payCalls.length === 1 && payCalls[0] === 'invoices/in_open1/pay apw-newcard-in_open1-pm_new', payCalls);
+invoiceList = []; mails.length = 0; pay.status['sub_' + ids[12].n] = 'active';
+await hook({ type: 'invoice.paid', data: { object: Object.assign({}, failedInv, { status: 'paid', amount_paid: 4200, amount_remaining: 0 }) } });
+await hook({ type: 'customer.subscription.updated', data: { previous_attributes: { status: 'past_due' }, object: subObj(12, { status: 'active' }) } });
+await Promise.all(waits.splice(0));
 ok('card fixed: customer is active again', (await db.query('select status from customers where id = $1', [ids[12].uid])).rows[0].status === 'active');
+ok('card fixed: thanked once, office told once, the unsent text leaves the list', mails.filter((x) => x.subject === 'Your payment went through').length === 1 && mails.filter((x) => /^Paid: /.test(x.subject)).length === 1
+  && (await db.query("select status from messages where kind = 'card_failed'")).rows[0].status === 'skipped', mails.map((x) => x.subject));
+r = await call('/api/office/plan', 'POST', { date: d12 }, owner);
+ok('back on the next route for their day', d12 === today || (await count("select count(*)::int n from stops where day = '" + d12 + "' and customer_id = '" + ids[12].uid + "'")) === 1 || HOMES[12][3] === 'eow', r.d);
 // pause over the 1st, then come back: the rest of the month is charged
 const P = 13; metaOverride['sub_' + ids[P].n] = { min_end: String(Math.floor(Date.now() / 1000) - 86400) };
 await hook({ type: 'customer.subscription.updated', data: { object: subObj(P, { status: 'active' }) } });
@@ -431,7 +468,7 @@ ok('a scooper cannot change the bill', r.status === 403, r.status);
 { const s = await customerToken('prepaid@example.com'); mails.length = 0;
   r = await call('/api/checkout', 'POST', { zip: '85340', plan: 'week', dogs: 1, name: 'Pat Prepaid', phone: '6235556666', address: '99 Gift Card Way', page: '/book/' }, s.access_token);
   const sub = r.d.clientSecret.slice(3); prepaidSubs.add(sub);
-  await hook({ type: 'checkout.session.completed', data: { object: { mode: 'subscription', client_reference_id: s.user.id, subscription: sub, customer: 'cus_' + sub.slice(4) } } });
+  await hook(pay.sessionEvt(sub, s.user.id));
   await Promise.all(waits.splice(0));
   ok('a prepaid card is flagged to the office', mails.some((x) => /^Prepaid card: Pat Prepaid/.test(x.subject)), mails.map((x) => x.subject)); }
 

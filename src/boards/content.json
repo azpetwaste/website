@@ -51,7 +51,7 @@
    },
    {
     "q": "When do you charge my card?",
-    "a": "On the 1st of each month.[[bf: With the Black Friday sale, your first month is free. Your first charge only covers the days after your free month, so it is smaller. Then you pay the full price on the 1st of each month.||]]"
+    "a": "On the 1st of each month.[[bf: With the Black Friday sale, your first month is free. Your first charge is on the day your free month ends. It only covers the days left until the 1st, so it is smaller. Then you pay the full price on the 1st of each month.||]]"
    },
    {
     "q": "Who sees my gate code?",

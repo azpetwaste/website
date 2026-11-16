@@ -208,7 +208,7 @@ FAQ_ITEMS = [
     ('Do you clean your tools?', 'Yes. We clean our boots and tools after every yard. That keeps germs from going from yard to yard.'),
     ('Can I pick my day?', 'No. We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window.'),
     ('Can you come today? We have a party.', 'Yes. Text us and we can come the same day for $49. It goes on your next bill on the 1st.'),
-    ('When do you charge my card?', 'On the 1st of each month.[[bf: With the Black Friday sale, your first month is free. Your first charge only covers the days after your free month, so it is smaller. Then you pay the full price on the 1st of each month.||]]'),
+    ('When do you charge my card?', 'On the 1st of each month.[[bf: With the Black Friday sale, your first month is free. Your first charge is on the day your free month ends. It only covers the days left until the 1st, so it is smaller. Then you pay the full price on the 1st of each month.||]]'),
     ('Who sees my gate code?', 'Only your scooper, and only on your day. You add it after you sign up. If you cancel, we delete it.'),
     ('What if a dog in the yard is not safe to be near?', 'We don’t go in. We text you to bring the dog inside. We can come back the same day.'),
     ('Can I skip a week?', 'Yes. You get 4 free skips a year. Sign in to My Yard and tap Skip next to the visit, up to 24 hours before. No phone call.'),
