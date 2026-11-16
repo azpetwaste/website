@@ -376,3 +376,26 @@ Joe sent four ad videos (real video of Juan at work, cut tall for phones, 183 MB
 - **Needs Joe:** (1) Sound. The ads have music only, no voice. The site files have no sound track, since we do not know if the music may be used on a website. If it may, see `docs/video/README.md`. (2) The Black Friday ad says "NO CONTRACT" with nothing after it. The site rule is that those words never stand alone during the sale. The page covers it with the line under the phone, but the ad itself runs elsewhere with no such line. (3) December: new ads with the first cleanup offer, or keep the cuts. (4) If he wants the animated visit back.
 - **For the Field App chat:** the one line in `dc.js` is the only shared file touched. The sign up form's look and words did not change, so the text opt in screenshots on `/texts/` still match.
 - Checked: build and check pass with the sale on and off and insurance before and after. `worker.test.mjs` clean, `week.test.mjs` 76. The phone was run in a browser: plays when it scrolls in, rolls to the next clip, pause, clip names, keyboard, stops off screen and while sign up is open, less motion, the December switch with no new build, and no script. No sideways scroll and the phone fits at 320, 360, 375, 382 by 580 (iPhone Duo closed), 390, 412, 430, 669 by 825 (Duo open), 768, 951 by 543 (Duo open sideways), 1024, 1280, 1366, 1440 and 1920 wide. Not run: a real iPhone or Android phone. The test browser was Chrome.
+
+### Nov 15, 2026, late night. Launch eve search check, Bing set up, new share picture (website and AEO chat), on Joe's word
+Joe asked for one deep search check (Google, Bing, AI answers, local), one more look pass, and for sign up to be ready for his own test tonight.
+
+What the check found (live pulls, Nov 15):
+- Google has about 10 of our 46 pages. The home page is not one of them, so a search for our own name shows the Google profile and Facebook, not the site. Nothing on the site blocks it (200, index tag, canonical, sitemap all right). It needs Search Console: verify, send the sitemap, ask for indexing on the home page and the five town pages. That takes Joe's or Atlas's Google sign in.
+- Bing has zero pages. ChatGPT search leans on Bing, and ChatGPT could not find the site even by its address. Fixed from our side with IndexNow (below). Bing Webmaster Tools still needs a sign in.
+- ChatGPT and Perplexity, asked who picks up dog poop in Verrado and Buckeye, name Dog Gone Duty, Number 2 Club, Scoop Soldiers, Poopsie Daisy, POOP 911, West Valley Pooper Scoopers and Elite. Not us yet. They read Bing, BBB, LinkedIn, PetWorks and the company sites.
+- On the pages: every page has one H1, headings in order, a title of 62 letters or less, a description of 110 to 165, schema, and clean HTML. Town copy reads at grade 3.
+
+What changed:
+- IndexNow. `src/site.config.json` has `indexNowKey` (a public value, not a secret). The build writes `/<key>.txt`. `.github/workflows/indexnow.yml` runs after each push to main that touches the site, waits for Cloudflare, reads the live sitemap and sends Bing every page address. Run it by hand from the Actions tab any time.
+- `src/site.config.json` has `verify.google` and `verify.bing`. Paste the code from Search Console or Bing Webmaster Tools there and the tag goes on every page.
+- Schema: the slogan is "No photo? That visit is free." (the old tagline was still there). The business has an address of town, state and ZIP only (Buckeye, AZ 85396). No street, on purpose.
+- Share picture: `static/assets/img/og.jpg` (was `og.png` with "First month free" on it). Navy, Archivo, Juan, the gate print, no offer and no date. Made by `design/share/make_og.py` from `design/share/og.html` after a build. Twitter tags added.
+- Town page H1s end in ", AZ" ("Pooper scooper service in Buckeye, AZ"). Two town descriptions trimmed to fit.
+- The promise page opens with "No photo? That visit is free." The small "staff" link at the page bottom has enough contrast now.
+- `docs/NEW_TOWN.md`: every place a new town has to be added, and what to rethink when we leave the West Valley (Phoenix, East Valley, Tucson, Flagstaff, Kingman). Boulder City is in Nevada and needs a call from Joe.
+
+Sign up, as of tonight:
+- All 130 booking buttons on 45 pages go to `/book/`. The form opens and checks each field in plain words.
+- Cloudflare still has Stripe test keys (`pk_test`) and no mail key (`/api/config` says `mail: false`). So the public gets the "we call you" form and the lead lands in the office (3 leads there, last one Nov 13, no server errors in 3 days). Real cards need the live keys and a live webhook. That is Joe's or Atlas's to set. This chat must not handle keys.
+- Field desk session, one for you: the live `customers` table has no `skips` column yet. It is in `supabase/crm.sql` (line 42) but was not run on the live database. Until it is, a skip from My Yard falls back to a text. I did not run it: the database is your lane.

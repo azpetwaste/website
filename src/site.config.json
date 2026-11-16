@@ -10,5 +10,10 @@
   "social": [],
   "badges": [],
   "googleProfile": "",
-  "reviews": []
+  "reviews": [],
+  "verify": {
+    "google": "",
+    "bing": ""
+  },
+  "indexNowKey": "0ee5252ccdba22ae65d3c30323c34141"
 }

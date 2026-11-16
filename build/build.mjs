@@ -295,14 +295,16 @@ const OFFERS = [
 const business = {
   '@type': 'LocalBusiness', '@id': BIZ_ID, name: cfg.name, url: ORIGIN + '/',
   founder: { '@type': 'Person', name: 'Juan Gonzalez', jobTitle: 'Owner', homeLocation: { '@type': 'Place', name: 'Verrado, Buckeye, Arizona' } },
-  description: 'Dog poop pickup and pet waste removal for every home in Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell and Citrus Park (85355), Arizona. Weekly, twice a week, or every other week. [[bf:First month free||First cleanup free]], free deodorizer spray at every visit, and a photo of your latched gate after each visit. We haul the waste away. [[ins:Bonded. Insurance starts November 16, 2026.||Bonded and insured.]]',
+  description: 'Dog poop pickup and pet waste removal for every home in Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell and Citrus Park (85355), Arizona. Weekly, twice a week, or every other week. [[bf:First month free||First cleanup free]], free deodorizer spray at every visit, and a photo of your latched gate after each visit. We haul the waste away. [[ins:Bonded.||Bonded and insured.]]',
   telephone: '+1-623-309-6104', email: cfg.email,
+  // A service area business: we go to the customer, so there is no street here on purpose. Town, state and country only.
+  address: { '@type': 'PostalAddress', addressLocality: 'Buckeye', addressRegion: 'AZ', postalCode: '85396', addressCountry: 'US' },
   openingHoursSpecification: [{ '@type': 'OpeningHoursSpecification', dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], opens: '08:00', closes: '17:00' }],
-  logo: ORIGIN + '/assets/img/icon-512.png', image: [ORIGIN + '/assets/img/og.png'].concat(['team-portrait', 'scoop-rock', 'spray-turf', 'latch-gate', 'shirt-qr'].map((n) => ORIGIN + '/assets/img/photos/' + n + '.jpg')),
+  logo: ORIGIN + '/assets/img/icon-512.png', image: [ORIGIN + '/assets/img/og.jpg'].concat(['team-portrait', 'scoop-rock', 'spray-turf', 'latch-gate', 'shirt-qr'].map((n) => ORIGIN + '/assets/img/photos/' + n + '.jpg')),
   priceRange: '$75 to $189 a month', currenciesAccepted: 'USD', paymentAccepted: 'Credit card, debit card, Apple Pay, Google Pay',
   areaServed: SERVED,
   knowsAbout: ['Dog poop pickup', 'Pet waste removal', 'Pooper scooper service', 'Artificial turf odor treatment', 'Yard deodorizing'],
-  slogan: 'You always know. Or you don’t pay.',
+  slogan: 'No photo? That visit is free.',
   hasOfferCatalog: { '@type': 'OfferCatalog', name: 'Dog poop pickup plans', itemListElement: OFFERS }
 };
 if (cfg.sameAs.length) business.sameAs = cfg.sameAs;
@@ -365,12 +367,15 @@ html.book-open .dk{display:none}
 .apw .grv-t{font-size:16px}
 .apw .grv-q{grid-column:1/-1;font-size:16px;line-height:1.45;color:var(--ink2)}
 .apw .grv-n{grid-column:1/-1;font-size:14px;font-weight:700;color:var(--mute)}`;
+// Proof of ownership tags for Google Search Console and Bing Webmaster Tools. Paste the code each one gives you
+// into src/site.config.json "verify". They are public values, not keys.
+const VERIFY = [['google-site-verification', (cfg.verify || {}).google], ['msvalidate.01', (cfg.verify || {}).bing]].filter((v) => v[1]).map((v) => `\n<meta name="${v[0]}" content="${esc(v[1])}">`).join('');
 function page(p) {
   const dock = dockOn(p.route);
   const url = ORIGIN + p.route;
   const robots = p.index ? 'index, follow, max-image-preview:large, max-snippet:-1' : 'noindex, follow';
   const graph = p.index ? [website, business, { '@type': 'WebPage', '@id': url + '#webpage', url, name: p.title, description: p.description, isPartOf: { '@id': ORIGIN + '/#website' }, about: { '@id': BIZ_ID }, inLanguage: 'en-US', dateModified: TODAY }, ...(p.ld || [])] : null;
-  const css = p.css.join('\n') + '\n' + SITE_CSS + '\n' + BF_CSS + '\n' + DOCK_CSS + '\n.stf{display:block;width:max-content;margin:0 auto;padding:6px 10px 10px;font:11px/1 var(--f-text);letter-spacing:.08em;color:#2A3150;text-decoration:none}.stf:hover,.stf:focus-visible{color:#6B7398}';
+  const css = p.css.join('\n') + '\n' + SITE_CSS + '\n' + BF_CSS + '\n' + DOCK_CSS + '\n.stf{display:block;width:max-content;margin:0 auto;padding:6px 10px 10px;font:11px/1 var(--f-text);letter-spacing:.08em;color:#7F88AE;text-decoration:none}.stf:hover,.stf:focus-visible{color:#fff}';
   const scripts = [assets['dc.js'], ...p.boards.map((b) => b.js), assets['apw.js']].concat(/ data-reel[ >=]/.test(p.body) ? [assets['reel.js']] : []);
   const html = `<!doctype html>
 <html lang="en">
@@ -386,12 +391,16 @@ ${p.index ? `<link rel="canonical" href="${url}">` : ''}
 <meta property="og:title" content="${esc(p.ogTitle || p.title)}">
 <meta property="og:description" content="${esc(p.description)}">
 <meta property="og:url" content="${url}">
-<meta property="og:image" content="${ORIGIN}/assets/img/og.png">
+<meta property="og:image" content="${ORIGIN}/assets/img/og.jpg">
+<meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Arizona Pet Waste. Dog poop pickup you can watch. [[bf:First month free||First cleanup free]].">
+<meta property="og:image:alt" content="Arizona Pet Waste. Dog poop pickup in Verrado, Buckeye, Goodyear and Litchfield Park, AZ.">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${esc(p.ogTitle || p.title)}">
+<meta name="twitter:description" content="${esc(p.description)}">
+<meta name="twitter:image" content="${ORIGIN}/assets/img/og.jpg">${VERIFY}
 <meta name="theme-color" content="#0A0F24">
 <meta name="format-detection" content="telephone=no">
 <link rel="icon" href="/assets/img/icon.svg" type="image/svg+xml">
@@ -468,13 +477,13 @@ const videoLd = (pageUrl) => VIDEOS.map((v) => Object.assign({
 // towns
 const TOWNS = [
   { area: 'buckeye', board: 'city-buckeye', route: '/pooper-scooper/buckeye-az/', title: 'Pooper Scooper in Buckeye, AZ | Arizona Pet Waste',
-    description: 'Pooper scooper and dog poop removal for every home in Buckeye, AZ 85326 and 85396, Verrado to Sundance. [[bf:First month free||First cleanup free]], free deodorizer spray and a gate photo.' },
+    description: 'Pooper scooper and dog poop removal for every home in Buckeye, AZ 85326 and 85396, Verrado to Sundance. [[bf:First month free||First cleanup free]], free spray and a gate photo.' },
   { area: 'goodyear', board: 'city-goodyear', route: '/pooper-scooper/goodyear-az/', title: 'Pooper Scooper in Goodyear, AZ | Arizona Pet Waste',
     description: 'Pooper scooper and dog poop removal for every home in Goodyear, AZ 85338 and 85395, Estrella to PebbleCreek. [[bf:First month free||First cleanup free]] and free deodorizer spray.' },
   { area: 'litchfield', board: 'city-litchfield', route: '/pooper-scooper/litchfield-park-az/', title: 'Pooper Scooper in Litchfield Park, AZ | Arizona Pet Waste',
     description: 'Pooper scooper and dog poop removal for every home in Litchfield Park, AZ 85340. [[bf:First month free||First cleanup free]], free deodorizer spray and a photo of your latched gate.' },
   { area: 'citrus', board: 'city-citrus', route: '/pooper-scooper/citrus-park-az/', title: 'Pooper Scooper in Citrus Park, AZ | Arizona Pet Waste',
-    description: 'Pooper scooper and dog poop removal for every home in Citrus Park and Waddell, AZ 85355. [[bf:First month free||First cleanup free]], free deodorizer spray and a photo of your latched gate.' },
+    description: 'Pooper scooper and dog poop removal for every home in Citrus Park and Waddell, AZ 85355. [[bf:First month free||First cleanup free]], free spray and a photo of your latched gate.' },
   { area: 'verrado', board: 'city-verrado', route: '/pooper-scooper/buckeye-az/verrado/', title: 'Pooper Scooper in Verrado, Buckeye AZ | Arizona Pet Waste',
     description: 'Pooper scooper and dog poop removal for Verrado homes in Buckeye, AZ 85396. [[bf:First month free||First cleanup free]], free deodorizer spray and a photo of your latched gate.' }
 ];
@@ -644,7 +653,7 @@ const FILE_PAGES = [];
     if (pg.type === 'service') ld.push({ '@type': 'Service', '@id': url + '#service', name: pg.service || pg.h1, serviceType: pg.serviceType || 'Pet waste removal', provider: { '@id': BIZ_ID },
       areaServed: pg.area && PLACES[pg.area] ? place(PLACES[pg.area]) : SERVED, description: pg.description });
     if (pg.type === 'blog') ld.push({ '@type': 'BlogPosting', '@id': url + '#post', headline: pg.h1, description: pg.description, datePublished: pg.date, dateModified: pg.updated || pg.date,
-      author: { '@type': 'Organization', name: 'Arizona Pet Waste', url: ORIGIN + '/' }, publisher: { '@id': BIZ_ID }, mainEntityOfPage: url, image: ORIGIN + '/assets/img/og.png', inLanguage: 'en-US' });
+      author: { '@type': 'Organization', name: 'Arizona Pet Waste', url: ORIGIN + '/' }, publisher: { '@id': BIZ_ID }, mainEntityOfPage: url, image: ORIGIN + '/assets/img/og.jpg', inLanguage: 'en-US' });
     if (pg.type === 'blogindex') ld.push({ '@type': 'Blog', '@id': url + '#blog', name: 'Arizona Pet Waste dog care blog', publisher: { '@id': BIZ_ID },
       blogPost: pg.posts.map((x) => ({ '@type': 'BlogPosting', headline: x.h1, url: ORIGIN + x.route, datePublished: x.date })) });
     built.push(page({ route: pg.route, board: 'doc', index: true, title: pg.title, description: pg.description, fonts: e.b.fonts, css: [e.b.css], boards: [e], body: ssr(e), ld }));
@@ -720,6 +729,9 @@ Disallow: /api/
 
 Sitemap: ${ORIGIN}/sitemap.xml
 `);
+// IndexNow (Bing, and through Bing the ChatGPT and Copilot search). The key is a public value: the file below proves the site is ours,
+// and .github/workflows/indexnow.yml sends Bing the page list after each push. https://www.indexnow.org/documentation
+if (cfg.indexNowKey) fs.writeFileSync(path.join(DIST, cfg.indexNowKey + '.txt'), cfg.indexNowKey);
 const faqText = content.faq.main.map((x) => `- ${x.q} ${x.a}`).join('\n');
 fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 

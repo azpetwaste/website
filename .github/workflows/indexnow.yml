@@ -1,0 +1,40 @@
+# Tells Bing (and through Bing, ChatGPT search and Copilot) which pages changed, with IndexNow.
+# Runs after a push to main: waits for Cloudflare Pages to put the new build live, reads the live sitemap, sends every page address.
+# The key is a public value kept in src/site.config.json ("indexNowKey"). The site serves it at /<key>.txt as proof of ownership.
+name: IndexNow
+on:
+  push:
+    branches: [main]
+    paths: ['content/**', 'design/**', 'build/**', 'src/**', 'static/**']
+  workflow_dispatch:
+concurrency:
+  group: indexnow
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wait for the new build, then send the page list
+        run: |
+          set -e
+          KEY=$(python3 -c "import json;print(json.load(open('src/site.config.json')).get('indexNowKey',''))")
+          HOST=arizonapetwaste.com
+          [ -n "$KEY" ] || { echo "No indexNowKey in src/site.config.json"; exit 0; }
+          sleep 240
+          for i in $(seq 1 20); do
+            if [ "$(curl -fsS "https://$HOST/$KEY.txt" || true)" = "$KEY" ]; then break; fi
+            echo "Key file is not live yet, waiting"; sleep 30
+          done
+          curl -fsS "https://$HOST/sitemap.xml" -o sitemap.xml
+          python3 - "$KEY" "$HOST" <<'PY'
+          import json, re, sys, urllib.request
+          key, host = sys.argv[1], sys.argv[2]
+          urls = re.findall(r'<loc>([^<]+)</loc>', open('sitemap.xml', encoding='utf8').read())
+          body = json.dumps({'host': host, 'key': key, 'keyLocation': f'https://{host}/{key}.txt', 'urlList': urls}).encode()
+          req = urllib.request.Request('https://api.indexnow.org/indexnow', data=body, headers={'Content-Type': 'application/json; charset=utf-8'})
+          with urllib.request.urlopen(req, timeout=30) as r:
+              print('IndexNow answered', r.status, 'for', len(urls), 'pages')
+          PY
