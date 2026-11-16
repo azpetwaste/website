@@ -71,7 +71,8 @@
           <input id="w-addr" class="fin" type="text" autocomplete="address-line1" value="{{ wAddr }}" onChange="{{ onWAddr }}">
           <label for="b-wait" class="flab">Email <span style="font-weight: 500; color: var(--mute);">(if you want)</span></label>
           <input id="b-wait" class="fin" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" value="{{ wait }}" onChange="{{ onWait }}">
-          <label class="cbx" for="w-tx"><input id="w-tx" type="checkbox" checked="{{ wTexts }}" onChange="{{ onWTexts }}"><span><b>Text me when you start in my area.</b><small>One text when we start. Message and data rates may apply. Reply STOP to stop.</small></span></label>
+          <label class="cbx" for="w-tx"><input id="w-tx" type="checkbox" checked="{{ wTexts }}" onChange="{{ onWTexts }}"><span><b>Text me when you start in my area.</b><small>One text when we start. You can skip this one.</small></span></label>
+          <p class="fine">By checking this box, you agree to get one text from Arizona Pet Waste at the number above. Message and data rates may apply. Reply STOP to stop or HELP for help. You do not have to agree to texts to join. See our <a href="/texts/">Text Terms</a> and <a href="/privacy/">Privacy Policy</a>.</p>
           <button type="button" class="btn btn-ink" style="width: 100%; margin-top: 14px;" onClick="{{ joinWait }}" disabled="{{ waitBusy }}">{{ waitLabel }}</button>
           <sc-if value="{{ waitErr }}" hint-placeholder-val="{{ false }}"><p class="ferr" role="alert">{{ waitErr }}</p></sc-if>
         </sc-if>

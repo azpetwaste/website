@@ -76,7 +76,19 @@ Switch Stripe to live mode. Repeat Stripe steps 3, 4, 5 and 6 in live mode (live
 
 ## 10. Texting (Twilio A2P 10DLC), after the site is live
 Brand: Arizona Pet Waste. Website https://arizonapetwaste.com. Use case: Mixed (account notifications and marketing).
-Opt in description: "Customers sign up at https://arizonapetwaste.com/book/ or manage texts in My Yard at https://arizonapetwaste.com/account/. They check one or both unchecked boxes: 'Text me about my visits' (reminders, on the way, gate photo) and 'Text me deals too' (offers, up to 4 a month). The text under the boxes names Arizona Pet Waste, says message and data rates may apply, reply STOP to stop and HELP for help, that texts are not required to buy, and links to https://arizonapetwaste.com/texts/ and https://arizonapetwaste.com/privacy/. Every consent is saved with the time, IP address and the exact words shown." Attach the screenshot `docs/optin-screenshot.png`.
+Twilio turned the first campaign down (error 30909, Joe passed it on November 15, 2026): the reviewer could not check how customers agree to texts, because the text boxes are on step 3 of 5 of `/book/`. The fix is public proof on the site. Use the text below when you send it in again.
+Proof pages (all public, no sign in):
+- Walk through with the exact words: https://arizonapetwaste.com/texts/#opt-in-form
+- Screenshot of step 3 of 5: https://arizonapetwaste.com/assets/img/sms-optin-form.png
+- Screenshot of the waitlist form: https://arizonapetwaste.com/assets/img/sms-optin-waitlist.png
+- Terms: https://arizonapetwaste.com/terms/ (see Text messages). Privacy: https://arizonapetwaste.com/privacy/ (see Text messages). Text terms: https://arizonapetwaste.com/texts/
+
+Opt in description, also called Message flow or Call to action (1741 characters, the limit is 2,048):
+
+> Customers opt in on our website sign up form at https://arizonapetwaste.com/book/. The form has 5 steps. Step 3 of 5, "Tell us about you", is where the customer types a mobile phone number. On that same step, under the heading "Texts from us", are two separate optional checkboxes. Both are unchecked by default. Box 1: "Text me about my visits. Setting your day, night before reminders, on the way, and your gate photo. About 2 to 4 texts a visit." Box 2: "Text me deals too. Up to 4 texts a month. You can skip this one." Right under the boxes: "By checking a box, you agree to get texts from Arizona Pet Waste at the number above. Message and data rates may apply. Reply STOP to stop or HELP for help. You do not have to agree to texts to book. See our Text Terms and Privacy Policy." Text Terms links to https://arizonapetwaste.com/texts/ and Privacy Policy links to https://arizonapetwaste.com/privacy/. Texts are never required to buy. The boxes are on step 3, not on the first screen, so we host public proof. Screenshot of step 3: https://arizonapetwaste.com/assets/img/sms-optin-form.png. Exact words and a step by step walk through: https://arizonapetwaste.com/texts/#opt-in-form. To see it live, open /book/, tap a city, then tap Continue. People outside our service area can join a waitlist on step 1 of the same form ("My city is not here"). It has one optional unchecked box, "Text me when you start in my area", for one text, with the same disclosures. Screenshot: https://arizonapetwaste.com/assets/img/sms-optin-waitlist.png. Customers can change the same two choices later in their account page (My Yard, behind sign in). Its wording is on the texts page. We keep a record of each choice with the date, time and IP address.
+
+If the words or the look of the sign up form change, run `python3 build/optin-shots.py` and update the quotes in `content/policies/texts.html` and in the text above, so all three still match the live form.
+
 Sample messages:
 1. Arizona Pet Waste: Hi Sam, we scoop your yard tomorrow between 9:00 and 9:30 AM. Reply STOP to opt out.
 2. Arizona Pet Waste: We are on the way. Watch the truck in My Yard: arizonapetwaste.com/account

@@ -221,6 +221,19 @@ html.book-open #book-dock{display:flex;align-items:center;justify-content:center
 .apw .doc .toc{display:grid;gap:2px;margin:0 0 14px;padding:0;list-style:none}
 .apw .doc .toc li{margin:0}
 .apw .doc .toc a{display:inline-flex;align-items:center;min-height:40px;font-size:16px;font-weight:400}
+.apw .doc [tabindex="-1"]:focus{outline:none}
+.apw .doc .facts{margin:20px 0 0;border-top:1px solid var(--line)}
+.apw .doc .facts>div{padding:12px 0 14px;border-bottom:1px solid var(--line)}
+.apw .doc .facts dt{font-size:15px;font-weight:700;line-height:1.5;color:var(--mute)}
+.apw .doc .facts dd{margin:2px 0 0;font-size:18px;line-height:1.5;color:var(--ink);overflow-wrap:break-word}
+.apw .doc .shot{margin:22px 0 0;max-width:400px}
+.apw .doc .shot a{display:block;border:2px solid var(--field);border-radius:12px;overflow:hidden;background:#0A0F24}
+.apw .doc .shot img{display:block;width:100%;height:auto;border-radius:0}
+.apw .doc .shot figcaption{margin-top:10px;font-size:15px;line-height:1.5;color:var(--mute)}
+.apw .doc .foldb .shot{margin-top:6px}
+.apw .doc .facts+.fold-s{border-top:0}
+@media (min-width:600px){.apw .doc .facts-2>div{display:grid;grid-template-columns:9.5em minmax(0,1fr);gap:0 20px;align-items:baseline}.apw .doc .facts-2 dd{margin:0}}
+@media (min-width:1140px){.apw .doc>.shot{float:right;clear:right;width:calc(100% - 816px);max-width:400px;margin:8px 0 34px 56px}}
 .apw .towns{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0 56px;margin-top:30px;border-top:1px solid var(--line)}
 .apw .town{display:flex;flex-direction:column;padding:24px 0 22px;border-bottom:1px solid var(--line)}
 .apw .doc .town h2{margin:0;font-size:30px}
@@ -623,8 +636,10 @@ for (const [slug, fallbackH1] of POLICIES) {
   const frag = readIf(path.join(ROOT, 'content/policies', slug + '.html'), '<p class="lead">This page is being written.</p>');
   const toc = [...frag.matchAll(/<h2 id="([^"]+)">([\s\S]*?)<\/h2>/g)].map((x) => '<li><a href="#' + x[1] + '">' + x[2].replace(/<[^>]+>/g, '') + '</a></li>').join('');
   const h1 = m.h1 || fallbackH1;
-  const inner = docHead(h1, [['Home', '/'], [h1, '/' + slug + '/']]) +
-    (toc ? '<details class="tocd"><summary>On this page</summary><ul class="toc">' + toc + '</ul></details>' : '') + frag;
+  // The date and the one line summary read first, then the list of sections.
+  const tocd = toc ? '<details class="tocd"><summary>On this page</summary><ul class="toc">' + toc + '</ul></details>' : '';
+  const top = (frag.match(/^\s*(?:<p class="(?:updated|lead)">[\s\S]*?<\/p>\s*)+/) || [''])[0];
+  const inner = docHead(h1, [['Home', '/'], [h1, '/' + slug + '/']]) + top + tocd + frag.slice(top.length);
   const e = useBoard('doc', (mk) => slots(mk).replace('@@DOC@@', inner));
   const route = '/' + slug + '/';
   built.push(page({
