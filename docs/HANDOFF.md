@@ -491,3 +491,7 @@ Joe asked for a real Waddell page, built like the other five town pages, with it
 - **Left alone on purpose:** the commercial page stays one page for Citrus Park and Waddell. The sign up form did not change by one word (its town list still reads "Citrus Park and Waddell"), so the opt in screenshots on `/texts/` still match. `worker.js` did not change: 85355 was already served. No price changed. No street address. No "licensed".
 - **Field desk session.** Nothing in `/crew`, `/t`, My Yard or the server changed, so the training video was not rebuilt.
 - Checked: build and check pass with the sale on and off. `worker.test.mjs` 180, `week.test.mjs` 76. Every sentence and every dollar amount was compared with the build before. No sideways scroll at 320, 390 and 1280 on the new page, the other five town pages, home, Areas we serve, the commercial page and seven more.
+
+## Nov 16, 2026: Verrado hidden in the home page Areas section (website session)
+- Joe: Verrado is Buckeye, Buckeye is the main city. The home Areas section now names Buckeye, Goodyear, Litchfield Park, Citrus Park and Waddell (lead line, chips, Read about your town). The home map labels 85396 BUCKEYE and has no Verrado shape (`MAP_HOME`, `verrado=False`).
+- Not changed: the Verrado page, its links in the header, phone menu, footer, Areas we serve, sitemap and llms.txt, the home page H1, the share picture, and every other map.

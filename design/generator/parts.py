@@ -179,7 +179,8 @@ AREA_METHODS = r"""  _zipArea(zip) {
     };
   }"""
 
-MAP = truemap.build('mV.pick', 'mC.pick', 'mG.pick', 'mL.pick', 'mB.pick', 'mW.pick')
+MAP = truemap.build('mV.pick', 'mC.pick', 'mG.pick', 'mL.pick', 'mB.pick', 'mW.pick')  # town pages: all six shapes
+MAP_HOME = truemap.build('mV.pick', 'mC.pick', 'mG.pick', 'mL.pick', 'mB.pick', 'mW.pick', verrado=False)  # home page: Verrado is shown as Buckeye (Joe, Nov 16 2026)
 SOON_NOTE = ('<div class="soon">'
              '<p class="soon-h">Coming soon</p>'
              '<p class="soon-l">Surprise, Peoria, Glendale and Laveen.</p>'
@@ -189,7 +190,6 @@ SOON_NOTE = ('<div class="soon">'
 MAP_KEY = truemap.MAP_KEY
 MAP_CHIPS = '''  <div class="mchips" role="group" aria-label="Towns we scoop">
     <button type="button" class="mchip" aria-pressed="{{ mB.on }}" onClick="{{ mB.pick }}">Buckeye</button>
-    <button type="button" class="mchip" aria-pressed="{{ mV.on }}" onClick="{{ mV.pick }}">Verrado</button>
     <button type="button" class="mchip" aria-pressed="{{ mG.on }}" onClick="{{ mG.pick }}">Goodyear</button>
     <button type="button" class="mchip" aria-pressed="{{ mL.on }}" onClick="{{ mL.pick }}">Litchfield Park</button>
     <button type="button" class="mchip" aria-pressed="{{ mC.on }}" onClick="{{ mC.pick }}">Citrus Park</button>

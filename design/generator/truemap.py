@@ -73,10 +73,13 @@ def _soon():
                    % (x, y, n, x, y + 10) for n, x, y in SOON)
 
 
-def build(pick_v, pick_c, pick_g, pick_l, pick_b, pick_w):
+def build(pick_v, pick_c, pick_g, pick_l, pick_b, pick_w, verrado=True):
+    # verrado=False (home page, Joe Nov 16 2026): no Verrado shape or label. Verrado is part of Buckeye, so ZIP 85396 is labeled
+    # BUCKEYE and a tap anywhere in 85326 or 85396 picks Buckeye. The town pages and the Areas maps keep the Verrado shape.
     return (
-        '<svg viewBox="%d %d %d %d" role="img" aria-label="Map of the ZIP codes Arizona Pet Waste scoops: Buckeye and Verrado 85326 and 85396, '
-        'Goodyear 85338 and 85395, Litchfield Park 85340, and Waddell and Citrus Park 85355">' % VIEW +
+        ('<svg viewBox="%d %d %d %d" role="img" aria-label="Map of the ZIP codes Arizona Pet Waste scoops: ' % VIEW)
+        + ('Buckeye and Verrado' if verrado else 'Buckeye') + ' 85326 and 85396, '
+        'Goodyear 85338 and 85395, Litchfield Park 85340, and Waddell and Citrus Park 85355">' +
         '<rect class="mland" x="-20" y="-20" width="460" height="380"></rect>'
         '<path class="mmtn" d="' + _D['MTN'] + '"></path><path class="mridge" d="' + _D['RIDGES'] + '"></path>'
         '<path class="mbase" d="' + _D['LUKE'] + '"></path><path class="mrun" d="' + RUNWAYS + '"></path>'
@@ -86,7 +89,7 @@ def build(pick_v, pick_c, pick_g, pick_l, pick_b, pick_w):
         + ''.join('<path class="mzipf" d="%s"></path>' % _D['Z_' + z] for z in ZIPS)
         + _shape(_zips('85326', '85396'), 'bB', pick_b) + _shape(_zips('85338', '85395'), 'bG', pick_g)
         + _shape(_zips('85340'), 'bL', pick_l) + _shape(_zips('85355'), 'bW', pick_w)
-        + _place('citrus', 'bC', pick_c) + _place('verrado', 'bV', pick_v)
+        + _place('citrus', 'bC', pick_c) + (_place('verrado', 'bV', pick_v) if verrado else '')
         + ''.join('<path class="mzipl" d="%s"></path>' % _D['Z_' + z] for z in ZIPS) +
         '<path class="mfwy0" d="' + I10 + L303 + NPKWY + '"></path><path class="mfwy" d="' + I10 + L303 + NPKWY + '"></path>'
         '<g class="mnolook"><rect x="84" y="236" width="22" height="16" rx="4" fill="#2A5DB0"></rect><text x="95" y="248" text-anchor="middle" class="mshield" fill="#FFFFFF">10</text></g>'
@@ -95,7 +98,7 @@ def build(pick_v, pick_c, pick_g, pick_l, pick_b, pick_w):
         + _label(66, 42, ['WHITE TANK', 'MOUNTAINS'], 'mtxt mtxtm') + _label(318, 106, ['LUKE AFB'], 'mtxt')
         + _label(370, 266, ['PHOENIX →'], 'mtxt')
         + '<text class="mtxt" x="398" y="122" transform="rotate(-90 398 122)">AGUA FRIA</text>'
-        + _label(112, 160, ['VERRADO']) + _label(217, 98, ['CITRUS', 'PARK']) + _label(266, 196, ['GOODYEAR']) + _label(346, 160, ['LITCHFIELD', 'PARK'])
+        + _label(112, 160, ['VERRADO' if verrado else 'BUCKEYE']) + _label(217, 98, ['CITRUS', 'PARK']) + _label(266, 196, ['GOODYEAR']) + _label(346, 160, ['LITCHFIELD', 'PARK'])
         # Waddell is all of ZIP 85355. Its old town site (Waddell Road and Cotton Lane, 33.611 N) is north of this view,
         # so the name sits in the north part of the ZIP that the map shows. Kept left of the 303 shield.
         + _label(198, 48, ['WADDELL'])
