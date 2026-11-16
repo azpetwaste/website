@@ -157,8 +157,14 @@ function reviewsHtml() {
     '<span class="grv-t"><b>' + avg + '</b> on Google, ' + rs.length + (rs.length === 1 ? ' review' : ' reviews') + '</span>' +
     '<span class="grv-q">“' + esc(r.text) + '”</span><span class="grv-n">' + esc(r.name) + (r.town ? ', ' + esc(r.town) : '') + '</span></a>';
 }
+// "Find us on Google" in the footer of every page. It shows once "googleProfile" in src/site.config.json holds the link to our Google profile.
+// Never link a page that shows a street address: we are a service area business and the address is hidden on purpose.
+const G_PIN = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.1-7-11a7 7 0 0 1 14 0c0 4.9-7 11-7 11z"></path><circle cx="12" cy="10" r="2.6"></circle></svg>';
+function googleFooter() {
+  return GOOGLE ? '<li><a href="' + esc(GOOGLE) + '" target="_blank" rel="noopener noreferrer">' + G_PIN + '<span>Find us on Google</span></a></li>' : '';
+}
 const slots = (m, extra) => {
-  let out = m.replace('<!--REVIEWS-->', reviewsHtml()).replace('<!--BADGES-->', badgesHtml()).replace('<!--SOCIAL-->', socialHtml()).replace('<!--PAYMARKS-->', payHtml());
+  let out = m.replace('<!--REVIEWS-->', reviewsHtml()).replace('<!--BADGES-->', badgesHtml()).replace('<!--SOCIAL-->', socialHtml()).replace('<!--PAYMARKS-->', payHtml()).replace('<!--GOOGLE-->', googleFooter());
   if (extra) out = extra(out);
   return out;
 };
@@ -280,39 +286,56 @@ const ALL_ZIPS = [['85326', 'Buckeye', 'buckeye'], ['85396', 'Buckeye', 'buckeye
 const zipPlace = (zip, locality) => ({ '@type': 'Place', name: locality + ', AZ ' + zip, address: { '@type': 'PostalAddress', addressLocality: locality, addressRegion: 'AZ', postalCode: zip, addressCountry: 'US' } });
 const cityPlace = (p) => ({ '@type': 'City', name: p.name + ', AZ', containedInPlace: { '@type': 'State', name: 'Arizona' } });
 const place = (p) => [cityPlace(p)].concat(p.zips.map((z) => zipPlace(z, p.locality)));
-const SERVED = [cityPlace(PLACES.buckeye), cityPlace(PLACES.goodyear), cityPlace(PLACES.litchfield), { '@type': 'Place', name: 'Citrus Park, AZ' }].concat(ALL_ZIPS.map((z) => zipPlace(z[0], z[1])));
-const monthly = (name, price, desc) => ({
-  '@type': 'Offer', name, description: desc, price: price.toFixed(2), priceCurrency: 'USD', availability: 'https://schema.org/InStock',
+// Joe's list, Nov 16, 2026 (it matches our Google profile): the six names we serve, always in this order.
+// Waddell has no page of its own. Its links go to the 85355 page, which covers Citrus Park and Waddell.
+const SIX = ['Buckeye', 'Verrado', 'Goodyear', 'Litchfield Park', 'Citrus Park', 'Waddell'];
+const SIX_TEXT = SIX.slice(0, 5).join(', ') + ' and ' + SIX[5];
+const WADDELL = { name: 'Waddell', zips: ['85355'], url: PLACES.citrus.url,
+  hoods: ['Sentiero at Windrose', 'White Tank Foothills', 'Zanjero Pass', 'Cortessa', 'Granite Vista', 'Stonebridge Manor'] };
+const SERVED = SIX.map((n) => ({ '@type': 'City', name: n, containedInPlace: { '@type': 'State', name: 'Arizona' } })).concat(ALL_ZIPS.map((z) => zipPlace(z[0], z[1])));
+// The link to our Google profile (src/site.config.json "googleProfile"). It shows no street address. It feeds the footer, the contact page and the schema.
+const GOOGLE = cfg.googleProfile || '';
+const googleLink = (text) => (GOOGLE ? '<a href="' + esc(GOOGLE) + '" target="_blank" rel="noopener noreferrer">' + (text || 'Find us on Google') + '</a>' : '');
+// The offers use the names on our Google profile (Joe's list, Nov 16, 2026), with no dashes: weekly, twice a week, every other week,
+// one time, same day and the free deodorizing. Deodorizing is included free with every visit. There is no paid turf odor treatment.
+// Prices are the same as before. A plan is booked at /book/. One time and same day are booked by text, so they point to their own pages.
+const SPRAY = 'Deodorizing is included free with every visit, on rock and turf yards alike.';
+const SALE = '[[bf:First month free through November 30||First cleanup free]].';
+const serviceOf = (name, type) => ({ '@type': 'Service', name, serviceType: type || 'Pet waste removal' });
+const monthly = (name, item, price, desc) => ({
+  '@type': 'Offer', name, description: desc, price: price.toFixed(2), priceCurrency: 'USD', url: ORIGIN + '/book/', availability: 'https://schema.org/InStock',
   priceSpecification: { '@type': 'UnitPriceSpecification', price: price.toFixed(2), priceCurrency: 'USD', unitText: 'MONTH', referenceQuantity: { '@type': 'QuantitativeValue', value: 1, unitCode: 'MON' } },
-  itemOffered: { '@type': 'Service', name: name, provider: { '@id': BIZ_ID } }
+  itemOffered: serviceOf(item)
 });
-// Joe, Nov 16, 2026: deodorizing is included free with every visit. There is no paid turf odor treatment. Every plan says so,
-// and the list of offers carries it as its own free line (price 0.00), so a reader of the schema sees it is included and not an extra.
-const SPRAY = 'Deodorizing included free with every visit';
 const OFFERS = [
-  monthly('Dog poop pickup every week', 108, 'For 1 or 2 dogs. About $25 a week, billed once a month. Each dog after two adds $13 a month. ' + SPRAY + '. [[bf:First month free through November 30||First cleanup free]].'),
-  monthly('Dog poop pickup twice a week', 189, 'For 1 or 2 dogs. Each dog after two adds $13 a month. ' + SPRAY + '. [[bf:First month free through November 30||First cleanup free]].'),
-  monthly('Dog poop pickup every other week', 75, 'For 1 or 2 dogs. Each dog after two adds $9 a month. ' + SPRAY + '. [[bf:First month free through November 30||First cleanup free]].'),
-  { '@type': 'Offer', name: SPRAY, description: 'Part of every plan and every visit. We spray the spots your dogs use most. It is not sold as an extra.', price: '0.00', priceCurrency: 'USD',
-    itemOffered: { '@type': 'Service', name: 'Yard deodorizing', serviceType: 'Yard deodorizing', url: ORIGIN + '/turf-odor-treatment/', provider: { '@id': BIZ_ID } } },
-  { '@type': 'Offer', name: 'One time yard cleanup', price: '95.00', priceCurrency: 'USD', itemOffered: { '@type': 'Service', name: 'One time dog poop cleanup' } }
+  monthly('Weekly pickup, 1 or 2 dogs', 'Weekly dog poop pickup', 108, 'About $25 a week, billed $108 on the 1st. Includes haul away, deodorizing free every visit, a 30 minute window, a live truck map, and a photo of your latched gate. Each dog after two adds $13 a month. Months with five visits cost the same as four. ' + SALE),
+  monthly('Twice a week pickup, 1 or 2 dogs', 'Twice a week dog poop pickup', 189, 'About $44 a week, billed $189 on the 1st. Deodorizing free every visit, haul away, gate photo. Each dog after two adds $13 a month. ' + SALE),
+  monthly('Every other week pickup, 1 or 2 dogs', 'Every other week dog poop pickup', 75, 'About $17 a week, billed $75 on the 1st. Deodorizing free every visit, haul away, gate photo. Each dog after two adds $9 a month. ' + SALE),
+  { '@type': 'Offer', name: 'One time cleanup', description: 'One visit to pick up every pile, rake rock yards, deodorize for free, haul the waste away, and send a gate photo. No plan required.',
+    price: '95.00', priceCurrency: 'USD', url: ORIGIN + '/one-time-dog-poop-cleanup/', itemOffered: serviceOf('One time dog poop cleanup') },
+  { '@type': 'Offer', name: 'Same day pickup', description: 'When we have a spot. Text us as early as you can. Deodorizing included free. Goes on your next bill on the 1st.',
+    price: '49.00', priceCurrency: 'USD', url: ORIGIN + '/same-day-dog-poop-pickup/', itemOffered: serviceOf('Same day dog poop pickup') },
+  { '@type': 'Offer', name: 'Deodorizing (free every visit)', description: SPRAY + ' We spray the spots your dogs use most. It costs you nothing, on every plan and every cleanup.',
+    price: '0.00', priceCurrency: 'USD', itemOffered: serviceOf('Deodorizing (free every visit)', 'Yard deodorizing') }
 ];
 const business = {
   '@type': 'LocalBusiness', '@id': BIZ_ID, name: cfg.name, url: ORIGIN + '/',
   founder: { '@type': 'Person', name: 'Juan Gonzalez', jobTitle: 'Owner', homeLocation: { '@type': 'Place', name: 'Verrado, Buckeye, Arizona' } },
-  description: 'Dog poop pickup and pet waste removal for every home in Buckeye (85326, 85396), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell and Citrus Park (85355), Arizona. Weekly, twice a week, or every other week. [[bf:First month free||First cleanup free]], deodorizing included free with every visit, and a photo of your latched gate after each visit. We haul the waste away. Insured and bonded.',
+  description: 'Arizona Pet Waste is a family owned, insured and bonded dog poop pickup service for homes in ' + SIX_TEXT + '. Weekly, twice a week, or every other week plans, plus one time and same day cleanups. We haul the waste away and deodorize for free at every visit. No photo of your latched gate? That visit is free.',
   telephone: '+1-623-309-6104', email: cfg.email,
-  // A service area business: we go to the customer, so there is no street here on purpose. Town, state and country only.
+  // A service area business: we go to the customer, so there is no street here on purpose. Town, state and country only. Never add a street.
   address: { '@type': 'PostalAddress', addressLocality: 'Buckeye', addressRegion: 'AZ', postalCode: '85396', addressCountry: 'US' },
   openingHoursSpecification: [{ '@type': 'OpeningHoursSpecification', dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], opens: '08:00', closes: '17:00' }],
   logo: ORIGIN + '/assets/img/icon-512.png', image: [ORIGIN + '/assets/img/og.jpg'].concat(['team-portrait', 'scoop-rock', 'spray-turf', 'latch-gate', 'shirt-qr'].map((n) => ORIGIN + '/assets/img/photos/' + n + '.jpg')),
-  priceRange: '$75 to $189 a month', currenciesAccepted: 'USD', paymentAccepted: 'Credit card, debit card, Apple Pay, Google Pay',
+  // The footer says credit cards, Apple Pay and Google Pay. This line says the same.
+  priceRange: '$75 to $189 a month', currenciesAccepted: 'USD', paymentAccepted: 'Credit card, Apple Pay, Google Pay',
   areaServed: SERVED,
   knowsAbout: ['Dog poop pickup', 'Pet waste removal', 'Pooper scooper service', 'Yard deodorizing'],
   slogan: 'No photo? That visit is free.',
-  hasOfferCatalog: { '@type': 'OfferCatalog', name: 'Dog poop pickup plans', itemListElement: OFFERS }
+  makesOffer: OFFERS
 };
-if (cfg.sameAs.length) business.sameAs = cfg.sameAs;
+if (GOOGLE) business.hasMap = GOOGLE;
+{ const same = (GOOGLE ? [GOOGLE] : []).concat(cfg.sameAs.filter((u) => u !== GOOGLE)); if (same.length) business.sameAs = same; }
 const website = { '@type': 'WebSite', '@id': ORIGIN + '/#website', url: ORIGIN + '/', name: cfg.name, publisher: { '@id': BIZ_ID }, inLanguage: 'en-US' };
 const faqLd = (url, items) => ({ '@type': 'FAQPage', '@id': url + '#faq', mainEntity: items.map((x) => ({ '@type': 'Question', name: x.q, acceptedAnswer: { '@type': 'Answer', text: x.a } })) });
 const crumbs = (url, trail) => ({ '@type': 'BreadcrumbList', '@id': url + '#breadcrumb', itemListElement: trail.map((t, i) => ({ '@type': 'ListItem', position: i + 1, name: t[0], item: ORIGIN + t[1] })) });
@@ -379,7 +402,10 @@ function page(p) {
   const dock = dockOn(p.route);
   const url = ORIGIN + p.route;
   const robots = p.index ? 'index, follow, max-image-preview:large, max-snippet:-1' : 'noindex, follow';
-  const graph = p.index ? [website, business, { '@type': 'WebPage', '@id': url + '#webpage', url, name: p.title, description: p.description, isPartOf: { '@id': ORIGIN + '/#website' }, about: { '@id': BIZ_ID }, inLanguage: 'en-US', dateModified: TODAY }, ...(p.ld || [])] : null;
+  // A page kept out of search can still say what it is: "canonical" adds the link tag and "ld" a small graph. The sign up page uses both,
+  // since our Google profile sends people to /book/.
+  const graph = p.index ? [website, business, { '@type': 'WebPage', '@id': url + '#webpage', url, name: p.title, description: p.description, isPartOf: { '@id': ORIGIN + '/#website' }, about: { '@id': BIZ_ID }, inLanguage: 'en-US', dateModified: TODAY }, ...(p.ld || [])]
+    : (p.ld && p.ld.length ? p.ld : null);
   const css = p.css.join('\n') + '\n' + SITE_CSS + '\n' + BF_CSS + '\n' + DOCK_CSS + '\n.stf{display:block;width:max-content;margin:0 auto;padding:6px 10px 10px;font:11px/1 var(--f-text);letter-spacing:.08em;color:#7F88AE;text-decoration:none}.stf:hover,.stf:focus-visible{color:#fff}';
   const scripts = [assets['dc.js'], ...p.boards.map((b) => b.js), assets['apw.js']].concat(/ data-reel[ >=]/.test(p.body) ? [assets['reel.js']] : []).concat(/ data-hv[ >=]/.test(p.body) ? [assets['hv.js']] : []);
   const html = `<!doctype html>
@@ -390,7 +416,7 @@ function page(p) {
 ${gtmHead(p)}<title>${esc(p.title)}</title>
 <meta name="description" content="${esc(p.description)}">
 <meta name="robots" content="${robots}">
-${p.index ? `<link rel="canonical" href="${url}">` : ''}
+${p.index || p.canonical ? `<link rel="canonical" href="${url}">` : ''}
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="${esc(cfg.name)}">
 <meta property="og:title" content="${esc(p.ogTitle || p.title)}">
@@ -446,7 +472,7 @@ const dockHtml = ssr(bookDock, { mode: 'dock' });
 const VIDEO_DAY = '2026-11-15T19:30:00-07:00';
 const VIDEOS = [
   { file: 'dog-poop-pickup', secs: [10, 7], name: 'Your dog poops every day. We pick it up.',
-    text: 'Real video of an Arizona Pet Waste scooper at work: in through the side gate, picking up dog poop on turf and rock, and out again. We serve Buckeye, Verrado, Goodyear and Litchfield Park, AZ.' },
+    text: 'Real video of an Arizona Pet Waste scooper at work: in through the side gate, picking up dog poop on turf and rock, and out again. We serve ' + SIX_TEXT + ', AZ.' },
   { file: 'gate-photo', secs: [15, 10], name: 'No photo? That visit is free.',
     text: 'After every dog poop pickup visit, Arizona Pet Waste sends you a photo of your latched gate. If you do not get a photo, that visit is free.' },
   { file: 'free-spray', secs: [15, 10], name: 'Free deodorizer spray at every visit',
@@ -469,7 +495,7 @@ const videoLd = (pageUrl) => VIDEOS.map((v) => Object.assign({
     route: '/', board: 'main', index: true,
     title: 'Pooper Scooper in the West Valley, AZ | Arizona Pet Waste',
     ogTitle: 'Dog poop pickup you can watch | Arizona Pet Waste',
-    description: 'Pooper scooper service in Verrado, Buckeye, Goodyear and Litchfield Park, AZ. Weekly dog poop pickup for about $25 a week. We haul it away. [[bf:First month free||First cleanup free]].',
+    description: 'Pooper scooper service in ' + SIX_TEXT + ', AZ. Weekly dog poop pickup, about $25 a week. [[bf:First month free||First cleanup free]].',
     fonts: e.b.fonts, css: [e.b.css, bookDock.b.css.replace(content.base_css, '')], boards: [e, bookDock],
     body: ssr(e), dock: dockHtml,
     ld: [faqLd(url, content.faq.main), {
@@ -511,17 +537,21 @@ for (const t of TOWNS) {
 {
   const route = '/pooper-scooper/';
   const url = ORIGIN + route;
-  const order = ['buckeye', 'goodyear', 'litchfield', 'citrus', 'verrado'];
+  // The six names in the order of Joe's list. Waddell is its own card. It opens the 85355 page it shares with Citrus Park.
+  const order = ['buckeye', 'verrado', 'goodyear', 'litchfield', 'citrus', 'waddell'];
   const blurbs = {
     buckeye: 'North Buckeye by the White Tank Mountains, and the rest of Buckeye from Sundance to downtown.',
     goodyear: 'All of Goodyear, from PebbleCreek and Palm Valley down to Estrella Mountain Ranch.',
     litchfield: 'Every 85340 home, inside the city and out, from The Wigwam to Dreaming Summit.',
-    citrus: 'All of Citrus Park and Waddell, from big irrigated lots to new neighborhoods like Zanjero Pass.',
+    citrus: 'All of Citrus Park, from big irrigated lots to horse properties.',
+    waddell: 'Every home in Waddell, from White Tank Foothills to new neighborhoods like Zanjero Pass.',
     verrado: 'Every Verrado district, at the foot of the White Tank Mountains in Buckeye.'
   };
+  const placeOf = (a) => (a === 'waddell' ? WADDELL : PLACES[a]);
+  const hoodsOf = (a) => (a === 'waddell' ? WADDELL.hoods : townZips(a).flatMap((g) => g.names).filter((n) => a !== 'citrus' || !WADDELL.hoods.includes(n)));
   const cards = '<div class="bxtowns bxtowns-g">' + order.map((a) => {
-    const p = PLACES[a];
-    const names = townZips(a).flatMap((g) => g.names).slice(0, 6);
+    const p = placeOf(a);
+    const names = hoodsOf(a).slice(0, 6);
     return '<a class="bxtown" href="' + p.url + '"><span class="bxtown-n">' + esc(p.name) + '</span>' +
       '<span class="bxzips">' + p.zips.map((z) => '<i>' + z + '</i>').join('') + '</span>' +
       '<span class="bxtown-p">' + esc(blurbs[a]) + '</span><span class="bxtown-h">' + esc(names.join(', ')) + '</span>' +
@@ -533,9 +563,9 @@ for (const t of TOWNS) {
   const pg = {
     eyebrow: 'Every home in 6 ZIP codes', h1: 'Pooper scooper service areas',
     hero: {
-      lead: 'We pick up dog poop at every home in six West Valley ZIP codes: Buckeye with Verrado, Goodyear, Litchfield Park, and Waddell with Citrus Park. Pick your town to see neighborhoods, prices and answers.',
+      lead: 'Arizona Pet Waste is a service area dog poop pickup company for homes in ' + SIX_TEXT + '. If your yard is in one of our ZIP codes (85326, 85396, 85338, 85395, 85340 or 85355), we come to you. You do not need to visit an office.' + (GOOGLE ? ' ' + googleLink() + '.' : ''),
       ctaHtml: book, side: BIZ.mapBox(content.svcmap.res), trust: 'No sign up fee. [[bf:No long term contract.||No contract.]]',
-      stats: [['6', 'ZIP codes', 'We scoop every home in all six'], ['4', 'towns', 'Plus every Verrado district'], ['$0', '[[bf:today||first visit]]', '[[bf:Black Friday sale. First month free||Your first cleanup is free]]']]
+      stats: [['6', 'ZIP codes', 'We scoop every home in all six'], ['6', 'towns', 'From Buckeye to Waddell'], ['$0', '[[bf:today||first visit]]', '[[bf:Black Friday sale. First month free||Your first cleanup is free]]']]
     }
   };
   const inner = BIZ.hero(pg, [['Home', '/'], ['Areas we serve', route]]) +
@@ -546,7 +576,7 @@ for (const t of TOWNS) {
     sec('not-listed', 'Coming soon', 'Not on the list? Join the waitlist', 'We don’t come to you yet? Tap the button, type your ZIP, and add your name, phone and address. We will tell you when we start in your area.',
       '<ul class="bxsoon">' + ['Surprise', 'Peoria', 'Glendale', 'Laveen'].map((x) => '<li>' + x + '</li>').join('') + '</ul>' +
       '<div class="bxh-cta"><a class="btn btn-dot" href="/book/">Join the waitlist</a></div>') +
-    sec('commercial', 'HOAs and businesses', 'Need it for an HOA or a business', 'We also service pet waste stations and common areas for HOAs, apartments, dog parks and businesses in the same four towns.',
+    sec('commercial', 'HOAs and businesses', 'Need it for an HOA or a business', 'We also service pet waste stations and common areas for HOAs, apartments, dog parks and businesses in ' + SIX_TEXT + '.',
       BIZ.townsStrip() + '<p class="bxnote"><a href="' + BIZ.HUB + '">See commercial pet waste removal</a></p>', true) +
     '<section class="bxcta"><div class="bxw"><div class="bxcta-in"><div><h2 id="get-started">[[bf:Start your free month||Book now]]</h2>' +
     '<p>Sign up in about 2 minutes. You pay $0 today, and we text you your day and time.</p></div>' +
@@ -554,10 +584,10 @@ for (const t of TOWNS) {
   const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc bxdoc"').replace('@@DOC@@', inner));
   built.push(page({
     route, board: 'doc', index: true, title: 'Pooper Scooper Areas in the West Valley AZ | Arizona Pet Waste',
-    description: 'Pooper scooper service for every home in Buckeye, Goodyear, Litchfield Park and Waddell, AZ: ZIP 85326, 85338, 85340, 85355, 85395 and 85396.',
+    description: 'Pooper scooper service for every home in ' + SIX_TEXT + ', AZ: ZIP 85326, 85338, 85340, 85355, 85395 and 85396.',
     fonts: e.b.fonts, css: [e.b.css, BIZ.BIZ_CSS, content.svcmap.css], boards: [e], body: ssr(e),
     ld: [crumbs(url, [['Home', '/'], ['Areas we serve', route]]),
-      { '@type': 'ItemList', '@id': url + '#towns', name: 'Towns Arizona Pet Waste serves', itemListElement: order.map((a, i) => ({ '@type': 'ListItem', position: i + 1, name: PLACES[a].name, url: ORIGIN + PLACES[a].url })) },
+      { '@type': 'ItemList', '@id': url + '#towns', name: 'Towns Arizona Pet Waste serves', itemListElement: order.map((a, i) => ({ '@type': 'ListItem', position: i + 1, name: placeOf(a).name, url: ORIGIN + placeOf(a).url })) },
       { '@type': 'Service', '@id': url + '#service', name: 'Dog poop pickup in the West Valley', serviceType: 'Pet waste removal', provider: { '@id': BIZ_ID }, areaServed: SERVED,
         offers: { '@type': 'AggregateOffer', lowPrice: '75.00', highPrice: '189.00', priceCurrency: 'USD', offerCount: 3 } }]
   }));
@@ -579,8 +609,8 @@ for (const t of TOWNS) {
     const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc docw"').replace('@@DOC@@', inner));
     const ld = [crumbs(url, [['Home', '/'], [pg.h1, route]])];
     if (pg.slug === 'pricing') ld.push({ '@type': 'Service', '@id': url + '#service', name: 'Pooper scooper service', serviceType: 'Pet waste removal', provider: { '@id': BIZ_ID }, areaServed: SERVED,
-      offers: [['Every week, 1 or 2 dogs', '108.00'], ['Twice a week, 1 or 2 dogs', '189.00'], ['Every other week, 1 or 2 dogs', '75.00']].map(([n, pr]) => ({ '@type': 'Offer', name: n, description: SPRAY + '.', price: pr, priceCurrency: 'USD',
-        priceSpecification: { '@type': 'UnitPriceSpecification', price: pr, priceCurrency: 'USD', unitText: 'MONTH' } })) });
+      // the same six offers as the business node, under the same names (the service is this node, so each offer leaves its own item out)
+      offers: OFFERS.map((o) => { const x = Object.assign({}, o); delete x.itemOffered; return x; }) });
     built.push(page({ route, board: 'doc', index: true, title: pg.title, description: pg.description, fonts: e.b.fonts, css: [e.b.css], boards: [e], body: ssr(e), ld }));
   }
   // FAQ: every question from the home page plus the questions every town page answers
@@ -625,7 +655,7 @@ const FILE_PAGES = [];
   if (posts.length && !FILE_PAGES.some((x) => x.route === '/blog/')) {
     FILE_PAGES.push({ route: '/blog/', type: 'blogindex', h1: 'Dog care blog', title: 'Dog Care Blog for West Valley Dog Owners | Arizona Pet Waste',
       description: 'Tips for West Valley dog owners: yard care, dog health and safety in the Arizona heat, turf odor, local poop laws and more from Arizona Pet Waste.',
-      html: '<p class="lead">Tips for dog owners in Buckeye, Goodyear, Litchfield Park and Citrus Park. Clean yards, healthy dogs, and life in the Arizona heat.</p>' +
+      html: '<p class="lead">Tips for dog owners in ' + SIX_TEXT + '. Clean yards, healthy dogs, and life in the Arizona heat.</p>' +
         photo('walk-sprayer', 'Our scooper walks across a turf yard with a deodorizer sprayer', '', 'pho-w') +
         '<div class="towns">' + posts.map((x) => '<article class="town"><h2><a href="' + x.route + '">' + esc(x.h1) + '</a></h2><p>' + esc(x.description) + '</p>' +
           '<p class="meta">' + esc(fmtDate(x.date)) + '</p><a class="tgo" href="' + x.route + '">Read it</a></article>').join('') + '</div>',
@@ -649,16 +679,15 @@ const FILE_PAGES = [];
     }
     let inner = docHead(pg.h1, trail);
     if (pg.type === 'blog') inner += '<p class="meta">' + esc(fmtDate(pg.date)) + '. ' + Math.max(2, Math.round(pg.html.replace(/<[^>]+>/g, ' ').split(/\s+/).length / 200)) + ' minute read.</p>';
-    inner += pg.html;
+    // <!--GOOGLE--> in a page file becomes the "Find us on Google" line once the link is set (the contact page has one)
+    inner += pg.html.replace('<!--GOOGLE-->', GOOGLE ? '<p>' + googleLink() + '.</p>' : '');
     if (pg.faq && pg.faq.length) inner += '<h2 id="questions">Questions</h2>' + pg.faq.map(([q, a]) => '<h3>' + esc(q) + '</h3><p>' + esc(a) + '</p>').join('');
     if (!/href="\/book\/"|href="tel:/.test(pg.html) && pg.type !== 'blogindex') inner += '<a class="btn btn-dot hubcta" href="/book/">[[bf:Start your free month||Book now]]</a>';
     const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc docw"').replace('@@DOC@@', inner));
     const ld = [crumbs(url, trail)];
     if (pg.faq && pg.faq.length) ld.push(faqLd(url, pg.faq.map(([q, a]) => ({ q, a }))));
-    // "offer" in a page's front matter is a name and a price for the service on that page. The deodorizing page uses it to say the price is 0.00.
-    if (pg.type === 'service') ld.push(Object.assign({ '@type': 'Service', '@id': url + '#service', name: pg.service || pg.h1, serviceType: pg.serviceType || 'Pet waste removal', provider: { '@id': BIZ_ID },
-      areaServed: pg.area && PLACES[pg.area] ? place(PLACES[pg.area]) : SERVED, description: pg.description },
-    pg.offer ? { offers: { '@type': 'Offer', name: pg.offer.name, price: pg.offer.price, priceCurrency: 'USD' } } : {}));
+    if (pg.type === 'service') ld.push({ '@type': 'Service', '@id': url + '#service', name: pg.service || pg.h1, serviceType: pg.serviceType || 'Pet waste removal', provider: { '@id': BIZ_ID },
+      areaServed: pg.area && PLACES[pg.area] ? place(PLACES[pg.area]) : SERVED, description: pg.description });
     if (pg.type === 'blog') ld.push({ '@type': 'BlogPosting', '@id': url + '#post', headline: pg.h1, description: pg.description, datePublished: pg.date, dateModified: pg.updated || pg.date,
       author: { '@type': 'Organization', name: 'Arizona Pet Waste', url: ORIGIN + '/' }, publisher: { '@id': BIZ_ID }, mainEntityOfPage: url, image: ORIGIN + '/assets/img/og.jpg', inLanguage: 'en-US' });
     if (pg.type === 'blogindex') ld.push({ '@type': 'Blog', '@id': url + '#blog', name: 'Arizona Pet Waste dog care blog', publisher: { '@id': BIZ_ID },
@@ -693,8 +722,14 @@ for (const [slug, fallbackH1] of POLICIES) {
   const e = useBoard('book');
   built.push(page({
     route: '/book/', board: 'book', index: false, bodyClass: 'bookpage', title: '[[bf:Start Your Free Month||Book Now]] | Arizona Pet Waste',
-    description: 'Sign up for dog poop pickup in Buckeye, Goodyear, Litchfield Park and Citrus Park, AZ. [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]',
-    fonts: e.b.fonts, css: [e.b.css], boards: [e], body: ssr(e, { mode: 'page' })
+    description: 'Sign up for dog poop pickup in ' + SIX_TEXT + ', AZ. [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]',
+    fonts: e.b.fonts, css: [e.b.css], boards: [e], body: ssr(e, { mode: 'page' }),
+    // Our Google profile's Book button opens this page. It stays out of search (Joe's call), with its own address as the canonical
+    // and a small note of what it is and whose it is. No street here either.
+    canonical: true,
+    ld: [{ '@type': 'WebPage', '@id': ORIGIN + '/book/#webpage', url: ORIGIN + '/book/', name: 'Sign up for dog poop pickup', isPartOf: { '@id': ORIGIN + '/#website' }, about: { '@id': BIZ_ID }, inLanguage: 'en-US' },
+      { '@type': 'LocalBusiness', '@id': BIZ_ID, name: cfg.name, url: ORIGIN + '/', telephone: '+1-623-309-6104', priceRange: '$75 to $189 a month',
+        address: { '@type': 'PostalAddress', addressLocality: 'Buckeye', addressRegion: 'AZ', postalCode: '85396', addressCountry: 'US' } }]
   }));
   const a = useBoard('account');
   built.push(page({
@@ -703,7 +738,7 @@ for (const [slug, fallbackH1] of POLICIES) {
     fonts: a.b.fonts, css: [a.b.css], boards: [a], body: ssr(a)
   }));
   const nf = useBoard('doc', (mk) => slots(mk).replace('@@DOC@@', '<h1 class="h1 dh1">We could not find that page</h1>' +
-    '<p class="lead">The link may be old. These pages can help.</p><ul><li><a href="/">Home</a></li><li><a href="/book/">[[bf:Start your free month||Book now]]</a></li><li><a href="/pooper-scooper/">Areas we serve</a></li><li><a href="/pooper-scooper/buckeye-az/">Buckeye</a></li><li><a href="/pooper-scooper/goodyear-az/">Goodyear</a></li><li><a href="/pooper-scooper/litchfield-park-az/">Litchfield Park</a></li><li><a href="/pooper-scooper/citrus-park-az/">Citrus Park</a></li><li><a href="/pooper-scooper/buckeye-az/verrado/">Verrado</a></li></ul>'));
+    '<p class="lead">The link may be old. These pages can help.</p><ul><li><a href="/">Home</a></li><li><a href="/book/">[[bf:Start your free month||Book now]]</a></li><li><a href="/pooper-scooper/">Areas we serve</a></li><li><a href="/pooper-scooper/buckeye-az/">Buckeye</a></li><li><a href="/pooper-scooper/buckeye-az/verrado/">Verrado</a></li><li><a href="/pooper-scooper/goodyear-az/">Goodyear</a></li><li><a href="/pooper-scooper/litchfield-park-az/">Litchfield Park</a></li><li><a href="/pooper-scooper/citrus-park-az/">Citrus Park</a></li><li><a href="/pooper-scooper/citrus-park-az/">Waddell</a></li></ul>'));
   built.push(page({
     route: '/404.html', board: 'doc', index: false, title: 'Page Not Found | Arizona Pet Waste', description: 'We could not find that page.',
     fonts: nf.b.fonts, css: [nf.b.css], boards: [nf], body: ssr(nf)
@@ -742,30 +777,32 @@ if (cfg.indexNowKey) fs.writeFileSync(path.join(DIST, cfg.indexNowKey + '.txt'),
 const faqText = content.faq.main.map((x) => `- ${x.q} ${x.a}`).join('\n');
 fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 
-> Dog poop pickup (pet waste removal) for every home in six West Valley, Arizona ZIP codes, from a local company that is insured and bonded: Buckeye (85326, 85396, with Verrado), Goodyear (85338, 85395), Litchfield Park (85340) and Waddell with Citrus Park (85355). Weekly, twice a week or every other week. [[bf:First month free through November 30||First cleanup free]]. Deodorizing included free with every visit. A photo of your latched gate after every visit, and a live map of our truck on visit day. We haul the waste away. [[bf:No long term contract.||No contract.]]
+> Dog poop pickup (pet waste removal) for homes in ${SIX_TEXT}, Arizona, from a local, family owned company that is insured and bonded. We scoop every home in six ZIP codes: 85326, 85396, 85338, 85395, 85340 and 85355. Weekly, twice a week or every other week. [[bf:First month free through November 30||First cleanup free]]. ${SPRAY} A photo of your latched gate after every visit, and a live map of our truck on visit day. We haul the waste away. [[bf:No long term contract.||No contract.]]
 
 ## Prices (per month)
-- Every week: $108 for 1 or 2 dogs. That is about $25 a week, or about $25 a visit. Each dog after two adds $13.
-- Twice a week: $189 for 1 or 2 dogs. That is about $44 a week. Each dog after two adds $13.
-- Every other week: $75 for 1 or 2 dogs. That is about $17 a week. Each dog after two adds $9.
-- Deodorizing: included free with every visit, on every plan. There is no paid turf odor treatment.
-- One time cleanup: $95. Same day pickup for a party or guests: $49, added to the next bill.
+- Weekly pickup, 1 or 2 dogs: $108 a month. That is about $25 a week, or about $25 a visit. Each dog after two adds $13.
+- Twice a week pickup, 1 or 2 dogs: $189 a month. That is about $44 a week. Each dog after two adds $13.
+- Every other week pickup, 1 or 2 dogs: $75 a month. That is about $17 a week. Each dog after two adds $9.
+- One time cleanup: $95.
+- Same day pickup: $49, when we have a spot, for a party or guests. It is added to the next bill.
+- Deodorizing (free every visit): included free with every visit, on rock and turf yards alike. It costs nothing on any plan or cleanup.
 - Billing: everyone is billed on the 1st of each month.[[bf: During the Black Friday sale (sign up by November 30, 2026) the first month is free. A card is saved at sign up and nothing is charged that day. The first charge is on the day the free month ends and only covers the days left until the 1st. Then the full price on the 1st of each month. If a payment fails, the customer is emailed that day and visits are on hold until the bill is paid.||]]
 [[bf:- Black Friday sale: sign up by Monday, November 30, 2026 and the first month is free. The sale ends at midnight on November 30. The free month stays free when the customer keeps the plan for 60 days. Canceling in the first 60 days is charged one month at the plan price, minus anything already paid. Canceling is done online in My Yard, with no phone call.||- Offer: the first cleanup is free. The Black Friday free month sale ended on November 30, 2026. Customers who signed up in the sale keep the free month when they keep the plan for 60 days.]]
 
 ## Service area (every home in these ZIP codes)
 - [Buckeye, AZ 85326 and 85396](${ORIGIN}/pooper-scooper/buckeye-az/). Neighborhoods: ${hoodNames('buckeye').join(', ')}.
+- [Verrado, Buckeye AZ 85396](${ORIGIN}/pooper-scooper/buckeye-az/verrado/). Districts: ${hoodNames('verrado').join(', ')}.
 - [Goodyear, AZ 85338 and 85395](${ORIGIN}/pooper-scooper/goodyear-az/). Neighborhoods: ${hoodNames('goodyear').join(', ')}.
 - [Litchfield Park, AZ 85340](${ORIGIN}/pooper-scooper/litchfield-park-az/). Neighborhoods: ${hoodNames('litchfield').join(', ')}.
-- [Citrus Park and Waddell, AZ 85355](${ORIGIN}/pooper-scooper/citrus-park-az/), plus Citrus Park homes with Litchfield Park 85340 addresses. Neighborhoods: ${hoodNames('citrus').join(', ')}.
-- [Verrado, Buckeye AZ 85396](${ORIGIN}/pooper-scooper/buckeye-az/verrado/). Districts: ${hoodNames('verrado').join(', ')}.
+- [Citrus Park, AZ 85355](${ORIGIN}/pooper-scooper/citrus-park-az/), plus Citrus Park homes with Litchfield Park 85340 addresses. Neighborhoods: ${hoodNames('citrus').filter((n) => !WADDELL.hoods.includes(n)).join(', ')}.
+- [Waddell, AZ 85355](${ORIGIN}/pooper-scooper/citrus-park-az/). Waddell shares the Citrus Park page. Neighborhoods: ${WADDELL.hoods.join(', ')}.
 - Full list: [Areas we serve](${ORIGIN}/pooper-scooper/).
 - Coming soon, with no start date yet: Surprise, Peoria, Glendale and Laveen. Anyone outside our ZIP codes can join the waitlist, and we tell them when we start in their area.
 
 ## Commercial pet waste removal (HOAs, apartments, dog parks, businesses)
 - What: dog waste pickup in common areas plus pet waste station service (empty the can, new liner, refill bags, wipe and check the station, photo report after every visit). Any brand of station. Bags and liners included.
 - Who: HOAs and master planned communities, apartment and build to rent communities, HOA and private dog parks, offices, vet clinics, groomers, boarding, hotels, property managers and events.
-- Where: Buckeye (including Verrado), Goodyear, Litchfield Park, Citrus Park and Waddell.
+- Where: ${SIX_TEXT}.
 - How often: most HOA common areas need one visit a week; dog parks and busy stations often need two; apartment relief areas two or three.
 - Price: quoted after a free site walk, based on stations, ground to scoop, visits a week and drive time. Written quote within one business day. Month to month with 30 days notice. One bill on the 1st. Events quoted by the job.
 - New stations: small station jobs under $1,000. Arizona Pet Waste is not a licensed contractor, so bigger installs go to a licensed contractor.
@@ -796,7 +833,7 @@ ${VIDEOS.map((v) => '- [' + v.name + '](' + videoUrl(v) + '): ' + v.text).join('
 - Owner: Juan Gonzalez, owner and operator, who lives in Verrado (Buckeye, AZ) with his wife and their six kids. The three standards he runs the company by: do what you say you are going to do, take pride in the details, never stop improving.
 - Sign up fee: none. [[bf:The first month is free only with the Black Friday sale, for sign ups through November 30, 2026.||The first cleanup is free.]]
 - Price per visit: weekly service is $108 a month for 1 or 2 dogs. That is about $25 a week, or about $25 a visit. Prices are billed once a month, on the 1st.
-- Deodorizing: included free with every visit. We spray the spots dogs use most. It is not an extra.
+- Deodorizing: included free with every visit, on rock and turf yards alike. We spray the spots dogs use most. It is not an extra.
 - Proof: a text the night before, a live truck map on visit day, and a photo of the latched gate after every visit. A visit with no gate photo costs $0.
 - Missed pile: free return within 24 hours.
 - Waste: we bag it and haul it away. Nothing is left in the customer’s trash can.
@@ -818,7 +855,7 @@ ${FILE_PAGES.filter((x) => x.type !== 'blogindex').map((x) => '- [' + x.h1 + '](
 - [FAQ](${ORIGIN}/faq/): all of our answers
 - [[[bf:Start your free month||Book now]]](${ORIGIN}/book/): sign up online in about 2 minutes
 - [Areas we serve](${ORIGIN}/pooper-scooper/): every town and ZIP code we scoop
-- [Buckeye](${ORIGIN}/pooper-scooper/buckeye-az/), [Goodyear](${ORIGIN}/pooper-scooper/goodyear-az/), [Litchfield Park](${ORIGIN}/pooper-scooper/litchfield-park-az/), [Citrus Park](${ORIGIN}/pooper-scooper/citrus-park-az/), [Verrado](${ORIGIN}/pooper-scooper/buckeye-az/verrado/): town pages
+- [Buckeye](${ORIGIN}/pooper-scooper/buckeye-az/), [Verrado](${ORIGIN}/pooper-scooper/buckeye-az/verrado/), [Goodyear](${ORIGIN}/pooper-scooper/goodyear-az/), [Litchfield Park](${ORIGIN}/pooper-scooper/litchfield-park-az/), [Citrus Park and Waddell](${ORIGIN}/pooper-scooper/citrus-park-az/): town pages
 - [Privacy Policy](${ORIGIN}/privacy/)
 - [Terms of Service](${ORIGIN}/terms/)
 - [Text Message Terms](${ORIGIN}/texts/)
@@ -827,7 +864,7 @@ ${FILE_PAGES.filter((x) => x.type !== 'blogindex').map((x) => '- [' + x.h1 + '](
 ## Contact
 - Call or text: 623.309.6104
 - Office hours: 8 am to 5 pm, every day of the week (Arizona time)
-- Email: ${cfg.email}
+- Email: ${cfg.email}${GOOGLE ? '\n- Google profile: ' + GOOGLE : ''}
 `);
 fs.writeFileSync(path.join(DIST, '_headers'), `/*
   X-Content-Type-Options: nosniff
@@ -880,6 +917,11 @@ fs.writeFileSync(path.join(DIST, '_redirects'), `/staff /crew/ 301
 /estrella /pooper-scooper/goodyear-az/ 301
 /sundance /pooper-scooper/buckeye-az/ 301
 /waddell /pooper-scooper/citrus-park-az/ 301
+/waddell/ /pooper-scooper/citrus-park-az/ 301
+/pooper-scooper/waddell-az /pooper-scooper/citrus-park-az/ 301
+/pooper-scooper/waddell-az/ /pooper-scooper/citrus-park-az/ 301
+/turf-odor-treatment /pricing/ 301
+/turf-odor-treatment/ /pricing/ 301
 /prices /pricing/ 301
 /price /pricing/ 301
 /how /how-it-works/ 301

@@ -43,7 +43,7 @@ TRUCK_KEYS = '0%{transform:translate(133px,229px)}32%{transform:translate(193px,
 
 ZIPS = ['85326', '85338', '85340', '85355', '85395', '85396']
 # label spots inside each ZIP's visible part of the map
-ZIP_LABELS = {'85355': (222, 62), '85396': (112, 174), '85326': (96, 299), '85338': (262, 290), '85395': (266, 209), '85340': (346, 186)}
+ZIP_LABELS = {'85355': (199, 62), '85396': (112, 174), '85326': (96, 299), '85338': (262, 290), '85395': (266, 209), '85340': (346, 186)}
 
 
 def _shape(d, hole, pick):
@@ -73,8 +73,8 @@ def _soon():
 
 def build(pick_v, pick_c, pick_g, pick_l, pick_b):
     return (
-        '<svg viewBox="%d %d %d %d" role="img" aria-label="Map of the ZIP codes Arizona Pet Waste scoops: Buckeye 85326 and 85396, '
-        'Goodyear 85338 and 85395, Litchfield Park 85340, and Waddell and Citrus Park 85355">' % VIEW +
+        '<svg viewBox="%d %d %d %d" role="img" aria-label="Map of the ZIP codes Arizona Pet Waste scoops: Buckeye and Verrado 85326 and 85396, '
+        'Goodyear 85338 and 85395, Litchfield Park 85340, and Citrus Park and Waddell 85355">' % VIEW +
         '<rect class="mland" x="-20" y="-20" width="460" height="380"></rect>'
         '<path class="mmtn" d="' + _D['MTN'] + '"></path><path class="mridge" d="' + _D['RIDGES'] + '"></path>'
         '<path class="mbase" d="' + _D['LUKE'] + '"></path><path class="mrun" d="' + RUNWAYS + '"></path>'
@@ -93,6 +93,7 @@ def build(pick_v, pick_c, pick_g, pick_l, pick_b):
         + _label(370, 266, ['PHOENIX →'], 'mtxt')
         + '<text class="mtxt" x="398" y="122" transform="rotate(-90 398 122)">AGUA FRIA</text>'
         + _label(112, 160, ['VERRADO']) + _label(217, 98, ['CITRUS', 'PARK']) + _label(266, 196, ['GOODYEAR']) + _label(346, 160, ['LITCHFIELD', 'PARK'])
+        + _label(198, 48, ['WADDELL'])  # Waddell is the north part of ZIP 85355 (about 33.577 N, 112.438 W). Kept left of the 303 shield.
         + _label(96, 286, ['BUCKEYE']) + _label(262, 277, ['GOODYEAR']) + _soon()
         + ''.join('<text class="mzipt" x="%d" y="%d" text-anchor="middle">%s</text>' % (x, y, z) for z, (x, y) in ZIP_LABELS.items()) +
         '<g class="mtruck"><circle r="8" fill="#FF4A1C" opacity=".25"></circle><circle r="4.5" fill="#FF4A1C" stroke="#FFFFFF" stroke-width="1.8"></circle></g>'

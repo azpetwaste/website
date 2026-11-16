@@ -105,7 +105,7 @@ CITIES = [
         nearby=nearby([G, B, C, V, ALL], 'Live in Avondale? Join the waitlist when you book.'),
     ),
     dict(
-        file=C[0], id='c', area='citrus', name='Citrus Park', eyebrow='Citrus Park · Waddell, AZ · ZIP 85355', h='11800',
+        file=C[0], id='c', area='citrus', name='Citrus Park', h1='Citrus Park and Waddell', eyebrow='Citrus Park · Waddell, AZ · ZIP 85355', h='11800',
         intro=INTRO % 'Citrus Park',
         map_h2='We cover all of Citrus Park and Waddell, AZ',
         where='Every home. Every street. Citrus Park and Waddell, ZIP 85355.',

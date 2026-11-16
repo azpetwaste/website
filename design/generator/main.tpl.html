@@ -93,7 +93,7 @@
     <p class="pr-total"><span class="pr-ab">About</span><b>{{ weekLabel }}</b> a week</p>
     <p class="pr-per">{{ billLine }} [[bf:Black Friday sale: your first month is free.||Your first cleanup is free.]]</p>
     <a href="Booking.dc.html" class="btn btn-dot">[[bf:Start your free month||Book now]]</a>
-    <p class="pr-in"><strong>In every price:</strong> we haul the poop away, a 30 minute time window, a live map of our truck and a photo of your shut gate. Deodorizing is included free with every visit.</p>
+    <p class="pr-in"><strong>In every price:</strong> we haul the poop away, a 30 minute time window, a live map of our truck and a photo of your shut gate. Deodorizing is included free with every visit, on rock and turf yards alike.</p>
     <p class="pr-note">Each dog after two adds $13 a month ($9 every other week). Months with five visits cost the same as four.</p>
     <details class="pr-all">
       <summary>See every price@@ICON_PLUS@@</summary>
@@ -278,13 +278,13 @@ class Component extends DCLogic {
 @@AREA_METHODS@@
   renderVals() {
     const s = this.state;
-    const names = { week: 'Every week', twice: 'Twice a week', eow: 'Every other week' };
+    const names = { week: 'Weekly pickup', twice: 'Twice a week pickup', eow: 'Every other week pickup' };
     const total = this._price(s.plan, s.dogs);
     const dogs = s.dogs === 1 ? '1 dog' : s.dogs + ' dogs';
     const furs = ['#D9A066', '#6B4A34', '#F1E3C8', '#3A3434', '#B5652A', '#9A9A9A'];
     const lbs = Math.round(s.dogs * @@LBS_PER_DOG@@ / 10) * 10;
     return Object.assign({}, this._themeVals(), this._areaVals(), {
-      plans: this._plans(true),
+      plans: this._plans(true, true),
       dogList: furs.slice(0, s.dogs).map((f) => ({ fur: f })),
       dogLabel: dogs,
       poopLine: (s.dogs === 1 ? '1 dog makes' : s.dogs + ' dogs make') + ' about ' + lbs + ' pounds of poop a year. We pick up all of it.',

@@ -68,7 +68,7 @@ import longform
 JOBS = [(open(src).read(), dst, bid, extra) for src, dst, bid, extra in BOARDS]
 for cdef in cities.CITIES:
     tpl = open('city.tpl.html').read()
-    vals = {'C_NAME': cdef['name'], 'C_NAME_CAPS': cdef['name'].upper(), 'C_AREA': cdef['area'], 'C_EYEBROW': cdef['eyebrow'],
+    vals = {'C_NAME': cdef['name'], 'C_H1': cdef.get('h1', cdef['name']), 'C_NAME_CAPS': cdef['name'].upper(), 'C_AREA': cdef['area'], 'C_EYEBROW': cdef['eyebrow'],
             'C_INTRO': cdef['intro'], 'C_MAP_H2': cdef['map_h2'], 'C_WHERE': cdef['where'], 'C_WHY_H2': cdef['why_h2'],
             'C_WHY': cdef['why'], 'C_FAQ_H2': cdef['faq_h2'], 'C_FAQ': cdef['faq'], 'C_NEARBY': cdef['nearby'], 'C_H': cdef['h']}
     vals.update(longform.render(cdef['area'], cdef['name']))

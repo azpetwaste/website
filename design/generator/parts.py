@@ -66,9 +66,10 @@ PRICE_METHODS = r"""  _price(id, dogs) {
     }
     return out;
   }
-  _plans(onBand) {
+  _plans(onBand, google) {
     const s = this.state;
-    const names = { week: 'Every week', twice: 'Twice a week', eow: 'Every other week' };
+    // google = true: the plan names on our Google profile (the home page). The sign up form keeps the short names, since it must match the opt in screenshots on /texts/.
+    const names = google ? { week: 'Weekly pickup', twice: 'Twice a week pickup', eow: 'Every other week pickup' } : { week: 'Every week', twice: 'Twice a week', eow: 'Every other week' };
     return ['week', 'twice', 'eow'].map((id) => {
       const on = s.plan === id;
       return {
@@ -152,6 +153,7 @@ AREA_METHODS = r"""  _zipArea(zip) {
       buckeye: { name: 'Buckeye', meta: 'Buckeye, ZIP 85326 and 85396' },
       verrado: { name: 'Verrado', meta: 'Verrado, in Buckeye, ZIP 85396' },
       citrus: { name: 'Citrus Park', meta: 'Citrus Park and Waddell, ZIP 85355' },
+      waddell: { name: 'Waddell', meta: 'Waddell and Citrus Park, ZIP 85355' },
       goodyear: { name: 'Goodyear', meta: 'Goodyear, ZIP 85338 and 85395' },
       litchfield: { name: 'Litchfield Park', meta: 'Litchfield Park, ZIP 85340' }
     };
@@ -159,12 +161,12 @@ AREA_METHODS = r"""  _zipArea(zip) {
       const on = s.area === id;
       return { on: on, bg: on ? 'var(--ink)' : 'var(--card)', fg: on ? 'var(--bg)' : 'var(--ink)', pick: () => this.setState({ area: id, zip: '', zipChecked: false }) };
     };
-    const blob = (id) => (s.area === id ? (s.dark ? 'rgba(255,74,28,.58)' : 'rgba(255,74,28,.42)') : 'rgba(255,74,28,0)');
+    const blob = (id, also) => (s.area === id || (also && s.area === also) ? (s.dark ? 'rgba(255,74,28,.58)' : 'rgba(255,74,28,.42)') : 'rgba(255,74,28,0)');
     const a = areas[s.area];
     const byZip = s.zipChecked && !!this._zipArea(s.zip);
     return {
-      mB: pin('buckeye'), mV: pin('verrado'), mC: pin('citrus'), mG: pin('goodyear'), mL: pin('litchfield'),
-      bB: blob('buckeye'), bV: blob('verrado'), bC: blob('citrus'), bG: blob('goodyear'), bL: blob('litchfield'),
+      mB: pin('buckeye'), mV: pin('verrado'), mC: pin('citrus'), mW: pin('waddell'), mG: pin('goodyear'), mL: pin('litchfield'),
+      bB: blob('buckeye'), bV: blob('verrado'), bC: blob('citrus', 'waddell'), bG: blob('goodyear'), bL: blob('litchfield'),
       areaOn: !!a,
       areaName: byZip ? 'ZIP ' + s.zip : (a ? a.name : ''),
       areaMeta: a ? a.meta : '',
@@ -187,10 +189,11 @@ SOON_NOTE = ('<div class="soon">'
 MAP_KEY = truemap.MAP_KEY
 MAP_CHIPS = '''  <div class="mchips" role="group" aria-label="Towns we scoop">
     <button type="button" class="mchip" aria-pressed="{{ mB.on }}" onClick="{{ mB.pick }}">Buckeye</button>
+    <button type="button" class="mchip" aria-pressed="{{ mV.on }}" onClick="{{ mV.pick }}">Verrado</button>
     <button type="button" class="mchip" aria-pressed="{{ mG.on }}" onClick="{{ mG.pick }}">Goodyear</button>
     <button type="button" class="mchip" aria-pressed="{{ mL.on }}" onClick="{{ mL.pick }}">Litchfield Park</button>
     <button type="button" class="mchip" aria-pressed="{{ mC.on }}" onClick="{{ mC.pick }}">Citrus Park</button>
-    <button type="button" class="mchip" aria-pressed="{{ mV.on }}" onClick="{{ mV.pick }}">Verrado</button>
+    <button type="button" class="mchip" aria-pressed="{{ mW.on }}" onClick="{{ mW.pick }}">Waddell</button>
   </div>'''
 
 from scene import saguaro, agave, barrel  # noqa: E402
@@ -198,10 +201,10 @@ from scene import saguaro, agave, barrel  # noqa: E402
 FAQ_ITEMS = [
     ('[[bf:What is the Black Friday sale?||Is my first cleanup free?]]', '[[bf:Sign up by November 30 and your first month is free. The sale ends at midnight on November 30. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.||Yes. Your first cleanup is free when you sign up.]]'),
     ('How much does it cost?', 'Weekly pickup is about $25 a week for 1 or 2 dogs. We bill it once a month: $108 on the 1st. [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]'),
-    ('Is the spray really free?', 'Yes. Deodorizing is included free with every visit. We spray the spots your dogs use most. It costs you nothing.'),
+    ('Is the spray really free?', 'Yes. Deodorizing is included free with every visit, on rock and turf yards alike. We spray the spots your dogs use most. It costs you nothing.'),
     ('Do you come in the summer heat?', 'Yes. In summer we start early, so your yard is done before the worst heat of the day.'),
     ('What if it storms?', 'Light rain is fine. If there is lightning, we wait until it is safe. We text you if your time changes.'),
-    ('Do you clean artificial turf?', 'Yes. We pick up every pile and spray the spots your dogs use most. Turf can smell in the heat. Deodorizing is included free with every visit.'),
+    ('Do you clean artificial turf?', 'Yes. We pick up every pile and deodorize for free at every visit, on rock and turf yards alike. Turf can still smell in the heat. The deodorizing is already included, at no charge.'),
     ('Where does the poop go?', 'We haul it away. We bag it, tie it shut and take it with us. It does not go in your trash can.'),
     ('Do you background check your team?', 'Yes. Every team member must pass a background check before they work in a yard. Your safety and our safety come first.'),
     ('Are you bonded and insured?', 'Yes. We are insured and bonded. We carry a $50,000 business service bond and $1,000,000 in general liability insurance. See the details on our bond and insurance page.'),
@@ -270,7 +273,7 @@ def _pcell(month):
 
 
 PRICE_ROWS = ''.join('<tr><th scope="row">%s</th>%s%s</tr>' % (n, _pcell(a), _pcell(b))
-                     for n, a, b in [('Every week', 108, 121), ('Twice a week', 189, 202), ('Every other week', 75, 84)])
+                     for n, a, b in [('Weekly pickup', 108, 121), ('Twice a week pickup', 189, 202), ('Every other week pickup', 75, 84)])
 WEEK_NOTE = 'We bill the month price on the 1st. The week price is the month price spread over the year, to the nearest dollar.'
 PRICE_TABLE = (
     '<table class="ptab">'
@@ -279,7 +282,7 @@ PRICE_TABLE = (
     '</tbody></table>'
     '<p class="ptab-w">' + WEEK_NOTE + '</p>'
     '<p class="ptab-x">Extras</p>'
-    + _xrow('Deodorizing with every visit', 'Included free') + _xrow('Same day pickup', '$49') + _xrow('One time cleanup', '$95') +
+    + _xrow('Deodorizing (free every visit)', 'Included free') + _xrow('Same day pickup', '$49') + _xrow('One time cleanup', '$95') +
     '<p class="ptab-n">Each dog after two adds $13 a month ($9 every other week). [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]</p>'
 )
 
@@ -303,7 +306,8 @@ DD_AREAS = ('<div class="ddp">'
     '<a href="CityVerrado.dc.html"><b>Verrado</b></a>'
     '<a href="CityGoodyear.dc.html"><b>Goodyear</b></a>'
     '<a href="CityLitchfieldPark.dc.html"><b>Litchfield Park</b></a>'
-    '<a href="CityCitrusPark.dc.html"><b>Citrus Park and Waddell</b></a>'
+    '<a href="CityCitrusPark.dc.html"><b>Citrus Park</b></a>'
+    '<a href="CityCitrusPark.dc.html"><b>Waddell</b></a>'
     '<a href="AreasWeServe.dc.html" class="dda">See all service areas</a></div>')
 DD_COMM = ('<div class="ddp ddg"><div><p class="ddh">Services</p>'
     '<a href="CommercialHoa.dc.html"><b>HOA common areas</b><span>Greenbelts, trails and parks</span></a>'
@@ -392,6 +396,7 @@ def _footer(pre):
             '        <li><a href="mailto:info@arizonapetwaste.com">' + _F_MAIL + '<span>info@arizonapetwaste.com</span></a></li>\n'
             '        <li><span class="fcon-t">' + F_CLOCK + '<span>Open 8 am to 5 pm, every day</span></span></li>\n'
             '        <li><a href="Main.dc.html">' + F_GLOBE + '<span>arizonapetwaste.com</span></a></li>\n'
+            '        <!--GOOGLE-->\n'
             '      </ul>\n'
             '      <!--SOCIAL-->\n'
             '    </div>\n'
@@ -406,6 +411,7 @@ def _footer(pre):
             '        <a href="CityGoodyear.dc.html" class="flink">Goodyear</a>\n'
             '        <a href="CityLitchfieldPark.dc.html" class="flink">Litchfield Park</a>\n'
             '        <a href="CityCitrusPark.dc.html" class="flink">Citrus Park</a>\n'
+            '        <a href="CityCitrusPark.dc.html" class="flink">Waddell</a>\n'
             '        <a href="Commercial.dc.html" class="flink">Commercial</a>\n'
             '      </div>\n'
             '      <div>\n'
@@ -441,7 +447,7 @@ def _footer(pre):
 
 _NAV = [('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Commercial.dc.html', 'Commercial'), ('Faq.dc.html', 'FAQ')]
 _MNAV = [('Main.dc.html', 'Home'), ('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Commercial.dc.html', 'Commercial'), ('Faq.dc.html', 'FAQ'), ('Blog.dc.html', 'Blog'),
-         ('CityBuckeye.dc.html', 'Buckeye'), ('CityGoodyear.dc.html', 'Goodyear'), ('CityLitchfieldPark.dc.html', 'Litchfield Park'), ('CityCitrusPark.dc.html', 'Citrus Park'), ('CityVerrado.dc.html', 'Verrado')]
+         ('CityBuckeye.dc.html', 'Buckeye'), ('CityVerrado.dc.html', 'Verrado'), ('CityGoodyear.dc.html', 'Goodyear'), ('CityLitchfieldPark.dc.html', 'Litchfield Park'), ('CityCitrusPark.dc.html', 'Citrus Park'), ('CityCitrusPark.dc.html', 'Waddell')]
 HEADER_MAIN = _header('Main.dc.html', _NAV)
 HEADER_CITY = _header('Main.dc.html', _NAV)
 MENU_MAIN = _menu(_MNAV)
@@ -463,7 +469,7 @@ CK_SVG = '<svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-widt
 CK_ITEMS = [('A 30 minute time window', 'We text it to you the night before.'),
             ('A photo of your latched gate', 'After every visit. No photo? That visit is free.'),
             ('We haul the poop away', 'We bag it and take it with us. Nothing goes in your trash can.'),
-            ('Deodorizing included free', 'With every visit, on the spots your dogs use most.'),
+            ('Deodorizing included free', 'With every visit, on rock and turf yards alike.'),
             ('A free return within 24 hours', 'If we miss a pile.'),
             ('4 free skips a year', 'One tap in My Yard. After your first 60 days, you can pause for up to 120 days too.'),
             ('Every home in 6 ZIP codes', 'Buckeye, Verrado, Goodyear, Litchfield Park, Citrus Park and Waddell.'),

@@ -24,7 +24,7 @@ def ask(town, zips):
         ('Are you bonded and insured?', 'Yes. We are insured and bonded. We carry a $50,000 business service bond and $1,000,000 in general liability insurance. See the details on our bond and insurance page.'),
         ('Is there a sign up fee?', 'Not with us. [[bf:You pay $0 today. Black Friday sale: sign up by November 30 and your first month is free.||There is no sign up fee, and your first cleanup is free.]]'),
         ('How much is each visit?', PRICES),
-        ('Is the spray extra?', 'No. Deodorizing is included free with every visit. We spray the spots your dogs use most.'),
+        ('Is the spray extra?', 'No. Deodorizing is included free with every visit, on rock and turf yards alike. We spray the spots your dogs use most.'),
         ('How will I know you came?', 'You get a text the night before with a 30 minute window. On your day, you can watch our truck on a live map. '
                                       'When we leave, we send you a photo of your latched gate.'),
         ('What do you do with the poop?', 'We haul it away. We bag it and take it with us. It does not go in your trash can.'),
@@ -63,7 +63,7 @@ def faq_common(town):
         ('Do you clean turf and rock yards?',
          'Yes. We pick up every pile on turf, grass and rock. We rake rock and gravel with a wide metal rake, then spray deodorizer where your dogs go most. The spray is free.'),
         ('Can you get rid of turf smell?',
-         'We can help. Deodorizing is included free with every visit. We spray the spots your dogs use most. It helps when pee smell builds up in hot turf.'),
+         'Every visit includes deodorizing free, on rock and turf yards alike. We spray the spots your dogs use most. It costs you nothing.'),
         ('Do you do one time cleanups?',
          'Yes. A one time cleanup is $95. It is a good pick before a party, after a move, or when the yard got away from you.'),
         ('Can you come the same day?',
