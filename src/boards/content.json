@@ -3,7 +3,7 @@
   "main": [
    {
     "q": "[[bf:What is the Black Friday sale?||Is my first cleanup free?]]",
-    "a": "[[bf:Sign up by November 30 and your first month is free. The sale ends at midnight on November 30. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.||Yes. Your first cleanup is free when you sign up.]]"
+    "a": "[[bf:Sign up by November 30 and your first month is free. The sale ends at midnight on November 30.||Yes. Your first cleanup is free when you sign up.]]"
    },
    {
     "q": "How much does it cost?",
@@ -71,7 +71,7 @@
    },
    {
     "q": "How do I cancel?",
-    "a": "Tap cancel in My Yard. There is no long term contract and no phone call. If you signed up with the Black Friday sale, keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid."
+    "a": "Tap cancel in My Yard. There is no long term contract and no phone call."
    },
    {
     "q": "What if I get another dog?",
@@ -133,7 +133,7 @@
    },
    {
     "q": "Is there a contract?",
-    "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel. If you cancel in your first 60 days, we charge one month."
+    "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel."
    }
   ]
  },
@@ -198,7 +198,7 @@
     },
     {
      "q": "Is there a contract?",
-     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel. If you cancel in your first 60 days, we charge one month."
+     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel."
     },
     {
      "q": "What day do you come to Buckeye?",
@@ -307,7 +307,7 @@
     },
     {
      "q": "Is there a contract?",
-     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel. If you cancel in your first 60 days, we charge one month."
+     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel."
     },
     {
      "q": "What day do you come to Goodyear?",
@@ -416,7 +416,7 @@
     },
     {
      "q": "Is there a contract?",
-     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel. If you cancel in your first 60 days, we charge one month."
+     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel."
     },
     {
      "q": "What day do you come to Litchfield Park?",
@@ -510,7 +510,7 @@
     },
     {
      "q": "Is there a contract?",
-     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel. If you cancel in your first 60 days, we charge one month."
+     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel."
     },
     {
      "q": "What day do you come to Citrus Park?",
@@ -598,7 +598,7 @@
     },
     {
      "q": "Is there a contract?",
-     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel. If you cancel in your first 60 days, we charge one month."
+     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel."
     },
     {
      "q": "What day do you come to Verrado?",
@@ -691,7 +691,7 @@
     },
     {
      "q": "Is there a contract?",
-     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel. If you cancel in your first 60 days, we charge one month."
+     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel."
     },
     {
      "q": "What day do you come to Waddell?",

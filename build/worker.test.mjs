@@ -155,6 +155,8 @@ function stripeApi(m, url, init) {
 }
 
 const mails = [];
+const PLACES = { off: false, zip: '85396' }, placeCalls = [];
+const AUTH = {}, authCalls = []; // pretend Supabase Auth: email to { id, password }
 const reply = (data, status = 200) => new Response(data === '' ? '' : JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
 globalThis.fetch = async (url, init = {}) => {
   url = String(url);
@@ -163,6 +165,37 @@ globalThis.fetch = async (url, init = {}) => {
   if (url.startsWith(SB + '/rest/v1/')) return rest(m, url.slice((SB + '/rest/v1/').length), init.body ? JSON.parse(init.body) : null, init.headers && init.headers.prefer);
   if (url.startsWith('https://api.stripe.com/v1/')) return stripeApi(m, url, init);
   if (url === 'https://api.resend.com/emails') { mails.push(JSON.parse(init.body)); return reply({ id: 'm1' }); }
+  if (url === SB + '/auth/v1/admin/users' && m === 'POST') {
+    const b = JSON.parse(init.body); authCalls.push('create ' + b.email);
+    if (b.password) return reply({ msg: 'this server must never set a password' }, 400);
+    if (AUTH[b.email]) return reply({ msg: 'A user with this email address has already been registered' }, 422);
+    const id = crypto.randomUUID(); AUTH[b.email] = { id }; return reply({ id, email: b.email });
+  }
+  if (url.startsWith(SB + '/auth/v1/admin/users/')) return reply({ msg: 'this server must never change an account' }, 400);
+  if (url === SB + '/auth/v1/token?grant_type=password') return reply({ msg: 'this server must never sign in with a password' }, 400);
+  if (url === SB + '/auth/v1/admin/generate_link') {
+    const b = JSON.parse(init.body), a = AUTH[b.email]; authCalls.push('link ' + b.email);
+    if (!a || b.type !== 'magiclink' || !/sb_secret/.test(JSON.stringify(init.headers))) return reply({ msg: 'User not found' }, 404);
+    a.hash = 'hash_' + crypto.randomBytes(6).toString('hex');
+    return reply({ id: AUTH.wrongUser || a.id, email: b.email, action_link: SB + '/auth/v1/verify?token=' + a.hash, email_otp: '123456', hashed_token: a.hash, verification_type: 'magiclink', redirect_to: '' });
+  }
+  if (url === SB + '/auth/v1/verify') {
+    const b = JSON.parse(init.body), e = Object.keys(AUTH).find((k) => AUTH[k] && AUTH[k].hash && AUTH[k].hash === b.token_hash);
+    if (!e || b.type !== 'magiclink') return reply({ msg: 'Email link is invalid or has expired' }, 403);
+    delete AUTH[e].hash; // one use
+    const id = AUTH.wrongUser || AUTH[e].id, t = 'tok_' + crypto.randomBytes(4).toString('hex'); tokens[t] = { id, email: e };
+    return reply({ access_token: t, refresh_token: 'r_' + t, expires_in: 3600, user: { id, email: e } });
+  }
+  if (url === 'https://places.googleapis.com/v1/places:autocomplete') {
+    const b = JSON.parse(init.body); placeCalls.push(b);
+    if (PLACES.off) return reply({ error: { status: 'PERMISSION_DENIED', message: 'Places API (New) has not been used in project' } }, 403);
+    return reply({ suggestions: [{ placePrediction: { placeId: 'ChIJ_test_place_1', structuredFormat: { mainText: { text: '4321 North Verrado Way' }, secondaryText: { text: 'Buckeye, AZ, USA' } } } }, { queryPrediction: { text: { text: 'not a place' } } }] });
+  }
+  if (url.startsWith('https://places.googleapis.com/v1/places/')) {
+    return reply({ addressComponents: [{ longText: '4321', shortText: '4321', types: ['street_number'] }, { longText: 'North Verrado Way', shortText: 'N Verrado Way', types: ['route'] },
+      { longText: 'Buckeye', shortText: 'Buckeye', types: ['locality', 'political'] }, { longText: PLACES.zip, shortText: PLACES.zip, types: ['postal_code'] }] });
+  }
+  if (url === 'https://challenges.cloudflare.com/turnstile/v0/siteverify') return reply({ success: JSON.parse(init.body).response === 'human' });
   return reply({ error: 'unmocked ' + url }, 500); // the Census map pin lookup and the route tables: placeCustomer shrugs these off
 };
 const call = async (path, method = 'GET', body, auth) => {
@@ -200,12 +233,69 @@ head('Config and sign in');
   env = Object.assign({}, baseEnv, { STRIPE_SECRET_KEY: 'rk_live_abcdef', STRIPE_PUBLISHABLE_KEY: 'pk_live_1', STRIPE_WEBHOOK_SECRET: '' });
   { const l = await call('/api/health'); ok('two live keys read as live (a restricted key too), and a missing webhook secret shows', l.d.keys === 'live' && l.d.hook === false, l.d); }
   env = Object.assign({}, baseEnv);
-  ok('checkout with no sign in is refused', (await call('/api/checkout', 'POST', good)).status === 401);
+  ok('checkout with no sign in and no email is refused', (await call('/api/checkout', 'POST', good)).status === 400);
+  T.customers.length = 0; T.consent_log.length = 0; authCalls.length = 0;
+  { // Joe, Nov 16, 2026: no email code for a new customer. The server makes the account, and the page gets NO session.
+    const r = await call('/api/checkout', 'POST', Object.assign({}, good, { email: 'New@Example.com' }));
+    const id = AUTH['new@example.com'] && AUTH['new@example.com'].id;
+    ok('a new email opens the card form with no code and no sign in', r.status === 200 && !!r.d.clientSecret && /^cs_test/.test(r.d.session) && !!id, r.d);
+    ok('the page is never handed a session, so typing an email cannot open an account', !r.d.auth && !/tok_|access_token|refresh_token/.test(JSON.stringify(r.d)), r.d);
+    ok('the sign up row belongs to that new account', !!T.customers.find((c) => c.id === id && c.email === 'new@example.com' && c.status === 'checkout'));
+    const again = await call('/api/checkout', 'POST', Object.assign({}, good, { email: 'new@example.com', address: '99 W Other St' }));
+    ok('the same email before a plan starts picks the sign up back up: one account, one row, still no session', again.status === 200 && !again.d.auth && authCalls.filter((x) => x === 'create new@example.com').length === 1 && T.customers.filter((c) => c.email === 'new@example.com').length === 1, again.d);
+    // The card is saved. The page has no sign in, so it reports in with the card form id alone.
+    S.sessions[again.d.session].status = 'complete';
+    const done = await call('/api/checkout/done', 'POST', { session: again.d.session }); await settle();
+    ok('the page finishes the sign up with the card form id and no sign in', done.status === 200 && done.d.booked === true && T.customers.find((c) => c.id === id).status === 'trialing', done.d);
+    ok('a made up card form id starts nothing', (await call('/api/checkout/done', 'POST', { session: 'cs_test_nope' })).status === 400);
+    const booked = await call('/api/checkout', 'POST', Object.assign({}, good, { email: 'new@example.com' }));
+    ok('once that email has a plan, sign up with no sign in sends the code, and gives nothing away', booked.status === 409 && booked.d.code === 'use_code' && !booked.d.auth && !booked.d.clientSecret, booked.d);
+    T.staff.push({ id: 's1', email: 'maria@arizonapetwaste.com', active: true });
+    const staff = await call('/api/checkout', 'POST', Object.assign({}, good, { email: 'Maria@ArizonaPetWaste.com' }));
+    ok('a staff email gets the code and no account is made', staff.status === 409 && staff.d.code === 'use_code' && !authCalls.includes('create maria@arizonapetwaste.com'), staff.d);
+    T.staff.length = 0;
+    AUTH['signedin@example.com'] = { id: crypto.randomUUID() };
+    const old = await call('/api/checkout', 'POST', Object.assign({}, good, { email: 'signedin@example.com' }));
+    ok('an email that signed in before but never started a sign up gets the code', old.status === 409 && old.d.code === 'use_code', old.d);
+    ok('with no bot check keys the page is told not to run one', (await call('/api/config')).d.botCheck === false);
+    env = Object.assign({}, baseEnv, { TURNSTILE_SECRET_KEY: 'ts_secret', TURNSTILE_SITE_KEY: 'ts_site' });
+    ok('with both keys the page is told to run it', (await call('/api/config')).d.botCheck === true);
+    const bot = await call('/api/checkout', 'POST', Object.assign({}, good, { email: 'bot@example.com' }));
+    ok('with the bot check on, a new email with no bot pass is refused and no account is made', bot.status === 403 && !AUTH['bot@example.com'], bot.d);
+    const human = await call('/api/checkout', 'POST', Object.assign({}, good, { email: 'person@example.com', phone: '6235550177', address: '77 W Human St', bot: 'human' }));
+    ok('and with a bot pass it goes through', human.status === 200 && !!human.d.clientSecret, human.d);
+    ok('a signed in customer is not asked for a bot pass', (await call('/api/checkout', 'POST', Object.assign({}, good, { phone: '6235550188', address: '88 W Signed St' }), 'two')).status === 200);
+    env = Object.assign({}, baseEnv);
+    T.customers.length = 0; T.consent_log.length = 0; mails.length = 0; for (const k of Object.keys(S.subs)) delete S.subs[k];
+  }
   ok('a ZIP we do not serve cannot check out', (await call('/api/checkout', 'POST', Object.assign({}, good, { zip: '85001' }), 'good')).status === 400);
   T.customers.push({ id: 'other', phone: '0000000000', address: '4321 West Example Street', zip: good.zip, stripe_subscription_id: 'sub_old', status: 'canceled' });
   const again = await call('/api/checkout', 'POST', Object.assign({}, good, { address: '4321 W. Example St' }), 'good');
   ok('a second free month at the same home is blocked', again.status === 409 && again.d.code === 'had_free_month', again);
   T.customers.length = 0; }
+
+head('Street address suggestions');
+{ let r = await call('/api/address?q=4321%20N%20Ver&s=abcd1234efgh');
+  ok('with no Google key the list is empty and the form still works', r.status === 200 && r.d.list.length === 0 && placeCalls.length === 0, r.d);
+  env = Object.assign({}, baseEnv, { GOOGLE_MAPS_SERVER_KEY: 'gk_test' });
+  r = await call('/api/address?q=ab');
+  ok('too little typed asks Google nothing', r.d.list.length === 0 && placeCalls.length === 0);
+  r = await call('/api/address?q=4321%20N%20Ver&s=abcd1234efgh');
+  ok('typing a street gives matches, kept inside our towns', r.status === 200 && r.d.list.length === 1 && r.d.list[0].main === '4321 North Verrado Way' && r.d.list[0].sub === 'Buckeye, AZ'
+    && placeCalls[0].sessionToken === 'abcd1234efgh' && !!placeCalls[0].locationRestriction && !JSON.stringify(r.d).includes('gk_test'), r.d);
+  r = await call('/api/address/pick?id=ChIJ_test_place_1&s=abcd1234efgh');
+  ok('picking one fills the street and the ZIP', r.status === 200 && r.d.street === '4321 N Verrado Way' && r.d.zip === '85396' && r.d.served === true, r.d);
+  PLACES.zip = '85001';
+  r = await call('/api/address/pick?id=ChIJ_test_place_1');
+  ok('a pick outside our ZIP codes says so', r.status === 200 && r.d.served === false, r.d);
+  PLACES.zip = '85396';
+  ok('a made up place id is refused', (await call('/api/address/pick?id=../../x')).status === 400);
+  PLACES.off = true; placeCalls.length = 0;
+  r = await call('/api/address?q=4321%20N%20Ver');
+  const r2 = await call('/api/address?q=4321%20N%20Verr');
+  ok('Places not switched on for the key: empty list, one note for the Health tab, and no more calls for a while', r.d.list.length === 0 && r2.d.list.length === 0 && placeCalls.length === 1
+    && T.errors.some((e) => /Places API/.test(e.message || '')), { calls: placeCalls.length, errors: T.errors.length });
+  PLACES.off = false; T.errors.length = 0; env = Object.assign({}, baseEnv); }
 
 /* ---------- the money dates ---------- */
 head('What the customer is told and what Stripe is told (first visit from a set day, so the dates do not move)');
@@ -223,9 +313,9 @@ async function quote(from, plan, dogs, token, extraEnv) {
   // April has 30 days and 14 are left (April 17 to May 1). Plan $108, one extra dog $13: each line on its own.
   const want = Math.round(10800 * 14 / 30) + Math.round(1300 * 14 / 30);
   ok('part month is worked out line by line: $' + (want / 100).toFixed(2), Number(q.md.first_charge) === want && want === 5647, q.md.first_charge);
-  ok('the 60 day date is May 9', q.md.min_label === 'May 9' && day(Number(q.md.min_end)) === '2027-05-09T19:00', q.md);
-  ok('the note by the button says $0 today, the part month, the 1st, cancel anytime and the 60 day rule',
-    q.note === 'You pay $0 today. Your free month runs until April 17. That day we charge $56.47 for April 17 to May 1. Then $121 on the 1st of each month. Cancel anytime in My Yard. Keep your plan until May 9 and your free month stays free. If you cancel before May 9, we charge one month at your plan price, minus anything you have paid.', q.note);
+  ok('the 60 day rule is off: the sign up carries no early cancel date, only the day pausing opens (May 9)', q.md.min_label === undefined && q.md.min_end === undefined && day(Number(q.md.pause_from)) === '2027-05-09T19:00', q.md);
+  ok('the note by the button says $0 today, the part month, the 1st and cancel anytime, with no 60 day rule',
+    q.note === 'You pay $0 today. Your free month runs until April 17. That day we charge $56.47 for April 17 to May 1. Then $121 on the 1st of each month. Cancel anytime in My Yard.', q.note);
   ok('the note fits Stripe’s 1200 letter limit', q.note.length < 1200);
   const f = q.s.form;
   ok('the card form only saves a card: setup mode, embedded, never leaves the page', f.get('mode') === 'setup' && f.get('ui_mode') === 'embedded_page' && f.get('redirect_on_completion') === 'never' && f.get('currency') === 'usd');
@@ -273,7 +363,7 @@ ok('webhook with a good signature is taken', (await hook(sessionEvt(q.s.id))) ==
   ok('free until April 17, bills on the 1st from May 1, Stripe charges the days in between',
     f.get('trial_end') === q.md.free_end && f.get('billing_cycle_anchor') === q.md.anchor && f.get('proration_behavior') === 'create_prorations', String(f));
   ok('the plan has the base price and one extra dog', f.get('items[0][price]') === 'price_wb' && f.get('items[0][quantity]') === '1' && f.get('items[1][price]') === 'price_apw_week_extra' && f.get('items[1][quantity]') === '1');
-  ok('the plan remembers the dates the customer saw', f.get('metadata[user_id]') === U1 && f.get('metadata[min_end]') === q.md.min_end && f.get('metadata[free_label]') === 'April 17' && f.get('metadata[next_label]') === 'May 1' && f.get('metadata[first_charge]') === '5647' && f.get('metadata[session]') === q.s.id);
+  ok('the plan remembers the dates the customer saw', f.get('metadata[user_id]') === U1 && f.get('metadata[pause_from]') === q.md.pause_from && !f.get('metadata[min_end]') && f.get('metadata[free_label]') === 'April 17' && f.get('metadata[next_label]') === 'May 1' && f.get('metadata[first_charge]') === '5647' && f.get('metadata[session]') === q.s.id);
   ok('Stripe is told to make this plan only once for this sign up', posts[0].key === 'apw-plan-' + q.s.id);
   const cust = S.customers[row(U1).stripe_customer_id];
   ok('the saved card is the card on file for every bill (set on the customer, not on the plan)', cust.invoice_settings.default_payment_method === S.intents[q.s.setup_intent].payment_method && !f.get('default_payment_method'));
@@ -281,8 +371,29 @@ ok('webhook with a good signature is taken', (await hook(sessionEvt(q.s.id))) ==
   ok('the row is on its free month with the plan id', row(U1).status === 'trialing' && row(U1).stripe_subscription_id === Object.keys(S.subs)[0]);
   ok('the office gets one new booking email', sent(/^New booking: Test Person/).length === 1 && /Billing: Your free month runs until April 17\. That day we charge \$56\.47 for April 17 to May 1\. Then \$121 on the 1st of each month\./.test(sent(/^New booking/)[0].text), mails.map((m) => m.subject));
   const hi = sent(/^You are booked/)[0];
-  ok('the customer gets one welcome email with the dates, cancel anytime and the 60 day date', sent(/^You are booked/).length === 1 && hi.to[0] === 'test@example.com'
-    && /We did not charge it today/.test(hi.text) && /That day we charge \$56\.47/.test(hi.text) && /You can cancel anytime in My Yard\. Keep your plan until May 9/.test(hi.text), hi && hi.text);
+  { // The welcome email signs them in to My Yard with one tap, no code, for 7 days.
+    const k = (/\/account\/\?k=([^\s]+)/.exec(hi.text) || [])[1];
+    AUTH['test@example.com'] = { id: U1 };
+    const r = await call('/api/me/link', 'POST', { k });
+    ok('the welcome email has a My Yard link that signs the customer in', !!k && r.status === 200 && r.d.session.user.id === U1 && /^tok_/.test(r.d.session.access_token) && tokens[r.d.session.access_token].id === U1, { k, d: r.d });
+    ok('it signs in with a one time email token, never a password', authCalls.includes('link test@example.com') && !AUTH['test@example.com'].hash && !AUTH['test@example.com'].password);
+    ok('that session opens My Yard', (await call('/api/me', 'GET', null, r.d.session.access_token)).status === 200);
+    const bad = await call('/api/me/link', 'POST', { k: k.slice(0, -2) + (k.slice(-2) === 'AA' ? 'BB' : 'AA') });
+    ok('a changed link does nothing', bad.status === 410 && !bad.d.session, bad.d);
+    const [uid, exp, sig] = k.split('.');
+    const other = await call('/api/me/link', 'POST', { k: U2 + '.' + exp + '.' + sig });
+    ok('a link cannot be moved to another customer', other.status === 410, other.d);
+    ok('a link with a later end date typed in does nothing', (await call('/api/me/link', 'POST', { k: uid + '.' + (Number(exp) + 999) + '.' + sig })).status === 410);
+    T.staff.push({ id: 's1', email: 'test@example.com', active: true });
+    ok('a link never signs in a staff account', (await call('/api/me/link', 'POST', { k })).status === 410);
+    T.staff.length = 0;
+    AUTH.wrongUser = U2;
+    const wrong = await call('/api/me/link', 'POST', { k });
+    ok('if Supabase ever answers with another account, the session is thrown away', wrong.status === 410 && !wrong.d.session, wrong.d);
+    delete AUTH.wrongUser; T.errors.length = 0;
+  }
+  ok('the customer gets one welcome email with the dates and cancel anytime, and no 60 day rule', sent(/^You are booked/).length === 1 && hi.to[0] === 'test@example.com'
+    && /We did not charge it today/.test(hi.text) && /That day we charge \$56\.47/.test(hi.text) && /You can cancel anytime in My Yard\.\n/.test(hi.text) && !/Keep your plan|60 days|charge one month/.test(hi.text), hi && hi.text);
   ok('every Stripe request names the API version', S.calls.every((c) => c.version === '2026-10-28.endive'));
 }
 head('Sign up: nothing doubles up');
@@ -622,8 +733,18 @@ env = Object.assign({}, baseEnv, { FIRST_VISIT_FROM: '2027-03-10' });
 }
 
 /* ---------- the 60 day rule ---------- */
-head('Free month rule: a cancel in the first 60 days is charged up to one month');
+head('The 60 day rule is off (Joe, Nov 16, 2026): canceling early costs nothing');
 { const now = Math.floor(Date.now() / 1000);
+  const gone = (meta) => ({ type: 'customer.subscription.deleted', data: { object: { id: 'sub_9', customer: cus, status: 'canceled', canceled_at: now, metadata: Object.assign({ user_id: U1 }, meta), items: { data: [{ price: { unit_amount: 9900 }, quantity: 1 }] } } } });
+  for (const [label, meta] of [['a new sign up (no early cancel date)', { pause_from: String(now + 40 * 86400), free_end: String(now + 10 * 86400) }], ['a sign up from when the rule was shown', { min_end: String(now + 40 * 86400) }]]) {
+    reset(); S.made.length = 0; S.lines.length = 0; S.paidSoFar = []; row(U1).status = 'active'; row(U1).stripe_subscription_id = 'sub_9';
+    await hook(gone(meta));
+    ok(label + ' cancels on day 20: no charge, no bill, and the customer is canceled', S.items.length === 0 && S.made.length === 0 && !S.calls.some((c) => c.m === 'POST' && /^invoice/.test(c.p)) && sent(/^Free month charged/).length === 0 && row(U1).status === 'canceled', S.calls.map((c) => c.m + ' ' + c.p));
+  }
+}
+head('The 60 day rule, kept for later: with EARLY_CANCEL on, a cancel in the first 60 days is charged up to one month');
+{ const now = Math.floor(Date.now() / 1000);
+  env = Object.assign({}, env, { EARLY_CANCEL: 'on' });
   const gone = (canceledAt, meta) => ({ type: 'customer.subscription.deleted', data: { object: { id: 'sub_9', customer: cus, status: 'canceled', canceled_at: canceledAt, metadata: Object.assign({ user_id: U1 }, meta), items: { data: [{ price: { unit_amount: 9900 }, quantity: 1 }] } } } });
   const charged = () => S.items.map((c) => c.f.get('amount')).join(',') || 'none';
   const run = async (label, paid, meta, want) => { reset(); S.made.length = 0; S.lines.length = 0; S.paidSoFar = paid; row(U1).status = 'active'; row(U1).stripe_subscription_id = 'sub_9'; await hook(gone(now, meta)); ok(label + ' (charged ' + want + ')', charged() === want && row(U1).status === 'canceled', charged()); };
@@ -647,8 +768,8 @@ head('Free month rule: a cancel in the first 60 days is charged up to one month'
   await run('cancel on day 45, paid the part month $56.47', [5647], { min_end: String(now + 15 * 86400) }, '4253');
   await run('cancel on day 55, paid over a month', [5647, 9900], { min_end: String(now + 5 * 86400) }, 'none');
   await run('cancel on day 61', [], { min_end: String(now - 86400) }, 'none');
-  await run('older plan with only a free month end date, canceled inside it', [], { free_end: String(now + 10 * 86400) }, '9900');
-  await run('older plan canceled after the free month', [], { free_end: String(now - 86400) }, 'none');
+  await run('a plan with no early cancel date (signed up while the rule was off) is never charged', [], { free_end: String(now + 10 * 86400), pause_from: String(now + 40 * 86400) }, 'none');
+  delete env.EARLY_CANCEL;
   ok('a canceled customer loses the gate code', row(U1).gate_code === null);
   // Late news about the plan that was canceled must not bring the customer back.
   reset();

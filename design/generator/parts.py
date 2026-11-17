@@ -201,7 +201,7 @@ MAP_CHIPS = '''  <div class="mchips" role="group" aria-label="Towns we scoop">
 from scene import saguaro, agave, barrel  # noqa: E402
 
 FAQ_ITEMS = [
-    ('[[bf:What is the Black Friday sale?||Is my first cleanup free?]]', '[[bf:Sign up by November 30 and your first month is free. The sale ends at midnight on November 30. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.||Yes. Your first cleanup is free when you sign up.]]'),
+    ('[[bf:What is the Black Friday sale?||Is my first cleanup free?]]', '[[bf:Sign up by November 30 and your first month is free. The sale ends at midnight on November 30.||Yes. Your first cleanup is free when you sign up.]]'),
     ('How much does it cost?', 'Weekly pickup is about $25 a week for 1 or 2 dogs. We bill it once a month: $108 on the 1st. [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]'),
     ('Is the spray really free?', 'Yes. Deodorizing is included free with every visit, on rock and turf yards alike. We spray the spots your dogs use most. It costs you nothing.'),
     ('Do you come in the summer heat?', 'Yes. In summer we start early, so your yard is done before the worst heat of the day.'),
@@ -218,7 +218,7 @@ FAQ_ITEMS = [
     ('What if a dog in the yard is not safe to be near?', 'We don’t go in. We text you to bring the dog inside. We can come back the same day.'),
     ('Can I skip a week?', 'Yes. You get 4 free skips a year. Sign in to My Yard and tap Skip next to the visit, up to 24 hours before. No phone call.'),
     ('Can I pause while we are away?', 'Yes. After your first 60 days, you can pause for up to 120 days in My Yard. You don’t pay while you are paused. Before then, use a free skip.'),
-    ('How do I cancel?', 'Tap cancel in My Yard. There is no long term contract and no phone call. If you signed up with the Black Friday sale, keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.'),
+    ('How do I cancel?', 'Tap cancel in My Yard. There is no long term contract and no phone call.'),
     ('What if I get another dog?', 'Text us, or we will see on our next visit. We update your plan to match and email you the new price. It starts with your next bill. Each dog after two adds $13 a month, or $9 on the every other week plan.'),
     ('What is My Yard?', 'My Yard is your account on our site. Sign in with your email and a 6 digit code. No password. You can see your next visits, skip a visit, pause, see your bills and gate photos, change your card, or cancel.'),
     ('Is my card safe?', 'Yes. You pay through Stripe, the same checkout big stores use. Stripe keeps your card. We never see or store your card number.'),
@@ -375,8 +375,9 @@ SEAL = look.seal_svg()
 SEAL_FAM = look.seal_svg(glyph='heart')
 SEALS = [('Bonded', '$50,000 bond'), ('Insured', '$1,000,000 liability'), ('Background checked', 'Every team member')]
 SEALS_ARIA = 'Bonded, insured and background checked. Family owned and operated.'
-# One plain line by every sign up button. During the sale it names the 60 day rule, so "no contract" never stands alone.
-NO_CONTRACT = '[[bf:No long term contract. Keep your plan 60 days and your free month stays free.||No contract.]]'
+# One plain line by every sign up button. Joe, Nov 16, 2026, night: the "keep your plan 60 days" rule is off the site.
+# It made the free month confusing. The offer is first month free, and that is all it says.
+NO_CONTRACT = '[[bf:No long term contract.||No contract.]]'
 # Joe, Nov 16, 2026: the insurance is in force. The claim is in the present tense and has no start date: "Insured and bonded."
 COVERED = 'Insured and bonded.'
 _F_PHONE = ICON_PHONE.replace('stroke="#FF6B42"', 'stroke="currentColor"')
@@ -473,7 +474,7 @@ CK_ITEMS = [('A 30 minute time window', 'We text it to you the night before.'),
             ('A free return within 24 hours', 'If we miss a pile.'),
             ('4 free skips a year', 'One tap in My Yard. After your first 60 days, you can pause for up to 120 days too.'),
             ('Every home in 6 ZIP codes', 'Buckeye, Goodyear, Litchfield Park, Citrus Park and Waddell.'),
-            ('[[bf:No long term contract||No contract]] and no sign up fee', '[[bf:Month to month. Keep your plan 60 days and your free month stays free.||Month to month. Cancel in My Yard.]]')]
+            ('[[bf:No long term contract||No contract]] and no sign up fee', 'Month to month. Cancel in My Yard.')]
 SPECS = ('<section id="specs" class="sec">\n  <div class="in ck-g">\n'
          '  <div class="shd">\n'
          '    <h2 class="h2">What you get with every visit</h2>\n'
@@ -491,7 +492,7 @@ BF_DEAL = ('[[bf:<div class="bfd" data-deal-end="2026-12-01T06:59:59Z"><div clas
   '<p class="bfd-p">Sign up by November 30. After that, the sale is over.</p></div>'
   '<div><div class="bfd-when"><p class="bfd-ends">Sale ends Monday, November 30</p>'
   '<p class="bfd-clock" aria-hidden="true"><span><b data-u="d">00</b><i>days</i></span><span><b data-u="h">00</b><i>hrs</i></span><span><b data-u="m">00</b><i>min</i></span><span><b data-u="s">00</b><i>sec</i></span></p></div>'
-  '<p class="bfd-fine">No long term contract. Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.</p></div>'
+  '<p class="bfd-fine">No long term contract.</p></div>'
   '</div></div>||]]')
 
 

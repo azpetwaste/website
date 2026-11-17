@@ -478,7 +478,7 @@ const VIDEOS = [
   { file: 'free-spray', secs: [15, 10], name: 'Free deodorizer spray at every visit',
     text: 'Yard smells like a kennel? Arizona Pet Waste sprays deodorizer on the spots your dogs use most. It is free at every dog poop pickup visit.' },
   { file: 'black-friday', secs: [15, 0], sale: true, name: 'Black Friday sale: your first month of dog poop pickup is free',
-    text: 'Sign up for dog poop pickup by November 30, 2026 and your first month is free. No long term contract. Keep your plan 60 days and your free month stays free.' }
+    text: 'Sign up for dog poop pickup by November 30, 2026 and your first month is free. No long term contract.' }
 ].filter((v) => DEAL_ON || !v.sale);
 const videoUrl = (v) => ORIGIN + '/assets/video/' + v.file + (DEAL_ON ? '-sale' : '') + '-v1.mp4';
 const videoLd = (pageUrl) => VIDEOS.map((v) => Object.assign({
@@ -788,7 +788,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - One time pickup: from $99. A big job, like a yard that has not been cleaned in a long time, gets a quote first, and the price is given before the visit. Same day when we have a spot, at the same price. For a customer on a plan it is added to the next bill.
 - Deodorizing (free every visit): included free with every visit, on rock and turf yards alike. It costs nothing on any plan or cleanup.
 - Billing: everyone is billed on the 1st of each month.[[bf: During the Black Friday sale (sign up by November 30, 2026) the first month is free. A card is saved at sign up and nothing is charged that day. The first charge is on the day the free month ends and only covers the days left until the 1st. Then the full price on the 1st of each month. If a payment fails, the customer is emailed that day and visits are on hold until the bill is paid.||]]
-[[bf:- Black Friday sale: sign up by Monday, November 30, 2026 and the first month is free. The sale ends at midnight on November 30. The free month stays free when the customer keeps the plan for 60 days. Canceling in the first 60 days is charged one month at the plan price, minus anything already paid. Canceling is done online in My Yard, with no phone call.||- Offer: the first cleanup is free. The Black Friday free month sale ended on November 30, 2026. Customers who signed up in the sale keep the free month when they keep the plan for 60 days.]]
+[[bf:- Black Friday sale: sign up by Monday, November 30, 2026 and the first month is free. The sale ends at midnight on November 30. There is no charge for canceling. Canceling is done online in My Yard, with no phone call.||- Offer: the first cleanup is free. The Black Friday free month sale ended on November 30, 2026.]]
 
 ## Service area (every home in these ZIP codes)
 - [Buckeye, AZ 85326 and 85396](${ORIGIN}/pooper-scooper/buckeye-az/). Neighborhoods: ${hoodNames('buckeye').join(', ')}.
@@ -840,7 +840,7 @@ ${VIDEOS.map((v) => '- [' + v.name + '](' + videoUrl(v) + '): ' + v.text).join('
 - Missed pile: free return within 24 hours.
 - Waste: we bag it and haul it away. Nothing is left in the customer’s trash can.
 - Tools: boots and tools cleaned after every yard.
-- Contract: [[bf:no long term contract. Black Friday sign ups keep the free month by keeping the plan 60 days.||none.]] 4 free skips a year. After the first 60 days, pause up to 120 days. Cancel in My Yard.[[bf: One free month per home.||]]
+- Contract: [[bf:no long term contract.||none.]] 4 free skips a year. After the first 60 days, pause up to 120 days. Cancel in My Yard.[[bf: One free month per home.||]]
 - My Yard: the customer account at ${ORIGIN}/account/. Sign in with an email code, no password. See next visits, skip a visit, pause, see bills and gate photos, change the card, or cancel. No phone call needed.
 - Payment: secure checkout by Stripe. Arizona Pet Waste never sees or stores card numbers.
 
@@ -851,7 +851,7 @@ ${faqText}
 ${FILE_PAGES.filter((x) => x.type !== 'blogindex').map((x) => '- [' + x.h1 + '](' + ORIGIN + x.route + '): ' + x.description).join('\n')}${FILE_PAGES.length ? '\n' : ''}- [Home](${ORIGIN}/): plans, prices, how a visit works, service map
 - [How it works](${ORIGIN}/how-it-works/): every step of a visit
 - [About us](${ORIGIN}/about/): who we are, where we work, our bond and insurance
-- [Our promise](${ORIGIN}/our-promise/): gate photo or the visit is $0, free return in 24 hours, the 60 day rule
+- [Our promise](${ORIGIN}/our-promise/): gate photo or the visit is $0, free return in 24 hours, cancel online
 - [Contact](${ORIGIN}/contact/): call, text or email
 - [Pricing](${ORIGIN}/pricing/): plans, extras and billing on the 1st
 - [FAQ](${ORIGIN}/faq/): all of our answers

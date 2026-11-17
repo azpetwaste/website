@@ -263,7 +263,7 @@ ok('each new plan had its first bill looked at in Stripe once, and it matched wh
 ok('all 10 have a map pin', list.every((c) => c.lat != null && c.lng != null));
 ok('all 10 got their area service day', list.every((c) => c.service_day === wd));
 ok('office got 10 new booking emails', mails.filter((x) => /^New booking/.test(x.subject)).length === 10);
-ok('each customer got a welcome email with the 60 day date', mails.filter((x) => /You are booked/.test(x.subject) && /Keep your plan until/.test(x.text)).length === 10);
+ok('each customer got a welcome email with a My Yard link and no 60 day rule', mails.filter((x) => /You are booked/.test(x.subject) && /\/account\/\?k=/.test(x.text) && !/Keep your plan|60 days/.test(x.text)).length === 10);
 const dbRow = (await db.query("select count(*)::int n from consent_log")).rows[0].n;
 ok('20 text consent records saved', dbRow === 20, dbRow);
 

@@ -28,9 +28,12 @@ const ZIPS = {
 };
 // The exact words shown next to the text boxes. Saved with every consent record.
 const CONSENT = {
-  visit: 'Text me about my visits. Setting your day, night before reminders, on the way, and your gate photo. About 2 to 4 texts a visit.',
-  deals: 'Text me deals too. Up to 4 texts a month.',
-  fine: 'By checking a box, you agree to get texts from Arizona Pet Waste at the number above. Message and data rates may apply. Reply STOP to stop or HELP for help. You do not have to agree to texts to book. See our Text Terms and Privacy Policy.'
+  // Joe, Nov 16, 2026: one box for visit texts and deals texts. It is marked Recommended with a red star, and it stays
+  // optional: texts are never a condition of buying (TCPA), and Twilio refuses a required text box. Both consent kinds are
+  // still saved, each with these words, so the office and the records keep working.
+  visit: 'Text me about my visits. Setting your day, night before reminders, on the way, your gate photo, and deals. About 2 to 4 texts a visit, plus up to 4 deals texts a month.',
+  deals: 'Text me about my visits. Setting your day, night before reminders, on the way, your gate photo, and deals. About 2 to 4 texts a visit, plus up to 4 deals texts a month.',
+  fine: 'By checking the box, you agree to get texts from Arizona Pet Waste at the number above, about your visits and our deals. Message and data rates may apply. Reply STOP to stop or HELP for help. You do not have to agree to texts to book. See our Text Terms and Privacy Policy.'
 };
 const CALL_US = 'Call or text 623.309.6104 and we will help.';
 
@@ -53,7 +56,9 @@ export default {
     if (ip) {
       const p = url.pathname;
       const hit = p === '/api/staff/code' ? hitLimit('code|' + ip, 8, 600e3) : p === '/api/staff/verify' ? hitLimit('verify|' + ip, 10, 600e3)
-        : p.startsWith('/api/track/') ? hitLimit('track|' + ip, 120, 60e3) : p === '/api/demo/week' ? hitLimit('demo|' + ip, 40, 60e3) : false;
+        : p.startsWith('/api/track/') ? hitLimit('track|' + ip, 120, 60e3) : p === '/api/demo/week' ? hitLimit('demo|' + ip, 40, 60e3)
+        : p.startsWith('/api/address') ? hitLimit('addr|' + ip, 150, 600e3)
+        : p === '/api/checkout' ? hitLimit('checkout|' + ip, 20, 3600e3) : p === '/api/me/link' ? hitLimit('link|' + ip, 20, 600e3) : false;
       if (hit || hitLimit('all|' + ip, 400, 60e3)) return fail(429, 'Too many tries. Wait a minute, then try again.');
     }
     // Nobody needs to send more than this. A sign up form is a few hundred bytes. Only a gate photo is big.
@@ -79,6 +84,9 @@ async function route(path, request, env, ctx) {
   if (path === '/api/stripe-webhook' && m === 'POST') return webhook(request, env, ctx);
   if (path === '/api/waitlist' && m === 'POST') return waitlist(request, env, ctx);
   if (path === '/api/request' && m === 'POST') return signupRequest(request, env, ctx);
+  if (path === '/api/address' && m === 'GET') return addressFind(request, env);
+  if (path === '/api/address/pick' && m === 'GET') return addressPick(request, env);
+  if (path === '/api/me/link' && m === 'POST') return meLink(request, env);
   if (path === '/api/me' && m === 'GET') return meGet(request, env);
   if (path === '/api/me' && m === 'POST') return meSave(request, env);
   if (path === '/api/portal' && m === 'POST') return portal(request, env);
@@ -182,6 +190,132 @@ async function signedIn(request, env) {
   const u = await r.json();
   return u && u.id && u.email ? { id: u.id, email: String(u.email).toLowerCase() } : null;
 }
+/* ---------- street address suggestions on the sign up form (Joe, Nov 16, 2026) ----------
+   As the customer types their street, the page asks here and shows up to five matches. Google Places API (New) does the
+   matching, with the server key, so no key sits in the page. Only addresses inside our towns are offered. Picking one fills
+   the street and the ZIP. If Places is not switched on for the key, this returns an empty list and the form works as before:
+   the customer types the whole street. One typing run and its pick share a session token, so Google bills it as one lookup. */
+const ADDR_BOX = { low: { latitude: 33.25, longitude: -112.75 }, high: { latitude: 33.62, longitude: -112.30 } };
+const tokenOk = (t) => (/^[A-Za-z0-9_-]{8,36}$/.test(String(t || '')) ? String(t) : '');
+let placesOff = 0; // when Google last said the key cannot use Places, so we stop asking for ten minutes
+async function addressFind(request, env) {
+  const q = new URL(request.url).searchParams;
+  const input = clean(q.get('q'), 120), token = tokenOk(q.get('s'));
+  if (!env.GOOGLE_MAPS_SERVER_KEY || input.length < 3 || !/\d/.test(input) || Date.now() - placesOff < 600e3) return ok({ list: [] });
+  try {
+    const r = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GOOGLE_MAPS_SERVER_KEY, 'x-goog-fieldmask': 'suggestions.placePrediction.placeId,suggestions.placePrediction.structuredFormat' },
+      body: JSON.stringify(Object.assign({ input, includedRegionCodes: ['us'], includedPrimaryTypes: ['street_address', 'premise', 'subpremise'], locationRestriction: { rectangle: ADDR_BOX } }, token ? { sessionToken: token } : {}))
+    });
+    if (!r.ok) {
+      if (r.status === 403 || r.status === 400) { placesOff = Date.now(); await logError(env, 'server', '/api/address', 'Address suggestions are off: Google refused the Places call. Turn on Places API (New) for the server key', r.status + ' ' + clean(await r.text(), 300)).catch(() => {}); }
+      return ok({ list: [] });
+    }
+    const d = await r.json();
+    const list = ((d && d.suggestions) || []).map((x) => x.placePrediction).filter((x) => x && x.placeId && x.structuredFormat && x.structuredFormat.mainText)
+      .slice(0, 5).map((x) => ({ id: x.placeId, main: clean(x.structuredFormat.mainText.text, 120), sub: clean((x.structuredFormat.secondaryText || {}).text, 120).replace(/, USA$/, '') }));
+    return ok({ list });
+  } catch (e) { return ok({ list: [] }); }
+}
+async function addressPick(request, env) {
+  const q = new URL(request.url).searchParams;
+  const id = String(q.get('id') || ''), token = tokenOk(q.get('s'));
+  if (!env.GOOGLE_MAPS_SERVER_KEY || !/^[A-Za-z0-9_-]{10,300}$/.test(id)) return fail(400, 'Please type your street address.');
+  try {
+    const r = await fetch('https://places.googleapis.com/v1/places/' + id + (token ? '?sessionToken=' + token : ''), {
+      headers: { 'x-goog-api-key': env.GOOGLE_MAPS_SERVER_KEY, 'x-goog-fieldmask': 'addressComponents' }
+    });
+    if (!r.ok) return fail(502, 'Please type your street address.');
+    const parts = (await r.json()).addressComponents || [];
+    const part = (type, short) => { const c = parts.find((x) => (x.types || []).includes(type)); return c ? clean(short ? c.shortText : c.longText, 80) : ''; };
+    const unit = part('subpremise');
+    const street = clean([part('street_number'), part('route', true)].filter(Boolean).join(' ') + (unit ? ' ' + (/^\d/.test(unit) ? '#' : '') + unit : ''), 200);
+    const zip = part('postal_code');
+    if (!street || !/^\d{5}$/.test(zip)) return fail(502, 'Please type your street address.');
+    return ok({ street, zip, city: part('locality') || part('sublocality') || part('administrative_area_level_3'), served: !!ZIPS[zip] });
+  } catch (e) { return fail(502, 'Please type your street address.'); }
+}
+
+/* ---------- sign up with no email code (Joe, Nov 16, 2026: "sign up, we're done") ----------
+   A new customer does not type a code and does not make an account first. When the card step opens, the server makes the
+   account quietly (newAccount) and the sign up goes on with NO sign in: the page is never handed a session, so typing
+   someone's email can never open their account. After the card is saved, the welcome email carries a My Yard link that
+   signs them in with one tap (yardLink, meLink). Proof of the email is that link, or the 6 digit code, never the sign up form.
+   An email that has ever had a plan, or is on the team, gets the 6 digit code as before ("use_code").
+   The bot check guards the card form in place of the code when TURNSTILE_SECRET_KEY is set.
+   No password is set on any account, here or anywhere: see passwordSession. */
+// The account id for a sign up with no sign in. A brand new email gets a new account. An email with a sign up that was
+// never finished (no plan yet) picks that sign up back up. Returns null when the email must use the 6 digit code instead:
+// it has had a plan, it is on the team, or it has signed in before without ever starting a sign up.
+async function newAccount(env, email) {
+  if ((await db(env, 'GET', 'staff?email=eq.' + enc(email) + '&select=id')).length) return null;
+  const rows = await db(env, 'GET', 'customers?email=eq.' + enc(email) + '&select=id,status,stripe_subscription_id&limit=5');
+  if (rows.length) return rows.length === 1 && !rows[0].stripe_subscription_id && rows[0].status === 'checkout' && uuid(rows[0].id) ? rows[0].id : null;
+  const r = await fetch(base(env) + '/auth/v1/admin/users', { method: 'POST', headers: sbHeaders(env.SUPABASE_SERVICE_ROLE_KEY), body: JSON.stringify({ email, email_confirm: true }) });
+  if (!r.ok) {
+    // 422 means the email already has an account (someone who signed in before). Anything else is logged for the Health tab.
+    if (r.status !== 422) await logError(env, 'server', '/api/checkout', 'Could not make an account for a new sign up, so it used the email code', r.status + ' ' + clean(await r.text(), 300)).catch(() => {});
+    return null;
+  }
+  const d = await r.json();
+  return uuid(d && d.id) || null;
+}
+// Cloudflare Turnstile. Off until TURNSTILE_SECRET_KEY is set in Cloudflare Pages (the site key alone turns on the page side).
+async function botOk(env, token, ip) {
+  if (!env.TURNSTILE_SECRET_KEY) return true;
+  if (!token) return false;
+  try {
+    const r = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ secret: env.TURNSTILE_SECRET_KEY, response: String(token).slice(0, 2048), remoteip: ip || undefined }) });
+    const d = await r.json();
+    return !!(d && d.success);
+  } catch (e) { return false; }
+}
+// The one tap My Yard link in the welcome email. Signed with a server secret, good for 7 days, for one customer.
+const LINK_DAYS = 7;
+async function hmac(env, text) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode('apw-yard-link|' + env.SUPABASE_SERVICE_ROLE_KEY), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(text)));
+  return btoa(String.fromCharCode(...sig)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+async function yardLink(env, uid) {
+  const exp = Math.floor(Date.now() / 1000) + LINK_DAYS * 86400;
+  return 'https://' + siteHost(env) + '/account/?k=' + uid + '.' + exp + '.' + (await hmac(env, uid + '.' + exp));
+}
+async function meLink(request, env) {
+  if (!sbLive(env)) return fail(503, 'Sign in is not turned on yet.');
+  const b = await body(request);
+  const m = /^([0-9a-f-]{36})\.(\d{10})\.([A-Za-z0-9_-]{20,})$/.exec(String((b && b.k) || ''));
+  const expired = () => fail(410, 'This link has ended. Type your email and we send you a code.', 'link_ended');
+  if (!m || !uuid(m[1])) return expired();
+  const want = await hmac(env, m[1] + '.' + m[2]);
+  if (!sameSecret(want, m[3]) || Number(m[2]) < Date.now() / 1000) return expired();
+  const c = (await db(env, 'GET', 'customers?id=eq.' + m[1] + '&select=id,email'))[0];
+  if (!c || !c.email) return expired();
+  // Never a staff account, even if a customer row shares its email.
+  if ((await db(env, 'GET', 'staff?email=eq.' + enc(String(c.email).toLowerCase()) + '&select=id')).length) return expired();
+  // Sign them in the way every customer signs in: with a one time email token from Supabase. The server asks Supabase
+  // for the token (nothing is emailed) and trades it for a session right away. No password is ever set or used: a sign
+  // in that came from a password is refused everywhere (see passwordSession).
+  let d = null, why = '';
+  try {
+    const g = await fetch(base(env) + '/auth/v1/admin/generate_link', { method: 'POST', headers: sbHeaders(env.SUPABASE_SERVICE_ROLE_KEY), body: JSON.stringify({ type: 'magiclink', email: String(c.email).toLowerCase() }) });
+    const link = g.ok ? await g.json() : null;
+    const hash = link && (link.hashed_token || (link.properties && link.properties.hashed_token));
+    if (!hash) why = 'no token ' + g.status;
+    else {
+      for (const type of ['magiclink', 'email']) {
+        const v = await fetch(base(env) + '/auth/v1/verify', { method: 'POST', headers: sbHeaders(env.SUPABASE_ANON_KEY), body: JSON.stringify({ type, token_hash: hash }) });
+        if (v.ok) { d = await v.json(); break; }
+        why = 'verify ' + v.status;
+      }
+    }
+  } catch (e) { why = clean(e && e.message, 200); }
+  // The session must be for this very customer, or it is thrown away.
+  if (d && !(d.access_token && d.refresh_token && d.user && d.user.id === c.id)) { why = 'the session was for another account'; d = null; }
+  if (!d) { await logError(env, 'server', '/api/me/link', 'A My Yard link from a welcome email could not sign the customer in', why).catch(() => {}); return expired(); }
+  return ok({ session: Object.assign(sessionOut(d), { user: { id: c.id, email: String(c.email).toLowerCase() } }) });
+}
 function form(obj, prefix, out) {
   out = out || [];
   for (const k of Object.keys(obj)) {
@@ -257,6 +391,12 @@ function firstCharge(env, plan, dogs) {
   };
 }
 const MIN_DAYS = 60;
+// Joe, Nov 16, 2026, night: the "keep your plan 60 days" rule is off. It made the free month confusing, so the site only
+// says first month free, and nobody is charged for canceling early: we never bill a fee the customer was not told about.
+// The rule comes back only if EARLY_CANCEL is set to "on" in Cloudflare, and then only for sign ups made while it was on
+// (their plan carries min_end). The words on the site have to come back in the same change. The 60 day date still decides
+// when pausing opens (pause_from), so a pause cannot be used to stretch a free month.
+const earlyOn = (env) => env.EARLY_CANCEL === 'on';
 function dateLabel(d) { return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'America/Phoenix' }); }
 function billText(b) {
   if (b.full) return 'Your free month runs until ' + b.freeLabel + '. That day we charge ' + money(b.total) + ' for the month ahead. Then ' + money(b.total) + ' on the 1st of each month.';
@@ -336,16 +476,18 @@ function config(env) {
     firstVisitFrom: env.FIRST_VISIT_FROM || '2026-11-20',
     scheduleDays: scheduleDays(env),
     mail: !!env.RESEND_API_KEY,
-    turnstileKey: env.TURNSTILE_SITE_KEY || null
+    turnstileKey: env.TURNSTILE_SITE_KEY || null,
+    // true when the card step asks for a bot pass (both Turnstile keys are set). The page only runs the check then.
+    botCheck: !!(env.TURNSTILE_SITE_KEY && env.TURNSTILE_SECRET_KEY)
   });
 }
 
 async function checkout(request, env, ctx) {
   if (!live(env)) return fail(503, 'Online sign up is not turned on yet. ' + CALL_US);
-  const u = await signedIn(request, env);
-  if (!u) return fail(401, 'Please sign in again.');
+  let u = await signedIn(request, env);
   const b = await body(request);
   if (!b) return fail(400, 'Something was missing. Please try again.');
+  if (!u && !emailOk(clean(b.email, 200).toLowerCase())) return fail(400, 'Type your email, like you@email.com.');
   const zip = String(b.zip || '');
   const z = ZIPS[zip];
   if (!z) return fail(400, 'We do not scoop in that ZIP code yet.');
@@ -354,6 +496,14 @@ async function checkout(request, env, ctx) {
   if (!(dogs >= 1 && dogs <= 6)) return fail(400, 'Please pick 1 to 6 dogs.');
   const name = clean(b.name, 120), phone = digits(b.phone), address = clean(b.address, 200);
   if (name.length < 2 || phone.length !== 10 || address.length < 5) return fail(400, 'Please fill in your name, mobile number and street address.');
+  // No sign in: a new customer. The account is made here with no email code, and the page gets no session.
+  if (!u) {
+    const email = clean(b.email, 200).toLowerCase();
+    if (!(await botOk(env, b.bot, request.headers.get('cf-connecting-ip')))) return fail(403, 'Our bot check did not pass. Please try again.', 'bot');
+    const id = await newAccount(env, email);
+    if (!id) return fail(409, 'You already have an account with us. We sent a 6 digit code to your email.', 'use_code');
+    u = { id, email };
+  }
 
   const rows = await db(env, 'GET', 'customers?id=eq.' + u.id + '&select=*');
   const row = rows && rows[0];
@@ -406,23 +556,24 @@ async function checkout(request, env, ctx) {
     setup_intent_data: { description: 'Card for ' + PLANS[b.plan].name.toLowerCase() + ' dog poop pickup', metadata: { user_id: u.id } },
     metadata: {
       user_id: u.id, plan: b.plan, dogs: String(dogs), zip, first_charge: String(bill.firstCents),
-      free_end: String(bill.freeEnd), anchor: String(bill.anchor), min_end: String(bill.minEnd),
-      free_label: bill.freeLabel, next_label: bill.nextLabel, min_label: bill.minLabel
+      free_end: String(bill.freeEnd), anchor: String(bill.anchor), pause_from: String(bill.minEnd),
+      free_label: bill.freeLabel, next_label: bill.nextLabel,
+      min_end: earlyOn(env) ? String(bill.minEnd) : undefined, min_label: earlyOn(env) ? bill.minLabel : undefined
     },
-    custom_text: { submit: { message: 'You pay $0 today. ' + billText(bill) + ' Cancel anytime in My Yard. ' + freeRule(bill.minLabel) } }
+    custom_text: { submit: { message: 'You pay $0 today. ' + billText(bill) + ' Cancel anytime in My Yard.' + (earlyOn(env) ? ' ' + freeRule(bill.minLabel) : '') } }
   };
-  let session;
+  let ck;
   try {
     // Cards (Apple Pay and Google Pay ride on cards) and Link. Nothing else shows, even if it is switched on in Stripe.
-    session = await stripe(env, 'POST', 'checkout/sessions', Object.assign({}, form, { allowed_payment_method_types: ['card', 'link'] }));
+    ck = await stripe(env, 'POST', 'checkout/sessions', Object.assign({}, form, { allowed_payment_method_types: ['card', 'link'] }));
   } catch (e) {
     // If Stripe will not take that list, sign up must still work: show the card form with the ways to pay that are
     // switched on in the Stripe Dashboard, and leave a note on the Health tab.
     if (e.status !== 400) throw e;
-    session = await stripe(env, 'POST', 'checkout/sessions', form);
+    ck = await stripe(env, 'POST', 'checkout/sessions', form);
     ctx.waitUntil(logError(env, 'server', '/api/checkout', 'Stripe refused the list of ways to pay, so the card form used the Dashboard list', e.message));
   }
-  return ok({ clientSecret: session.client_secret, session: session.id });
+  return ok({ clientSecret: ck.client_secret, session: ck.id });
 }
 
 // The sign up page calls this the moment Stripe says the card is saved. The Stripe webhook does the same job, so a
@@ -430,12 +581,15 @@ async function checkout(request, env, ctx) {
 async function checkoutDone(request, env, ctx) {
   if (!live(env)) return fail(503, 'Online sign up is not turned on yet. ' + CALL_US);
   const u = await signedIn(request, env);
-  if (!u) return fail(401, 'Please sign in again.');
   const b = await body(request);
   const id = String((b && b.session) || '');
   if (!/^cs_[A-Za-z0-9_]{4,250}$/.test(id)) return fail(400, 'Something was missing. Please try again.');
-  const s = await stripe(env, 'GET', 'checkout/sessions/' + id, { expand: ['setup_intent.payment_method'] });
-  if (s.client_reference_id !== u.id) return fail(403, 'That sign up belongs to someone else.');
+  // A new customer has no sign in. The card form id is the proof: Stripe makes it, it cannot be guessed, and only the page
+  // that opened that card form has it. All this call can do with it is start that one sign up's plan, the same as the webhook.
+  let s;
+  try { s = await stripe(env, 'GET', 'checkout/sessions/' + id, { expand: ['setup_intent.payment_method'] }); }
+  catch (e) { if (e.status === 404) return fail(400, 'Something was missing. Please try again.'); throw e; }
+  if (u && s.client_reference_id !== u.id) return fail(403, 'That sign up belongs to someone else.');
   if (s.status !== 'complete') return ok({ booked: false });
   try {
     const out = await startPlan(env, ctx, s);
@@ -503,7 +657,7 @@ async function startPlan(env, ctx, s) {
       description: PLANS[md.plan].name + ', ' + dogs + (dogs === 1 ? ' dog' : ' dogs') + ', ' + ((ZIPS[md.zip] || {}).name || 'AZ') + '. We reach out to set the first visit.',
       metadata: {
         user_id: uid, plan: md.plan, dogs: String(dogs), zip: md.zip || '', session: s.id, first_charge: md.first_charge || '',
-        free_end: String(freeEnd), anchor: String(anchor), min_end: md.min_end || '',
+        free_end: String(freeEnd), anchor: String(anchor), pause_from: md.pause_from || md.min_end || '', min_end: md.min_end || '',
         free_label: md.free_label || '', next_label: md.next_label || '', min_label: md.min_label || ''
       }
     });
@@ -555,9 +709,10 @@ async function booked(env, ctx, uid, sub, customer, card) {
     'You are booked. We will reach out to let you know your day and time.', '',
     'Your card is saved. We did not charge it today.',
     billLine, '',
-    'You can cancel anytime in My Yard. ' + freeRule(meta.min_label), '',
-    'Next, set up your yard: add your gate code, your dogs’ names and any problem spots.',
-    (env.SITE_URL || 'https://arizonapetwaste.com') + '/account/', '',
+    'You can cancel anytime in My Yard.' + (meta.min_end ? ' ' + freeRule(meta.min_label) : ''), '',
+    'Next, set up My Yard: add your gate code, your dogs’ names and any problem spots. This link signs you in, no code needed. It works for ' + LINK_DAYS + ' days:',
+    await yardLink(env, c.id), '',
+    'After that, sign in at https://' + siteHost(env) + '/account/ with your email.', '',
     'Questions? Call or text 623.309.6104.', '', 'Arizona Pet Waste'
   ].join('\n')));
   return true;
@@ -879,10 +1034,11 @@ async function chargeLine(env, customer, tag, value, amount, description, key) {
 
 // The free month stays free when the customer keeps the plan for 60 days. A cancel requested before that
 // (canceled_at is when they asked, even for cancel at period end) brings what they have paid up to one month
-// at plan price. Subscriptions made before the 60 day rule only have free_end, so they keep the older rule.
+// at plan price. Off unless EARLY_CANCEL is "on" (see earlyOn), and then only for a plan that carries min_end.
 async function freeMonthCharge(env, ctx, sub, row) {
+  if (!earlyOn(env)) return;
   const md = sub.metadata || {};
-  const cutoff = parseInt(md.min_end || md.free_end || '0', 10);
+  const cutoff = parseInt(md.min_end || '0', 10);
   const askedAt = sub.canceled_at || sub.ended_at || Math.floor(Date.now() / 1000);
   if (!cutoff || askedAt >= cutoff) return;
   const item = (sub.items && sub.items.data && sub.items.data[0]) || {};
@@ -2480,7 +2636,7 @@ function nextVisits(c, from, n) {
 // Pausing opens after the 60 day minimum, so a pause cannot be used to sit out the minimum and keep the free month.
 async function minEndOf(env, c) {
   if (!c.stripe_subscription_id) return 0;
-  try { return parseInt(((await stripe(env, 'GET', 'subscriptions/' + c.stripe_subscription_id)).metadata || {}).min_end || '0', 10) || 0; } catch (e) { return 0; }
+  try { const md = (await stripe(env, 'GET', 'subscriptions/' + c.stripe_subscription_id)).metadata || {}; return parseInt(md.pause_from || md.min_end || '0', 10) || 0; } catch (e) { return 0; }
 }
 function planView(c, minEnd) {
   const today = azToday();

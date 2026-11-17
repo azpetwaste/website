@@ -19,6 +19,8 @@
 .apw .cbx input{width:24px;height:24px;flex:0 0 24px;margin:1px 0 0;accent-color:#FF4A1C}
 .apw .cbx b{display:block;font-size:16px;line-height:1.3}
 .apw .cbx small{display:block;margin-top:3px;font-size:14px;line-height:1.45;color:var(--mute)}
+.apw .rec{color:#FF3B3B;font-weight:800;white-space:nowrap}
+.apw .rec-note{margin:8px 0 0;font-size:14px;line-height:1.5;color:var(--ink);font-weight:600}
 .apw .fine{margin:12px 0 0;font-size:13px;line-height:1.55;color:var(--mute)}
 .apw .fine a,.apw .tlink{color:var(--ink);font-weight:700}
 .apw .tlink{display:inline-flex;align-items:center;min-height:44px;padding:0;border:0;background:none;font:inherit;font-size:16px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
@@ -113,9 +115,9 @@
     <label class="cbx" for="a-spray"><input id="a-spray" type="checkbox" checked="{{ noSpray }}" onChange="{{ onNoSpray }}"><span><b>Skip the free spray.</b><small>Check this if you do not want deodorizer sprayed in your yard.</small></span></label>
 
     <h2 class="yh2">Texts from us</h2>
-    <label class="cbx" for="a-tv"><input id="a-tv" type="checkbox" checked="{{ txtVisit }}" onChange="{{ onTxtVisit }}"><span><b>Text me about my visits.</b><small>Night before reminders, on the way, and your gate photo. About 2 to 4 texts a visit.</small></span></label>
-    <label class="cbx" for="a-td"><input id="a-td" type="checkbox" checked="{{ txtDeals }}" onChange="{{ onTxtDeals }}"><span><b>Text me deals too.</b><small>Up to 4 texts a month.</small></span></label>
-    <p class="fine">By checking a box, you agree to get texts from Arizona Pet Waste at {{ phoneLine }}. Message and data rates may apply. Reply STOP to stop or HELP for help. You do not have to agree to texts to buy. See our <a href="/texts/">Text Terms</a> and <a href="/privacy/">Privacy Policy</a>.</p>
+    <label class="cbx" for="a-tv"><input id="a-tv" type="checkbox" checked="{{ txtVisit }}" onChange="{{ onTxtVisit }}"><span><b>Text me about my visits. <span class="rec">* Recommended</span></b><small>Setting your day, night before reminders, on the way, your gate photo, and deals. About 2 to 4 texts a visit, plus up to 4 deals texts a month.</small></span></label>
+    <p class="rec-note">Skip this and your gate photo comes by email and in My Yard.</p>
+    <p class="fine">By checking the box, you agree to get texts from Arizona Pet Waste at {{ phoneLine }}, about your visits and our deals. Message and data rates may apply. Reply STOP to stop or HELP for help. You do not have to agree to texts to buy. See our <a href="/texts/">Text Terms</a> and <a href="/privacy/">Privacy Policy</a>.</p>
     <sc-if value="{{ saveErr }}" hint-placeholder-val="{{ false }}"><p class="ferr" role="alert">{{ saveErr }}</p></sc-if>
     <button type="button" class="btn btn-dot" style="width: 100%; margin-top: 18px;" onClick="{{ save }}" disabled="{{ busy }}">{{ saveLabel }}</button>
 
@@ -175,7 +177,7 @@
     <sc-if value="{{ noBills }}" hint-placeholder-val="{{ true }}"><p class="lead" style="font-size: 16px;">No bills yet. Your first month is free.</p></sc-if>
     <sc-if value="{{ portalErr }}" hint-placeholder-val="{{ false }}"><p class="ferr" role="alert">{{ portalErr }}</p></sc-if>
     <button type="button" class="btn btn-line" style="width: 100%; margin-top: 14px;" onClick="{{ portal }}" disabled="{{ busy }}">Change card or cancel</button>
-    <p class="fine">@@ICON_LOCK@@ Your card is kept by Stripe. We never see or store your card number. You can cancel online any time, with no phone call. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.</p>
+    <p class="fine">@@ICON_LOCK@@ Your card is kept by Stripe. We never see or store your card number. You can cancel online any time, with no phone call.</p>
     <div class="note" style="margin-top: 32px;">
       <span style="color: var(--accent-text); display: flex; padding-top: 1px;">@@ICON_CAMERA@@</span>
       <p style="margin: 0;">On visit day, your live map and your gate photos show up here. Questions? Text <a href="sms:+16233096104" style="color: var(--ink); font-weight: 700;">623.309.6104</a>.</p>
@@ -212,6 +214,13 @@ class Component extends DCLogic {
       try { signed = sessionStorage.getItem('apw.demoIn') === '1'; } catch (e) { }
       if (signed) this._setMe(this._sample()); else this.setState({ phase: 'out' });
       return;
+    }
+    // The My Yard link in the welcome email (?k=...) signs the customer in with one tap, no code. Good for 7 days.
+    const k = new URLSearchParams(location.search).get('k');
+    if (k) {
+      try { history.replaceState(null, '', location.pathname + location.hash); } catch (e) { }
+      try { const r = await a.post('/api/me/link', { k: k }); a.auth.signOut(); a.auth.use(r.session); }
+      catch (e) { if (!a.auth.session()) { this.setState({ phase: 'out', err: a.msg(e) }); return; } }
     }
     if (!a.auth.session()) { this.setState({ phase: 'out' }); return; }
     try {
@@ -259,7 +268,7 @@ class Component extends DCLogic {
     if (this._demo()) { this.setState({ saved: true, saveErr: '' }); return; }
     this.setState({ busy: true, saveErr: '', saved: false });
     try {
-      const r = await a.post('/api/me', { gate_code: f.gate, gate_notes: f.notes, dog_names: f.dogNames, problem_spots: f.spots, skip_spray: !!f.noSpray, texts_visit: !!f.txtVisit, texts_deals: !!f.txtDeals }, true);
+      const r = await a.post('/api/me', { gate_code: f.gate, gate_notes: f.notes, dog_names: f.dogNames, problem_spots: f.spots, skip_spray: !!f.noSpray, texts_visit: !!f.txtVisit, texts_deals: !!f.txtVisit && !!f.txtDeals }, true);
       this.setState({ busy: false, saved: true, me: r.customer || this.state.me });
     } catch (e) { this.setState({ busy: false, saveErr: a.msg(e) }); }
   }
@@ -353,8 +362,9 @@ class Component extends DCLogic {
       dogNames: f.dogNames || '', onDogNames: set('dogNames'),
       spots: f.spots || '', onSpots: set('spots'),
       noSpray: !!f.noSpray, onNoSpray: set('noSpray', true),
-      txtVisit: !!f.txtVisit, onTxtVisit: set('txtVisit', true),
-      txtDeals: !!f.txtDeals, onTxtDeals: set('txtDeals', true),
+      // One box for visit and deals texts. Ticking it yourself says yes to both. A customer who said yes to visit texts
+      // only, back when there were two boxes, keeps that until they tick the box again themselves.
+      txtVisit: !!f.txtVisit, onTxtVisit: (e) => { const on = !!e.target.checked; this.setState({ form: Object.assign({}, this.state.form, { txtVisit: on, txtDeals: on }), saved: false }); },
       save: () => this._save(),
       saveLabel: s.busy ? 'Saving…' : (s.saved ? 'Saved' : 'Save my yard'),
       saveErr: s.saveErr,

@@ -145,6 +145,11 @@ globalThis.fetch = async (u, init = {}) => {
       return reply(data, m === 'POST' ? 201 : 200);
     }
   } catch (e) { console.log('  REST ERROR', m, u.slice(SB.length), String(e.message).slice(0, 200)); return reply({ message: e.message }, 400); }
+  if (u === SB + '/auth/v1/admin/users' && m === 'POST') {
+    const b = JSON.parse(init.body);
+    if ((await db.query('select id from auth.users where email = $1', [b.email])).rows[0]) return reply({ msg: 'A user with this email address has already been registered' }, 422);
+    return reply({ id: await authUser(b.email), email: b.email });
+  }
   if (u === SB + '/auth/v1/otp') { const b = JSON.parse(init.body); otpSent.push(b.email); codes[b.email] = '123456'; await authUser(b.email); return reply({}); }
   if (u === SB + '/auth/v1/verify') {
     const b = JSON.parse(init.body);
@@ -357,9 +362,20 @@ ok('a price or a date typed into the request is ignored: the card form carries o
 ok('checkout cannot be aimed at another customer', sent.get('client_reference_id') === sneak.user.id);
 ok('a sign up that never paid is not a customer on a route', (await count("select count(*)::int n from customers where status = 'checkout'")) === 1 && !(await call('/api/office/plan', 'POST', { date: today }, owner)).d.added);
 r = await call('/api/checkout', 'POST', base, null);
-ok('checkout with no sign in is refused', r.status === 401);
-r = await call('/api/checkout', 'POST', base, 'tok_made_up');
-ok('checkout with a made up sign in is refused', r.status === 401);
+ok('checkout with no sign in and no email is refused', r.status === 400, r.status);
+// Sign up has no email code for a new customer (Joe, Nov 16, 2026). Typing the email of someone who has a plan must
+// give nothing: no card form, no session, and their row is not touched.
+{ const before = JSON.stringify((await db.query('select name, phone, address, plan, dogs, status from customers where id = $1', [ids[0].uid])).rows[0]);
+  for (const tok of [null, 'tok_made_up']) {
+    r = await call('/api/checkout', 'POST', Object.assign({}, base, { email: 'Test1@Example.com' }), tok);
+    ok('a customer\'s email typed into sign up with ' + (tok ? 'a made up sign in' : 'no sign in') + ' gets the code and nothing else', r.status === 409 && r.d.code === 'use_code' && !r.d.clientSecret && !r.d.auth, r.d);
+  }
+  ok('and that customer\'s row is untouched', JSON.stringify((await db.query('select name, phone, address, plan, dogs, status from customers where id = $1', [ids[0].uid])).rows[0]) === before);
+  // A brand new email: the account is made, the card form opens, and the page gets no session.
+  r = await call('/api/checkout', 'POST', Object.assign({}, base, { email: 'brandnew@example.com', phone: '6235558888', address: '88 Brand New Rd' }), null);
+  const made = (await db.query("select id, status from customers where email = 'brandnew@example.com'")).rows;
+  ok('a brand new email signs up with no code: one row waiting at checkout, a card form, and no session', r.status === 200 && !!r.d.clientSecret && !r.d.auth && !/access_token|refresh_token/.test(JSON.stringify(r.d)) && made.length === 1 && made[0].status === 'checkout', r.d);
+  await db.query("delete from customers where email = 'brandnew@example.com'"); }
 r = await call('/api/checkout', 'POST', Object.assign({}, base, { name: "Robert'); drop table customers;--", address: "1 <script>alert(1)</script> St'; delete from stops;--" }), sneak.access_token);
 ok('code typed into the form is saved as plain text and breaks nothing', (await count('select count(*)::int n from customers')) === N + 1 && (await count('select count(*)::int n from stops')) > 0, r.status);
 r = await call('/api/checkout', 'POST', Object.assign({}, base, { name: 'x'.repeat(200000), address: 'y'.repeat(200000) }), sneak.access_token);
@@ -392,14 +408,13 @@ r = await call('/api/me/pause', 'POST', { until: dayFor((wd + 3) % 7) }, ids[8].
 ok('pause is closed in the first 60 days', r.status === 400, r.d.error);
 charges.length = 0; invoiceList = [];
 await hook({ type: 'customer.subscription.deleted', data: { object: subObj(9, { status: 'canceled', canceled_at: Math.floor(Date.now() / 1000) }) } });
-ok('cancel on day 1: charged one full month ' + '$' + (monthOf(9) / 100).toFixed(2), charges.length === 1 && charges[0].amount === monthOf(9), charges);
+ok('cancel on day 1: no charge (the 60 day rule is off)', charges.length === 0, charges);
 ok('canceled customer is off every future route', (await count("select count(*)::int n from stops s join customers c on c.id = s.customer_id where c.status = 'canceled' and s.status = 'scheduled'")) === 0);
 charges.length = 0; invoiceList = [{ amount_paid: 2000, billing_reason: 'subscription_cycle', status: 'paid', created: Math.floor(Date.now() / 1000) }];
 await hook({ type: 'customer.subscription.deleted', data: { object: subObj(10, { status: 'canceled', canceled_at: Math.floor(Date.now() / 1000) }) } });
-ok('cancel early after paying $20: charged the month minus $20', charges.length === 1 && charges[0].amount === monthOf(10) - 2000, charges);
-ok('the early cancel bill is tagged with the plan it is for', madeBills.some((b) => b.customer === 'cus_' + ids[10].n && b.metadata.early_cancel === 'sub_' + ids[10].n), madeBills.slice(-2));
+ok('cancel early after paying $20: no charge either', charges.length === 0 && !madeBills.some((b) => b.metadata && b.metadata.early_cancel), charges);
 await hook({ type: 'customer.subscription.deleted', data: { object: subObj(10, { status: 'canceled', canceled_at: Math.floor(Date.now() / 1000) }) } });
-ok('the same cancel event sent again (even days later) does not charge the early cancel fee again', charges.length === 1, charges);
+ok('the same cancel event sent again charges nothing', charges.length === 0, charges);
 await hook({ type: 'customer.subscription.updated', data: { object: subObj(10, { status: 'active' }) } });
 await hook({ type: 'customer.subscription.updated', data: { object: subObj(10, { status: 'trialing' }) } });
 ok('late news about a plan that was canceled does not bring the customer back', (await db.query('select status from customers where id = $1', [ids[10].uid])).rows[0].status === 'canceled');
@@ -456,7 +471,7 @@ ok('card fixed: thanked once, office told once, the unsent text leaves the list'
 r = await call('/api/office/plan', 'POST', { date: d12 }, owner);
 ok('back on the next route for their day', d12 === today || (await count("select count(*)::int n from stops where day = '" + d12 + "' and customer_id = '" + ids[12].uid + "'")) === 1 || HOMES[12][3] === 'eow', r.d);
 // pause over the 1st, then come back: the rest of the month is charged
-const P = 13; metaOverride['sub_' + ids[P].n] = { min_end: String(Math.floor(Date.now() / 1000) - 86400) };
+const P = 13; metaOverride['sub_' + ids[P].n] = { pause_from: String(Math.floor(Date.now() / 1000) - 86400) };
 await hook({ type: 'customer.subscription.updated', data: { object: subObj(P, { status: 'active' }) } });
 r = await call('/api/me/pause', 'POST', { until: dayFor((wd + 5) % 7) }, ids[P].token);
 ok('after 60 days a customer can pause', r.status === 200 && r.d.plan.paused, r.d);

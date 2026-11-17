@@ -4,7 +4,7 @@ They must match the live sign up form. Run this after ANY change to the look or 
     npm run build && python3 build/optin-shots.py && npm run build
 Then check that the words quoted in content/policies/texts.html still match, and change the "Captured" dates there.
 
-Writes static/assets/img/sms-optin-form.png (step 3 of 5, both boxes unchecked) and
+Writes static/assets/img/sms-optin-form.png (step 3 of 4, the one text box unchecked) and
 static/assets/img/sms-optin-waitlist.png (the waitlist form, box unchecked). Nothing is typed and nothing is sent."""
 import os
 import threading
@@ -46,7 +46,7 @@ def save(page, name):
 with sync_playwright() as p:
     browser = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
 
-    # Step 3 of 5: tap a city with two ZIP codes, then Continue. Tall screen so the whole step shows.
+    # Step 3 of 4: tap a city with two ZIP codes, then Continue. Tall screen so the whole step shows.
     ctx = phone(browser, 1210)
     page = ctx.new_page()
     page.goto(BASE + '/book/', wait_until='networkidle')
@@ -54,8 +54,8 @@ with sync_playwright() as p:
     page.wait_for_timeout(300)
     page.get_by_role('button', name='Continue').click()
     page.wait_for_timeout(500)
-    assert 'Step 3 of 5' in page.inner_text('#app'), 'the text boxes are no longer on step 3 of 5: fix /texts/ too'
-    assert page.evaluate("[document.querySelector('#b-tv').checked, document.querySelector('#b-td').checked]") == [False, False], 'a text box starts checked'
+    assert 'Step 3 of 4' in page.inner_text('#app'), 'the text box is no longer on step 3 of 4: fix /texts/ too'
+    assert page.evaluate("[document.querySelector('#b-tv').checked, !!document.querySelector('#b-td')]") == [False, False], 'the text box starts checked, or there are two boxes again'
     assert page.evaluate("(() => { const b = document.querySelector('.bk-body'); return b.scrollHeight - b.clientHeight; })()") <= 0, 'the step no longer fits: make the screen taller'
     save(page, 'sms-optin-form.png')
     ctx.close()

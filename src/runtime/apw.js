@@ -112,6 +112,9 @@
       document.head.appendChild(s);
     });
   }
+  // The bot check token the server asks for when sign up has no email code (empty when the check is off).
+  // Only asked for when the server will check it (cfg.botCheck), so sign up never waits on a check nobody reads.
+  APW.botToken = function () { return APW.cfg && APW.cfg.botCheck ? botCheck(APW.cfg.turnstileKey) : Promise.resolve(null); };
   APW.auth = {
     session: function () { var s = load(); return s && s.refresh_token ? s : null; },
     sendCode: function (email) {
@@ -120,6 +123,8 @@
       });
     },
     verifyCode: async function (email, code) { return keep(await gotrue('/verify', { type: 'email', email: email, token: code })); },
+    // A session the server made: at sign up for a new customer (no code), or from the My Yard link in the welcome email.
+    use: function (d) { return d && d.access_token && d.refresh_token ? keep(d) : null; },
     token: async function () {
       var s = load();
       if (!s || !s.refresh_token) return null;
