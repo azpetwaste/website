@@ -56,6 +56,8 @@ export default {
         : p.startsWith('/api/track/') ? hitLimit('track|' + ip, 120, 60e3) : p === '/api/demo/week' ? hitLimit('demo|' + ip, 40, 60e3) : false;
       if (hit || hitLimit('all|' + ip, 400, 60e3)) return fail(429, 'Too many tries. Wait a minute, then try again.');
     }
+    // Nobody needs to send more than this. A sign up form is a few hundred bytes. Only a gate photo is big.
+    if (Number(request.headers.get('content-length') || 0) > maxBody(url.pathname)) return fail(413, 'That is too much to send at once.');
     try {
       const res = await route(url.pathname, request, env, ctx);
       res.headers.set('cache-control', 'no-store');
@@ -124,8 +126,36 @@ const clean = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f]+/g, 
 const digits = (v) => { let d = String(v || '').replace(/\D/g, ''); if (d.length === 11 && d[0] === '1') d = d.slice(1); return d; };
 const emailOk = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e || '');
 const base = (env) => String(env.SUPABASE_URL || '').replace(/\/$/, '');
+// The most one request may send: a gate photo is up to 3 MB (about 4 MB once it is packed as text), a Stripe event
+// is well under 1 MB, and every form is tiny. Checked twice: by the size the sender states, and again while reading,
+// because a sender can leave the size off.
+function maxBody(path) { return /^\/api\/(crew|office)\/photo$/.test(path) ? 6e6 : path === '/api/stripe-webhook' ? 1e6 : 100e3; }
+async function readText(request) {
+  const max = maxBody(new URL(request.url).pathname);
+  if (!request.body) return '';
+  const reader = request.body.getReader(), parts = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) { try { await reader.cancel(); } catch (e) { } return null; }
+    parts.push(value);
+  }
+  const all = new Uint8Array(size);
+  let at = 0;
+  for (const x of parts) { all.set(x, at); at += x.byteLength; }
+  return new TextDecoder().decode(all);
+}
 async function body(request) {
-  try { return await request.json(); } catch (e) { return null; }
+  try { const t = await readText(request); return t ? JSON.parse(t) : null; } catch (e) { return null; }
+}
+// Compares two secrets without giving away, by how long it takes, how many letters were right.
+function sameSecret(a, b) {
+  a = String(a || ''); b = String(b || '');
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i % (b.length || 1));
+  return diff === 0 && a.length > 0;
 }
 function sbHeaders(key, extra) {
   const h = Object.assign({ apikey: key, 'content-type': 'application/json' }, extra || {});
@@ -144,6 +174,9 @@ async function signedIn(request, env) {
   const h = request.headers.get('authorization') || '';
   const token = h.startsWith('Bearer ') ? h.slice(7) : '';
   if (!token) return null;
+  // Staff and customers only ever sign in with a code sent to their email. A sign in that came from a password is
+  // never one of ours, so it is refused here for every page. See passwordSession.
+  if (passwordSession(token)) return null;
   const r = await fetch(base(env) + '/auth/v1/user', { headers: { apikey: env.SUPABASE_ANON_KEY, authorization: 'Bearer ' + token } });
   if (!r.ok) return null;
   const u = await r.json();
@@ -634,7 +667,8 @@ async function verifyStripe(payload, header, secret) {
 }
 
 async function webhook(request, env, ctx) {
-  const payload = await request.text();
+  const payload = await readText(request);
+  if (payload == null) return fail(413, 'That is too much to send at once.');
   const signed = await verifyStripe(payload, request.headers.get('stripe-signature'), env.STRIPE_WEBHOOK_SECRET);
   if (signed !== 'ok') {
     // A real looking event signed with another secret is what a wrong STRIPE_WEBHOOK_SECRET looks like. While that is
@@ -1132,12 +1166,49 @@ async function auth(env, path, body) {
 }
 const sessionOut = (d) => ({ access_token: d.access_token, refresh_token: d.refresh_token, expires_at: d.expires_at || Math.floor(Date.now() / 1000) + (d.expires_in || 3600) });
 
+// A lock on each staff email, kept in the database (table auth_tries). The brake at the top of this file counts per
+// visitor address and lives in one server's memory, so someone guessing from a thousand addresses walks around it.
+// This count is per email and is the same on every server: 5 code tries in 15 minutes, then that email waits.
+// A 6 digit code has a million answers, so 5 tries per 15 minutes is no way in. The same table keeps a flood of
+// "email me a code" requests from filling a staff inbox: 3 in 15 minutes and 15 in a day.
+// If the table is missing or the database is slow, sign in still works, on a count kept in memory.
+const TRY_MIN = 15, TRY_MAX = 5, SEND_MAX = 3, SEND_DAY = 15;
+async function tooManyTries(env, email, kind) {
+  try {
+    await db(env, 'POST', 'auth_tries', [{ email, kind }], 'return=minimal');
+    const span = kind === 'send' ? 86400e3 : TRY_MIN * 60e3;
+    const rows = await db(env, 'GET', 'auth_tries?email=eq.' + enc(email) + '&kind=eq.' + kind + '&at=gte.' + enc(new Date(Date.now() - span).toISOString()) + '&select=at&order=at.desc&limit=100');
+    const recent = rows.filter((r) => Date.now() - Date.parse(r.at) < TRY_MIN * 60e3).length;
+    return kind === 'send' ? recent > SEND_MAX || rows.length > SEND_DAY : recent > TRY_MAX;
+  } catch (e) {
+    // The table is missing or the database did not answer. Sign in must still work, so fall back to a count kept in
+    // this server's memory. The Health tab shows the lock as off until the table is there (supabase/patch-2026-11-16.sql).
+    console.error('auth_tries', e && e.message);
+    return hitLimit(kind + '|' + email, kind === 'send' ? SEND_MAX : TRY_MAX, TRY_MIN * 60e3);
+  }
+}
+async function clearTries(env, email) {
+  try { await db(env, 'DELETE', 'auth_tries?email=eq.' + enc(email) + '&kind=eq.try', null, 'return=minimal'); } catch (e) { }
+}
+// A Supabase sign in token says how the person signed in. Everyone here signs in with a code sent to their email.
+// Supabase also lets anyone set a password on an email that has not signed in yet. Without this check, a stranger
+// could set a password on a new hire's or a new customer's email, wait for them to sign in with a code (which makes
+// the account real), then walk in with that password. A token that came from a password is refused, always.
+function passwordSession(token) {
+  try {
+    const part = String(token || '').split('.')[1];
+    if (!part) return false;
+    const claims = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/')));
+    return Array.isArray(claims.amr) && claims.amr.some((x) => (x && x.method) === 'password');
+  } catch (e) { return false; }
+}
+
 async function staffCode(request, env) {
   const b = await body(request);
   const email = clean(b && b.email, 200).toLowerCase();
   if (!emailOk(email)) return fail(400, 'Type your work email.');
   const s = (await db(env, 'GET', 'staff?email=eq.' + enc(email) + '&active=is.true&select=id'))[0];
-  if (s) {
+  if (s && !(await tooManyTries(env, email, 'send'))) {
     const r = await fetch(base(env) + '/auth/v1/otp', { method: 'POST', headers: sbHeaders(env.SUPABASE_SERVICE_ROLE_KEY), body: JSON.stringify(Object.assign({ email, create_user: true }, b && b.captcha ? { gotrue_meta_security: { captcha_token: clean(b.captcha, 4000) } } : {})) });
     if (r.status === 429) return fail(429, 'Please wait a minute, then try again.');
     if (!r.ok) console.error('staff code', r.status, (await r.text()).slice(0, 200));
@@ -1149,11 +1220,14 @@ async function staffVerify(request, env) {
   const b = await body(request);
   const email = clean(b && b.email, 200).toLowerCase(), code = String((b && b.code) || '').replace(/\D/g, '');
   if (!emailOk(email) || code.length < 6) return fail(400, 'Type the 6 digit code from your email.');
+  const onTeam = (await db(env, 'GET', 'staff?email=eq.' + enc(email) + '&active=is.true&select=id'))[0];
+  if (onTeam && (await tooManyTries(env, email, 'try'))) return fail(429, 'Too many wrong codes. Wait ' + TRY_MIN + ' minutes, then ask for a new code.');
   const r = await auth(env, '/verify', { type: 'email', email, token: code });
   if (!r.ok || !r.data.access_token) return fail(400, 'That code did not work. Check it, or send a new one.');
   const u = r.data.user || {};
   const s = await staffFor(env, { id: u.id, email: String(u.email || email).toLowerCase() });
   if (!s) return fail(403, 'This sign in is only for Arizona Pet Waste staff.');
+  await clearTries(env, email);
   return ok({ session: sessionOut(r.data), staff: { name: s.name, role: s.role } });
 }
 async function staffRefresh(request, env) {
@@ -1174,7 +1248,7 @@ async function desk(path, request, env, ctx) {
   if (path === '/api/staff/verify' && m === 'POST') return staffVerify(request, env);
   if (path === '/api/staff/refresh' && m === 'POST') return staffRefresh(request, env);
   if (path === '/api/office/night-before' && m === 'POST' && env.CRON_SECRET && String(env.CRON_SECRET).length >= 16 &&
-    request.headers.get('x-cron-secret') === env.CRON_SECRET) return nightBefore(env, null);
+    sameSecret(request.headers.get('x-cron-secret'), env.CRON_SECRET)) return nightBefore(env, null);
 
   const s = await staffFor(env, await signedIn(request, env));
   if (!s) return fail(401, 'Please sign in again.');
@@ -2134,6 +2208,7 @@ async function nightBefore(env, date) {
   let queued = 0;
   for (const st of stops) if (await queueText(env, st.customer, st.id, 'night_before', st.code)) queued++;
   await db(env, 'DELETE', 'positions?at=lt.' + enc(new Date(Date.now() - 30 * 86400e3).toISOString()), null, 'return=minimal');
+  try { await db(env, 'DELETE', 'auth_tries?at=lt.' + enc(new Date(Date.now() - 2 * 86400e3).toISOString()), null, 'return=minimal'); } catch (e) { }
   return ok({ ok: true, day, stops: stops.length, queued, added: plan.added });
 }
 async function officeMoney(env) {
@@ -2345,18 +2420,21 @@ async function clientLog(request, env) {
 }
 async function officeHealth(env) {
   const hour = new Date(Date.now() - 3600e3).toISOString();
-  const [errors, pings, live1, queued] = await Promise.all([
+  const [errors, pings, live1, queued, lock] = await Promise.all([
     db(env, 'GET', 'errors?select=id,at,source,path,message&order=at.desc&limit=50'),
     db(env, 'GET', 'positions?select=at&order=at.desc&limit=1'),
     db(env, 'GET', 'routes?day=eq.' + azToday() + '&status=eq.live&select=id'),
-    db(env, 'GET', 'messages?status=eq.queued&select=id')
+    db(env, 'GET', 'messages?status=eq.queued&select=id'),
+    db(env, 'GET', 'auth_tries?select=id&limit=1').then(() => true, () => false)
   ]);
   return ok({
     checks: {
       desk: true,
       booking: live(env),
       map: !!(env.GOOGLE_MAPS_BROWSER_KEY && env.GOOGLE_MAPS_SERVER_KEY),
-      texts: false
+      texts: false,
+      signLock: lock,
+      botCheck: !!env.TURNSTILE_SITE_KEY
     },
     liveRoutes: live1.length, lastPing: pings[0] ? pings[0].at : null, queuedTexts: queued.length,
     errorsLastHour: errors.filter((e) => e.at >= hour).length, errors

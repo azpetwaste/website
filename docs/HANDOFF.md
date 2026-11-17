@@ -512,3 +512,52 @@ Joe asked for a real Waddell page, built like the other five town pages, with it
 - `myStop` and `officePhotoUpload` now read the customer's email.
 - `desk.test.mjs`: two new checks (no email for a texts customer, one email and no second text for a customer without texts). 111 of 111 pass. `worker.test.mjs` 180 of 180.
 - Field desk session: nothing a scooper sees changed, so the training video was not rebuilt.
+
+## Nov 16, 2026, 9 pm. Back buttons in the crew app, and a security pass with a patch (Field App chat), Joe's ask
+Joe: "Say I click Leads, Customers. Is there a way to go back?" and "I just don't want anyone to be able to come in there and hack it. Don't overdo it."
+
+### Back and home (`static/crew/index.html`, "moving around")
+- **Back button, top left**, on every office screen that is not the Schedule. It always lands on the Schedule, on the day that was open. The Schedule is home, so it has no Back button.
+- **The logo is a home button.** It opens the Schedule on today.
+- **The phone's back button, the back swipe and the browser's back arrow all work.** Before this, one press left the app. Each screen is one step in the browser history on the same clean address (no `#`, no `?`).
+- **The trail is short on purpose.** Any tab is one step from the Schedule. Leads, then Customers, then Money, then Back: the Schedule, not Customers. Plan the week is a step too.
+- **A pop up or the customer panel closes first.** Back (or Esc on a computer) closes the top one and the screen under it stays put. The customer panel's Close button is now "Back", top left.
+- **A back press by mistake does not drop a scooper out of a route.** On the first screen, Back shows "Tap back again to leave the app." A second press inside 3 seconds leaves.
+- **Sign in:** back from the code step is the email step, with the email still typed.
+- **A reload stays on the tab that was open.** On a phone the open tab slides into view in the tab strip.
+- The scooper's own screen has no tabs and no Back button: nothing to get lost in.
+- Code: `nav(tab, plan)` opens a screen, `goHome(keepDay)`, `goBack()`, `closeOverlay()`, one `popstate` listener. `go(t)` still works and calls `nav`. A new pop up needs a close button with one of the ids in `closeOverlay` (`#qn #fn #pn #cx #tx #hb #mx #dx` or `data-k="x"`), or Back removes it without running its close code.
+
+### Security pass: what was checked and found clean
+- Live database, read with the public key from outside: `customers`, `staff`, `leads` and `route_sheet` all answer with no rows (they hold 1, 1 and 3 rows). Row level security is on for every table. One policy in all: a signed in customer may read their own row. The gate photo bucket is private, 3 MB, pictures only. Supabase's own security check lists nothing but "no policies" notes (that is how we want it) and a password note (see the password hole below).
+- Server, read line by line: every `/api/staff`, `/api/crew` and `/api/office` address checks the sign in on the server. A scooper can only touch a stop on their own route today. Office addresses refuse a scooper. Only the owner can change the team. Every value from a request that goes into a database address is a number, a checked date, a checked id or is escaped. The Stripe webhook checks the signature and its age. No cookies are used, so another site cannot ride a signed in session.
+- Pages: every value from the database is escaped before it is drawn, in the crew app and on the truck link.
+- Repo: no key in any file or in history that is on the server (`git grep` for Stripe, Supabase, Resend, Google, Twilio and GitHub key shapes). `npm audit`: 0. The two GitHub workflows take no outside input.
+
+### What was found and patched (all in this commit)
+1. **A password could get around the emailed code.** Supabase lets anyone set a password on an email that has not signed in yet. A stranger could do that to a new hire's or a new customer's email, wait for the real person to sign in with a code (that makes the account real), then walk in with the password. The owner's account also has a password set in Supabase. Fix: `signedIn` refuses any sign in that came from a password (`passwordSession` reads the `amr` list in the token), for staff and for My Yard. Nobody here signs in with a password, so nothing breaks.
+2. **Code guessing from many addresses.** The brake from Nov 9 counts per visitor address in one server's memory. New: a lock per staff email kept in the database (table `auth_tries`): 5 wrong codes in 15 minutes and that email waits, from any address, on every server. Code emails for one staff email stop at 3 in 15 minutes and 15 a day, so nobody can flood an inbox. The answer to "email me a code" stays the same either way. A good sign in clears the count. The nightly job clears old rows. If the table is missing, a count in memory takes its place and sign in still works.
+3. **A script slipped into the page could have run.** `/crew/` now sends a script rule (`Content-Security-Policy`, built in `build.mjs` as `CREW_CSP`): only the app's own script may run, named by its hash, which the build works out on each run. A script hidden in a customer name, a lead or a note cannot run, so it cannot take a session. Google Maps and the Cloudflare bot check still load, because the app's own script loads them. **If you add a second `<script>` tag to the crew page, the build picks it up. Never load a script from another site with a tag, and never add `onclick=` and the like in the page: they will not run.**
+4. **No size cap on what a request may send.** Now 100 KB for forms, 1 MB for Stripe, 6 MB for a gate photo (`maxBody`, `readText`). Checked by the stated size and again while reading.
+5. **Second lock on the tables.** The two public keys had every table right and only row level security stood in the way. `crm.sql` now takes the rights away (customers keep the one read their policy needs) and new tables start closed. Belt and suspenders.
+6. Small: the cron secret is compared in a way that does not leak timing. The Health tab has two new rows: "Lock on wrong sign in codes" and "Bot check on sign in".
+
+### NOT done, a person has to (Claude's database tool refuses table changes, tried twice more today)
+- **Run `supabase/patch-2026-11-16.sql` in the Supabase SQL Editor.** One paste, one Run, safe to run twice. It adds `auth_tries`, takes the table rights from the public keys, and adds the `skips` column that has waited since Nov 9. Until then: items 2 and 5 run in their weaker form (memory count, row level security only) and the Health tab shows the lock as Off.
+- **Three Supabase sign in settings (Atlas), `GO_LIVE.md` part 3 step 9.** Our lock guards our own door. Anyone can also send code guesses straight to Supabase with the public key, and only Supabase can slow that: code life 10 minutes (it is 1 hour), Turnstile bot check on, token verification limit left at 30 per 5 minutes. If Atlas also raises the code to 8 digits, change "6 digit code" on the crew sign in screen, the My Yard sign in, the training page and the two email templates.
+- **A Cloudflare rate limit rule on `/api/*`** (Atlas, on the list since Nov 9). The brake in the server is per server and resets on restart.
+- When someone leaves the company: Team tab, tap Off next to their name. Their phone is signed out on its next tap. There is no other step.
+
+### Left alone on purpose
+- No script rule on the public pages, My Yard or the truck link. Those pages have many small scripts and Google Tag Manager, and no staff session lives there. Doing them is a bigger job with real risk to sign up, days before first visits.
+- Truck link codes stay at 6 letters (729 million). A guess from one address stops at 120 a minute.
+
+### Tests
+- New: `build/nav.test.py` (68 checks in a real browser at phone and computer size: every tab and Back, the phone back button, pop ups, Plan the week, sign in, the scooper screen, a full yard, and four ways to slip a script in, all blocked). It runs the built site through the new `build/serve.mjs`, which serves `dist/` with `_headers`, `_redirects` and the server the way Cloudflare does. **Restart `serve.mjs` after each build: it reads the headers once, and an old script hash blocks the app.**
+- `desk.test.mjs`: 134 pass after the rebase on the website chat's gate photo email commit (23 new: the lock, the code email cap, the size cap, password sessions, table rights, the patch file run twice, the lock table missing).
+- Also run and passing: `npm run build`, `npm run check`, `worker.test.mjs` 180, `week.test.mjs` 76, `signup10` 40, `signup50` 123, `signup50` at 500 sign ups 138.
+- Not run: the new code with a real staff sign in on the live site (it needs a code from the info@ inbox).
+
+### Training video
+- Rebuilt, 2 min 51 s, in both places. New clip after the Schedule: "Back is top left". The new header (Back button) is on every screen that has it. Made with `docs/video/patch_header.py`: old screens and voice lines kept, new header pasted in, because this chat cannot reach the live site or Google to retake the map screens. `lines.json` has the new line. The training page has a new office step and two new Help rows.
+

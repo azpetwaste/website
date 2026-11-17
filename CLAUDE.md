@@ -39,6 +39,9 @@ Read this first. New to the field desk (Joe calls it the Field App)? Read `docs/
 - Week plan: the Schedule tab in `/crew` has Plan the week (`/api/office/week`). It picks the day and scooper for every yard. Yards per scooper per day and the days we scoop are saved from that screen (`/api/office/settings`, table `settings`) and win over the optional Cloudflare settings `STOPS_PER_DAY` and `WORK_DAYS`. Where the truck starts is typed in that screen too (settings `route_start`, which wins over the Cloudflare `ROUTE_START`). `/crew/?demo` plans made up yards with the same code (`/api/demo/week`) and saves nothing.
 - Bot check on sign in codes: set `TURNSTILE_SITE_KEY` in Cloudflare Pages and put the Turnstile secret in Supabase (Auth, Bot and Abuse Protection, Turnstile). Set the site key first. Test customer and staff sign in right after.
 
+- Security rules (Nov 16, 2026, the why is in `docs/HANDOFF.md`): everyone signs in with a code sent to their email, and `signedIn` refuses a sign in that came from a password. Keep that. The crew page sends a script rule that only lets its own script run (`CREW_CSP` in `build/build.mjs`, the hash is worked out on every build): no `onclick=` in the page, no script tag from another site. Every request has a size cap (`maxBody`). A staff email is locked for 15 minutes after 5 wrong codes (table `auth_tries`). The public Supabase keys hold no table rights but one: a signed in customer reads their own row. A new table must have row level security on and no public policy.
+- Moving around the crew app: the Schedule is home. Every other office screen has Back at the top left and is one step from home. Open a screen with `nav(tab, plan)`, never by setting `S.tab` and drawing. A new pop up needs a close button that `closeOverlay` knows.
+
 ## The training video is part of every change
 Joe's standing rule (Nov 9, 2026): scoopers watch the video before they use the app, so it must always match the app. Any change a scooper or the office can see is not finished until the video is rebuilt and pushed. The video lives in two places with the same file: `static/crew/how-it-works.mp4` (the sign in screen) and `static/staff-73d752e4/training.mp4` (the training page, update its written steps too). How to rebuild it is in `docs/video/README.md`.
 
@@ -49,6 +52,8 @@ npm run build
 npm run check
 node build/worker.test.mjs   # sign up, billing dates, Stripe webhook, failed and fixed payments, late and repeated Stripe events, My Yard. No database needed. STRIPE_SPEC=/path/to/spec3.json also checks every Stripe request against Stripe's field list
 node build/week.test.mjs   # week planner: town days, the daily limit, 300 random weeks. No database needed
+python3 build/nav.test.py   # after npm run build. Back buttons and the script rule in a real browser (needs Python Playwright and Chrome). No database needed
+node build/serve.mjs   # dist/ on this computer with the live headers and the server. Restart it after every build
 DATABASE_URL=postgres://... node build/desk.test.mjs   # needs a local Postgres and the pg package
 DATABASE_URL=postgres://... node build/signup10.test.mjs   # ten sign ups, the CRM list, the route order and the crew app
 DATABASE_URL=postgres://... node build/signup50.test.mjs   # fifty sign ups at once (COUNT=500 for five hundred), theft and break in attempts, money rules, routes per service day

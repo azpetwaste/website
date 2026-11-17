@@ -26,6 +26,10 @@ a{color:inherit}
 header.bar{position:sticky;top:0;z-index:5;background:rgba(0,0,0,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
 header.bar .in{display:flex;align-items:center;gap:16px;height:52px}
 .brand{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;letter-spacing:.22em}
+button.brand{background:none;border:0;padding:0;cursor:pointer;display:flex;align-items:center;text-align:left;min-height:36px}
+.bk{flex:0 0 auto;background:none;border:1px solid var(--line);min-height:36px;padding:0 12px;cursor:pointer;font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink);white-space:nowrap}
+.bk:hover{border-color:var(--ink)}
+.bk{position:relative}.bk::after{content:"";position:absolute;inset:-7px -6px}
 .tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;flex:1}
 .tabs::-webkit-scrollbar{display:none}
 .tab{background:none;border:0;padding:0 12px;height:52px;cursor:pointer;font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);white-space:nowrap;border-bottom:2px solid transparent}
@@ -341,7 +345,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (p === '/api/office/areas') return { areas: D.areas };
     if (p === '/api/office/area') { D.areas.forEach(function (a) { if (a.area === b.area) a.day = b.day === '' ? null : +b.day; }); return { areas: D.areas }; }
     if (p === '/api/office/money') { var act = D.customers.filter(function (c) { return c.status === 'active'; }).length, tri = D.customers.filter(function (c) { return c.status === 'trialing'; }).length; return { paying: { count: act, monthly: act * 8000 }, freeMonth: { count: tri, monthly: tri * 8000 }, pastDue: D.customers.filter(function (c) { return c.status === 'past_due'; }).map(function (c) { return { name: c.name, phone: c.phone, monthly: 8000 }; }), started: 4 }; }
-    if (p === '/api/office/health') return { checks: { desk: true, booking: true, map: true, texts: false }, liveRoutes: D.route.status === 'live' ? 1 : 0, lastPing: D.ping, queuedTexts: queued().length, errorsLastHour: 0, errors: [] };
+    if (p === '/api/office/health') return { checks: { desk: true, booking: true, map: true, texts: false, signLock: true, botCheck: true }, liveRoutes: D.route.status === 'live' ? 1 : 0, lastPing: D.ping, queuedTexts: queued().length, errorsLastHour: 0, errors: [] };
     return {};
   }
 
@@ -370,7 +374,7 @@ table.t tr.click:hover td{background:var(--bg2)}
         if (si.step === 'email') {
           si.email = inp.value.trim().toLowerCase();
           var r = await raw('POST', '/api/staff/code', { email: si.email, captcha: await botCheck() });
-          si.info = r.message; si.step = 'code';
+          si.info = r.message; si.step = 'code'; navPush();
         } else {
           var v = await raw('POST', '/api/staff/verify', { email: si.email, code: inp.value });
           save(Object.assign({}, v.session, v.staff)); si = { step: 'email', email: '', err: '', info: '' };
@@ -380,7 +384,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       render();
     };
     var back = document.getElementById('back');
-    if (back) back.onclick = function () { si.step = 'email'; si.err = ''; render(); };
+    if (back) back.onclick = function () { if (NAV.n > 0) return goBack(); si.step = 'email'; si.err = ''; render(); };
   }
 
   /* ---------- GPS and screen awake while a route is live ---------- */
@@ -1019,6 +1023,8 @@ table.t tr.click:hover td{background:var(--bg2)}
       row('Online sign up', c.booking, 'New customers can pay on the site and land here.', 'The Stripe keys are not in Cloudflare yet. The site takes requests as leads until then.') +
       row('Live truck map', c.map, 'Customers see the truck on a Google map.', 'The Google Maps keys are not in Cloudflare. Customers see a simple progress line.') +
       row('Texts send on their own', c.texts, '', 'Twilio is not approved yet. Staff send each text by hand from the Texts tab.') +
+      row('Lock on wrong sign in codes', c.signLock, '5 wrong codes and that email waits 15 minutes.', 'A weaker lock is on in its place. The full one needs one step in the database: run supabase/patch-2026-11-16.sql in the Supabase SQL Editor.') +
+      row('Bot check on sign in', c.botCheck, 'A robot cannot ask for sign in codes.', 'Not set up yet. It needs TURNSTILE_SITE_KEY in Cloudflare and the Turnstile secret in Supabase.') +
       '</tbody></table></div></div>' +
       '<div class="sec"><h3>Crash log</h3>' + (x.errors.length ? '<div class="scroll"><table class="t"><thead><tr><th>When</th><th>Where</th><th>What happened</th></tr></thead><tbody>' + x.errors.map(function (e) {
         return '<tr><td class="mono" style="font-size:12px;color:var(--mute);white-space:nowrap">' + h(new Date(e.at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix' })) + '</td><td class="lbl" style="white-space:nowrap">' + h(e.source) + '<div style="text-transform:none;letter-spacing:0">' + h(e.path || '') + '</div></td><td style="font-size:14px">' + h(e.message) + '</td></tr>';
@@ -1035,7 +1041,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     var c = S.sel.customer, team = (S.data.team && S.data.team.team) || [];
     var daySel = function (id, v) { return '<select class="f" id="' + id + '"><option value="">None</option>' + DAYS.map(function (d, i) { return '<option value="' + i + '"' + (v === i ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select>'; };
     var el = document.createElement('div'); el.className = 'drawer';
-    el.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center"><span class="lbl">Customer</span><button class="ib" id="dx">Close</button></div>' +
+    el.innerHTML = '<div style="display:flex;gap:14px;align-items:center"><button class="bk" id="dx">‹ Back</button><span class="lbl">Customer</span></div>' +
       '<p class="big" style="font-size:28px">' + h(c.name || c.email) + '</p><div style="margin-top:8px">' + tag(c.status) + ' <span class="mono" style="color:var(--mute);font-size:12px;margin-left:6px">' + h(PLAN[c.plan] || '') + (c.dogs ? ' · ' + c.dogs + ' dogs' : '') + (S.sel.monthly ? ' · ' + money(S.sel.monthly) + '/mo' : '') + '</span></div>' +
       '<p style="margin:14px 0 0;line-height:1.6">' + h(c.address) + ', ' + h(c.zip) + (c.lat == null ? ' <span class="tag dim">No pin</span> <button class="ib" id="pin">Find on map</button>' : ' <span class="tag ok">Pinned</span>') + '<br><a href="tel:+1' + h(c.phone) + '">' + h(phone(c.phone)) + '</a> · ' + h(c.email) +
       '<br><span style="color:var(--mute);font-size:14px">Visit texts: ' + (c.texts_visit ? 'yes' : 'no') + ' · Deals texts: ' + (c.texts_deals ? 'yes' : 'no') + '</span>' +
@@ -1077,10 +1083,10 @@ table.t tr.click:hover td{background:var(--bg2)}
   }
   function bindOffice() {
     app.querySelectorAll('[data-plan]').forEach(function (b) { b.onclick = async function () {
-      S.plan = b.dataset.plan === '1'; S.wk = S.wk || { cap: 30, days: '1,2,3,4,5', n: DEMO ? 100 : 500 };
-      if (S.plan && !DEMO && !S.wk.loaded) { try { var st = await api('GET', '/api/office/settings'); S.wk.cap = st.cap; S.wk.days = st.days; S.wk.start = st.start || ''; S.wk.loaded = true; } catch (e) { } }
-      if (!S.plan) { S.data.day = null; render(); return loadTab(); }
-      render(); window.scrollTo(0, 0);
+      var open = b.dataset.plan === '1'; S.wk = S.wk || { cap: 30, days: '1,2,3,4,5', n: DEMO ? 100 : 500 };
+      if (!open) return goHome(true);
+      if (!DEMO && !S.wk.loaded) { try { var st = await api('GET', '/api/office/settings'); S.wk.cap = st.cap; S.wk.days = st.days; S.wk.start = st.start || ''; S.wk.loaded = true; } catch (e) { } }
+      nav('today', true);
     }; });
     var saveSet = function () { if (!DEMO) api('POST', '/api/office/settings', { cap: S.wk.cap, days: S.wk.days }).then(function () { toast('Saved'); }).catch(function (e) { toast(e.message); }); S.data.week = null; render(); };
     app.querySelectorAll('[data-slot]').forEach(function (b) { b.onclick = function () { var n = +b.dataset.slot; S.wk.sel = n < 0 || S.wk.sel === n ? null : n; render(); var m = document.getElementById('wkmap'); if (m && S.wk.sel != null) m.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }; });
@@ -1146,34 +1152,121 @@ table.t tr.click:hover td{background:var(--bg2)}
 
   /* ---------- shell ---------- */
   var TABS = [['today', 'Schedule'], ['route', 'My route'], ['customers', 'Customers'], ['leads', 'Leads'], ['texts', 'Texts'], ['team', 'Team'], ['money', 'Money'], ['health', 'Health']];
-  function go(t) { S.tab = t; S.plan = false; render(); loadTab(); }
+  /* ---------- moving around ----------
+     Back works three ways: the Back button on the screen, the phone's own back button or swipe, and the browser's back arrow.
+     Each screen is one step in the browser's history, on the same clean address (no # and no ?).
+     The steps are kept short on purpose: Schedule is home, and any other screen is one step from it. So Back from
+     Customers, Leads, Money or Plan the week always lands on the Schedule, never on a long trail of old tabs.
+     With a pop up or the customer panel open, Back closes that first. On the first screen, Back asks once before leaving. */
+  var NAV = { n: 0, y: 0, center: true, then: null, arm: null };
+  function atHome() { return S.tab === 'today' && !S.plan; }
+  function navState() { return { apw: 1, n: NAV.n, view: S.view, tab: S.tab, plan: !!S.plan, si: S.view === 'signin' ? si.step : '' }; }
+  function navPush() { NAV.n++; try { history.pushState(navState(), ''); } catch (e) { } }
+  function navReplace() { try { history.replaceState(navState(), ''); } catch (e) { } }
+  // A fresh start: one step to stand on and one guard step, so the first Back press never drops a scooper out of a route.
+  function navStart() {
+    var hs = null; try { hs = history.state; } catch (e) { }
+    if (hs && hs.apw && hs.view === S.view && hs.n >= 1) { NAV.n = hs.n; if (S.view === 'office' && !hs.plan && TABS.some(function (t) { return t[0] === hs.tab; })) S.tab = hs.tab; return navReplace(); }
+    NAV.n = 0; navReplace(); navPush();
+  }
+  function overlay() { var all = document.querySelectorAll('.sheet,.drawer'); return all.length ? all[all.length - 1] : null; }
+  // Closes the pop up on top the same way its own Back, Close or "no" button does.
+  function closeOverlay() {
+    var el = overlay(); if (!el) return false;
+    var x = el.querySelector('#qn,#fn,#pn,#cx,#tx,#hb,#mx,#dx,[data-k="x"]');
+    if (x) x.click(); if (el.parentNode) { if (el.classList.contains('drawer')) S.sel = null; el.remove(); }
+    return true;
+  }
+  function show(t, plan, y) {
+    var leftPlan = S.plan && !plan;
+    S.tab = t; S.plan = !!plan; S.pick = null; NAV.center = true;
+    if (leftPlan) S.data.day = null;
+    render(); window.scrollTo(0, y || 0);
+    if (!S.plan) loadTab();
+  }
+  // Open a tab, or Plan the week. Home to any screen adds one step. Screen to screen swaps that step.
+  function nav(t, plan) {
+    plan = !!plan;
+    if (S.view !== 'office') return;
+    var wasHome = atHome(), toHome = t === 'today' && !plan;
+    if (t === S.tab && plan === !!S.plan) { NAV.center = true; render(); return loadTab(); }
+    if (toHome) return goHome(true);
+    if (wasHome) { NAV.y = window.scrollY; S.tab = t; S.plan = plan; navPush(); } else { S.tab = t; S.plan = plan; navReplace(); }
+    show(t, plan, 0);
+  }
+  // The Schedule. keepDay: stay on the day that was open (Back). Without it: today (the logo).
+  function goHome(keepDay) {
+    if (S.view !== 'office') return;
+    var fresh = function () { if (!keepDay) { S.day = null; S.data.day = null; NAV.y = 0; } };
+    if (atHome()) { if (!keepDay && S.data.day && S.data.day.day !== S.data.day.today) { fresh(); render(); loadTab(); } return window.scrollTo(0, 0); }
+    if (NAV.n > 1) { NAV.then = fresh; try { return history.back(); } catch (e) { NAV.then = null; } }
+    fresh(); show('today', false, NAV.y); navReplace();
+  }
+  function goBack() {
+    if (closeOverlay()) return;
+    if (S.view === 'signin') { if (NAV.n > 0) { try { return history.back(); } catch (e) { } } si.step = 'email'; si.err = ''; return render(); }
+    goHome(true);
+  }
+  window.addEventListener('popstate', function (e) {
+    var st = e.state;
+    // A pop up was open: Back closes it and the screen under it stays put.
+    if (overlay()) { closeOverlay(); try { history.pushState(navState(), ''); } catch (x) { } return; }
+    if (!st || !st.apw) return;
+    NAV.n = st.n;
+    if (S.view === 'signin') { si.step = st.view === 'signin' && st.si === 'code' && si.email ? 'code' : 'email'; si.err = ''; return render(); }
+    var then = NAV.then; NAV.then = null;
+    if (st.view === S.view && S.view === 'office' && st.n >= 1) {
+      var plan = !!st.plan && st.tab === 'today', tab = TABS.some(function (t) { return t[0] === st.tab; }) ? st.tab : 'today';
+      if (then) then();
+      if (tab !== S.tab || plan !== !!S.plan) show(tab, plan, tab === 'today' && !plan ? NAV.y : 0);
+      else if (then) { render(); loadTab(); }
+      return;
+    }
+    // The first screen. One more Back leaves the app, so say so, then put the guard step back.
+    if (S.view === 'office' && !atHome()) show('today', false, NAV.y);
+    toast('Tap back again to leave the app.');
+    clearTimeout(NAV.arm);
+    NAV.arm = setTimeout(function () { if (NAV.n < 1 && S.view !== 'signin') { NAV.n = 0; navReplace(); navPush(); } }, 2600);
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeOverlay(); });
+  function go(t) { nav(t, false); }
   function shell(inner) {
-    var tabs = S.view === 'office' ? TABS.map(function (t) {
+    var office = S.view === 'office';
+    var tabs = office ? TABS.map(function (t) {
       var n = t[0] === 'texts' && S.data.day && S.data.day.queuedTexts ? '<span class="n">' + S.data.day.queuedTexts + '</span>' : '';
-      return '<button class="tab' + (S.tab === t[0] ? ' on' : '') + '" data-tab="' + t[0] + '">' + t[1] + n + '</button>';
+      return '<button class="tab' + (S.tab === t[0] ? ' on' : '') + '" data-tab="' + t[0] + '"' + (S.tab === t[0] ? ' aria-current="page"' : '') + '>' + t[1] + n + '</button>';
     }).join('') : '<span class="tabs"></span>';
-    return '<header class="bar"><div class="' + (S.view === 'office' ? 'wrap' : 'narrow') + ' in"><span class="brand"><img src="/assets/img/logo-horizontal-dark.svg" alt="Arizona Pet Waste" height="26" style="height:26px;width:auto;vertical-align:middle">' + (DEMO ? ' <span class="tag acc" style="margin-left:6px">Demo</span>' : '') + '</span><nav class="tabs">' + tabs + '</nav><button class="out" id="so">Sign out</button></div></header>' + inner;
+    var logo = '<img src="/assets/img/logo-horizontal-dark.svg" alt="Arizona Pet Waste" height="26" style="height:26px;width:auto;vertical-align:middle">' + (DEMO ? ' <span class="tag acc" style="margin-left:6px">Demo</span>' : '');
+    return '<header class="bar"><div class="' + (office ? 'wrap' : 'narrow') + ' in">' +
+      (office && !atHome() ? '<button class="bk" id="bk" aria-label="Back to the Schedule">‹ Back</button>' : '') +
+      (office ? '<button class="brand" id="hm" aria-label="Home. Open today\'s Schedule" title="Home">' + logo + '</button>' : '<span class="brand">' + logo + '</span>') +
+      '<nav class="tabs" aria-label="Sections">' + tabs + '</nav><button class="out" id="so">Sign out</button></div></header>' + inner;
   }
   function render() {
-    var sx = window.scrollY;
+    var sx = window.scrollY, tb0 = app.querySelector('nav.tabs'), tx = tb0 ? tb0.scrollLeft : 0;
     if (S.view === 'signin') { app.innerHTML = viewSignin(); return bindSignin(); }
     if (S.view === 'route') { app.innerHTML = shell(viewRoute()); bindRoute(); }
     if (S.view === 'office') { app.innerHTML = shell(viewOffice()); if (S.tab === 'route') bindRoute(); else bindOffice(); }
     var so = document.getElementById('so'); if (so) so.onclick = function () { sheetAsk('Sign out?', 'You will need a new code to sign back in.', 'Sign out', signOut, 'Stay signed in'); };
+    var bk = document.getElementById('bk'); if (bk) bk.onclick = goBack;
+    var hm = document.getElementById('hm'); if (hm) hm.onclick = function () { goHome(false); };
     app.querySelectorAll('.tab').forEach(function (b) { b.onclick = function () { go(b.dataset.tab); }; });
+    // On a phone the tabs are one strip that slides sideways. Keep the open tab in view, and keep the strip where the thumb left it.
+    var tb = app.querySelector('nav.tabs'), on = tb && tb.querySelector('.tab.on');
+    if (tb) { if (NAV.center && on) { tb.scrollLeft = 0; tb.scrollLeft = Math.max(0, on.getBoundingClientRect().left - tb.getBoundingClientRect().left - (tb.clientWidth - on.offsetWidth) / 2); NAV.center = false; } else tb.scrollLeft = tx; }
     window.scrollTo(0, sx);
   }
   async function boot() {
-    if (DEMO) { S.role = 'owner'; S.view = 'office'; S.data.team = await api('GET', '/api/office/team'); toast('Demo. Made up yards. Nothing is saved.'); return go('today'); }
+    if (DEMO) { S.role = 'owner'; S.view = 'office'; S.tab = 'today'; S.plan = false; navStart(); S.data.team = await api('GET', '/api/office/team'); toast('Demo. Made up yards. Nothing is saved.'); NAV.center = true; render(); return loadTab(); }
     var s = load();
-    if (!s) { S.view = 'signin'; return render(); }
+    if (!s) { S.view = 'signin'; NAV.n = 0; si.step = 'email'; navReplace(); return render(); }
     try { var me = await api('GET', '/api/staff/me'); s.role = me.staff.role; s.name = me.staff.name; save(s); }
     catch (e) { if (!load()) return; toast(e.message); }
     S.role = s.role;
-    if (s.role === 'scooper') { S.view = 'route'; render(); return refreshRoute(); }
-    S.view = 'office';
+    if (s.role === 'scooper') { S.view = 'route'; navStart(); render(); return refreshRoute(); }
+    S.view = 'office'; S.tab = 'today'; S.plan = false; navStart();
     try { S.data.team = await api('GET', '/api/office/team'); } catch (e) { }
-    go('today');
+    NAV.center = true; render(); loadTab();
   }
   // Keep the office board fresh while it is open.
   setInterval(function () {

@@ -9,6 +9,8 @@ The video is phone shaped (1080 by 1920), about two minutes, with a computer voi
 
 Rule: keep `lines.json` true to the app. Never say the app does something it does not do.
 
+Short cut when only the top bar changed: `python3 docs/video/patch_header.py WORK_DIR`. It keeps every old screen and voice line, pastes the new header over the old one and adds clips for new lines. The notes at the top of the file say what it needs. It was used on Nov 16, 2026 for the Back button, because a cloud session cannot reach the live site or Google to retake the map screens. If anything under the top bar changed, do the full rebuild above.
+
 # The home page videos (the phone in How it works)
 
 Real video from the November 2026 shoot. Joe sends ads cut for phones (1080 by 1920, 10 to 15 seconds, 30 to 55 MB each). The site never serves those files.

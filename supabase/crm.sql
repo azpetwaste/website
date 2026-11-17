@@ -165,3 +165,37 @@ create table if not exists public.settings (
   updated_at timestamptz not null default now()
 );
 alter table public.settings enable row level security;
+
+-- Sign in lock. One row for every "email me a code" request and every code try on a staff email.
+-- The server counts them: 5 code tries in 15 minutes, then that email waits. Rows older than two days are cleared
+-- by the nightly job. Only the server reads or writes this table.
+create table if not exists public.auth_tries (
+  id bigint generated always as identity primary key,
+  email text not null,
+  kind text not null check (kind in ('send', 'try')),
+  at timestamptz not null default now()
+);
+create index if not exists auth_tries_email_at on public.auth_tries (email, kind, at desc);
+alter table public.auth_tries enable row level security;
+
+-- Second lock on every table. Row level security already keeps the public keys out: no table has a public policy,
+-- and customers can only read their own row. This takes away the table rights too, so a table that is ever left
+-- without row level security by mistake is still closed. The website and the apps never read a table from the
+-- browser. Everything goes through the server, which uses the service key and is not touched by this.
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'anon') then
+    revoke all on all tables in schema public from anon;
+    revoke all on all sequences in schema public from anon;
+    alter default privileges in schema public revoke all on tables from anon;
+    alter default privileges in schema public revoke all on sequences from anon;
+  end if;
+  if exists (select 1 from pg_roles where rolname = 'authenticated') then
+    revoke all on all tables in schema public from authenticated;
+    revoke all on all sequences in schema public from authenticated;
+    alter default privileges in schema public revoke all on tables from authenticated;
+    alter default privileges in schema public revoke all on sequences from authenticated;
+    grant select on public.customers to authenticated; -- the "customers read own row" policy still decides which row
+  end if;
+end $$;
+

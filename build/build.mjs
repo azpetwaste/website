@@ -868,6 +868,27 @@ ${FILE_PAGES.filter((x) => x.type !== 'blogindex').map((x) => '- [' + x.h1 + '](
 - Office hours: 8 am to 5 pm, every day of the week (Arizona time)
 - Email: ${cfg.email}${GOOGLE ? '\n- Google profile: ' + GOOGLE : ''}
 `);
+// The staff app keeps a signed in session in the browser, so it gets the strictest script rule on the site.
+// Only the app's own script may run. It is named by its hash, which is worked out here on every build, so the rule
+// always matches the file. What that script loads itself (Google Maps, the Cloudflare bot check) may run too.
+// Nothing else: a script slipped into a customer name, a lead or a note cannot run, and so cannot take a session.
+// 'unsafe-inline' and https: are only read by old browsers that do not know hashes or 'strict-dynamic'.
+// If you add a second <script> to static/crew/index.html it is picked up here. Never load one from another site by a tag.
+const crewScripts = [...fs.readFileSync(path.join(ROOT, 'static/crew/index.html'), 'utf8').matchAll(/<script>([\s\S]*?)<\/script>/g)]
+  .map((m) => "'sha256-" + crypto.createHash('sha256').update(m[1], 'utf8').digest('base64') + "'");
+if (!crewScripts.length) throw new Error('static/crew/index.html has no inline script to allow');
+const CREW_CSP = [
+  "default-src 'self'",
+  'script-src ' + crewScripts.join(' ') + " 'strict-dynamic' 'unsafe-inline' https:",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data: blob: https:",
+  "media-src 'self'",
+  "connect-src 'self' https://*.googleapis.com https://*.gstatic.com https://*.google.com data: blob:",
+  'frame-src https://challenges.cloudflare.com https://*.google.com',
+  'worker-src blob:',
+  "form-action 'self'"
+].join('; ');
 fs.writeFileSync(path.join(DIST, '_headers'), `/*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
@@ -884,6 +905,7 @@ fs.writeFileSync(path.join(DIST, '_headers'), `/*
 /crew/*
   X-Robots-Tag: noindex, nofollow
   Cache-Control: no-cache
+  Content-Security-Policy: ${CREW_CSP}
 /t/*
   X-Robots-Tag: noindex, nofollow
   Cache-Control: no-cache

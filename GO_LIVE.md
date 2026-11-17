@@ -35,6 +35,11 @@ Use info@arizonapetwaste.com for every account. Never paste a password, API key 
 6. Authentication > URL Configuration: Site URL `https://arizonapetwaste.com`. Authentication > Rate Limits: emails per hour 100.
 7. Project Settings > API Keys: copy the Project URL, the publishable key and the secret key into Cloudflare (step 2.6).
 8. SQL Editor > New query > paste all of `supabase/crm.sql` > Run. This turns on the field desk at arizonapetwaste.com/crew (crew app, office, truck links, private gate photo bucket).
+9. Lock the sign in (added Nov 16, 2026, see "Security pass" in `docs/HANDOFF.md`). Our server locks an email after 5 wrong codes, but anyone can also send guesses straight to Supabase with the public key, so these three settings matter:
+   - Authentication > Sign In / Providers > Email: set "Email OTP expiration" to `600` seconds (10 minutes). Then change "It works for 1 hour" to "It works for 10 minutes" in both email templates in step 4.
+   - Authentication > Attack Protection (older name: Bot and Abuse Protection): turn on Captcha with Cloudflare Turnstile and paste the Turnstile secret. Put the Turnstile site key in Cloudflare Pages as `TURNSTILE_SITE_KEY` FIRST, or sign in breaks. Test customer and staff sign in right after.
+   - Authentication > Rate Limits: leave "token verifications" at 30 per 5 minutes or lower.
+10. SQL Editor > New query > paste all of `supabase/patch-2026-11-16.sql` > Run. (Already part of `crm.sql` for a new project. An existing project needs this one time.)
 
 ## 4. Resend (email that does not land in spam)
 1. Create an account. Domains > Add `arizonapetwaste.com`. Add the DNS records it shows in Cloudflare DNS (set them to DNS only, gray cloud). Wait for Verified.

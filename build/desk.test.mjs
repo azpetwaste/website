@@ -505,6 +505,86 @@ console.log('\nA brake on guessing and floods');
   ok('guessing truck link codes is cut off after 120 a minute', tr[119] === 404 && tr[120] === 429, tr.slice(118, 122).join(','));
 }
 
+console.log('\nThe sign in lock, the size cap and the second lock on the tables (Nov 16, 2026)');
+{
+  const from = async (ip, p, body, token) => { const r = await worker.fetch(new Request('https://arizonapetwaste.com' + p, { method: 'POST', headers: Object.assign({ 'cf-connecting-ip': ip, 'content-type': 'application/json' }, token ? { authorization: 'Bearer ' + token } : {}), body: JSON.stringify(body) }), env, ctx); let d = null; try { d = await r.json(); } catch (e) { } return { status: r.status, d }; };
+  const mail = 'info@arizonapetwaste.com';
+  await db.query('delete from public.auth_tries');
+  codes[mail] = '123456';
+  // Wrong codes for one staff email, each from a different visitor address, so the per address brake never trips.
+  const tries = []; for (let i = 0; i < 5; i++) tries.push((await from('198.51.100.' + (10 + i), '/api/staff/verify', { email: mail, code: '00000' + i })).status);
+  ok('five wrong codes for a staff email are each just refused', tries.every((x) => x === 400), tries.join(','));
+  let x = await from('198.51.100.77', '/api/staff/verify', { email: mail, code: '123456' });
+  ok('the sixth try is locked out, from a new address and even with the right code', x.status === 429 && /Too many wrong codes/.test(x.d.error), x);
+  ok('the lock is kept in the database, one row for each try', (await db.query("select count(*)::int n from public.auth_tries where email = $1 and kind = 'try'", [mail])).rows[0].n === 6);
+  x = await from('198.51.100.78', '/api/staff/verify', { email: 'maria@example.com', code: '000000' });
+  ok('another staff email is not locked by that', x.status === 400, x.status);
+  await db.query("update public.auth_tries set at = at - interval '16 minutes'");
+  x = await from('198.51.100.79', '/api/staff/verify', { email: mail, code: '123456' });
+  ok('after 15 minutes the right code works again', x.status === 200 && x.d.staff.role === 'owner', x.status);
+  ok('a good sign in clears the count', (await db.query("select count(*)::int n from public.auth_tries where email = $1 and kind = 'try'", [mail])).rows[0].n === 0);
+  codes['customer@example.com'] = '123456';
+  x = await from('198.51.100.80', '/api/staff/verify', { email: 'customer@example.com', code: '123456' });
+  ok('a customer still cannot get in, and no lock row is written for them', x.status === 403 && (await db.query("select count(*)::int n from public.auth_tries where email = 'customer@example.com'")).rows[0].n === 0, x.status);
+
+  // A flood of "email me a code" for one staff email.
+  await db.query('delete from public.auth_tries');
+  const before = otpSent.filter((e) => e === mail).length, asks = [];
+  for (let i = 0; i < 6; i++) asks.push((await from('198.51.100.' + (120 + i), '/api/staff/code', { email: mail })).d.message);
+  ok('code emails for one staff email stop at 3 in 15 minutes', otpSent.filter((e) => e === mail).length - before === 3, otpSent.filter((e) => e === mail).length - before);
+  ok('the answer stays the same, so the page never says who is on the team or who is locked', asks.every((m) => m === asks[0]));
+  await db.query('delete from public.auth_tries');
+
+  // Too much to send at once.
+  const big = JSON.stringify({ name: 'x'.repeat(200000), phone: '6235550100', address: '1 Main St', zip: '85326' });
+  let r2 = await worker.fetch(new Request('https://arizonapetwaste.com/api/waitlist', { method: 'POST', headers: { 'content-type': 'application/json', 'content-length': String(big.length), 'cf-connecting-ip': '198.51.100.90' }, body: big }), env, ctx);
+  ok('a 200 KB form post is turned away by its stated size', r2.status === 413, r2.status);
+  const stream = new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(big)); c.close(); } });
+  const leads0 = (await db.query('select count(*)::int n from public.leads')).rows[0].n;
+  r2 = await worker.fetch(new Request('https://arizonapetwaste.com/api/waitlist', { method: 'POST', headers: { 'content-type': 'application/json', 'cf-connecting-ip': '198.51.100.91' }, body: stream, duplex: 'half' }), env, ctx);
+  ok('with the size left off it is still not read: nothing is saved', r2.status === 400 && (await db.query('select count(*)::int n from public.leads')).rows[0].n === leads0, r2.status);
+  const tiny = 'data:image/jpeg;base64,' + Buffer.concat([Buffer.from([0xFF, 0xD8, 0xFF, 0xE0]), Buffer.alloc(2500000, 7)]).toString('base64');
+  r2 = await call('/api/crew/photo', 'POST', { stopId: 999999, image: tiny }, owner);
+  ok('a real size gate photo (2.5 MB) still gets past the size cap', r2.status === 404, r2.status);
+
+  // Staff sign in by emailed code only. A session that came from a password is never staff.
+  const jwt = (claims) => 'eyJhbGciOiJIUzI1NiJ9.' + Buffer.from(JSON.stringify(claims)).toString('base64url') + '.sig';
+  const pw = jwt({ sub: users[owner].id, amr: [{ method: 'password', timestamp: 1 }] }), otp = jwt({ sub: users[owner].id, amr: [{ method: 'otp', timestamp: 1 }, { method: 'token_refresh', timestamp: 2 }] });
+  users[pw] = users[owner]; users[otp] = users[owner];
+  ok('a password session for the owner\'s email is refused', (await call('/api/office/day', 'GET', null, pw)).status === 401);
+  users[jwt({ sub: cid, amr: [{ method: 'password' }] })] = { id: cid, email: 'sam@example.com' };
+  ok('a password session is refused on My Yard too', (await call('/api/me', 'GET', null, jwt({ sub: cid, amr: [{ method: 'password' }] }))).status === 401);
+  ok('an emailed code session, refreshed, is let in', (await call('/api/office/day', 'GET', null, otp)).status === 200);
+  delete users[pw]; delete users[otp];
+
+  // The second lock: table rights.
+  const grants = (await db.query("select table_name, privilege_type from information_schema.role_table_grants where table_schema = 'public' and grantee in ('anon', 'authenticated') order by 1, 2")).rows;
+  ok('the public keys hold one table right in all: signed in customers may read customers (their own row, by policy)', grants.length === 1 && grants[0].table_name === 'customers' && grants[0].privilege_type === 'SELECT', grants);
+  const open = (await db.query("select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity")).rows;
+  ok('every table has row level security on', open.length === 0, open);
+  await db.query('create table public.zz_new_table (id int)');
+  const fresh = (await db.query("select count(*)::int n from information_schema.role_table_grants where table_schema = 'public' and table_name = 'zz_new_table' and grantee in ('anon', 'authenticated')")).rows[0].n;
+  await db.query('drop table public.zz_new_table');
+  ok('a table added later starts closed to the public keys', fresh === 0, fresh);
+  // Before the patch is run on the live database the table is not there. Sign in must still work, with a lock kept in memory.
+  await db.query('alter table public.auth_tries rename to auth_tries_off');
+  const quiet = console.log; console.log = () => {}; // the stand in prints each refused read, and there are a few here
+  const off = []; for (let i = 0; i < 6; i++) off.push((await from('198.51.100.' + (140 + i), '/api/staff/verify', { email: 'maria@example.com', code: '00000' + i })).status);
+  codes[mail] = '123456';
+  const stillIn = await from('198.51.100.150', '/api/staff/verify', { email: mail, code: '123456' });
+  const hOff = await call('/api/office/health', 'GET', null, owner);
+  console.log = quiet;
+  await db.query('alter table public.auth_tries_off rename to auth_tries');
+  ok('with the lock table missing, wrong codes are still cut off after five', off.slice(0, 5).every((x) => x === 400) && off[5] === 429, off.join(','));
+  ok('with the lock table missing, staff can still sign in', stillIn.status === 200, stillIn.status);
+  ok('and the Health tab says the lock is off', hOff.d.checks.signLock === false, hOff.d.checks);
+  const patch = fs.readFileSync(path.join(ROOT, 'supabase/patch-2026-11-16.sql'), 'utf8');
+  await db.query(patch); await db.query(patch);
+  ok('the patch file runs clean, twice, and leaves the same single table right', (await db.query("select count(*)::int n from information_schema.role_table_grants where table_schema = 'public' and grantee in ('anon', 'authenticated')")).rows[0].n === 1);
+  const hl = await call('/api/office/health', 'GET', null, owner);
+  ok('the Health tab says the sign in lock is on', hl.d.checks.signLock === true && hl.d.checks.botCheck === false, hl.d.checks);
+}
+
 console.log('\n' + pass + ' passed, ' + failN + ' failed');
 await db.end();
 globalThis.fetch = realFetch;
