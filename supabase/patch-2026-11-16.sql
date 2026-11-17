@@ -1,6 +1,7 @@
 -- Security patch, November 16, 2026. Safe to run more than once. It deletes nothing and changes no customer data.
 -- How: Supabase, project arizonapetwaste, SQL Editor, paste this whole file, Run. It takes a second.
--- Claude's database tool is not allowed to change tables, so a person runs this one time.
+-- RUN on the live database on November 16, 2026, 9:40 pm (migration security_patch_2026_11_16). Kept as the record.
+-- A new project does not need it: the same lines are in crm.sql.
 -- What it does:
 --   1. Adds the table the sign in lock counts in (5 wrong codes and that email waits 15 minutes).
 --   2. Takes the table rights away from the two public keys, as a second lock behind row level security.

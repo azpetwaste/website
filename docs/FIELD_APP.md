@@ -57,14 +57,14 @@ Not run yet:
 The scooper screen is three steps for every yard: Drive, Scoop, Photo. Buttons read Directions, I'm here, Take gate photo, I can't do this yard. "Photo trouble?" holds the upload and the no photo path. Details and test counts are at the bottom of `docs/HANDOFF.md`.
 
 ## Nov 16, 2026: Back buttons and a security pass
-Back, top left, on every office screen. The logo is home. The phone's back button works and no longer leaves the app. Sign in is locked after 5 wrong codes, password sign ins are refused, and the crew page only runs its own script. One step is waiting on a person: run `supabase/patch-2026-11-16.sql` in the Supabase SQL Editor. Details, what is left for Atlas and test counts are at the bottom of `docs/HANDOFF.md`.
+Back, top left, on every office screen. The logo is home. The phone's back button works and no longer leaves the app. Sign in is locked after 5 wrong codes, password sign ins are refused, and the crew page only runs its own script. The database patch (`supabase/patch-2026-11-16.sql`) is on the live database, and it added the `skips` column too. Still open: three Supabase sign in settings and a Cloudflare rate limit rule, which need a signed in dashboard. Details, what is left for Atlas and test counts are at the bottom of `docs/HANDOFF.md`.
 
 ## Open items
 1. Staff test: someone signs in at /crew inside the Claude browser pane, then Claude runs a test yard through a route. A test customer "TEST Yard (delete me)" sits in the live database for this. Delete it after.
 2. Test sign up at `/book/?test=1` with card 4242 4242 4242 4242.
 3. Atlas: `RESEND_API_KEY`, `MAIL_FROM`, `NOTIFY_EMAIL` in Cloudflare Pages. Stripe live keys after the road test.
 4. Truck start: type it once in Plan the week, "Where the truck starts each day" (saved in `settings`, no Cloudflare step). Joe said "208 East East View Way". That exact address was not found, so it is not set yet.
-5. The `skips` column is not on the live database yet. Claude's database tool blocks this line (tried twice), so a person runs it in the Supabase SQL Editor: `alter table public.customers add column if not exists skips date[] not null default '{}';`
+5. Done Nov 16, 2026: the `skips` column is on the live database.
 6. Twilio approval, then wire sending into `queueText`.
 7. The training video shows the older Today screen. Re-record when the screens settle.
 
