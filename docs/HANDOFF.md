@@ -499,3 +499,10 @@ Joe asked for a real Waddell page, built like the other five town pages, with it
 ## Nov 16, 2026, later: five towns everywhere (website session)
 - Joe: Buckeye, Goodyear, Litchfield Park, Citrus Park and Waddell are the towns. Verrado is in Buckeye. Every town list, menu, footer, schema town list, Areas card, blog line and map now uses five. `SIX` in `build/build.mjs` is now `AREA_TOWNS` / `TOWNS_TEXT`.
 - The Verrado page stays live and linked (Buckeye page, 85396 ZIP row, About, one time cleanup, sitemap, llms.txt). Not changed: home H1, share picture, sign up form city buttons.
+
+### Nov 16, 2026, 9:15 pm. One time pickup, from $99 (website and AEO chat), Joe's word
+- Same day pickup ($49) and one time cleanup ($95) are merged into one service: **One time pickup, from $99**. A big job (a yard not cleaned in a long time, or a lot of dogs) gets a quote first: the customer texts a photo and we send the price before we come. Same day is the same service when we have a spot, at the same price.
+- `content/site/same-day-dog-poop-pickup.html` is deleted. `/same-day-dog-poop-pickup/` sends people to `/one-time-dog-poop-cleanup/` with a 301. The one time page keeps its address, its title and h1 now say pickup, and it has a "Need it today?" section. Sitemap is 45 pages.
+- Changed: pricing extras, the home and town price tables (`PRICE_TABLE`), the home FAQ, the town FAQs (`longform.py`), Terms, the schema (`makesOffer` has five offers, the one time offer has `minPrice` 99), the business description and `llms.txt`. `npm run check` fails on the old prices next to same day or one time.
+- No checkout, server or crew app code sold these two, so nothing in `/crew`, `/t` or the worker changed. Every dollar amount in the old and new builds was compared: only the $49 and $95 lines moved.
+- Joe still has to change the Google profile services: drop Same day pickup and One time cleanup, add One time pickup from $99.

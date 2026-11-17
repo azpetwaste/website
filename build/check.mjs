@@ -21,10 +21,13 @@ const bad = (page, msg) => { problems++; console.log('  x', page, msg); };
 // Joe, Nov 16, 2026: deodorizing is included free with every visit, and the insurance is in force.
 // Nothing sells a turf odor treatment for a price, and nothing says the insurance starts on a date. Both run on the words with the tags taken out.
 const PAID_TURF = /turf odor treatment[^.\n]{0,40}\$\d|turf odor treatment","price":"[1-9]/i;
+// Joe, Nov 16, 2026, night: same day and one time are one service, the one time pickup, from $99. The old $49 and $95 prices are gone.
+const OLD_EXTRA = /(same day|one time)[^.\n]{0,60}\$(49|95)\b|\$(49|95)\b[^.\n]{0,40}(same day|one time)/i;
 const INS_DATE = /insurance[^.\n]{0,30}\bstart(s|ing)\b|starts Nov(ember)? 16/i;
 const owner = (page, text) => {
   const words = text.replace(/<[^>]+>/g, ' ');
   if (PAID_TURF.test(words)) bad(page, 'sells a paid turf odor treatment (deodorizing is included free with every visit)');
+  if (OLD_EXTRA.test(words)) bad(page, 'shows the old same day ($49) or one time ($95) price (it is one time pickup, from $99)');
   if (INS_DATE.test(words)) bad(page, 'says the insurance starts on a date (say "Insured and bonded")');
 };
 const indexable = new Set();

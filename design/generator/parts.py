@@ -212,7 +212,7 @@ FAQ_ITEMS = [
     ('Are you bonded and insured?', 'Yes. We are insured and bonded. We carry a $50,000 business service bond and $1,000,000 in general liability insurance. See the details on our bond and insurance page.'),
     ('Do you clean your tools?', 'Yes. We clean our boots and tools after every yard. That keeps germs from going from yard to yard.'),
     ('Can I pick my day?', 'No. We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window.'),
-    ('Can you come today? We have a party.', 'Yes. Text us and we can come the same day for $49. It goes on your next bill on the 1st.'),
+    ('Can you come today? We have a party.', 'Yes, when we have a spot. Text us as early as you can. A one time pickup starts at $99. A big job gets a quote first.'),
     ('When do you charge my card?', 'On the 1st of each month.[[bf: With the Black Friday sale, your first month is free. Your first charge is on the day your free month ends. It only covers the days left until the 1st, so it is smaller. Then you pay the full price on the 1st of each month.||]]'),
     ('Who sees my gate code?', 'Only your scooper, and only on your day. You add it after you sign up. If you cancel, we delete it.'),
     ('What if a dog in the yard is not safe to be near?', 'We don’t go in. We text you to bring the dog inside. We can come back the same day.'),
@@ -284,7 +284,7 @@ PRICE_TABLE = (
     '</tbody></table>'
     '<p class="ptab-w">' + WEEK_NOTE + '</p>'
     '<p class="ptab-x">Extras</p>'
-    + _xrow('Deodorizing (free every visit)', 'Included free') + _xrow('Same day pickup', '$49') + _xrow('One time cleanup', '$95') +
+    + _xrow('Deodorizing (free every visit)', 'Included free') + _xrow('One time pickup, same day if we have a spot', 'From $99') +
     '<p class="ptab-n">Each dog after two adds $13 a month ($9 every other week). [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]</p>'
 )
 

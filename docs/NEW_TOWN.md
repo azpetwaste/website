@@ -28,7 +28,7 @@ What that change also had to do, because the name was already in use: move the W
 ## When we leave the West Valley
 These say "West Valley" today and need a second look the day the first town outside it goes live:
 - The home page H1 and title, the Areas we serve page, and the footer.
-- Titles that end in "West Valley AZ" on the service pages (pricing, one time cleanup, same day, commercial).
+- Titles that end in "West Valley AZ" on the service pages (pricing, one time pickup, commercial).
 - The schema `areaServed` list and the business description in `build/build.mjs`.
 - The plan: keep the home page for the whole company, and give each area its own hub page (`/pooper-scooper/` lists areas, each area lists its towns). Each area needs its own Google Business Profile only if there is a real staffed place there. Google does not allow a profile for a town we only drive to.
 - Boulder City is in Nevada. The name "Arizona Pet Waste" and every "AZ" on the site would be wrong there. That town needs a call from Joe before any page is written.

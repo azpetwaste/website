@@ -297,8 +297,9 @@ const SERVED = AREA_TOWNS.map((n) => ({ '@type': 'City', name: n, containedInPla
 const GOOGLE = cfg.googleProfile || '';
 const googleLink = (text) => (GOOGLE ? '<a href="' + esc(GOOGLE) + '" target="_blank" rel="noopener noreferrer">' + (text || 'Find us on Google') + '</a>' : '');
 // The offers use the names on our Google profile (Joe's list, Nov 16, 2026), with no dashes: weekly, twice a week, every other week,
-// one time, same day and the free deodorizing. Deodorizing is included free with every visit. There is no paid turf odor treatment.
-// Prices are the same as before. A plan is booked at /book/. One time and same day are booked by text, so they point to their own pages.
+// one time pickup and the free deodorizing. Deodorizing is included free with every visit. There is no paid turf odor treatment.
+// Joe, Nov 16, 2026, night: same day ($49) and one time cleanup ($95) are one service now, the one time pickup, from $99.
+// A big job gets a quote first. Same day is the same service when we have a spot. A plan is booked at /book/. A one time pickup is booked by text.
 const SPRAY = 'Deodorizing is included free with every visit, on rock and turf yards alike.';
 const SALE = '[[bf:First month free through November 30||First cleanup free]].';
 const serviceOf = (name, type) => ({ '@type': 'Service', name, serviceType: type || 'Pet waste removal' });
@@ -311,17 +312,16 @@ const OFFERS = [
   monthly('Weekly pickup, 1 or 2 dogs', 'Weekly dog poop pickup', 108, 'About $25 a week, billed $108 on the 1st. Includes haul away, deodorizing free every visit, a 30 minute window, a live truck map, and a photo of your latched gate. Each dog after two adds $13 a month. Months with five visits cost the same as four. ' + SALE),
   monthly('Twice a week pickup, 1 or 2 dogs', 'Twice a week dog poop pickup', 189, 'About $44 a week, billed $189 on the 1st. Deodorizing free every visit, haul away, gate photo. Each dog after two adds $13 a month. ' + SALE),
   monthly('Every other week pickup, 1 or 2 dogs', 'Every other week dog poop pickup', 75, 'About $17 a week, billed $75 on the 1st. Deodorizing free every visit, haul away, gate photo. Each dog after two adds $9 a month. ' + SALE),
-  { '@type': 'Offer', name: 'One time cleanup', description: 'One visit to pick up every pile, rake rock yards, deodorize for free, haul the waste away, and send a gate photo. No plan required.',
-    price: '95.00', priceCurrency: 'USD', url: ORIGIN + '/one-time-dog-poop-cleanup/', itemOffered: serviceOf('One time dog poop cleanup') },
-  { '@type': 'Offer', name: 'Same day pickup', description: 'When we have a spot. Text us as early as you can. Deodorizing included free. Goes on your next bill on the 1st.',
-    price: '49.00', priceCurrency: 'USD', url: ORIGIN + '/same-day-dog-poop-pickup/', itemOffered: serviceOf('Same day dog poop pickup') },
+  { '@type': 'Offer', name: 'One time pickup', description: 'One visit to pick up every pile, rake rock yards, deodorize for free, haul the waste away, and send a gate photo. From $99. A big job gets a quote first. Same day when we have a spot. No plan required.',
+    price: '99.00', priceCurrency: 'USD', url: ORIGIN + '/one-time-dog-poop-cleanup/',
+    priceSpecification: { '@type': 'PriceSpecification', minPrice: '99.00', priceCurrency: 'USD' }, itemOffered: serviceOf('One time dog poop pickup') },
   { '@type': 'Offer', name: 'Deodorizing (free every visit)', description: SPRAY + ' We spray the spots your dogs use most. It costs you nothing, on every plan and every cleanup.',
     price: '0.00', priceCurrency: 'USD', itemOffered: serviceOf('Deodorizing (free every visit)', 'Yard deodorizing') }
 ];
 const business = {
   '@type': 'LocalBusiness', '@id': BIZ_ID, name: cfg.name, url: ORIGIN + '/',
   founder: { '@type': 'Person', name: 'Juan Gonzalez', jobTitle: 'Owner', homeLocation: { '@type': 'Place', name: 'Verrado, Buckeye, Arizona' } },
-  description: 'Arizona Pet Waste is a family owned, insured and bonded dog poop pickup service for homes in ' + TOWNS_TEXT + '. Weekly, twice a week, or every other week plans, plus one time and same day cleanups. We haul the waste away and deodorize for free at every visit. No photo of your latched gate? That visit is free.',
+  description: 'Arizona Pet Waste is a family owned, insured and bonded dog poop pickup service for homes in ' + TOWNS_TEXT + '. Weekly, twice a week, or every other week plans, plus one time pickups, the same day when we have a spot. We haul the waste away and deodorize for free at every visit. No photo of your latched gate? That visit is free.',
   telephone: '+1-623-309-6104', email: cfg.email,
   // A service area business: we go to the customer, so there is no street here on purpose. Town, state and country only. Never add a street.
   address: { '@type': 'PostalAddress', addressLocality: 'Buckeye', addressRegion: 'AZ', postalCode: '85396', addressCountry: 'US' },
@@ -785,8 +785,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - Weekly pickup, 1 or 2 dogs: $108 a month. That is about $25 a week, or about $25 a visit. Each dog after two adds $13.
 - Twice a week pickup, 1 or 2 dogs: $189 a month. That is about $44 a week. Each dog after two adds $13.
 - Every other week pickup, 1 or 2 dogs: $75 a month. That is about $17 a week. Each dog after two adds $9.
-- One time cleanup: $95.
-- Same day pickup: $49, when we have a spot, for a party or guests. It is added to the next bill.
+- One time pickup: from $99. A big job, like a yard that has not been cleaned in a long time, gets a quote first, and the price is given before the visit. Same day when we have a spot, at the same price. For a customer on a plan it is added to the next bill.
 - Deodorizing (free every visit): included free with every visit, on rock and turf yards alike. It costs nothing on any plan or cleanup.
 - Billing: everyone is billed on the 1st of each month.[[bf: During the Black Friday sale (sign up by November 30, 2026) the first month is free. A card is saved at sign up and nothing is charged that day. The first charge is on the day the free month ends and only covers the days left until the 1st. Then the full price on the 1st of each month. If a payment fails, the customer is emailed that day and visits are on hold until the bill is paid.||]]
 [[bf:- Black Friday sale: sign up by Monday, November 30, 2026 and the first month is free. The sale ends at midnight on November 30. The free month stays free when the customer keeps the plan for 60 days. Canceling in the first 60 days is charged one month at the plan price, minus anything already paid. Canceling is done online in My Yard, with no phone call.||- Offer: the first cleanup is free. The Black Friday free month sale ended on November 30, 2026. Customers who signed up in the sale keep the free month when they keep the plan for 60 days.]]
@@ -923,6 +922,8 @@ fs.writeFileSync(path.join(DIST, '_redirects'), `/staff /crew/ 301
 /waddell/ /pooper-scooper/waddell-az/ 301
 /waddell-az /pooper-scooper/waddell-az/ 301
 /waddell-az/ /pooper-scooper/waddell-az/ 301
+/same-day-dog-poop-pickup /one-time-dog-poop-cleanup/ 301
+/same-day-dog-poop-pickup/ /one-time-dog-poop-cleanup/ 301
 /turf-odor-treatment /pricing/ 301
 /turf-odor-treatment/ /pricing/ 301
 /prices /pricing/ 301
