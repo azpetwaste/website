@@ -352,13 +352,27 @@ ok('gate photo saved to private bucket', r.status === 200 && Object.keys(files).
   ok('a time from another day is not believed either', r.status === 200 && Math.abs(Date.parse(r.d.photoAt) - Date.now()) < 60e3 && r.d.timeTyped === false, r.d.photoAt);
   r = await call('/api/crew/photo', 'POST', { stopId: samStop.id, image: jpg, takenAt: typed, manual: true }, mt);
 }
+env.RESEND_API_KEY = 're_test'; mailBodies.length = 0;
 r = await call('/api/crew/done', 'POST', { stopId: samStop.id, note: 'Gate sticks' }, mt);
 const after = r.d.stops;
+ok('Sam said yes to visit texts, so no done email (the text carries the photo)', !mailBodies.some((x) => /Your yard is done/.test(x)), mailBodies.length);
 ok('done, next stop on the way', after.find((s) => s.id === samStop.id).status === 'done' && after.find((s) => s.id === patStop.id).status === 'on_the_way');
 ok('done text queued for Sam, none for Pat (no texts)', r.d.texts.some((x) => x.kind === 'done') && !r.d.texts.some((x) => x.stop_id === patStop.id), r.d.texts.map((x) => x.kind));
 r = await call('/api/track/' + samStop.code, 'GET');
 ok('truck link: done with gate photo link', r.d.status === 'done' && /\/storage\/v1\/object\/sign\/gate-photos\//.test(r.d.photo || ''), r.d);
 ok('truck link: the customer sees when the photo was taken, and that the time was typed', !!r.d.photoAt && r.d.timeTyped === true, { photoAt: r.d.photoAt, timeTyped: r.d.timeTyped });
+{ // A customer who said no to visit texts gets the gate photo link by email instead (Joe, Nov 16, 2026: the photo must always reach them).
+  await db.query('update public.customers set texts_visit = false where id = $1', [cid]);
+  await db.query("update public.stops set status = 'here' where id = $1", [samStop.id]);
+  mailBodies.length = 0;
+  r = await call('/api/crew/done', 'POST', { stopId: samStop.id }, mt);
+  const m = mailBodies.map((x) => JSON.parse(x)).find((x) => /Your yard is done/.test(x.subject));
+  ok('no visit texts: the gate photo link goes by email, once', r.status === 200 && !!m && m.to[0] === 'sam@example.com' && m.text.includes('https://arizonapetwaste.com/t/' + samStop.code) && mailBodies.length === 1, mailBodies);
+  const t = await db.query("select count(*)::int as n from public.messages where stop_id = $1 and kind = 'done'", [samStop.id]);
+  ok('and no second done text is queued', t.rows[0].n === 1, t.rows);
+  await db.query('update public.customers set texts_visit = true where id = $1', [cid]);
+  delete env.RESEND_API_KEY;
+}
 r = await call('/api/crew/cant', 'POST', { stopId: patStop.id, reason: 'gate_locked', note: 'Padlock' }, mt);
 ok('can\'t service recorded', r.d.stops.find((s) => s.id === patStop.id).status === 'cant');
 r = await call('/api/crew/end', 'POST', {}, mt);

@@ -1239,6 +1239,26 @@ async function queueText(env, customer, stopId, kind, code, reason) {
   await db(env, 'POST', 'messages', [{ customer_id: customer.id, stop_id: stopId, kind, channel: 'sms', to_addr: customer.phone, body: textBody(env, kind, code, reason) }], 'return=minimal');
   return true;
 }
+// Joe, Nov 16, 2026: the gate photo must always reach the customer, or that visit is free. A customer who did not say yes to
+// visit texts (or has no mobile number) gets the done note by email instead, with the same link to the photo of the latched gate.
+// A customer with visit texts gets the queued text, as before. Sent once: both callers only reach this when the visit first turns done.
+async function doneMail(env, customer, code) {
+  if (!customer || !customer.email || (customer.texts_visit && customer.phone)) return false;
+  const first = String(customer.name || '').trim().split(/\s+/)[0];
+  return mail(env, customer.email, 'Your yard is done. Here is your gate photo.', [
+    (first ? 'Hi ' + first + ',' : 'Hi,'),
+    '',
+    'We picked up your yard today. See the photo of your latched gate here:',
+    'https://' + siteHost(env) + '/t/' + code,
+    '',
+    'Missed a pile? Reply to this email and we come back within 24 hours.',
+    'Every gate photo is also in My Yard: https://' + siteHost(env) + '/account/',
+    'Want these by text? Turn on texts in My Yard.',
+    '',
+    'Arizona Pet Waste',
+    '623.309.6104'
+  ].join('\n'));
+}
 // The yard is finished. An "on the way" text nobody sent is old news now, so it leaves the list. A sent one is left alone.
 async function dropOnWayText(env, stopId) {
   try { await db(env, 'PATCH', 'messages?stop_id=eq.' + stopId + '&kind=eq.on_the_way&status=eq.queued', { status: 'skipped', sent_at: new Date().toISOString() }, 'return=minimal'); } catch (e) { }
@@ -1276,7 +1296,7 @@ async function crewToday(s, env) {
 async function myStop(s, env, stopId) {
   const id = parseInt(stopId, 10);
   if (!id) return null;
-  const st = (await db(env, 'GET', 'stops?id=eq.' + id + '&select=*,route:routes(id,day,staff_id,status),customer:customers(id,name,phone,address,lat,lng,texts_visit)'))[0];
+  const st = (await db(env, 'GET', 'stops?id=eq.' + id + '&select=*,route:routes(id,day,staff_id,status),customer:customers(id,name,email,phone,address,lat,lng,texts_visit)'))[0];
   if (!st || st.route.staff_id !== s.id || st.day !== azToday()) return null;
   return st;
 }
@@ -1381,7 +1401,7 @@ async function savePhoto(env, st, image, from, takenAt, manual) {
 // the scooper takes the picture with the phone's own camera and it is uploaded here. Visits up to 14 days back.
 async function officePhotoUpload(env, b) {
   const id = parseInt(b.stopId, 10);
-  const st = id && (await db(env, 'GET', 'stops?id=eq.' + id + '&select=id,day,status,arrived_at,route:routes(id,status)'))[0];
+  const st = id && (await db(env, 'GET', 'stops?id=eq.' + id + '&select=id,day,status,arrived_at,code,route:routes(id,status),customer:customers(id,name,email,phone,texts_visit)'))[0];
   if (!st) return fail(404, 'Stop not found.');
   if (st.day < addDays(azToday(), -14) || st.day > azToday()) return fail(400, 'A photo can be added for a visit from the last 14 days.');
   if (st.status === 'skipped') return fail(400, 'That visit was skipped. There is no visit to add a photo to.');
@@ -1391,6 +1411,7 @@ async function officePhotoUpload(env, b) {
   if (['scheduled', 'on_the_way', 'here'].includes(st.status)) {
     const at = JSON.parse(await res.text()).photoAt;
     await db(env, 'PATCH', 'stops?id=eq.' + st.id, { status: 'done', done_at: at, arrived_at: st.arrived_at || at, no_photo: false }, 'return=minimal');
+    await doneMail(env, st.customer, st.code).catch(() => false);
     if (st.route && st.route.status === 'live') await advance(env, st.route.id);
   }
   return officeDay(env, st.day);
@@ -1406,6 +1427,7 @@ async function crewDone(s, env, b) {
   }, 'return=minimal');
   await dropOnWayText(env, st.id);
   await queueText(env, st.customer, st.id, 'done', st.code);
+  if (st.photo_path) await doneMail(env, st.customer, st.code).catch(() => false);
   await advance(env, st.route.id);
   return crewToday(s, env);
 }

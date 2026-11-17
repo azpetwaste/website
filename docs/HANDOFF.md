@@ -506,3 +506,9 @@ Joe asked for a real Waddell page, built like the other five town pages, with it
 - Changed: pricing extras, the home and town price tables (`PRICE_TABLE`), the home FAQ, the town FAQs (`longform.py`), Terms, the schema (`makesOffer` has five offers, the one time offer has `minPrice` 99), the business description and `llms.txt`. `npm run check` fails on the old prices next to same day or one time.
 - No checkout, server or crew app code sold these two, so nothing in `/crew`, `/t` or the worker changed. Every dollar amount in the old and new builds was compared: only the $49 and $95 lines moved.
 - Joe still has to change the Google profile services: drop Same day pickup and One time cleanup, add One time pickup from $99.
+
+### Nov 16, 2026, 9:20 pm. Gate photo by email when there are no visit texts (website chat, Joe's word)
+- `doneMail` in `worker.js`: when a visit turns done with a photo, a customer who did not say yes to visit texts (or has no mobile number) gets an email with the `/t/CODE` link to the gate photo and a link to My Yard. Customers with visit texts get the queued text as before. Called from `crewDone` and from `officePhotoUpload` when that finishes a visit. Sent once, since both only run when the visit first turns done.
+- `myStop` and `officePhotoUpload` now read the customer's email.
+- `desk.test.mjs`: two new checks (no email for a texts customer, one email and no second text for a customer without texts). 111 of 111 pass. `worker.test.mjs` 180 of 180.
+- Field desk session: nothing a scooper sees changed, so the training video was not rebuilt.
