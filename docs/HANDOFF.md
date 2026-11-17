@@ -586,3 +586,10 @@ Joe asked for five things in a row. All are live.
 - Checked: `worker.test.mjs` 210, `desk.test.mjs` 134, `signup10` 40, `signup50` 125, `week.test.mjs` 76, build and check with the sale on and off. A real browser at phone size clicked through both paths (new email: no code, card, done; known email: code, card, done), the address list, an out of area address, and the My Yard link (28 and 8 checks).
 - Not checked, needs live keys: the Supabase admin calls and the Places call against the real services. After the push: run one `/book/?test=1` sign up with a new email, tap the link in the welcome email, and type a street on step 3.
 - Left alone: privacy still lists Google Fonts and Mapbox, which the site no longer uses. Fix on the next privacy edit.
+
+### Nov 16, 2026, 10:15 pm. Deals texts are out of the sign up box (website chat). This replaces point 1 of the note above.
+- Twilio turns a campaign down when one box covers visit texts and deals: error 30913, "Marketing and informational consent must be separate" (https://www.twilio.com/docs/api/errors/30913). Joe asked for one merged box. That would have failed the campaign he is waiting on, so the merge was taken back within the hour.
+- **Sign up: one box, visit texts only**, "Text me about my visits." with the red "* Recommended". `checkout` saves `texts_deals: false` no matter what a page sends, and the consent record for deals says it was not asked.
+- **My Yard: two separate boxes again**, visits (Recommended) and "Text me deals too." Both unchecked for a new customer. The welcome email has one line that points to the deals box.
+- `/texts/`, privacy, `CONSENT`, `GO_LIVE.md` part 10 and three screenshots match (new: `sms-optin-myyard.png`, made by `build/optin-shots.py` from the sample account).
+- Checked: `worker.test.mjs` 212, `desk` 134, `signup10` 40, `signup50` 125, build and check with the sale on and off, the two browser flows (28 and 8).

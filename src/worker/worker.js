@@ -28,12 +28,13 @@ const ZIPS = {
 };
 // The exact words shown next to the text boxes. Saved with every consent record.
 const CONSENT = {
-  // Joe, Nov 16, 2026: one box for visit texts and deals texts. It is marked Recommended with a red star, and it stays
-  // optional: texts are never a condition of buying (TCPA), and Twilio refuses a required text box. Both consent kinds are
-  // still saved, each with these words, so the office and the records keep working.
-  visit: 'Text me about my visits. Setting your day, night before reminders, on the way, your gate photo, and deals. About 2 to 4 texts a visit, plus up to 4 deals texts a month.',
-  deals: 'Text me about my visits. Setting your day, night before reminders, on the way, your gate photo, and deals. About 2 to 4 texts a visit, plus up to 4 deals texts a month.',
-  fine: 'By checking the box, you agree to get texts from Arizona Pet Waste at the number above, about your visits and our deals. Message and data rates may apply. Reply STOP to stop or HELP for help. You do not have to agree to texts to book. See our Text Terms and Privacy Policy.'
+  // Joe, Nov 16, 2026: sign up has ONE text box, for visit texts, marked Recommended with a red star. It stays optional:
+  // texts are never a condition of buying (TCPA), and Twilio refuses a required text box. Deals texts are NOT in that box.
+  // Twilio turns a campaign down when one box covers both visit texts and deals (error 30913, "Marketing and informational
+  // consent must be separate"), so the deals box is its own unchecked box in My Yard. Sign up never turns deals texts on.
+  visit: 'Text me about my visits. Setting your day, night before reminders, on the way, and your gate photo. About 2 to 4 texts a visit.',
+  deals: 'Text me deals too. Up to 4 texts a month.',
+  fine: 'By checking the box, you agree to get texts from Arizona Pet Waste at the number above. Message and data rates may apply. Reply STOP to stop or HELP for help. You do not have to agree to texts to book. See our Text Terms and Privacy Policy.'
 };
 const CALL_US = 'Call or text 623.309.6104 and we will help.';
 
@@ -529,7 +530,7 @@ async function checkout(request, env, ctx) {
 
   await db(env, 'POST', 'customers?on_conflict=id', [{
     id: u.id, email: u.email, name, phone, address, zip, area: z.area, plan: b.plan, dogs, first_visit: null,
-    texts_visit: !!b.textsVisit, texts_deals: !!b.textsDeals, status: 'checkout', stripe_customer_id: customer, updated_at: new Date().toISOString()
+    texts_visit: !!b.textsVisit, texts_deals: false, status: 'checkout', stripe_customer_id: customer, updated_at: new Date().toISOString()
   }], 'resolution=merge-duplicates,return=minimal');
 
   const ip = request.headers.get('cf-connecting-ip') || '';
@@ -537,7 +538,7 @@ async function checkout(request, env, ctx) {
   const page = clean(b.page, 120);
   await db(env, 'POST', 'consent_log', [
     { user_id: u.id, email: u.email, phone, kind: 'texts_visit', granted: !!b.textsVisit, text_shown: CONSENT.visit + ' ' + CONSENT.fine, page, ip, user_agent: ua },
-    { user_id: u.id, email: u.email, phone, kind: 'texts_deals', granted: !!b.textsDeals, text_shown: CONSENT.deals + ' ' + CONSENT.fine, page, ip, user_agent: ua }
+    { user_id: u.id, email: u.email, phone, kind: 'texts_deals', granted: false, text_shown: 'Not asked at sign up. The deals box is in My Yard.', page, ip, user_agent: ua }
   ], 'return=minimal');
 
   // Make sure the prices exist in Stripe before the card form shows (first sign up in a new Stripe mode creates them).
@@ -713,6 +714,7 @@ async function booked(env, ctx, uid, sub, customer, card) {
     'Next, set up My Yard: add your gate code, your dogs’ names and any problem spots. This link signs you in, no code needed. It works for ' + LINK_DAYS + ' days:',
     await yardLink(env, c.id), '',
     'After that, sign in at https://' + siteHost(env) + '/account/ with your email.', '',
+    'Want our deals by text? Turn on "Text me deals too" in My Yard.', '',
     'Questions? Call or text 623.309.6104.', '', 'Arizona Pet Waste'
   ].join('\n')));
   return true;

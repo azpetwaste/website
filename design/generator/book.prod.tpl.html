@@ -153,9 +153,9 @@
     </sc-if>
     <sc-if value="{{ eAddr }}" hint-placeholder-val="{{ false }}"><p class="ferr">{{ eAddr }}</p></sc-if>
     <p class="flab" style="margin-top: 24px;">Texts from us</p>
-    <label class="cbx" for="b-tv"><input id="b-tv" type="checkbox" checked="{{ txtVisit }}" onChange="{{ onTxtVisit }}"><span><b>Text me about my visits. <span class="rec">* Recommended</span></b><small>Setting your day, night before reminders, on the way, your gate photo, and deals. About 2 to 4 texts a visit, plus up to 4 deals texts a month.</small></span></label>
+    <label class="cbx" for="b-tv"><input id="b-tv" type="checkbox" checked="{{ txtVisit }}" onChange="{{ onTxtVisit }}"><span><b>Text me about my visits. <span class="rec">* Recommended</span></b><small>Setting your day, night before reminders, on the way, and your gate photo. About 2 to 4 texts a visit.</small></span></label>
     <p class="rec-note">Skip this and your gate photo comes by email and in My Yard.</p>
-    <p class="fine">By checking the box, you agree to get texts from Arizona Pet Waste at the number above, about your visits and our deals. Message and data rates may apply. Reply STOP to stop or HELP for help. You do not have to agree to texts to book. See our <a href="/texts/">Text Terms</a> and <a href="/privacy/">Privacy Policy</a>.</p>
+    <p class="fine">By checking the box, you agree to get texts from Arizona Pet Waste at the number above. Message and data rates may apply. Reply STOP to stop or HELP for help. You do not have to agree to texts to book. See our <a href="/texts/">Text Terms</a> and <a href="/privacy/">Privacy Policy</a>.</p>
     <sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><p class="ferr" role="alert">{{ err }}</p></sc-if>
   </sc-if>
 
@@ -463,7 +463,7 @@ class Component extends DCLogic {
     try {
       await this._apw().post('/api/request', {
         zip: s.zip, plan: s.plan, dogs: s.dogs, name: s.name.trim(), phone: this._phone10(), email: s.email.trim(), address: s.addr.trim(),
-        textsVisit: !!s.txtVisit, textsDeals: !!s.txtVisit, page: location.pathname, website: ''
+        textsVisit: !!s.txtVisit, textsDeals: false, page: location.pathname, website: ''
       });
       this._clearDraft();
       const a = this._apw();
@@ -484,7 +484,7 @@ class Component extends DCLogic {
       const r = await a.post('/api/checkout', {
         zip: s.zip, plan: s.plan, dogs: s.dogs,
         name: s.name.trim(), phone: this._phone10(), email: s.email.trim(), address: s.addr.trim(),
-        textsVisit: !!s.txtVisit, textsDeals: !!s.txtVisit, page: location.pathname, bot: bot
+        textsVisit: !!s.txtVisit, textsDeals: false, page: location.pathname, bot: bot
       }, signed);
       if (tok !== this._payTok) return;
       if (r && r.already) { this.setState({ payState: 'already' }); return; }

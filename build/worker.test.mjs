@@ -241,6 +241,11 @@ head('Config and sign in');
     ok('a new email opens the card form with no code and no sign in', r.status === 200 && !!r.d.clientSecret && /^cs_test/.test(r.d.session) && !!id, r.d);
     ok('the page is never handed a session, so typing an email cannot open an account', !r.d.auth && !/tok_|access_token|refresh_token/.test(JSON.stringify(r.d)), r.d);
     ok('the sign up row belongs to that new account', !!T.customers.find((c) => c.id === id && c.email === 'new@example.com' && c.status === 'checkout'));
+    { // Deals consent is never taken at sign up, even if a page sends it: Twilio wants it in its own box (error 30913).
+      const d = await call('/api/checkout', 'POST', Object.assign({}, good, { email: 'deals@example.com', phone: '6235550166', address: '66 W Deals St', textsVisit: true, textsDeals: true }));
+      const rowD = T.customers.find((c) => c.email === 'deals@example.com'), log = T.consent_log.filter((c) => c.email === 'deals@example.com');
+      ok('sign up turns visit texts on and never deals texts', d.status === 200 && rowD.texts_visit === true && rowD.texts_deals === false && log.find((c) => c.kind === 'texts_visit').granted === true && log.find((c) => c.kind === 'texts_deals').granted === false, log);
+      ok('the saved consent words are the visit box only, with no deals in them', !/deals/i.test(log.find((c) => c.kind === 'texts_visit').text_shown), log.find((c) => c.kind === 'texts_visit').text_shown); }
     const again = await call('/api/checkout', 'POST', Object.assign({}, good, { email: 'new@example.com', address: '99 W Other St' }));
     ok('the same email before a plan starts picks the sign up back up: one account, one row, still no session', again.status === 200 && !again.d.auth && authCalls.filter((x) => x === 'create new@example.com').length === 1 && T.customers.filter((c) => c.email === 'new@example.com').length === 1, again.d);
     // The card is saved. The page has no sign in, so it reports in with the card form id alone.
