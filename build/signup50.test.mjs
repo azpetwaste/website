@@ -307,7 +307,7 @@ ok('Stripe’s first bill, worked out line by line, is the one full month every 
   && ids.every((x) => pay.firstBill('sub_' + x.n) === Number(pay.made['sub_' + x.n].get('metadata[first_charge]')) && pay.firstBill('sub_' + x.n) === pay.fullMonth('sub_' + x.n)), mails.filter((x) => /^CHECK BILLING/.test(x.subject)).map((x) => x.text).slice(0, 2));
 ok('one plan and one welcome email for each sign up, however many times it is reported', Object.keys(pay.made).length === N && plansMade === N && bookedMails === N && mails.filter((x) => /^You are booked/.test(x.subject)).length === N, [plansMade, bookedMails]);
 { const f = pay.made['sub_' + ids[3].n], h = HOMES[3];
-  ok('the server starts each plan with our prices and a free month, and sends no billing day or part month setting', f.get('items[0][price]') === 'price_' + h[3] + '_base' && f.get('metadata[user_id]') === ids[3].uid && Number(f.get('trial_end')) > Date.now() / 1000 + 30 * 86400
+  ok('the server starts each plan with our prices and a free month, and sends no billing day or part month setting', f.get('items[0][price]') === 'price_' + h[3] + '_base' && f.get('metadata[user_id]') === ids[3].uid && Number(f.get('trial_end')) > Date.now() / 1000 + 27 * 86400 && Number(f.get('trial_end')) < Date.now() / 1000 + 32 * 86400
     && Object.values(pay.made).every((x) => ![...x.keys()].some((k) => /billing_cycle_anchor|proration|trial_settings/.test(k))), String(f)); }
 r = await call('/api/checkout/done', 'POST', { session: 'cs_sub_' + ids[1].n }, ids[0].token);
 ok('a customer cannot finish someone else’s sign up', r.status === 403, r.status);

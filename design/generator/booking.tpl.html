@@ -177,20 +177,16 @@ class Component extends DCLogic {
 @@THEME_METHODS@@
 @@PRICE_METHODS@@
   // Design canvas copy of the pay step. The real form is book.prod.tpl.html, and the rule lives in firstCharge in the
-  // server: the free month runs one month and one week from the soonest start day, the full month price is charged the
-  // day it ends, and that day is the bill day from then on. No part months.
+  // server: the free month is exactly one month from the sign up day, the full month price is charged the day it ends,
+  // and that day is the bill day from then on. No part months.
   _bill(price) {
     const cfg = this._cfg ? this._cfg() : {};
     const d = new Date();
     d.setHours(12, 0, 0, 0);
-    d.setDate(d.getDate() + 1);
-    const f = new Date((cfg.firstVisitFrom || '2026-11-20') + 'T12:00:00');
-    if (f > d) d.setTime(f.getTime());
     const dd = d.getDate();
     d.setDate(1);
     d.setMonth(d.getMonth() + 1);
     d.setDate(Math.min(dd, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
-    d.setDate(d.getDate() + (typeof cfg.scheduleDays === 'number' ? cfg.scheduleDays : 7));
     const freeShort = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     return { freeShort: freeShort, line: '$0 today. Then $' + price + ' a month starting ' + freeShort + '.' };
   }

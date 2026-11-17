@@ -364,8 +364,10 @@ function plusMonth(d) {
 // Customers do not pick a day. We set it by route and reach out to them.
 // How a plan is billed (Joe, Nov 16, 2026, night): every customer has their own bill day, and no bill is ever for a
 // part month. With a free month (the Black Friday sale), the card is saved at sign up and nothing is charged. The free
-// month runs one month and one week from the soonest start day (that week is our window to set the first visit). The
-// day it ends, Stripe charges the full month price, and that day of the month is their bill day from then on. With
+// month is exactly one month from the day they sign up, Arizona time: sign up November 16, first bill December 16
+// (Joe, Nov 16, 2026, 11:25 pm: "it has to be correlated to what the date is today", "we cannot lose any extra money").
+// It no longer starts on the first visit day and no days are added for setting the first visit. The day it ends,
+// Stripe charges the full month price, and that day of the month is their bill day from then on. With
 // no free month (after the sale), the full month price is charged in the card form at sign up, and the sign up day
 // is their bill day. Bills are not lined up on the 1st any more, so nothing is worked out by the day.
 // The sign up page uses the same rule (`_bill`) to show these numbers before the card step.
@@ -387,8 +389,8 @@ function firstCharge(env, plan, dogs, free) {
   // The first charge is always one full month: the day the free month ends, or today when there is no free month.
   const out = { free: !!free, total, firstCents: total, minEnd: unix(minEnd), minLabel: dateLabel(minEnd), minShort: dayShort(minEnd) };
   if (!free) return Object.assign(out, { nextShort: dayShort(plusMonth(new Date())) });
-  const freeEnd = plusMonth(start);
-  freeEnd.setUTCDate(freeEnd.getUTCDate() + scheduleDays(env));
+  // One month from the sign up day, at noon Arizona time. January 31 runs to the last day of February.
+  const freeEnd = plusMonth(noonAZ(azToday()));
   return Object.assign(out, { freeEnd: unix(freeEnd), freeLabel: dateLabel(freeEnd), freeShort: dayShort(freeEnd) });
 }
 const MIN_DAYS = 60;
@@ -400,7 +402,7 @@ const MIN_DAYS = 60;
 const earlyOn = (env) => env.EARLY_CANCEL === 'on';
 function dateLabel(d) { return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'America/Phoenix' }); }
 function dayShort(d) { return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Phoenix' }); }
-// One plain line, the same words the pay step shows: "$0 today. Then $108 a month starting Dec 27."
+// One plain line, the same words the pay step shows: "$0 today. Then $108 a month starting Dec 16."
 function billText(b) {
   if (b.free) return '$0 today. Then ' + money(b.total) + ' a month starting ' + b.freeShort + '.';
   return money(b.total) + ' today. Then ' + money(b.total) + ' a month' + (b.nextShort ? ' starting ' + b.nextShort : '') + '.';

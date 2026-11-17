@@ -257,7 +257,7 @@ ok('10 customers in the office list', list.length === 10, list.length);
 ok('all 10 are on their free month', list.every((c) => c.status === 'trialing'));
 { const f = pay.made['sub_3'], h = HOMES[2];
   ok('each plan is started by the server: free until the free month ends, and no billing day or part month setting is sent (the bill day is the day the free month ends)', Object.keys(pay.made).length === 10
-    && Number(f.get('trial_end')) > Date.now() / 1000 + 30 * 86400 && Object.values(pay.made).every((x) => ![...x.keys()].some((k) => /billing_cycle_anchor|proration|trial_settings/.test(k)))
+    && Number(f.get('trial_end')) > Date.now() / 1000 + 27 * 86400 && Number(f.get('trial_end')) < Date.now() / 1000 + 32 * 86400 && Object.values(pay.made).every((x) => ![...x.keys()].some((k) => /billing_cycle_anchor|proration|trial_settings/.test(k)))
     && f.get('items[0][price]') === 'price_' + h[3] + '_base' && f.get('items[1][price]') === 'price_' + h[3] + '_extra' && f.get('items[1][quantity]') === String(h[4] - 2), String(f)); }
 ok('each new plan had its first bill looked at in Stripe once, and it is the one full month the customer was told', pay.previews.length === 10 && new Set(pay.previews).size === 10 && mails.filter((x) => /^CHECK BILLING/.test(x.subject)).length === 0
   && Object.keys(pay.made).every((k) => pay.firstBill(k) === Number(pay.made[k].get('metadata[first_charge]')) && pay.firstBill(k) === pay.fullMonth(k)), [pay.previews.length, mails.filter((x) => /^CHECK BILLING/.test(x.subject)).map((x) => x.text)]);

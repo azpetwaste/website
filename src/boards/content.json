@@ -51,7 +51,7 @@
    },
    {
     "q": "When do you charge my card?",
-    "a": "Once a month, on your bill day. [[bf:With the Black Friday sale, your first month is free. We save your card and you pay $0 that day. Your bill day is the day your free month ends.||Your bill day is the day you sign up.]] We charge the month price that day, and on that day each month. We do not charge for part of a month."
+    "a": "Once a month, on your bill day. [[bf:With the Black Friday sale, your first month is free. We save your card and you pay $0 that day. Your free month runs one month from the day you sign up. The day it ends is your bill day.||Your bill day is the day you sign up.]] We charge the month price that day, and on that day each month. We do not charge for part of a month."
    },
    {
     "q": "Who sees my gate code?",

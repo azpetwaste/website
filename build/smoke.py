@@ -75,7 +75,7 @@ with sync_playwright() as p:
     page.fill('#b-code', '123456')
     page.wait_for_timeout(400)
     pay = dock.inner_text()
-    # One plain price line ("$0 today. Then $108 a month starting Dec 27." in the sale, "$108 today. Then ..." after it) and a one line cancel rule.
+    # One plain price line ("$0 today. Then $108 a month starting Dec 16." in the sale, "$108 today. Then ..." after it) and a one line cancel rule.
     assert 'We reach out to set your first visit' in pay and ' today. Then $' in pay and ' a month starting ' in pay and 'Cancel anytime.' in pay, 'pay step should say the price today, the month price with its start day, cancel anytime and that we reach out'
     assert '1st of each month' not in pay and 'Free until' not in pay, 'pay step should not say the 1st or show the old money table'
     shot(page, 'm_book_5')

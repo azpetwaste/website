@@ -323,8 +323,8 @@ class Component extends DCLogic {
     return typeof cfg.freeMonth === 'boolean' ? cfg.freeMonth : '[[bf:1||0]]' === '1';
   }
   // The same rule as firstCharge in the server, so these dates match what Stripe charges. Every bill is one full
-  // month: there are no part months. With a free month the card is saved and nothing is charged. The free month runs
-  // one month and one week from the soonest start day (that week is our window to set the first visit). The day it
+  // month: there are no part months. With a free month the card is saved and nothing is charged. The free month is
+  // exactly one month from the sign up day (Joe, Nov 16, 2026: sign up November 16, first bill December 16). The day it
   // ends we charge the month price, and that is the bill day from then on. With no free month we charge the month
   // price today, and today is the bill day. All in Arizona time (noon there is always 19:00 UTC), so it reads the
   // same from any time zone.
@@ -340,13 +340,10 @@ class Component extends DCLogic {
     };
     const day = (x) => x.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Phoenix' });
     const today = new Date(Date.now() - 7 * 3600e3).toISOString().slice(0, 10);
-    const start = new Date(Math.max(noon(today).getTime() + 864e5, noon(cfg.firstVisitFrom || '2026-11-20').getTime()));
     const out = {};
     // No free month: Stripe starts the plan the moment the card is charged and bills one month later to the second.
     if (!free) { out.nextShort = day(plusMonth(new Date())); return out; }
-    const end = plusMonth(start);
-    end.setUTCDate(end.getUTCDate() + (Number(cfg.scheduleDays) || 7));
-    out.freeShort = day(end);
+    out.freeShort = day(plusMonth(noon(today)));
     return out;
   }
   // Street address suggestions (Joe, Nov 16, 2026). Typing a house number and a few letters asks the server for matches
