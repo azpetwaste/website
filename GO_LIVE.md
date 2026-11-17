@@ -27,18 +27,18 @@ Use info@arizonapetwaste.com for every account. Never paste a password, API key 
 ## 3. Supabase (sign in and customer records)
 1. Create a project named `arizonapetwaste` (region: West US). Save the database password in a password manager.
 2. SQL Editor > New query > paste all of `supabase/schema.sql` > Run.
-3. Authentication > Sign In / Providers > Email: on. Email OTP length: 6.
+3. Authentication > Sign In / Providers > Email: on. Email OTP length: 6. Email OTP expiration: `600` seconds.
 4. Authentication > Emails > Templates. In BOTH "Confirm signup" and "Magic link" set:
    Subject: `Your Arizona Pet Waste code`
-   Body: `<h2>Your code is {{ .Token }}</h2><p>Type this code on arizonapetwaste.com to sign in. It works for 1 hour.</p><p>Did not ask for this? You can ignore this email.</p>`
+   Body: `<h2>Your code is {{ .Token }}</h2><p>Type this code on arizonapetwaste.com to sign in. It works for 10 minutes.</p><p>Did not ask for this? You can ignore this email.</p>`
 5. Authentication > Emails > SMTP Settings: turn on custom SMTP. Host `smtp.resend.com`, port `465`, username `resend`, password = the Resend API key, sender `info@arizonapetwaste.com`, sender name `Arizona Pet Waste`.
 6. Authentication > URL Configuration: Site URL `https://arizonapetwaste.com`. Authentication > Rate Limits: emails per hour 100.
 7. Project Settings > API Keys: copy the Project URL, the publishable key and the secret key into Cloudflare (step 2.6).
 8. SQL Editor > New query > paste all of `supabase/crm.sql` > Run. This turns on the field desk at arizonapetwaste.com/crew (crew app, office, truck links, private gate photo bucket).
 9. Lock the sign in (added Nov 16, 2026, see "Security pass" in `docs/HANDOFF.md`). Our server locks an email after 5 wrong codes, but anyone can also send guesses straight to Supabase with the public key, so these three settings matter:
-   - Authentication > Sign In / Providers > Email: set "Email OTP expiration" to `600` seconds (10 minutes). Then change "It works for 1 hour" to "It works for 10 minutes" in both email templates in step 4.
-   - Authentication > Attack Protection (older name: Bot and Abuse Protection): turn on Captcha with Cloudflare Turnstile and paste the Turnstile secret. Put the Turnstile site key in Cloudflare Pages as `TURNSTILE_SITE_KEY` FIRST, or sign in breaks. Test customer and staff sign in right after.
-   - Authentication > Rate Limits: leave "token verifications" at 30 per 5 minutes or lower.
+   - DONE Nov 16, 2026: "Email OTP expiration" is `600` seconds (10 minutes), and both email templates in step 4 say "It works for 10 minutes".
+   - NOT DONE, the switch was off on Nov 16, 2026. It needs a person, because it means pasting a secret key. Authentication > Attack Protection (older name: Bot and Abuse Protection): turn on Captcha with Cloudflare Turnstile and paste the Turnstile secret. Put the Turnstile site key in Cloudflare Pages as `TURNSTILE_SITE_KEY` FIRST, or sign in breaks. Test customer and staff sign in right after.
+   - Checked Nov 16, 2026: Authentication > Rate Limits has "token verifications" at 30 per 5 minutes for each address. Leave it there or lower.
 10. SQL Editor > New query > paste all of `supabase/patch-2026-11-16.sql` > Run. (Already part of `crm.sql` for a new project. Done on the live project on Nov 16, 2026.)
 
 ## 4. Resend (email that does not land in spam)

@@ -57,7 +57,7 @@ Not run yet:
 The scooper screen is three steps for every yard: Drive, Scoop, Photo. Buttons read Directions, I'm here, Take gate photo, I can't do this yard. "Photo trouble?" holds the upload and the no photo path. Details and test counts are at the bottom of `docs/HANDOFF.md`.
 
 ## Nov 16, 2026: Back buttons and a security pass
-Back, top left, on every office screen. The logo is home. The phone's back button works and no longer leaves the app. Sign in is locked after 5 wrong codes, password sign ins are refused, and the crew page only runs its own script. The database patch (`supabase/patch-2026-11-16.sql`) is on the live database, and it added the `skips` column too. Still open: three Supabase sign in settings and a Cloudflare rate limit rule, which need a signed in dashboard. Details, what is left for Atlas and test counts are at the bottom of `docs/HANDOFF.md`.
+Back, top left, on every office screen. The logo is home. The phone's back button works and no longer leaves the app. Sign in is locked after 5 wrong codes, password sign ins are refused, and the crew page only runs its own script. The database patch (`supabase/patch-2026-11-16.sql`) is on the live database, and it added the `skips` column too. The Cloudflare rate limit rule is live and the sign in code now lasts 10 minutes. Still open, for a person: turn on Captcha in Supabase (it needs the Turnstile secret key pasted in). Details, what is left for Atlas and test counts are at the bottom of `docs/HANDOFF.md`.
 
 ## Open items
 1. Staff test: someone signs in at /crew inside the Claude browser pane, then Claude runs a test yard through a route. A test customer "TEST Yard (delete me)" sits in the live database for this. Delete it after.
