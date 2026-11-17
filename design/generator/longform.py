@@ -13,7 +13,7 @@ UPDATED = 'November 7, 2026'
 
 # ---------- shared copy ----------
 
-PRICES = ('Every week is about $25 a week for 1 or 2 dogs. We bill it once a month: $108 on the 1st. Every other week is $75 a month, '
+PRICES = ('Every week is about $25 a week for 1 or 2 dogs. We bill it once a month: $108. Every other week is $75 a month, '
           'and twice a week is $189 a month. Each dog after two adds $13 a month ($9 every other week).')
 
 
@@ -54,7 +54,7 @@ def faq_common(town):
     """Questions every town page answers. Town pages add their own on top."""
     return [
         ('How much does a pooper scooper cost in %s?' % town,
-         'With us, weekly pickup is about $25 a week for 1 or 2 dogs. We bill it once a month: $108 on the 1st. Every other week is $75 a month. '
+         'With us, weekly pickup is about $25 a week for 1 or 2 dogs. We bill it once a month: $108. Every other week is $75 a month. '
          'There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, '
          'if there is a first cleanup fee, and if spray costs extra.'),
         ('Where should I throw away dog poop?',

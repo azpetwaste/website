@@ -193,7 +193,8 @@ const HOMES = [
   ['Ivy Shaw', '214 W Wigwam Blvd', '85340', 'week', 1, 33.4935, -112.3600],
   ['Jon West', '20304 W White Tank Mountain Rd', '85355', 'week', 2, 33.5650, -112.4990]
 ];
-Object.assign(env, { STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_PUBLISHABLE_KEY: 'pk_test_x', STRIPE_WEBHOOK_SECRET: 'whsec_test', RESEND_API_KEY: 're_test' });
+// These sign ups are free month sign ups. The free month is the sale and has an end date, so it is pinned on here.
+Object.assign(env, { STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_PUBLISHABLE_KEY: 'pk_test_x', STRIPE_WEBHOOK_SECRET: 'whsec_test', RESEND_API_KEY: 're_test', FREE_MONTH_UNTIL: '2099-01-01T06:59:59Z' });
 const mails = [];
 const pay = fakeStripe(reply);
 const deskFetch = globalThis.fetch;
@@ -255,15 +256,18 @@ const list = r.d.customers || [];
 ok('10 customers in the office list', list.length === 10, list.length);
 ok('all 10 are on their free month', list.every((c) => c.status === 'trialing'));
 { const f = pay.made['sub_3'], h = HOMES[2];
-  ok('each plan is started by the server: free until the free month ends, bills on the 1st, part month charged by Stripe', Object.keys(pay.made).length === 10
-    && Number(f.get('trial_end')) > Date.now() / 1000 + 30 * 86400 && (!f.has('billing_cycle_anchor') || (Number(f.get('billing_cycle_anchor')) > Number(f.get('trial_end')) && new Date(Number(f.get('billing_cycle_anchor')) * 1000).toISOString().slice(8, 13) === '01T19' && f.get('proration_behavior') === 'create_prorations'))
+  ok('each plan is started by the server: free until the free month ends, and no billing day or part month setting is sent (the bill day is the day the free month ends)', Object.keys(pay.made).length === 10
+    && Number(f.get('trial_end')) > Date.now() / 1000 + 30 * 86400 && Object.values(pay.made).every((x) => ![...x.keys()].some((k) => /billing_cycle_anchor|proration|trial_settings/.test(k)))
     && f.get('items[0][price]') === 'price_' + h[3] + '_base' && f.get('items[1][price]') === 'price_' + h[3] + '_extra' && f.get('items[1][quantity]') === String(h[4] - 2), String(f)); }
-ok('each new plan had its first bill looked at in Stripe once, and it matched what the customer was told', pay.previews.length === 10 && new Set(pay.previews).size === 10 && mails.filter((x) => /^CHECK BILLING/.test(x.subject)).length === 0
-  && Object.keys(pay.made).every((k) => Math.abs(pay.firstBill(k) - Number(pay.made[k].get('metadata[first_charge]'))) <= 1), [pay.previews.length, mails.filter((x) => /^CHECK BILLING/.test(x.subject)).map((x) => x.text)]);
+ok('each new plan had its first bill looked at in Stripe once, and it is the one full month the customer was told', pay.previews.length === 10 && new Set(pay.previews).size === 10 && mails.filter((x) => /^CHECK BILLING/.test(x.subject)).length === 0
+  && Object.keys(pay.made).every((k) => pay.firstBill(k) === Number(pay.made[k].get('metadata[first_charge]')) && pay.firstBill(k) === pay.fullMonth(k)), [pay.previews.length, mails.filter((x) => /^CHECK BILLING/.test(x.subject)).map((x) => x.text)]);
 ok('all 10 have a map pin', list.every((c) => c.lat != null && c.lng != null));
 ok('all 10 got their area service day', list.every((c) => c.service_day === wd));
 ok('office got 10 new booking emails', mails.filter((x) => /^New booking/.test(x.subject)).length === 10);
-ok('each customer got a welcome email with a My Yard link and no 60 day rule', mails.filter((x) => /You are booked/.test(x.subject) && /\/account\/\?k=/.test(x.text) && !/Keep your plan|60 days/.test(x.text)).length === 10);
+ok('each customer got a welcome email with the one line price and a My Yard link, and no 60 day rule, no 1st and no part month',
+  mails.filter((x) => /You are booked/.test(x.subject) && /Your card is saved\. \$0 today\. Then \$\d+ a month starting [A-Z][a-z]{2} \d+\.\n/.test(x.text) && /\/account\/\?k=/.test(x.text)
+    && !/Keep your plan|60 days|you pay for one month|\b1st\b|part month|days left/.test(x.text)).length === 10,
+  mails.filter((x) => /You are booked/.test(x.subject)).map((x) => x.text).slice(0, 1));
 const dbRow = (await db.query("select count(*)::int n from consent_log")).rows[0].n;
 ok('20 text consent records saved', dbRow === 20, dbRow);
 

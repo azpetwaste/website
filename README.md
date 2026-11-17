@@ -50,6 +50,7 @@ npm run check      # one H1 per page, titles, no dashes in copy, links, structur
 | `NOTIFY_EMAIL` | `info@arizonapetwaste.com` | text |
 | `SITE_URL` | `https://arizonapetwaste.com` | text |
 | `FIRST_VISIT_FROM` | `2026-11-20` (first day people can pick) | text |
+| `FREE_MONTH_UNTIL` | not needed. Only to move the last moment a sign up gets a free month. The default is `2026-12-01T06:59:59Z`, the end of the Black Friday sale | text |
 | `NODE_VERSION` | `22` | text |
 
 Until the Supabase and Stripe keys are set, the site runs in demo mode: the whole sign up works, nothing is saved and no card is charged.
@@ -59,7 +60,7 @@ Check the server any time at `/api/health`. It shows if the keys are in (`live`)
 
 `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`, `customer.updated`
 
-How billing works: the card form saves a card and charges $0 (Checkout in setup mode). The server then starts the plan (`startPlan`): free until the free month ends, a part month that day for the days left up to the 1st, then the full price on the 1st of each month. A failed payment puts visits on hold until the bill is paid. `GO_LIVE.md` part 5 has the Stripe settings and part 8 has every Cloudflare setting.
+How billing works: every customer has their own bill day and no bill is for a part month. With a free month (the Black Friday sale) the card form saves a card and charges $0 (Checkout in setup mode), and the server then starts the plan (`startPlan`): free until the free month ends, the full month price that day, then the same price on that day of each month. With no free month the card form is Stripe's plan checkout: it charges the full month price at sign up, and that day is the bill day (`paidPlan`). A failed payment puts visits on hold until the bill is paid. `GO_LIVE.md` part 5 has the Stripe settings and part 8 has every Cloudflare setting.
 
 Prices are created in Stripe on the first sign up (lookup keys `apw_week_base`, `apw_week_extra`, `apw_twice_base`, `apw_twice_extra`, `apw_eow_base`, `apw_eow_extra`). To change a price later, make a new price in Stripe and move the lookup key to it.
 

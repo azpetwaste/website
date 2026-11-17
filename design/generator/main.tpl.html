@@ -294,7 +294,7 @@ class Component extends DCLogic {
       planLine: names[s.plan] + ', ' + dogs,
       totalLabel: '$' + total,
       weekLabel: '$' + this._week(s.plan, s.dogs),
-      billLine: (s.plan === 'week' ? 'One visit a week.' : s.plan === 'twice' ? 'Two visits a week, about $' + this._per(s.plan, s.dogs) + ' each.' : 'One visit every two weeks, about $' + this._per(s.plan, s.dogs) + ' each.') + ' We bill $' + total + ' a month, on the 1st.',
+      billLine: (s.plan === 'week' ? 'One visit a week.' : s.plan === 'twice' ? 'Two visits a week, about $' + this._per(s.plan, s.dogs) + ' each.' : 'One visit every two weeks, about $' + this._per(s.plan, s.dogs) + ' each.') + ' We bill $' + total + ' once a month.',
       menu: s.menu,
       openMenu: () => this.setState({ menu: true }),
       closeMenu: () => this.setState({ menu: false })

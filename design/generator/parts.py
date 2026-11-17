@@ -202,7 +202,7 @@ from scene import saguaro, agave, barrel  # noqa: E402
 
 FAQ_ITEMS = [
     ('[[bf:What is the Black Friday sale?||Is my first cleanup free?]]', '[[bf:Sign up by November 30 and your first month is free. The sale ends at midnight on November 30.||Yes. Your first cleanup is free when you sign up.]]'),
-    ('How much does it cost?', 'Weekly pickup is about $25 a week for 1 or 2 dogs. We bill it once a month: $108 on the 1st. [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]'),
+    ('How much does it cost?', 'Weekly pickup is about $25 a week for 1 or 2 dogs. We bill it once a month: $108. [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]'),
     ('Is the spray really free?', 'Yes. Deodorizing is included free with every visit, on rock and turf yards alike. We spray the spots your dogs use most. It costs you nothing.'),
     ('Do you come in the summer heat?', 'Yes. In summer we start early, so your yard is done before the worst heat of the day.'),
     ('What if it storms?', 'Light rain is fine. If there is lightning, we wait until it is safe. We text you if your time changes.'),
@@ -213,7 +213,7 @@ FAQ_ITEMS = [
     ('Do you clean your tools?', 'Yes. We clean our boots and tools after every yard. That keeps germs from going from yard to yard.'),
     ('Can I pick my day?', 'No. We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window.'),
     ('Can you come today? We have a party.', 'Yes, when we have a spot. Text us as early as you can. A one time pickup starts at $99. A big job gets a quote first.'),
-    ('When do you charge my card?', 'On the 1st of each month.[[bf: With the Black Friday sale, your first month is free. Your first charge is on the day your free month ends. It only covers the days left until the 1st, so it is smaller. Then you pay the full price on the 1st of each month.||]]'),
+    ('When do you charge my card?', 'Once a month, on your bill day. [[bf:With the Black Friday sale, your first month is free. We save your card and you pay $0 that day. Your bill day is the day your free month ends.||Your bill day is the day you sign up.]] We charge the month price that day, and on that day each month. We do not charge for part of a month.'),
     ('Who sees my gate code?', 'Only your scooper, and only on your day. You add it after you sign up. If you cancel, we delete it.'),
     ('What if a dog in the yard is not safe to be near?', 'We don’t go in. We text you to bring the dog inside. We can come back the same day.'),
     ('Can I skip a week?', 'Yes. You get 4 free skips a year. Sign in to My Yard and tap Skip next to the visit, up to 24 hours before. No phone call.'),
@@ -276,7 +276,7 @@ def _pcell(month):
 
 PRICE_ROWS = ''.join('<tr><th scope="row">%s</th>%s%s</tr>' % (n, _pcell(a), _pcell(b))
                      for n, a, b in [('Weekly pickup', 108, 121), ('Twice a week pickup', 189, 202), ('Every other week pickup', 75, 84)])
-WEEK_NOTE = 'We bill the month price on the 1st. The week price is the month price spread over the year, to the nearest dollar.'
+WEEK_NOTE = 'We bill the month price once a month. The week price is the month price spread over the year, to the nearest dollar.'
 PRICE_TABLE = (
     '<table class="ptab">'
     '<thead><tr><th scope="col">Plan</th><th scope="col">1 or 2 dogs</th><th scope="col">3 dogs</th></tr></thead><tbody>'

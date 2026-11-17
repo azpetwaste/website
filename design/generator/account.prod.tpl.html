@@ -62,7 +62,7 @@
     <input id="a-email" class="fin" type="email" inputmode="email" autocomplete="email" value="{{ email }}" onChange="{{ onEmail }}" onKeyDown="{{ enterSend }}">
     <sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><p class="ferr" role="alert">{{ err }}</p></sc-if>
     <button type="button" class="btn btn-dot" style="width: 100%; margin-top: 16px;" onClick="{{ send }}" disabled="{{ busy }}">{{ sendLabel }}</button>
-    <p class="fine" style="font-size: 15px;">New here? <a href="/book/">Start your free month</a>.</p>
+    <p class="fine" style="font-size: 15px;">New here? <a href="/book/">[[bf:Start your free month||Book now]]</a>.</p>
   </sc-if>
 
   <sc-if value="{{ showCode }}" hint-placeholder-val="{{ false }}">
@@ -97,7 +97,7 @@
     </sc-if>
     <sc-if value="{{ needsFinish }}" hint-placeholder-val="{{ false }}">
       <div class="note" style="flex-direction: column; gap: 10px;">
-        <p style="margin: 0;"><strong>You have not finished signing up.</strong> Add your card to start your free month. You pay $0 today.</p>
+        <p style="margin: 0;"><strong>You have not finished signing up.</strong> [[bf:Add your card to start your free month. You pay $0 today.||Add your card to start your plan.]]</p>
         <a href="/book/" class="btn btn-dot" style="width: 100%;">Finish signing up</a>
       </div>
     </sc-if>
@@ -352,7 +352,7 @@ class Component extends DCLogic {
       busy: s.busy,
       first: first,
       planLine: me.plan ? names[me.plan] + ' · ' + (me.dogs === 1 ? '1 dog' : (me.dogs || 2) + ' dogs') : 'No plan yet',
-      priceLine: me.plan ? '$' + this._price(me.plan, me.dogs || 2) + ' a month' : 'Free first month',
+      priceLine: me.plan ? '$' + this._price(me.plan, me.dogs || 2) + ' a month' : '[[bf:Free first month||Not set yet]]',
       firstLine: day ? day.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : 'We reach out to set it',
       statusLine: statuses[me.status] || 'Not finished',
       addrLine: me.address ? me.address + ', ' + (towns[me.zip] || 'AZ') : 'Not added yet',

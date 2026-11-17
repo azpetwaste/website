@@ -362,34 +362,34 @@ function plusMonth(d) {
   return c;
 }
 // Customers do not pick a day. We set it by route and reach out to them.
-// How a plan is billed (Joe, Nov 15, 2026): the card is saved at sign up and nothing is charged that day. The free month
-// runs one month and one week from the soonest start day (that week is our window to set the first visit). The day the
-// free month ends, Stripe charges the days left up to the 1st. From then on it charges the full price on the 1st of
-// each month, for the month ahead. A free month that ends on a 1st has no part month: the first charge is the full
-// price that day. The sign up page uses the same rule (`_bill`) to show these numbers before the card is saved.
+// How a plan is billed (Joe, Nov 16, 2026, night): every customer has their own bill day, and no bill is ever for a
+// part month. With a free month (the Black Friday sale), the card is saved at sign up and nothing is charged. The free
+// month runs one month and one week from the soonest start day (that week is our window to set the first visit). The
+// day it ends, Stripe charges the full month price, and that day of the month is their bill day from then on. With
+// no free month (after the sale), the full month price is charged in the card form at sign up, and the sign up day
+// is their bill day. Bills are not lined up on the 1st any more, so nothing is worked out by the day.
+// The sign up page uses the same rule (`_bill`) to show these numbers before the card step.
 const scheduleDays = (env) => Number(env.SCHEDULE_DAYS) || 7;
 const unix = (d) => Math.floor(d.getTime() / 1000);
-function firstCharge(env, plan, dogs) {
-  const p = PLANS[plan], total = monthly(plan, dogs);
+// The free month is the Black Friday sale: sign ups through November 30, 2026, Arizona time. This is the same moment
+// as DEAL_END in build/build.mjs, which switches the words on the site. Change both together. To move the day without
+// a new build, set FREE_MONTH_UNTIL in Cloudflare to a time like 2026-12-01T06:59:59Z.
+const FREE_MONTH_UNTIL = '2026-12-01T06:59:59Z';
+function freeMonth(env) {
+  const until = Date.parse(env.FREE_MONTH_UNTIL || '') || Date.parse(FREE_MONTH_UNTIL);
+  return Date.now() <= until;
+}
+function firstCharge(env, plan, dogs, free) {
+  const total = monthly(plan, dogs);
   const from = noonAZ(env.FIRST_VISIT_FROM || '2026-11-20');
   const start = new Date(Math.max(noonAZ(azToday()).getTime() + 86400e3, from.getTime()));
+  const minEnd = new Date(start.getTime() + MIN_DAYS * 86400e3);
+  // The first charge is always one full month: the day the free month ends, or today when there is no free month.
+  const out = { free: !!free, total, firstCents: total, minEnd: unix(minEnd), minLabel: dateLabel(minEnd), minShort: dayShort(minEnd) };
+  if (!free) return Object.assign(out, { nextShort: dayShort(plusMonth(new Date())) });
   const freeEnd = plusMonth(start);
   freeEnd.setUTCDate(freeEnd.getUTCDate() + scheduleDays(env));
-  // `anchor` is the 1st that every later bill lines up on: the first 1st on or after the day the free month ends.
-  const full = freeEnd.getUTCDate() === 1;
-  const anchor = full ? freeEnd : new Date(Date.UTC(freeEnd.getUTCFullYear(), freeEnd.getUTCMonth() + 1, 1, 19));
-  const monthStart = new Date(Date.UTC(anchor.getUTCFullYear(), anchor.getUTCMonth() - 1, 1, 19));
-  const monthDays = Math.round((anchor - monthStart) / 86400e3);
-  const paidDays = Math.round((anchor - freeEnd) / 86400e3);
-  // Stripe works out the part month for each line of the plan on its own (the plan, then the extra dogs), so each
-  // line is rounded on its own here too.
-  const part = (cents) => Math.round(cents * paidDays / monthDays);
-  const firstCents = full ? total : part(p.base) + part(Math.max(0, dogs - 2) * p.extra);
-  const minEnd = new Date(start.getTime() + MIN_DAYS * 86400e3);
-  return {
-    total, full, firstCents, freeEnd: unix(freeEnd), anchor: unix(anchor), minEnd: unix(minEnd),
-    freeLabel: dateLabel(freeEnd), nextLabel: dateLabel(anchor), minLabel: dateLabel(minEnd)
-  };
+  return Object.assign(out, { freeEnd: unix(freeEnd), freeLabel: dateLabel(freeEnd), freeShort: dayShort(freeEnd) });
 }
 const MIN_DAYS = 60;
 // Joe, Nov 16, 2026, night: the "keep your plan 60 days" rule is off. It made the free month confusing, so the site only
@@ -399,16 +399,23 @@ const MIN_DAYS = 60;
 // when pausing opens (pause_from), so a pause cannot be used to stretch a free month.
 const earlyOn = (env) => env.EARLY_CANCEL === 'on';
 function dateLabel(d) { return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'America/Phoenix' }); }
+function dayShort(d) { return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Phoenix' }); }
+// One plain line, the same words the pay step shows: "$0 today. Then $108 a month starting Dec 27."
 function billText(b) {
-  if (b.full) return 'Your free month runs until ' + b.freeLabel + '. That day we charge ' + money(b.total) + ' for the month ahead. Then ' + money(b.total) + ' on the 1st of each month.';
-  return 'Your free month runs until ' + b.freeLabel + '. That day we charge ' + money(b.firstCents) + ' for ' + b.freeLabel + ' to ' + b.nextLabel +
-    '. Then ' + money(b.total) + ' on the 1st of each month.';
+  if (b.free) return '$0 today. Then ' + money(b.total) + ' a month starting ' + b.freeShort + '.';
+  return money(b.total) + ' today. Then ' + money(b.total) + ' a month' + (b.nextShort ? ' starting ' + b.nextShort : '') + '.';
 }
-// The same words from what was saved on the Stripe plan at sign up.
-function billFrom(meta, total) {
-  if (!meta || !meta.free_label) return 'Your first month is free. Then we charge ' + money(total) + ' on the 1st of each month.';
-  const firstCents = parseInt(meta.first_charge || '', 10) || total;
-  return billText({ total, firstCents, full: !meta.next_label || meta.next_label === meta.free_label, freeLabel: meta.free_label, nextLabel: meta.next_label });
+// The same line from what was saved on the Stripe plan at sign up. `sub` is the plan itself, for the day its next bill
+// comes when there was no free month.
+function billFrom(meta, total, sub) {
+  meta = meta || {};
+  const freeEnd = parseInt(meta.free_end || '', 10);
+  if (freeEnd > 0) return billText({ free: true, total, freeShort: dayShort(new Date(freeEnd * 1000)) });
+  if (meta.no_free) {
+    const from = sub && (sub.billing_cycle_anchor || sub.start_date || sub.created);
+    return billText({ free: false, total, nextShort: from > 0 ? dayShort(plusMonth(new Date(from * 1000))) : '' });
+  }
+  return 'Then ' + money(total) + ' a month, on the same day each month.';
 }
 const idOf = (x) => (typeof x === 'string' ? x : (x && x.id) || '');
 const uuid = (x) => (/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(String(x || '')) ? String(x) : '');
@@ -476,6 +483,8 @@ function config(env) {
     stripeKey: live(env) ? env.STRIPE_PUBLISHABLE_KEY : null,
     firstVisitFrom: env.FIRST_VISIT_FROM || '2026-11-20',
     scheduleDays: scheduleDays(env),
+    // The sign up page shows "$0 today" or "$108 today" from this, so it always says what checkout will do.
+    freeMonth: freeMonth(env),
     mail: !!env.RESEND_API_KEY,
     turnstileKey: env.TURNSTILE_SITE_KEY || null,
     // true when the card step asks for a bot pass (both Turnstile keys are set). The page only runs the check then.
@@ -510,10 +519,18 @@ async function checkout(request, env, ctx) {
   const row = rows && rows[0];
   if (row && row.stripe_subscription_id && ['trialing', 'active', 'past_due', 'paused'].includes(row.status)) return ok({ already: true });
 
-  // One free month per home. A home or phone that already had a plan has to reach us to start again.
-  const had = row && row.stripe_subscription_id ? [row] : await dbAll(env, 'customers?id=neq.' + u.id + '&stripe_subscription_id=not.is.null&or=(phone.eq.' + phone + ',zip.eq.' + zip + ')&select=phone,address,zip&order=id');
-  if (had.some((x) => x === row || x.phone === phone || (x.zip === zip && sameHome(x.address, address)))) {
-    return fail(409, 'This home has had a free month with us before. Call or text 623.309.6104 and we will start you again today.', 'had_free_month');
+  // The free month is the sale, and the server's clock decides it. `noFree` can only turn a free month down: staff
+  // open /book/?nofree=1 to run a sign up that pays today, so that path can be tried while the sale is still on.
+  // Nothing a page sends can add a free month.
+  const free = freeMonth(env) && !b.noFree;
+
+  // One free month per home. A home or phone that already had a plan has to reach us to start again. With no free
+  // month there is nothing to guard: they pay for their first month today like everyone else.
+  if (free) {
+    const had = row && row.stripe_subscription_id ? [row] : await dbAll(env, 'customers?id=neq.' + u.id + '&stripe_subscription_id=not.is.null&or=(phone.eq.' + phone + ',zip.eq.' + zip + ')&select=phone,address,zip&order=id');
+    if (had.some((x) => x === row || x.phone === phone || (x.zip === zip && sameHome(x.address, address)))) {
+      return fail(409, 'This home has had a free month with us before. Call or text 623.309.6104 and we will start you again today.', 'had_free_month');
+    }
   }
 
   const cust = {
@@ -542,45 +559,104 @@ async function checkout(request, env, ctx) {
   ], 'return=minimal');
 
   // Make sure the prices exist in Stripe before the card form shows (first sign up in a new Stripe mode creates them).
-  await prices(env);
-  const bill = firstCharge(env, b.plan, dogs);
-  // The card form only saves the card: nothing is charged, so the form shows $0. Stripe Checkout cannot start a plan
-  // that has both a free month and bills lined up on the 1st, so the plan itself is started by startPlan the moment
-  // the card is saved. Everything startPlan needs rides along in metadata, so the customer gets the dates they saw.
-  const form = {
-    mode: 'setup',
-    ui_mode: 'embedded_page',
-    redirect_on_completion: 'never',
-    currency: 'usd',
-    customer,
-    client_reference_id: u.id,
-    setup_intent_data: { description: 'Card for ' + PLANS[b.plan].name.toLowerCase() + ' dog poop pickup', metadata: { user_id: u.id } },
-    metadata: {
-      user_id: u.id, plan: b.plan, dogs: String(dogs), zip, first_charge: String(bill.firstCents),
-      free_end: String(bill.freeEnd), anchor: String(bill.anchor), pause_from: String(bill.minEnd),
-      free_label: bill.freeLabel, next_label: bill.nextLabel,
-      min_end: earlyOn(env) ? String(bill.minEnd) : undefined, min_label: earlyOn(env) ? bill.minLabel : undefined,
-      // Meta's browser and click ids, so the booking sent to Meta later (metaBooked) names the ad. Only when that is on.
-      ...(metaOn(env) ? adMeta(b, ip, ua) : {})
-    },
-    custom_text: { submit: { message: 'You pay $0 today. ' + billText(bill) + ' Cancel anytime in My Yard.' + (earlyOn(env) ? ' ' + freeRule(bill.minLabel) : '') } }
+  const ids = await prices(env);
+  const bill = firstCharge(env, b.plan, dogs, free);
+  // The line under the button in Stripe's form: the same plain words as the pay step.
+  const note = billText(bill) + ' ' + cancelText(bill, env);
+  // What rides on the card form and then on the plan. pause_from is the day pausing opens (the first 60 days are closed
+  // for everyone). The 60 day cancel rule is off, so min_end and min_label only ride along while EARLY_CANCEL is on, and
+  // only with a free month (see earlyOn).
+  const early = earlyOn(env) && free;
+  const meta = {
+    user_id: u.id, plan: b.plan, dogs: String(dogs), zip, first_charge: String(bill.firstCents), pause_from: String(bill.minEnd),
+    min_end: early ? String(bill.minEnd) : undefined, min_label: early ? bill.minLabel : undefined
   };
-  let ck;
-  try {
-    // Cards (Apple Pay and Google Pay ride on cards) and Link. Nothing else shows, even if it is switched on in Stripe.
-    ck = await stripe(env, 'POST', 'checkout/sessions', Object.assign({}, form, { allowed_payment_method_types: ['card', 'link'] }));
-  } catch (e) {
-    // If Stripe will not take that list, sign up must still work: show the card form with the ways to pay that are
-    // switched on in the Stripe Dashboard, and leave a note on the Health tab.
-    if (e.status !== 400) throw e;
-    ck = await stripe(env, 'POST', 'checkout/sessions', form);
-    ctx.waitUntil(logError(env, 'server', '/api/checkout', 'Stripe refused the list of ways to pay, so the card form used the Dashboard list', e.message));
+  // Meta's browser and click ids, so the booking sent to Meta later (metaBooked) names the ad. Only when that is on.
+  // They ride on the card form only, never on the plan.
+  const ad = metaOn(env) ? adMeta(b, ip, ua) : {};
+  let form;
+  if (free) {
+    // Free month: the card form only saves the card. Nothing is charged, so the form shows $0. The plan itself is
+    // started by startPlan the moment the card is saved. The day the free month ends rides along in metadata, so the
+    // customer gets the date they saw.
+    form = {
+      mode: 'setup',
+      ui_mode: 'embedded_page',
+      redirect_on_completion: 'never',
+      currency: 'usd',
+      customer,
+      client_reference_id: u.id,
+      setup_intent_data: { description: 'Card for ' + PLANS[b.plan].name.toLowerCase() + ' dog poop pickup', metadata: { user_id: u.id } },
+      metadata: Object.assign({}, meta, { free_end: String(bill.freeEnd), free_label: bill.freeLabel }, ad),
+      custom_text: { submit: { message: note } }
+    };
+  } else {
+    // No free month: Stripe's own plan checkout. The form shows the month price and charges it right there, so a card
+    // that is refused gets fixed in the form. Stripe starts the plan at that moment, which makes today the bill day.
+    // paidPlan books the yard once the first month is paid.
+    // One plan for one customer. A plan Stripe already has for them that is still going is their plan: a second tab
+    // that was paid, or a sign up whose booking is still on its way.
+    const all = (await stripe(env, 'GET', 'subscriptions', { customer, status: 'all', limit: 100 })).data || [];
+    if (all.some((x) => ['trialing', 'active', 'past_due', 'unpaid', 'paused'].includes(x.status))) return ok({ already: true });
+    // One open card form for one customer. Two tabs paid one after the other would be two plans and two charges, so a
+    // card form left open from before is closed before a new one is made. This never stops a sign up.
+    try {
+      const open = (await stripe(env, 'GET', 'checkout/sessions', { customer, status: 'open', limit: 10 })).data || [];
+      for (const x of open) await stripe(env, 'POST', 'checkout/sessions/' + encodeURIComponent(x.id) + '/expire');
+    } catch (e) {
+      ctx.waitUntil(logError(env, 'server', '/api/checkout', 'An older card form of this customer could not be closed (the new one still opened)', clean(e && e.message, 300)));
+    }
+    const items = [{ price: ids['apw_' + b.plan + '_base'], quantity: 1 }];
+    if (dogs > 2) items.push({ price: ids['apw_' + b.plan + '_extra'], quantity: dogs - 2 });
+    const md = Object.assign({}, meta, { no_free: '1' });
+    form = {
+      mode: 'subscription',
+      ui_mode: 'embedded_page',
+      redirect_on_completion: 'never',
+      customer,
+      client_reference_id: u.id,
+      line_items: items,
+      subscription_data: {
+        description: PLANS[b.plan].name + ', ' + dogs + (dogs === 1 ? ' dog' : ' dogs') + ', ' + z.name + '. We reach out to set the first visit.',
+        metadata: md
+      },
+      metadata: Object.assign({}, md, ad),
+      custom_text: { submit: { message: note } }
+    };
   }
-  return ok({ clientSecret: ck.client_secret, session: ck.id });
+  // Cards only. Apple Pay and Google Pay ride on cards, so they still show. Link is off: no "save my info" box, no
+  // extra phone field and no Bank tab. Nothing else shows either, even if it is switched on in the Stripe Dashboard.
+  const cardsOnly = { allowed_payment_method_types: ['card'] }, linkOff = { wallet_options: { link: { display: 'never' } } };
+  // If Stripe will not take the card form the way we want it, sign up must still work. So the form is asked for in
+  // this order, best first, and the first one Stripe takes is used. A form further down the list may show more ways
+  // to pay, and the Health tab then says which one was used and why.
+  const noCurrency = Object.assign({}, form); delete noCurrency.currency;
+  const ways = [
+    ['cards only, Link off', Object.assign({}, form, cardsOnly, linkOff)],
+    // Stripe's guide for a card form that only saves a card says to leave the currency out when a list is sent.
+    form.currency ? ['cards only, Link off, no currency', Object.assign({}, noCurrency, cardsOnly, linkOff)] : null,
+    ['cards only (Link may show)', Object.assign({}, form, cardsOnly)],
+    ['Link off (other ways to pay that are on in the Stripe Dashboard may show)', Object.assign({}, form, linkOff)],
+    ['every way to pay that is on in the Stripe Dashboard', form]
+  ].filter(Boolean);
+  let ck, refused = null;
+  for (let i = 0; !ck; i++) {
+    try { ck = await stripe(env, 'POST', 'checkout/sessions', ways[i][1]); } catch (e) {
+      if (e.status !== 400 || i + 1 >= ways.length) throw e;
+      refused = refused || e;
+      continue;
+    }
+    if (refused) {
+      ctx.waitUntil(logError(env, 'server', '/api/checkout', 'Stripe refused the list of ways to pay, so the card form was made another way',
+        'Used: ' + ways[i][0] + '. Stripe said: ' + clean(refused.message, 300)));
+    }
+  }
+  // `free` tells the page which of the two it got, so its price line can never say something else.
+  return ok({ clientSecret: ck.client_secret, session: ck.id, free });
 }
 
-// The sign up page calls this the moment Stripe says the card is saved. The Stripe webhook does the same job, so a
-// sign up still finishes when one of the two is late or down.
+// The sign up page calls this the moment Stripe says the card form is done. The Stripe webhook does the same job, so
+// a sign up still finishes when one of the two is late or down.
 async function checkoutDone(request, env, ctx) {
   if (!live(env)) return fail(503, 'Online sign up is not turned on yet. ' + CALL_US);
   const u = await signedIn(request, env);
@@ -595,7 +671,8 @@ async function checkoutDone(request, env, ctx) {
   if (u && s.client_reference_id !== u.id) return fail(403, 'That sign up belongs to someone else.');
   if (s.status !== 'complete') return ok({ booked: false });
   try {
-    const out = await startPlan(env, ctx, s);
+    // A saved card (free month) gets its plan started here. A paid first month already has its plan and gets booked.
+    const out = s.mode === 'subscription' ? await paidPlan(env, ctx, s) : await startPlan(env, ctx, s);
     return ok({ booked: !!out });
   } catch (e) {
     // Only for a card form that was just finished, so an old sign up asked about again does not email the office.
@@ -609,11 +686,15 @@ const PLAN_WAIT = 700;
 // The "only once" key for starting a plan is this plus the sign up's session id. Stripe remembers the answer to a
 // keyed request for a day, a failed answer too, and it refuses the same key with other fields. So if the fields of
 // the plan request in startPlan ever change, change this prefix in the same commit. If not, a sign up that failed
-// under the old fields stays stuck until Stripe forgets its key.
-const PLAN_KEY = 'apw-plan-';
-// The card is saved. Start the plan: free until `free_end`, bills lined up on the 1st (`anchor`), and Stripe charges
-// the days in between on its own. Safe to run more than once for one sign up: the Stripe webhook and the sign up page
-// both call it, Stripe keeps it to one plan, and `booked` keeps it to one welcome.
+// under the old fields stays stuck until Stripe forgets its key. (apw-plan- was the key while bills were lined up on
+// the 1st. apw-plan2- is from November 16, 2026: no billing day is sent any more.)
+const PLAN_KEY = 'apw-plan2-';
+// The card is saved. Start the plan: free until `free_end`, and that is all Stripe is told. With no other day given,
+// Stripe charges the full month price the day the free month ends and bills on that day of the month from then on
+// (its trial rule: "A new billing period also begins for the customer when the trial ends"). Never send a billing
+// day or a proration setting here: that is what made part month bills. Safe to run more than once for one sign up:
+// the Stripe webhook and the sign up page both call it, Stripe keeps it to one plan, and `booked` keeps it to one
+// welcome.
 async function startPlan(env, ctx, s) {
   const md = s.metadata || {};
   const uid = uuid(s.client_reference_id || md.user_id), customer = idOf(s.customer);
@@ -634,13 +715,14 @@ async function startPlan(env, ctx, s) {
   // Every plan this customer has had. One sign up makes one plan, ever: if the plan from this sign up is there, it is
   // the plan, and if it has been canceled since, no new one is made. Any other live plan is the plan too (a second tab).
   const all = (await stripe(env, 'GET', 'subscriptions', { customer, status: 'all', limit: 100 })).data || [];
-  const alive = (x) => x.status !== 'canceled' && x.status !== 'incomplete_expired';
+  // A plan whose first payment never went through ("incomplete", from a paid sign up that was not finished) is not a plan.
+  const alive = (x) => x.status !== 'canceled' && x.status !== 'incomplete_expired' && x.status !== 'incomplete';
   const mine = all.filter((x) => x.metadata && x.metadata.session === s.id)[0];
   if (mine && !alive(mine)) return null;
   let sub = mine || all.filter(alive)[0] || null;
   if (!sub) {
-    const freeEnd = parseInt(md.free_end, 10), anchor = parseInt(md.anchor, 10);
-    if (!(freeEnd > Date.now() / 1000) || !(anchor >= freeEnd)) throw new Error('sign up ' + s.id + ' has bad dates');
+    const freeEnd = parseInt(md.free_end, 10);
+    if (!(freeEnd > Date.now() / 1000)) throw new Error('sign up ' + s.id + ' has bad dates');
     const ids = await prices(env);
     const dogs = Math.min(6, Math.max(1, parseInt(md.dogs, 10) || 1));
     const items = [{ price: ids['apw_' + md.plan + '_base'], quantity: 1 }];
@@ -648,22 +730,21 @@ async function startPlan(env, ctx, s) {
     // The saved card pays every bill. It is set on the Stripe customer, not on the plan, so a card changed later on
     // Stripe's billing page (My Yard, Change card) is the card every later bill and retry uses.
     await stripe(env, 'POST', 'customers/' + customer, { invoice_settings: { default_payment_method: card.id } });
-    const plan = Object.assign({
+    // The first charge is one full month at plan price, the day the free month ends. It is worked out here from the
+    // plan itself, so a card form that was opened before November 16, 2026 (it still carries a part month amount)
+    // gets the right number on its plan. checkPlan then holds what Stripe will charge up against what they saw.
+    const firstCents = monthly(md.plan, dogs);
+    const plan = {
       customer, items,
-      // Free until trial_end. A free month that ends on a 1st needs nothing more: Stripe lines the bills up on the
-      // day a free month ends when no other day is given, and that day is the 1st.
-      trial_end: freeEnd
-    }, anchor > freeEnd ? {
-      // Bills line up on the 1st after the free month, and Stripe charges the days in between as a part month.
-      billing_cycle_anchor: anchor, proration_behavior: 'create_prorations'
-    } : {}, {
+      // Free until trial_end, and no other day: the first bill is a full month that day, then that day each month.
+      trial_end: freeEnd,
       description: PLANS[md.plan].name + ', ' + dogs + (dogs === 1 ? ' dog' : ' dogs') + ', ' + ((ZIPS[md.zip] || {}).name || 'AZ') + '. We reach out to set the first visit.',
       metadata: {
-        user_id: uid, plan: md.plan, dogs: String(dogs), zip: md.zip || '', session: s.id, first_charge: md.first_charge || '',
-        free_end: String(freeEnd), anchor: String(anchor), pause_from: md.pause_from || md.min_end || '', min_end: md.min_end || '',
-        free_label: md.free_label || '', next_label: md.next_label || '', min_label: md.min_label || ''
+        user_id: uid, plan: md.plan, dogs: String(dogs), zip: md.zip || '', session: s.id, first_charge: String(firstCents),
+        free_end: String(freeEnd), pause_from: md.pause_from || md.min_end || '', min_end: md.min_end || '',
+        free_label: md.free_label || '', min_label: md.min_label || ''
       }
-    });
+    };
     for (let tries = 0; !sub; tries++) {
       try { sub = await stripe(env, 'POST', 'subscriptions', plan, PLAN_KEY + s.id); } catch (e) {
         // 409: the other caller (the webhook or the sign up page) is starting this same plan right now. Ask again
@@ -677,6 +758,44 @@ async function startPlan(env, ctx, s) {
   }
   await booked(env, ctx, uid, sub, customer, card, s);
   return sub;
+}
+
+// A sign up with no free month. Stripe's checkout made the plan and charged the first month in the form, so there is
+// no plan to start here. What is left: the card moves onto the customer, and the yard is booked. Safe to run more
+// than once for one sign up: the Stripe webhook and the sign up page both call it, and `booked` keeps it to one welcome.
+async function paidPlan(env, ctx, s) {
+  const md = s.metadata || {};
+  const uid = uuid(s.client_reference_id || md.user_id), customer = idOf(s.customer);
+  if (s.mode !== 'subscription' || !uid || !customer || !s.subscription) return null;
+  let sub = s.subscription;
+  if (typeof sub === 'string') sub = await stripe(env, 'GET', 'subscriptions/' + encodeURIComponent(sub));
+  // Only a plan whose first month is paid is booked. A card that was refused leaves the plan "incomplete": the
+  // customer is still in the form, and Stripe sends this event again when they finish.
+  if (!sub || !sub.id || sub.status !== 'active') return null;
+  const card = await cardToCustomer(env, ctx, sub, customer);
+  await booked(env, ctx, uid, sub, customer, card, s);
+  return sub;
+}
+
+// Stripe's checkout puts the card on the plan. We keep it on the customer and take it off the plan, the same as a
+// free month sign up, so a card changed later on Stripe's billing page (My Yard, Change card) is the card every later
+// bill and retry uses. Run again, it finds nothing on the plan and changes nothing. A failure here never stops a
+// booking: the card still pays the plan, and the Health tab says what to look at.
+async function cardToCustomer(env, ctx, sub, customer) {
+  let card = sub && sub.default_payment_method;
+  if (!card) return null;
+  try {
+    if (typeof card === 'string') card = await stripe(env, 'GET', 'payment_methods/' + encodeURIComponent(card));
+    if (!card || !card.id) return null;
+    // The customer gets the card first. Only then does it come off the plan, so the plan is never left with no card.
+    await stripe(env, 'POST', 'customers/' + customer, { invoice_settings: { default_payment_method: card.id } });
+    await stripe(env, 'POST', 'subscriptions/' + encodeURIComponent(sub.id), { default_payment_method: '' });
+    return card;
+  } catch (e) {
+    ctx.waitUntil(logError(env, 'server', '/api/checkout', 'The card of a new plan could not be moved onto the customer (the sign up itself went through)',
+      sub.id + '. If they change their card in My Yard later, check in Stripe that the plan uses the new card. ' + clean(e && e.message, 300)));
+    return card && card.id ? card : null;
+  }
 }
 
 // The row leaves "checkout" once. Only the call that moves it puts the yard on a route and sends the welcome emails,
@@ -695,9 +814,14 @@ async function booked(env, ctx, uid, sub, customer, card, s) {
   if (!card) {
     try { card = (await stripe(env, 'GET', 'customers/' + customer, { expand: ['invoice_settings.default_payment_method'] })).invoice_settings.default_payment_method; } catch (e) { card = null; }
   }
+  // A plan paid for in Stripe's checkout can reach this before its card has been moved onto the customer.
+  if (!card && typeof sub.default_payment_method === 'string' && sub.default_payment_method) {
+    try { card = await stripe(env, 'GET', 'payment_methods/' + encodeURIComponent(sub.default_payment_method)); } catch (e) { card = null; }
+  }
   const prepaid = !!(card && card.card && card.card.funding === 'prepaid');
   const total = monthly(c.plan, c.dogs);
-  const billLine = billFrom(meta, total);
+  const paidToday = !!meta.no_free;
+  const billLine = billFrom(meta, total, sub);
   ctx.waitUntil(placeCustomer(env, c));
   if (prepaid) ctx.waitUntil(mail(env, owner(env), 'Prepaid card: ' + c.name, c.name + ' signed up with a prepaid card. A prepaid card can run out of money, so a later charge may fail. Call them for a credit or debit card before the first visit.\n\nMobile: ' + c.phone + '\nEmail: ' + c.email + '\nStripe customer: ' + customer));
   ctx.waitUntil(mail(env, owner(env), (prepaid ? 'PREPAID CARD. ' : '') + 'New booking: ' + c.name + ', ' + (ZIPS[c.zip] || {}).name, [
@@ -710,9 +834,8 @@ async function booked(env, ctx, uid, sub, customer, card, s) {
   ctx.waitUntil(mail(env, c.email, 'You are booked with Arizona Pet Waste', [
     'Hi ' + first(c.name) + ',', '',
     'You are booked. We will reach out to let you know your day and time.', '',
-    'Your card is saved. We did not charge it today.',
-    billLine, '',
-    'You can cancel anytime in My Yard.' + (meta.min_end ? ' ' + freeRule(meta.min_label) : ''), '',
+    (paidToday ? 'Your card was charged. ' : 'Your card is saved. ') + billLine, '',
+    'You can cancel anytime in My Yard.' + (meta.min_end && !paidToday ? ' ' + freeRule(meta.min_label) : ''), '',
     'Next, set up My Yard: add your gate code, your dogs’ names and any problem spots. This link signs you in, no code needed. It works for ' + LINK_DAYS + ' days:',
     await yardLink(env, c.id), '',
     'After that, sign in at https://' + siteHost(env) + '/account/ with your email.', '',
@@ -720,7 +843,7 @@ async function booked(env, ctx, uid, sub, customer, card, s) {
     'Questions? Call or text 623.309.6104.', '', 'Arizona Pet Waste'
   ].join('\n')));
   // The booking, sent to Meta once (this is the one call that moved the row), with the page's event id.
-  if (metaOn(env)) ctx.waitUntil(metaBooked(env, c, total, meta.session || (s && s.id) || '', s && s.metadata));
+  if (metaOn(env)) ctx.waitUntil(metaBooked(env, c, total, meta.session || (s && s.id) || '', s && s.metadata, sub.id));
   return true;
 }
 
@@ -737,32 +860,47 @@ async function planAlert(env, s, e, fresh) {
   const md = (s && s.metadata) || {};
   let c = null;
   try { c = (await db(env, 'GET', 'customers?id=eq.' + uuid(s.client_reference_id || md.user_id) + '&select=name,email,phone,address,zip'))[0]; } catch (x) { c = null; }
-  await mail(env, owner(env), 'ACTION NEEDED: card saved but the plan did not start' + (c ? ': ' + c.name : ''), [
+  // A sign up with no free month paid in Stripe's checkout. Stripe has their plan and their money. What failed is our
+  // side of the booking, so the words are different: nobody may charge them or start a plan for them again.
+  const paid = !!(s && s.mode === 'subscription');
+  await mail(env, owner(env), (paid ? 'ACTION NEEDED: paid at sign up but not booked yet' : 'ACTION NEEDED: card saved but the plan did not start') + (c ? ': ' + c.name : ''), (paid ? [
+    'Someone paid for their first month at sign up, but the site could not finish booking them. They were charged, and their plan is in Stripe.', '',
+    'The site tries again on its own for up to 3 days, and the next try often works. If a "New booking" email for them shows up, it fixed itself and there is nothing to do.', '',
+    'If no "New booking" email comes within one hour:',
+    '1. Do not start a plan for them by hand and do not charge them again. They have paid, and two plans means two bills.',
+    '2. Call them so they know we have their sign up.',
+    '3. Tell Joe today so the booking gets finished the right way.', ''
+  ] : [
     'Someone finished sign up and saved a card, but their plan did not start. They were not charged.', '',
     'The site tries again on its own for up to 3 days, and the next try often works. If a "New booking" email for them shows up, it fixed itself and there is nothing to do.', '',
     'If no "New booking" email comes within one hour:',
     '1. Open their customer in Stripe (the id is below) and look at Subscriptions.',
     '2. If a plan is there, do not start a second one. Two plans means two bills.',
-    '3. If no plan is there, call them so they know, and tell Joe today so the plan gets started the right way.', '',
+    '3. If no plan is there, call them so they know, and tell Joe today so the plan gets started the right way.', ''
+  ]).concat([
     c ? 'Name: ' + c.name + '\nMobile: ' + c.phone + '\nEmail: ' + c.email + '\nAddress: ' + c.address + ', ' + c.zip : 'Customer row: not found',
     'Plan: ' + ((PLANS[md.plan] || {}).name || md.plan || 'unknown') + ', ' + (md.dogs || '?') + ' dogs',
-    'Free month ends: ' + (md.free_label || 'unknown'),
+    paid ? 'Free month: none. They paid for the first month at sign up.' : 'Free month ends: ' + (md.free_label || 'unknown'),
     'Stripe customer: ' + idOf(s && s.customer),
     'Stripe checkout session: ' + ((s && s.id) || 'unknown'), '',
     'What went wrong: ' + clean(e && e.message, 300),
     again ? 'Stripe is handing back the answer it gave the first time for this sign up, and it will for one day. Waiting will not fix this one. Tell Joe now.' : null
-  ].filter((x) => x !== null).join('\n'));
+  ]).filter((x) => x !== null).join('\n'));
 }
 // The same failure, named so the Health tab line makes sense on its own.
 function planError(s, e) {
   const x = e instanceof Error ? e : new Error(String(e));
-  if (!/^Card saved/.test(x.message)) x.message = 'Card saved but the plan did not start (' + ((s && s.id) || 'no session') + '). ' + x.message;
+  if (!/^(Card saved|Paid at sign up)/.test(x.message)) {
+    x.message = (s && s.mode === 'subscription' ? 'Paid at sign up but not booked yet (' : 'Card saved but the plan did not start (') + ((s && s.id) || 'no session') + '). ' + x.message;
+  }
   return x;
 }
 
 // The plan was just made. Ask Stripe what it will charge first and hold that up against what the customer was told
-// at the card step. They should always match. If they ever do not, the office hears about it the day of the sign up,
-// weeks before the first charge. This only looks: it changes nothing in Stripe and it never stops a sign up.
+// at the card step: one full month, on the day the free month ends. They should always match. If they ever do not,
+// the office hears about it the day of the sign up, weeks before the first charge. This only looks: it changes
+// nothing in Stripe and it never stops a sign up. It is also what catches a part month: a first bill that is not the
+// full month price shows up here as a first charge that does not match.
 async function checkPlan(env, s, sub) {
   if (!sub || !sub.id || hitLimit('plancheck|' + sub.id, 1, 3600e3)) return;
   const md = (s && s.metadata) || {};
@@ -771,9 +909,12 @@ async function checkPlan(env, s, sub) {
   const off = [];
   try {
     if (sub.trial_end !== freeEnd) off.push('The day the free month ends. They were told ' + when(freeEnd) + '. Stripe has ' + when(sub.trial_end) + '.');
-    // Bills must line up on the 1st at noon Arizona time (19:00 UTC).
-    const a = new Date((sub.billing_cycle_anchor || 0) * 1000);
-    if (a.getUTCDate() !== 1) off.push('The billing day. They were told the 1st of each month. Stripe has day ' + a.getUTCDate() + ' (' + when(sub.billing_cycle_anchor) + ').');
+    // The bill day must be the day the free month ends. Stripe moves it there on its own when the free month ends,
+    // unless the plan is set to keep an older bill day. That setting is what makes a part month, so it must not be on.
+    const end = sub.trial_settings && sub.trial_settings.end_behavior;
+    if (end && end.billing_cycle_anchor === 'unchanged') {
+      off.push('The bill day. They were told they pay each month from ' + when(freeEnd) + '. In Stripe this plan is set to keep an older bill day when the free month ends, which makes a part month bill.');
+    }
     const next = await stripe(env, 'POST', 'invoices/create_preview', { subscription: sub.id });
     if (told > 0 && Math.abs((next.amount_due || 0) - told) > 2) off.push('The first charge. They were told ' + money(told) + '. Stripe plans to charge ' + money(next.amount_due || 0) + '.');
   } catch (e) {
@@ -856,9 +997,11 @@ async function webhook(request, env, ctx) {
   const now = new Date().toISOString();
   const cust = idOf(o.customer);
   if (evt.type === 'checkout.session.completed') {
-    // Sign up: the card form (setup mode) is done, so start the plan. Other kinds of checkout are not ours.
-    if (o.mode === 'setup' && o.status !== 'expired') {
-      try { await startPlan(env, ctx, o); } catch (e) {
+    // Sign up: the card form is done. With a free month it saved a card (setup mode), so start the plan. With no
+    // free month it charged the first month and Stripe made the plan (subscription mode), so book it. Other kinds of
+    // checkout are not ours.
+    if ((o.mode === 'setup' || o.mode === 'subscription') && o.status !== 'expired') {
+      try { await (o.mode === 'setup' ? startPlan(env, ctx, o) : paidPlan(env, ctx, o)); } catch (e) {
         // Stripe sends this event again for up to three days, and each time the plan is tried again. Tell the office
         // on the first tries only.
         await planAlert(env, o, e, Date.now() / 1000 - (evt.created || 0) < 900);
@@ -866,14 +1009,23 @@ async function webhook(request, env, ctx) {
       }
     }
   } else if (evt.type === 'customer.subscription.updated' || evt.type === 'customer.subscription.deleted' || evt.type === 'customer.subscription.created') {
+    // A plan whose first payment has not gone through is not a plan yet ("incomplete": the customer is still in the
+    // card form, or their card was refused). One that never got paid ends as "incomplete_expired". Neither one may
+    // touch the row: it waits at the card step, so the sign up can still be finished and booked.
+    if (o.status === 'incomplete' || o.status === 'incomplete_expired') return ok({ received: true });
     const uid = uuid((o.metadata || {}).user_id);
     const gone = evt.type === 'customer.subscription.deleted';
     const status = gone ? 'canceled' : (o.pause_collection ? 'paused' : o.status);
     const good = status === 'trialing' || status === 'active';
     const filter = uid ? 'id=eq.' + uid : 'stripe_customer_id=eq.' + encodeURIComponent(cust);
-    // This event can land before startPlan has marked the sign up as booked. Book it here then, so the welcome still
-    // goes out once (see booked). After that there is nothing left for this event to change.
-    if (good && uid && await booked(env, ctx, uid, o, cust, null)) return ok({ received: true });
+    // This event can land before startPlan or paidPlan has marked the sign up as booked. Book it here then, so the
+    // welcome still goes out once (see booked). After that there is nothing left for this event to change.
+    if (good && uid && await booked(env, ctx, uid, o, cust, null)) {
+      // A plan paid for in Stripe's checkout still has its card on the plan. Move it onto the customer here too, in
+      // case the checkout event that does it is late or lost.
+      if ((o.metadata || {}).no_free && o.default_payment_method) await cardToCustomer(env, ctx, o, cust);
+      return ok({ received: true });
+    }
     // Stripe moved the plan to past due (a bill failed) or back from it (the bill got paid).
     // Stripe does not promise the order of its events, and it sends one again for up to three days when we did not
     // answer. A late "past due" for a bill that has since been paid must not put a paid customer back on hold, and a
@@ -902,7 +1054,8 @@ async function webhook(request, env, ctx) {
     }
     if (gone && rows && rows[0]) ctx.waitUntil(mail(env, owner(env), 'Canceled: ' + rows[0].name, 'A customer canceled.\n\nName: ' + rows[0].name + '\nAddress: ' + rows[0].address + ', ' + rows[0].zip + '\nMobile: ' + rows[0].phone));
     if (gone) await freeMonthCharge(env, ctx, o, rows && rows[0]);
-    if (!gone && was.pause_collection && !o.pause_collection && o.status === 'active') await resumeCharge(env, ctx, o, rows && rows[0]);
+    // Back from a pause: nothing is charged here. The part month charge for "the days left in this month" went away
+    // with bills on the 1st (Joe, Nov 16, 2026: no part month charges anywhere). Their next bill is their next bill day.
   } else if (evt.type === 'invoice.payment_failed') {
     // Only a live plan goes on hold. A failed early cancel charge leaves a canceled customer canceled.
     // Stripe is asked about the bill first: a late copy of this event for a bill that has since been paid, or that
@@ -1044,6 +1197,8 @@ async function chargeLine(env, customer, tag, value, amount, description, key) {
 async function freeMonthCharge(env, ctx, sub, row) {
   if (!earlyOn(env)) return;
   const md = sub.metadata || {};
+  // No free month, no early cancel charge, whatever else the plan carries: they paid for their first month at sign up.
+  if (md.no_free) return;
   const cutoff = parseInt(md.min_end || '0', 10);
   const askedAt = sub.canceled_at || sub.ended_at || Math.floor(Date.now() / 1000);
   if (!cutoff || askedAt >= cutoff) return;
@@ -1078,39 +1233,15 @@ async function freeMonthCharge(env, ctx, sub, row) {
   }
 }
 
-// Back from a pause in the middle of a month: the bill for the 1st was voided while paused, so charge the days left
-// in this month. Without this, a short pause over the 1st would make the whole month free.
-async function resumeCharge(env, ctx, sub, row) {
-  const item = (sub.items && sub.items.data && sub.items.data[0]) || {};
-  const month = (item.price && item.price.unit_amount ? (sub.items.data || []).reduce((n, i) => n + (i.price.unit_amount || 0) * (i.quantity || 1), 0) : 0) || (row && PLANS[row.plan] ? monthly(row.plan, row.dogs) : 0);
-  if (!month) return;
-  const who = row ? row.name + ', ' + row.address + ', ' + row.zip : sub.customer;
-  const az = new Date(Date.now() - 7 * 3600e3), tag = az.toISOString().slice(0, 7);
-  let amount = 0;
-  try {
-    const list = await stripe(env, 'GET', 'invoices', { subscription: sub.id, limit: 6 });
-    const last = (list.data || []).filter((i) => i.billing_reason === 'subscription_cycle')[0];
-    if (!last || last.status !== 'void' || new Date(last.created * 1000 - 7 * 3600e3).toISOString().slice(0, 7) !== tag) return;
-    const days = new Date(Date.UTC(az.getUTCFullYear(), az.getUTCMonth() + 1, 0)).getUTCDate();
-    amount = Math.round(month * (days - az.getUTCDate() + 1) / days);
-    if (amount < 50) return;
-    const key = sub.id + '-' + tag;
-    // One back from pause charge for one plan in one month, also when Stripe sends the event again days later.
-    if (await billedBefore(env, sub.customer, 'resume', key)) return;
-    await chargeLine(env, sub.customer, 'resume', key, amount, 'Back from pause: the days left in this month', 'apw-resume-item-' + key);
-    const inv = await stripe(env, 'POST', 'invoices', Object.assign({ customer: sub.customer, collection_method: 'charge_automatically', auto_advance: 'true', pending_invoice_items_behavior: 'include',
-      description: 'You started again in the middle of the month, so this covers the days left in the month.', metadata: { resume: key } }, sub.default_payment_method ? { default_payment_method: sub.default_payment_method } : {}), 'apw-resume-inv-' + key);
-    await stripe(env, 'POST', 'invoices/' + inv.id + '/finalize', {}, 'apw-resume-fin-' + key);
-    await stripe(env, 'POST', 'invoices/' + inv.id + '/pay', {}, 'apw-resume-pay-' + key);
-  } catch (e) {
-    console.error('resume charge failed', e);
-    ctx.waitUntil(mail(env, owner(env), 'Check billing: back from pause charge failed', 'A customer came back from a pause but the ' + money(amount) + ' charge for the rest of this month failed. Check it in Stripe.\n\nCustomer: ' + who + '\nStripe customer: ' + sub.customer));
-  }
-}
-
-const FREE_RULE = 'Keep your plan for 60 days and your free month stays free. If you cancel in your first 60 days, we charge one month at your plan price, minus anything you have paid.';
+// The 60 day cancel rule in one line, for the day it is ever turned back on (see earlyOn). It is off: nobody is told
+// this and nobody is charged it.
+const FREE_RULE = 'Cancel in your first 60 days and you pay for one month.';
 function freeRule(label) {
-  return label ? 'Keep your plan until ' + label + ' and your free month stays free. If you cancel before ' + label + ', we charge one month at your plan price, minus anything you have paid.' : FREE_RULE;
+  return label ? 'Cancel before ' + label + ' and you pay for one month.' : FREE_RULE;
+}
+// The cancel line by Stripe's button: one line.
+function cancelText(b, env) {
+  return 'Cancel anytime in My Yard.' + (b.free && earlyOn(env) ? ' ' + freeRule(b.minShort) : '');
 }
 const WAIT_OFFER = 'None. The site only says we will tell them when we start in their area. The free month offer came off the waitlist on November 12, 2026.';
 async function waitlist(request, env, ctx) {
@@ -1154,7 +1285,7 @@ async function signupRequest(request, env, ctx) {
   if (name.length < 2 || phone.length !== 10 || address.length < 5 || !emailOk(email)) return fail(400, 'Please fill in your name, mobile number, email and street address.');
   if (await tooMany(env, 'signup_request')) return fail(429, 'We are getting a lot of sign ups right now. Call or text 623.309.6104 and we will book you today.');
   const total = monthly(b.plan, dogs);
-  const bill = firstCharge(env, b.plan, dogs);
+  const bill = firstCharge(env, b.plan, dogs, freeMonth(env));
   const sent = await mail(env, owner(env), 'New sign up request: ' + name + ', ' + z.name, [
     'Someone signed up on the website. Online checkout is not on yet, so call them to finish and take their card.', '',
     'Name: ' + name, 'Mobile: ' + phone, 'Email: ' + email, 'Address: ' + address + ', ' + z.city + ' ' + zip,
@@ -2620,7 +2751,12 @@ async function metaEvent(env, name, id, user, custom, path) {
 }
 // The booking: Meta's StartTrial, worth the month price. The ids come from the card form (metadata from /api/checkout).
 // A booking the Stripe webhook finished has no card form in hand, so the card form is read once from Stripe.
-async function metaBooked(env, c, totalCents, session, md) {
+async function metaBooked(env, c, totalCents, session, md, subId) {
+  // A plan paid for in Stripe's own checkout does not carry its card form id. When Stripe's plan event is what books
+  // it, the card form is found by the plan, so the event id still matches the one the page sent.
+  if (!session && subId) {
+    try { const x = ((await stripe(env, 'GET', 'checkout/sessions', { subscription: subId, limit: 1 })).data || [])[0]; if (x && x.id) { session = x.id; md = x.metadata; } } catch (e) { session = ''; }
+  }
   if (!session) return false;
   if (!md && /^cs_/.test(session)) { try { md = (await stripe(env, 'GET', 'checkout/sessions/' + session)).metadata; } catch (e) { md = null; } }
   md = md || {};

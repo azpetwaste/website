@@ -118,7 +118,7 @@
       <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">Plan</span><span style="font-size: 15px; font-weight: 700; text-align: right;">{{ planName }} · {{ dogsLabel }}</span></div>
       <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">First visit</span><span style="font-size: 15px; font-weight: 700; text-align: right;">We reach out to set it</span></div>
       <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">First month</span><span style="font-size: 15px; font-weight: 700; color: var(--ok);">Free until {{ freeShort }}</span></div>
-      <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">After that</span><span style="font-size: 15px; font-weight: 700;">{{ priceLabel }} a month, on the 1st</span></div>
+      <div style="display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line);"><span style="font-size: 15px; color: var(--mute);">After that</span><span style="font-size: 15px; font-weight: 700;">{{ priceLabel }} a month</span></div>
       <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 16px; background: var(--bg2);"><span style="font-size: 17px; font-weight: 800;">Due today</span><span style="font-size: 30px; font-weight: 800; letter-spacing: -.04em;">$0.00</span></div>
     </div>
     <p style="margin: 10px 0 0; font-size: 14px; line-height: 1.5; color: var(--mute);">{{ billLine }}</p>
@@ -176,9 +176,9 @@ class Component extends DCLogic {
   componentWillUnmount() { this._themeStop(); }
 @@THEME_METHODS@@
 @@PRICE_METHODS@@
-  // Everyone pays on the 1st. The free month runs one month and one week from the soonest start day (that week is our
-  // window to set the first visit). The first charge is on the 1st of the month the free month ends in and only covers the
-  // days after it. The worker uses the same rule, so these numbers match what Stripe charges.
+  // Design canvas copy of the pay step. The real form is book.prod.tpl.html, and the rule lives in firstCharge in the
+  // server: the free month runs one month and one week from the soonest start day, the full month price is charged the
+  // day it ends, and that day is the bill day from then on. No part months.
   _bill(price) {
     const cfg = this._cfg ? this._cfg() : {};
     const d = new Date();
@@ -191,18 +191,8 @@ class Component extends DCLogic {
     d.setMonth(d.getMonth() + 1);
     d.setDate(Math.min(dd, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
     d.setDate(d.getDate() + (typeof cfg.scheduleDays === 'number' ? cfg.scheduleDays : 7));
-    const first = new Date(d.getFullYear(), d.getMonth(), 1, 12);
-    const next = new Date(d.getFullYear(), d.getMonth() + 1, 1, 12);
-    const monthDays = Math.round((next - first) / 864e5);
-    const paidDays = Math.round((next - d) / 864e5);
-    const cents = Math.round(price * 100 * paidDays / monthDays);
-    const day = (x) => x.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
-    const b = { freeEnd: day(d), first: day(first), next: day(next), full: paidDays === monthDays,
-      amount: '$' + (cents / 100).toFixed(cents % 100 ? 2 : 0), freeShort: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) };
-    b.line = (b.full ? 'Your free month runs until ' + b.freeEnd + '. Then we charge $' + price + ' on the 1st of each month, starting ' + b.first + '.'
-      : 'Your free month runs until ' + b.freeEnd + '. On ' + b.first + ', we charge ' + b.amount + ' for ' + b.freeEnd + ' to ' + b.next + '. Then $' + price + ' on the 1st of each month.')
-      + ' Cancel before ' + b.first + ' and you pay $0.';
-    return b;
+    const freeShort = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return { freeShort: freeShort, line: '$0 today. Then $' + price + ' a month starting ' + freeShort + '.' };
   }
   renderVals() {
     const s = this.state;

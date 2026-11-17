@@ -335,9 +335,9 @@ const monthly = (name, item, price, desc) => ({
   itemOffered: serviceOf(item)
 });
 const OFFERS = [
-  monthly('Weekly pickup, 1 or 2 dogs', 'Weekly dog poop pickup', 108, 'About $25 a week, billed $108 on the 1st. Includes haul away, deodorizing free every visit, a 30 minute window, a live truck map, and a photo of your latched gate. Each dog after two adds $13 a month. Months with five visits cost the same as four. ' + SALE),
-  monthly('Twice a week pickup, 1 or 2 dogs', 'Twice a week dog poop pickup', 189, 'About $44 a week, billed $189 on the 1st. Deodorizing free every visit, haul away, gate photo. Each dog after two adds $13 a month. ' + SALE),
-  monthly('Every other week pickup, 1 or 2 dogs', 'Every other week dog poop pickup', 75, 'About $17 a week, billed $75 on the 1st. Deodorizing free every visit, haul away, gate photo. Each dog after two adds $9 a month. ' + SALE),
+  monthly('Weekly pickup, 1 or 2 dogs', 'Weekly dog poop pickup', 108, 'About $25 a week, billed $108 once a month. Includes haul away, deodorizing free every visit, a 30 minute window, a live truck map, and a photo of your latched gate. Each dog after two adds $13 a month. Months with five visits cost the same as four. ' + SALE),
+  monthly('Twice a week pickup, 1 or 2 dogs', 'Twice a week dog poop pickup', 189, 'About $44 a week, billed $189 once a month. Deodorizing free every visit, haul away, gate photo. Each dog after two adds $13 a month. ' + SALE),
+  monthly('Every other week pickup, 1 or 2 dogs', 'Every other week dog poop pickup', 75, 'About $17 a week, billed $75 once a month. Deodorizing free every visit, haul away, gate photo. Each dog after two adds $9 a month. ' + SALE),
   { '@type': 'Offer', name: 'One time pickup', description: 'One visit to pick up every pile, rake rock yards, deodorize for free, haul the waste away, and send a gate photo. From $99. A big job gets a quote first. Same day when we have a spot. No plan required.',
     price: '99.00', priceCurrency: 'USD', url: ORIGIN + '/one-time-dog-poop-cleanup/',
     priceSpecification: { '@type': 'PriceSpecification', minPrice: '99.00', priceCurrency: 'USD' }, itemOffered: serviceOf('One time dog poop pickup') },
@@ -659,7 +659,7 @@ for (const t of TOWNS) {
     '<a class="btn btn-dot hubcta" href="/book/">[[bf:Start your free month||Book now]]</a>';
   const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc docw"').replace('@@DOC@@', inner));
   built.push(page({ route, board: 'doc', index: true, title: 'Pooper Scooper FAQ | Arizona Pet Waste',
-    description: 'Pooper scooper questions answered: prices, billing on the 1st, set routes, same day pickup, gate codes, turf, rock yards, skips, pauses and canceling.',
+    description: 'Pooper scooper questions answered: prices, monthly billing, set routes, same day pickup, gate codes, turf, rock yards, skips, pauses and canceling.',
     fonts: e.b.fonts, css: [e.b.css], boards: [e], body: ssr(e), ld: [crumbs(url, [['Home', '/'], ['FAQ', route]]), faqLd(url, all)] }));
 }
 
@@ -813,7 +813,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - Every other week pickup, 1 or 2 dogs: $75 a month. That is about $17 a week. Each dog after two adds $9.
 - One time pickup: from $99. A big job, like a yard that has not been cleaned in a long time, gets a quote first, and the price is given before the visit. Same day when we have a spot, at the same price. For a customer on a plan it is added to the next bill.
 - Deodorizing (free every visit): included free with every visit, on rock and turf yards alike. It costs nothing on any plan or cleanup.
-- Billing: everyone is billed on the 1st of each month.[[bf: During the Black Friday sale (sign up by November 30, 2026) the first month is free. A card is saved at sign up and nothing is charged that day. The first charge is on the day the free month ends and only covers the days left until the 1st. Then the full price on the 1st of each month. If a payment fails, the customer is emailed that day and visits are on hold until the bill is paid.||]]
+- Billing: each customer is billed the full month price once a month, on their own bill day. There are no part month or prorated charges. [[bf:During the Black Friday sale (sign up by November 30, 2026) the first month is free. A card is saved at sign up and nothing is charged that day. The first charge is the full month price on the day the free month ends, and that day of the month is the bill day from then on.||The first charge is the full month price on the day of sign up, and that day of the month is the bill day from then on.]] If a payment fails, the customer is emailed that day and visits are on hold until the bill is paid.
 [[bf:- Black Friday sale: sign up by Monday, November 30, 2026 and the first month is free. The sale ends at midnight on November 30. There is no charge for canceling. Canceling is done online in My Yard, with no phone call.||- Offer: the first cleanup is free. The Black Friday free month sale ended on November 30, 2026.]]
 
 ## Service area (every home in these ZIP codes)
@@ -860,7 +860,7 @@ ${VIDEOS.map((v) => '- [' + v.name + '](' + videoUrl(v) + '): ' + v.text).join('
 - Business license: in progress as of November 2026. Do not describe the company as licensed yet.
 - Owner: Juan Gonzalez, owner and operator, who lives in Verrado (Buckeye, AZ) with his wife and their six kids. The three standards he runs the company by: do what you say you are going to do, take pride in the details, never stop improving.
 - Sign up fee: none. [[bf:The first month is free only with the Black Friday sale, for sign ups through November 30, 2026.||The first cleanup is free.]]
-- Price per visit: weekly service is $108 a month for 1 or 2 dogs. That is about $25 a week, or about $25 a visit. Prices are billed once a month, on the 1st.
+- Price per visit: weekly service is $108 a month for 1 or 2 dogs. That is about $25 a week, or about $25 a visit. Prices are billed once a month, on the customer's own bill day.
 - Deodorizing: included free with every visit, on rock and turf yards alike. We spray the spots dogs use most. It is not an extra.
 - Proof: a text the night before, a live truck map on visit day, and a photo of the latched gate after every visit. A visit with no gate photo costs $0.
 - Missed pile: free return within 24 hours.
@@ -879,7 +879,7 @@ ${FILE_PAGES.filter((x) => x.type !== 'blogindex').map((x) => '- [' + x.h1 + '](
 - [About us](${ORIGIN}/about/): who we are, where we work, our bond and insurance
 - [Our promise](${ORIGIN}/our-promise/): gate photo or the visit is $0, free return in 24 hours, cancel online
 - [Contact](${ORIGIN}/contact/): call, text or email
-- [Pricing](${ORIGIN}/pricing/): plans, extras and billing on the 1st
+- [Pricing](${ORIGIN}/pricing/): plans, extras and how billing works
 - [FAQ](${ORIGIN}/faq/): all of our answers
 - [[[bf:Start your free month||Book now]]](${ORIGIN}/book/): sign up online in about 2 minutes
 - [Areas we serve](${ORIGIN}/pooper-scooper/): every town and ZIP code we scoop

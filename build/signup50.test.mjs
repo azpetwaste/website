@@ -199,7 +199,8 @@ for (const [zip, n0, la0, la1, lo0, lo1] of BOX) for (let i = 0; i < n0 * N / 50
   HOMES.push([FIRST[k % 10] + ' ' + LAST[Math.floor(k / 10) % 5] + (k >= 50 ? ' ' + Math.floor(k / 50) : ''), (1000 + k * 37) + ' ' + STREETS[Math.floor(rnd() * 10)], zip, ['week', 'week', 'week', 'eow', 'twice'][k % 5], 1 + (k % 4),
     +(la0 + rnd() * (la1 - la0)).toFixed(5), +(lo0 + rnd() * (lo1 - lo0)).toFixed(5)]);
 }
-Object.assign(env, { STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_PUBLISHABLE_KEY: 'pk_test_x', STRIPE_WEBHOOK_SECRET: 'whsec_test', RESEND_API_KEY: 're_test' });
+// These sign ups are free month sign ups. The free month is the sale and has an end date, so it is pinned on here.
+Object.assign(env, { STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_PUBLISHABLE_KEY: 'pk_test_x', STRIPE_WEBHOOK_SECRET: 'whsec_test', RESEND_API_KEY: 're_test', FREE_MONTH_UNTIL: '2099-01-01T06:59:59Z' });
 const mails = [], charges = [], subPosts = [], payCalls = [];
 let invoiceList = [], invN = 0, lastItem = null;
 const madeBills = [];
@@ -302,12 +303,12 @@ for (let i = 0; i < 5; i++) { await call('/api/checkout/done', 'POST', { session
 await Promise.all(waits.splice(0));
 ok('Stripe sending every webhook twice changes nothing', (await count('select count(*)::int n from customers')) === N && (await count("select count(*)::int n from customers where status = 'trialing'")) === N);
 ok('every new plan had its first bill looked at in Stripe once', pay.previews.length === N && new Set(pay.previews).size === N, pay.previews.length);
-ok('Stripe’s first bill, worked out by the second and line by line, matches what every customer was told', mails.filter((x) => /^CHECK BILLING/.test(x.subject)).length === 0
-  && ids.every((x) => Math.abs(pay.firstBill('sub_' + x.n) - Number(pay.made['sub_' + x.n].get('metadata[first_charge]'))) <= 1), mails.filter((x) => /^CHECK BILLING/.test(x.subject)).map((x) => x.text).slice(0, 2));
+ok('Stripe’s first bill, worked out line by line, is the one full month every customer was told', mails.filter((x) => /^CHECK BILLING/.test(x.subject)).length === 0
+  && ids.every((x) => pay.firstBill('sub_' + x.n) === Number(pay.made['sub_' + x.n].get('metadata[first_charge]')) && pay.firstBill('sub_' + x.n) === pay.fullMonth('sub_' + x.n)), mails.filter((x) => /^CHECK BILLING/.test(x.subject)).map((x) => x.text).slice(0, 2));
 ok('one plan and one welcome email for each sign up, however many times it is reported', Object.keys(pay.made).length === N && plansMade === N && bookedMails === N && mails.filter((x) => /^You are booked/.test(x.subject)).length === N, [plansMade, bookedMails]);
 { const f = pay.made['sub_' + ids[3].n], h = HOMES[3];
-  ok('the server starts each plan with our prices, a free month and bills on the 1st', f.get('items[0][price]') === 'price_' + h[3] + '_base' && f.get('metadata[user_id]') === ids[3].uid && Number(f.get('trial_end')) > Date.now() / 1000 + 30 * 86400
-    && (!f.has('billing_cycle_anchor') || new Date(Number(f.get('billing_cycle_anchor')) * 1000).toISOString().slice(8, 13) === '01T19'), String(f)); }
+  ok('the server starts each plan with our prices and a free month, and sends no billing day or part month setting', f.get('items[0][price]') === 'price_' + h[3] + '_base' && f.get('metadata[user_id]') === ids[3].uid && Number(f.get('trial_end')) > Date.now() / 1000 + 30 * 86400
+    && Object.values(pay.made).every((x) => ![...x.keys()].some((k) => /billing_cycle_anchor|proration|trial_settings/.test(k))), String(f)); }
 r = await call('/api/checkout/done', 'POST', { session: 'cs_sub_' + ids[1].n }, ids[0].token);
 ok('a customer cannot finish someone else’s sign up', r.status === 403, r.status);
 r = await call('/api/checkout', 'POST', { zip: HOMES[0][2], plan: 'week', dogs: 1, name: HOMES[0][0], phone: '6235551000', address: HOMES[0][1] }, ids[0].token);
@@ -470,7 +471,7 @@ ok('card fixed: thanked once, office told once, the unsent text leaves the list'
     && (await count("select count(*)::int n from messages where kind = 'card_failed' and status = 'queued'")) === 0, mails.slice(n).map((x) => x.subject)); }
 r = await call('/api/office/plan', 'POST', { date: d12 }, owner);
 ok('back on the next route for their day', d12 === today || (await count("select count(*)::int n from stops where day = '" + d12 + "' and customer_id = '" + ids[12].uid + "'")) === 1 || HOMES[12][3] === 'eow', r.d);
-// pause over the 1st, then come back: the rest of the month is charged
+// pause over a bill day, then come back: nothing is charged (no part month charges anywhere, Joe, Nov 16, 2026)
 const P = 13; metaOverride['sub_' + ids[P].n] = { pause_from: String(Math.floor(Date.now() / 1000) - 86400) };
 await hook({ type: 'customer.subscription.updated', data: { object: subObj(P, { status: 'active' }) } });
 r = await call('/api/me/pause', 'POST', { until: dayFor((wd + 5) % 7) }, ids[P].token);
@@ -478,9 +479,7 @@ ok('after 60 days a customer can pause', r.status === 200 && r.d.plan.paused, r.
 ok('paused customer is off the route', (await count("select count(*)::int n from stops where status = 'scheduled' and day > '" + today + "' and customer_id = '" + ids[P].uid + "'")) === 0);
 charges.length = 0; invoiceList = [{ billing_reason: 'subscription_cycle', status: 'void', created: Math.floor(Date.now() / 1000) }];
 await hook({ type: 'customer.subscription.updated', data: { previous_attributes: { pause_collection: { behavior: 'void' } }, object: subObj(P, { status: 'active', pause_collection: null }) } });
-const az = new Date(Date.now() - 7 * 3600e3), dim = new Date(Date.UTC(az.getUTCFullYear(), az.getUTCMonth() + 1, 0)).getUTCDate();
-const want = Math.round(monthOf(P) * (dim - az.getUTCDate() + 1) / dim);
-ok('pause over the 1st then come back: charged for the days left in the month ($' + (want / 100).toFixed(2) + ')', charges.length === 1 && charges[0].amount === want, charges);
+ok('pause over a bill day then come back: no part month is charged', charges.length === 0, charges);
 charges.length = 0; invoiceList = [{ billing_reason: 'subscription_cycle', status: 'paid', amount_paid: monthOf(P), created: Math.floor(Date.now() / 1000) }];
 await hook({ type: 'customer.subscription.updated', data: { previous_attributes: { pause_collection: { behavior: 'void' } }, object: subObj(P, { status: 'active', pause_collection: null }) } });
 ok('pause inside a month that was already paid: no extra charge', charges.length === 0, charges);

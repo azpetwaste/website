@@ -1,6 +1,7 @@
 // A stand in for the parts of Stripe a website sign up touches. Shared by signup10.test.mjs and signup50.test.mjs.
-// It follows the real order of a sign up: the card form (a setup mode Checkout Session) saves a card, then the server
-// starts the plan itself with POST /v1/subscriptions. Ids are tied together so a test can follow one customer:
+// It follows the real order of a free month sign up: the card form (a setup mode Checkout Session) saves a card, then
+// the server starts the plan itself with POST /v1/subscriptions. (A sign up with no free month, where Stripe's own
+// plan checkout charges the first month, is covered in worker.test.mjs.) Ids are tied together so a test can follow one customer:
 // cus_7 gets session cs_sub_7, card pm_7, setup intent seti_7 and plan sub_7.
 const UNIT = { week: [10800, 1300], twice: [18900, 1300], eow: [7500, 900] };
 export function fakeStripe(reply) {
@@ -13,8 +14,20 @@ export function fakeStripe(reply) {
   const plan = (sub) => Object.assign({ id: sub, object: 'subscription', customer: 'cus_' + sub.slice(4), status: st.status[sub] || 'trialing', pause_collection: null, metadata: st.metaOf(sub), items: { data: st.subItems[sub] || [] } }, dates(sub));
   // What the plan remembers: what the server saved on it when it started the plan (before that, what rode on the card form).
   st.metaOf = (sub) => Object.assign({}, meta(st.made[sub] || st.sessions[sub]), st.metaOverride[sub] || {});
-  // The first bill, worked out the way Stripe does it and not the way the server does: line by line, by the second,
-  // from the day the free month ends to the billing day, over the length of the month that ends on the billing day.
+  // One full month of a plan: every line at its price.
+  st.fullMonth = (sub) => {
+    const f = st.made[sub];
+    let total = 0;
+    for (let i = 0; f && f.get('items[' + i + '][price]'); i++) {
+      const m = /^price_(week|twice|eow)_(base|extra)$/.exec(f.get('items[' + i + '][price]'));
+      total += UNIT[m[1]][m[2] === 'base' ? 0 : 1] * Number(f.get('items[' + i + '][quantity]'));
+    }
+    return total;
+  };
+  // The first bill, worked out the way Stripe does it and not the way the server does. With only the day the free
+  // month ends, it is every line at full price. The server sends no billing day any more. If one ever came back, this
+  // would work out the part month Stripe would charge (line by line, by the second), and the tests that hold the
+  // first bill up against one full month would fail.
   st.firstBill = (sub) => {
     const f = st.made[sub];
     if (!f) return null;
