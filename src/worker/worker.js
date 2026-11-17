@@ -90,6 +90,7 @@ async function route(path, request, env, ctx) {
   if (path === '/api/address' && m === 'GET') return addressFind(request, env);
   if (path === '/api/address/pick' && m === 'GET') return addressPick(request, env);
   if (path === '/api/me/link' && m === 'POST') return meLink(request, env);
+  if (path === '/api/card' && m === 'GET') return cardGo(request, env, ctx);
   if (path === '/api/me' && m === 'GET') return meGet(request, env);
   if (path === '/api/me' && m === 'POST') return meSave(request, env);
   if (path === '/api/portal' && m === 'POST') return portal(request, env);
@@ -287,6 +288,39 @@ async function yardLink(env, uid) {
   const exp = Math.floor(Date.now() / 1000) + LINK_DAYS * 86400;
   return 'https://' + siteHost(env) + '/account/?k=' + uid + '.' + exp + '.' + (await hmac(env, uid + '.' + exp));
 }
+// The link in a "your card did not go through" email. It opens Stripe's own card page for that one customer, with no
+// sign in: a person whose card just failed should not have to find a code first. It is signed like the My Yard link
+// but with its own word in the signature, so one kind of link can never be used as the other. It only ever opens the
+// card page: it signs nobody in to My Yard. It lasts as long as Stripe keeps trying a card, and then some.
+const CARD_LINK_DAYS = 30;
+async function cardLink(env, uid) {
+  const exp = Math.floor(Date.now() / 1000) + CARD_LINK_DAYS * 86400;
+  return 'https://' + siteHost(env) + '/api/card?k=' + uid + '.' + exp + '.' + (await hmac(env, 'card|' + uid + '.' + exp));
+}
+// Someone tapped that link. Make a fresh Stripe billing page for the customer (Stripe's pages last minutes, which is
+// why the email cannot carry Stripe's address itself) and send them there. The page shows one thing: put in a new
+// card. Stripe makes it the card on file (invoice_settings.default_payment_method), Stripe tells us (customer.updated),
+// and newCard tries the open bill on it right away. A link that is old or made up lands on My Yard's sign in.
+async function cardGo(request, env, ctx) {
+  const site = String(env.SITE_URL || 'https://' + siteHost(env)).replace(/\/$/, '');
+  const go = (to) => new Response(null, { status: 302, headers: { location: to } });
+  const m = /^([0-9a-f-]{36})\.(\d{10})\.([A-Za-z0-9_-]{20,})$/.exec(new URL(request.url).searchParams.get('k') || '');
+  if (!live(env) || !m || !uuid(m[1]) || Number(m[2]) < Date.now() / 1000 || !sameSecret(await hmac(env, 'card|' + m[1] + '.' + m[2]), m[3])) return go(site + '/account/?card=old');
+  if (hitLimit('cardlink|' + m[1], 30, 3600e3)) return go(site + '/account/?card=old');
+  try {
+    const c = (await db(env, 'GET', 'customers?id=eq.' + m[1] + '&select=stripe_customer_id'))[0];
+    if (!c || !c.stripe_customer_id) return go(site + '/account/?card=old');
+    const s = await stripe(env, 'POST', 'billing_portal/sessions', {
+      customer: c.stripe_customer_id, return_url: site + '/account/',
+      flow_data: { type: 'payment_method_update', after_completion: { type: 'hosted_confirmation', hosted_confirmation: { custom_message: 'Thank you. Your new card is saved. If a bill was waiting, we are trying it now and will email you when it goes through.' } } }
+    });
+    if (!/^https:\/\//.test(s.url || '')) throw new Error('Stripe sent no page');
+    return go(s.url);
+  } catch (e) {
+    if (ctx && ctx.waitUntil) ctx.waitUntil(logError(env, 'server', '/api/card', 'The card link from a "card did not go through" email could not open Stripe\'s card page', clean(e && e.message, 300)));
+    return go(site + '/account/?card=old');
+  }
+}
 async function meLink(request, env) {
   if (!sbLive(env)) return fail(503, 'Sign in is not turned on yet.');
   const b = await body(request);
@@ -348,6 +382,8 @@ async function stripe(env, method, path, params, idem) {
     e.replayed = r.headers.get('idempotent-replayed') === 'true';
     throw e;
   }
+  // The same for an answer that worked: `_replayed` says this request was not the first one with its key.
+  if (idem && data && typeof data === 'object' && r.headers.get('idempotent-replayed') === 'true') Object.defineProperty(data, '_replayed', { value: true });
   return data;
 }
 function money(cents) { return '$' + (cents / 100).toFixed(cents % 100 ? 2 : 0); }
@@ -374,7 +410,8 @@ function plusMonth(d) {
 // Stripe charges the full month price, and that day of the month is their bill day from then on. With
 // no free month (after the sale), the full month price is charged in the card form at sign up, and the sign up day
 // is their bill day. Bills are not lined up on the 1st any more, so nothing is worked out by the day.
-// The sign up page uses the same rule (`_bill`) to show these numbers before the card step.
+// The sign up page uses the same rule (`_bill`) to show these numbers before the card step. Once the card form is
+// made, the page shows the line this server sends back with it (`line`), so the page and Stripe always say the same day.
 const scheduleDays = (env) => Number(env.SCHEDULE_DAYS) || 7;
 const unix = (d) => Math.floor(d.getTime() / 1000);
 // The free month is the Black Friday sale: sign ups through November 30, 2026, Arizona time. This is the same moment
@@ -426,20 +463,48 @@ function billFrom(meta, total, sub) {
 const idOf = (x) => (typeof x === 'string' ? x : (x && x.id) || '');
 const uuid = (x) => (/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(String(x || '')) ? String(x) : '');
 
-async function mail(env, to, subject, text) {
+// `html` is optional: the same email with our look (see brandMail). The plain text always goes along.
+async function mail(env, to, subject, text, html) {
   if (!env.RESEND_API_KEY || !to) return false;
   const from = env.MAIL_FROM || 'Arizona Pet Waste <info@arizonapetwaste.com>';
   try {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { authorization: 'Bearer ' + env.RESEND_API_KEY, 'content-type': 'application/json' },
-      body: JSON.stringify({ from, to: Array.isArray(to) ? to : [to], subject, text, reply_to: env.NOTIFY_EMAIL || 'info@arizonapetwaste.com' })
+      body: JSON.stringify(Object.assign({ from, to: Array.isArray(to) ? to : [to], subject, text, reply_to: env.NOTIFY_EMAIL || 'info@arizonapetwaste.com' }, html ? { html } : {}))
     });
     if (!r.ok) { console.error('mail failed', r.status, await r.text()); return false; }
     return true;
   } catch (e) { console.error('mail failed', e); return false; }
 }
 const owner = (env) => env.NOTIFY_EMAIL || 'info@arizonapetwaste.com';
+
+/* ---------- customer emails with our look: the logo on navy, one orange button, plain words ---------- */
+// One email, two forms. `text` is for mail apps that show words only. `html` is the same words under the logo, with
+// the one thing to tap as a big button. `before` and `after` are lists of short paragraphs ('' is left out).
+// Colors and the 12px corners are the site's (design/README.md). The font is the phone's own: a mail app will not
+// load ours. The logo is a small picture on the site (static/assets/img/email-logo.png).
+const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+function brandMail(env, heading, before, btn, after) {
+  const site = 'https://' + siteHost(env);
+  const para = (list) => (list || []).filter((x) => x).map((x) => '<p style="margin:0 0 14px;font-size:16px;line-height:1.55;color:#0E1430;">' + esc(x) + '</p>').join('');
+  const button = btn && btn.url ? '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 22px;"><tr><td style="background:#FF4A1C;border-radius:12px;">' +
+    '<a href="' + esc(btn.url) + '" style="display:inline-block;padding:15px 28px;font-size:17px;font-weight:bold;color:#0E1430;text-decoration:none;">' + esc(btn.label) + '</a></td></tr></table>' : '';
+  const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<meta name="color-scheme" content="light only"><title>' + esc(heading) + '</title></head>' +
+    '<body style="margin:0;padding:0;background:#F6F4EF;font-family:Arial,Helvetica,sans-serif;">' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F6F4EF;"><tr><td align="center" style="padding:24px 12px;">' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;">' +
+    '<tr><td style="background:#0A0F24;padding:22px 28px;"><a href="' + site + '/" style="text-decoration:none;"><img src="' + site + '/assets/img/email-logo.png" width="210" alt="Arizona Pet Waste" style="display:block;border:0;width:210px;max-width:100%;height:auto;color:#F6F4EF;font-size:20px;font-weight:bold;"></a></td></tr>' +
+    '<tr><td style="padding:28px 28px 14px;">' +
+    '<p style="margin:0 0 18px;font-size:25px;line-height:1.2;font-weight:bold;color:#0A0F24;">' + esc(heading) + '</p>' + para(before) + button + para(after) +
+    '</td></tr>' +
+    '<tr><td style="background:#0A0F24;padding:18px 28px;font-size:14px;line-height:1.6;color:#F6F4EF;">Arizona Pet Waste<br>Call or text <a href="tel:+16233096104" style="color:#F6F4EF;">623.309.6104</a><br>' +
+    '<a href="' + site + '/" style="color:#F6F4EF;">' + esc(siteHost(env)) + '</a></td></tr>' +
+    '</table></td></tr></table></body></html>';
+  const text = (before || []).concat(btn && btn.url ? [btn.label + ': ' + btn.url] : [], after || []).filter((x) => x).join('\n\n') + '\n\nArizona Pet Waste\n623.309.6104';
+  return { text, html };
+}
 
 /* ---------- prices live in Stripe; created on first use and found by lookup key ---------- */
 const LOOKUP = {
@@ -657,8 +722,9 @@ async function checkout(request, env, ctx) {
         'Used: ' + ways[i][0] + '. Stripe said: ' + clean(refused.message, 300)));
     }
   }
-  // `free` tells the page which of the two it got, so its price line can never say something else.
-  return ok({ clientSecret: ck.client_secret, session: ck.id, free });
+  // `free` tells the page which of the two it got, and `line` is the price line itself, word for word what Stripe's
+  // note says. The page shows it, so its price line can never say something else.
+  return ok({ clientSecret: ck.client_secret, session: ck.id, free, line: billText(bill) });
 }
 
 // The sign up page calls this the moment Stripe says the card form is done. The Stripe webhook does the same job, so
@@ -807,7 +873,7 @@ async function cardToCustomer(env, ctx, sub, customer) {
 // The row leaves "checkout" once. Only the call that moves it puts the yard on a route and sends the welcome emails,
 // so a sign up finished by the Stripe webhook and by the sign up page still gets one of each.
 async function booked(env, ctx, uid, sub, customer, card, s) {
-  const status = sub.pause_collection ? 'paused' : sub.status;
+  const status = planStatus(sub);
   const meta = sub.metadata || {};
   const patch = { status, stripe_subscription_id: sub.id, stripe_customer_id: customer, updated_at: new Date().toISOString() };
   // The plan Stripe bills is the plan. If the card step was open in two tabs with two choices, the row follows the
@@ -1021,7 +1087,7 @@ async function webhook(request, env, ctx) {
     if (o.status === 'incomplete' || o.status === 'incomplete_expired') return ok({ received: true });
     const uid = uuid((o.metadata || {}).user_id);
     const gone = evt.type === 'customer.subscription.deleted';
-    const status = gone ? 'canceled' : (o.pause_collection ? 'paused' : o.status);
+    const status = gone ? 'canceled' : planStatus(o);
     const good = status === 'trialing' || status === 'active';
     const filter = uid ? 'id=eq.' + uid : 'stripe_customer_id=eq.' + encodeURIComponent(cust);
     // This event can land before startPlan or paidPlan has marked the sign up as booked. Book it here then, so the
@@ -1032,18 +1098,30 @@ async function webhook(request, env, ctx) {
       if ((o.metadata || {}).no_free && o.default_payment_method) await cardToCustomer(env, ctx, o, cust);
       return ok({ received: true });
     }
-    // Stripe moved the plan to past due (a bill failed) or back from it (the bill got paid).
+    // Stripe moved the plan to past due (a bill failed) or back from it (the bill got paid), or a pause began or ended.
     // Stripe does not promise the order of its events, and it sends one again for up to three days when we did not
-    // answer. A late "past due" for a bill that has since been paid must not put a paid customer back on hold, and a
-    // late "paid" must not lift a hold that is real. So before a hold is set or lifted, ask Stripe where the plan
-    // stands right now. If that is not what this event says, the event is old news: a newer one carries the truth.
+    // answer. A late "past due" for a bill that has since been paid must not put a paid customer back on hold, a
+    // late "paid" must not lift a hold that is real, and a late "paused" must not take a customer who is back off
+    // the route. So before any of these is acted on, ask Stripe where the plan stands right now. If that is not what
+    // this event says, the event is old news: a newer one carries the truth.
     let cur = o;
-    if (!gone && o.id && (status === 'past_due' || (good && was.status === 'past_due'))) {
+    const wasHeld = was.status === 'past_due' || was.status === 'unpaid';
+    // A pause ended: Stripe took its hold off (pause_collection), or the plan left the "trial" that a pause past the
+    // bill day is (see mePause). A free month that ends carries no pause_until, so it is not one of these.
+    const wasPaused = !!was.pause_collection || (was.status === 'trialing' && !!(o.metadata || {}).pause_until);
+    if (!gone && o.id && (status === 'past_due' || status === 'paused' || (good && (wasHeld || wasPaused)))) {
       cur = await stripe(env, 'GET', 'subscriptions/' + encodeURIComponent(o.id));
-      if ((cur.pause_collection ? 'paused' : cur.status) !== status) return ok({ received: true });
+      if (planStatus(cur) !== status) return ok({ received: true });
     }
-    if (status === 'past_due') await cardFailed(env, ctx, filter, null, cur);
-    if (good && was.status === 'past_due') await backOn(env, ctx, filter, status);
+    // A failed bill. "unpaid" is Stripe saying the last try failed. A plan Stripe canceled over a failed card is the
+    // same news with the plan gone. (Each failed try also comes as invoice.payment_failed. The bill keeps count, so
+    // nobody is told twice.)
+    if (cust && (status === 'past_due' || (gone && cardLost(o)))) await cardFailed(env, ctx, cust, idOf(cur.latest_invoice), { last: gone || lastTry(cur), gone });
+    if (good && wasHeld) await backOn(env, ctx, filter, status);
+    if (good && wasPaused) await pauseOver(env, ctx, filter, cur, !was.pause_collection);
+    // The first bill after a pause is named plainly on the card statement (see pauseTidy). This also covers a
+    // customer who came back early and kept their old bill day: that plan carries paid_until until the bill day.
+    else if (good && !gone && was.status === 'trialing' && (o.metadata || {}).paid_until) ctx.waitUntil(pauseTidy(env, cur));
     const patch = { status, stripe_subscription_id: o.id, updated_at: now };
     if (gone) patch.gate_code = null;
     // A customer on hold for a failed bill only comes off hold through backOn. Other changes to the plan do not lift it.
@@ -1058,20 +1136,14 @@ async function webhook(request, env, ctx) {
     if ((gone || patch.status === 'paused') && rows && rows[0]) {
       await db(env, 'DELETE', 'stops?customer_id=eq.' + rows[0].id + '&status=in.(scheduled,skipped)&day=gte.' + azToday(), null, 'return=minimal').catch((e) => console.error('route cleanup', e));
     }
-    if (gone && rows && rows[0]) ctx.waitUntil(mail(env, owner(env), 'Canceled: ' + rows[0].name, 'A customer canceled.\n\nName: ' + rows[0].name + '\nAddress: ' + rows[0].address + ', ' + rows[0].zip + '\nMobile: ' + rows[0].phone));
+    if (gone && rows && rows[0]) ctx.waitUntil(mail(env, owner(env), 'Canceled: ' + rows[0].name, (cardLost(o) ? 'Stripe canceled this plan because the card kept failing. See the PAUSE SERVICE email for what to do.' : 'A customer canceled.') + '\n\nName: ' + rows[0].name + '\nAddress: ' + rows[0].address + ', ' + rows[0].zip + '\nMobile: ' + rows[0].phone));
     if (gone) await freeMonthCharge(env, ctx, o, rows && rows[0]);
-    // Back from a pause: nothing is charged here. The part month charge for "the days left in this month" went away
-    // with bills on the 1st (Joe, Nov 16, 2026: no part month charges anywhere). Their next bill is their next bill day.
+    // Back from a pause: nothing is charged by this server. When the pause ran past their bill day, Stripe itself
+    // charges the full month on the day they come back, and that day is their new bill day (see mePause).
   } else if (evt.type === 'invoice.payment_failed') {
-    // Only a live plan goes on hold. A failed early cancel charge leaves a canceled customer canceled.
-    // Stripe is asked about the bill first: a late copy of this event for a bill that has since been paid, or that
-    // the office voided, must not put the customer on hold.
-    const who = 'stripe_customer_id=eq.' + encodeURIComponent(cust);
-    const inGood = cust && o.id ? await db(env, 'GET', 'customers?' + who + '&status=in.(trialing,active)&select=id') : null;
-    if (inGood && inGood[0]) {
-      const bill = await stripe(env, 'GET', 'invoices/' + encodeURIComponent(o.id));
-      if (bill.status === 'open' && bill.amount_remaining > 0) await cardFailed(env, ctx, who, bill, null);
-    }
+    // One failed try of one bill: the first charge or one of Stripe's retries. cardFailed asks Stripe how the bill
+    // stands right now, so a late copy of this event for a bill that has since been paid changes nothing.
+    if (cust && o.id) await cardFailed(env, ctx, cust, o.id);
   } else if (evt.type === 'invoice.paid') {
     if (cust) await billPaid(env, ctx, cust, o);
   } else if (evt.type === 'customer.updated') {
@@ -1080,55 +1152,197 @@ async function webhook(request, env, ctx) {
   return ok({ received: true });
 }
 
-/* ---------- a payment fails: tell the customer the same day, hold the visits, bring them back when it is paid ---------- */
-// The row goes on hold once (`past_due`). Only the call that moves it tells the customer and the office, so a failed
-// bill means one email and one text, not one for each retry. Stripe keeps retrying on its own (Smart Retries).
-// While on hold the customer stays off new routes (planDay skips `past_due`). A visit already on today's route still happens.
-async function cardFailed(env, ctx, filter, inv, sub) {
-  const rows = await db(env, 'PATCH', 'customers?' + filter + '&status=in.(trialing,active)', { status: 'past_due', updated_at: new Date().toISOString() }, 'return=representation');
-  const c = rows && rows[0];
-  if (!c) return false;
-  await db(env, 'DELETE', 'stops?customer_id=eq.' + c.id + '&status=in.(scheduled,skipped)&day=gt.' + azToday(), null, 'return=minimal').catch((e) => console.error('route cleanup', e));
-  if (!inv && sub && sub.latest_invoice) {
-    try { inv = typeof sub.latest_invoice === 'string' ? await stripe(env, 'GET', 'invoices/' + sub.latest_invoice) : sub.latest_invoice; } catch (e) { inv = null; }
+/* ---------- a payment fails: a friendly email with a link to fix the card, an office alert on every try, PAUSE SERVICE after the last ---------- */
+// Joe, Nov 16, 2026 (late). Stripe keeps trying a failed bill on its own (Smart Retries). Every failed try comes here.
+//  - The row goes on hold once (`past_due`): off new routes until the bill is paid (planDay skips `past_due`). A visit
+//    already on today's route still happens.
+//  - The customer gets a clear email with one button that opens Stripe's own card page (cardLink): on the first
+//    failed try, a reminder when a later try fails five or more days after their last email, and a last notice when
+//    Stripe stops trying. One text waits in the office Texts tab on the first try (staff send texts by hand).
+//  - The office gets an alert on EVERY failed try, with the name, address, amount and try number, and one that starts
+//    with PAUSE SERVICE after the last try. This server never cancels a plan over a failed card: the office decides.
+// Stripe sends events late, twice and out of order, and a failed try can reach us as two events at once (the bill
+// and the plan). So the bill itself remembers what was told: its metadata carries the last try we alerted on
+// (apw_try), when the customer was last emailed (apw_mail), and whether the last notice went out (apw_final). That
+// note is written with a key Stripe keeps to one writer, so the same failed try never tells anybody twice.
+const REMIND_DAYS = 5;
+const TRY_WAIT = 2500;
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const tryWait = (env) => (env.TRY_WAIT_MS != null && env.TRY_WAIT_MS !== '' ? Math.max(0, Number(env.TRY_WAIT_MS) || 0) : TRY_WAIT);
+const pauseWhy = (sub) => (sub && sub.status_details && sub.status_details.paused && sub.status_details.paused.subscription && sub.status_details.paused.subscription.type) || '';
+// Stripe has stopped trying the card: the plan went "unpaid", or Stripe paused the plan after the last failed try.
+// Which one happens is a Stripe setting (Billing, Revenue recovery, Retries). GO_LIVE.md part 5 says which to pick.
+const lastTry = (sub) => !!sub && (sub.status === 'unpaid' || (sub.status === 'paused' && pauseWhy(sub) === 'final_payment_failure'));
+// Stripe canceled the plan itself because the card kept failing (that same setting, on "cancel the subscription").
+const cardLost = (sub) => !!(sub && sub.cancellation_details && sub.cancellation_details.reason === 'payment_failed');
+// What the customer row says for a plan in Stripe. It is Stripe's own word, but for three cases:
+//  - A pause that runs past the bill day is a plan Stripe shows as "trialing" until the day they come back (mePause).
+//    It carries pause_until. Here that is "paused".
+//  - A paused customer who came back before their old bill day is "trialing" until that bill day, with paid_until and
+//    no pause_until (meResume). Here that is "active": they are back, and they pay on their usual day.
+//  - "unpaid" (the last retry failed), and a plan Stripe paused over a failed payment, stay "past_due" here. That is
+//    the on hold state the office and My Yard know.
+function planStatus(sub) {
+  const md = sub.metadata || {};
+  if (sub.pause_collection) return 'paused';
+  if (sub.status === 'trialing' && md.pause_until) return 'paused';
+  if (sub.status === 'trialing' && md.paid_until) return 'active';
+  if (sub.status === 'unpaid') return 'past_due';
+  if (sub.status === 'paused') return /^(first|final)_payment_failure$/.test(pauseWhy(sub)) ? 'past_due' : 'paused';
+  return sub.status;
+}
+const longDay = (d) => d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/Phoenix' });
+
+// The email to the customer. `kind`: first (the first failed try), again (a reminder), last (Stripe stopped trying,
+// the plan is still there) or ended (Stripe canceled the plan). Third grade words, one button.
+function cardMail(env, kind, c, amount, tries, next, link) {
+  const hi = 'Hi ' + (first(c.name) || 'there') + ',';
+  const btn = { label: 'Update my card', url: link };
+  const safe = 'The button opens our secure card page. Stripe runs it, and we never see your card number.';
+  const help = 'Questions? Call or text 623.309.6104.';
+  if (kind === 'ended') {
+    return Object.assign({ subject: 'Your plan has ended' }, brandMail(env, 'Your plan has ended', [hi,
+      'We tried your card ' + tries + (tries === 1 ? ' time' : ' times') + (amount ? ' for ' + amount : '') + '. It did not go through, so your plan has ended and your visits have stopped.',
+      'Want to come back? Call or text 623.309.6104 and we will start you again.'], null, []));
   }
-  const amount = inv && inv.amount_due > 0 ? money(inv.amount_due) : '';
-  const payUrl = inv && inv.status === 'open' && /^https:\/\//.test(inv.hosted_invoice_url || '') ? inv.hosted_invoice_url : '';
-  const yard = (env.SITE_URL || 'https://arizonapetwaste.com') + '/account/';
-  const emailed = await mail(env, c.email, 'Your card did not work', [
-    'Hi ' + first(c.name) + ',', '',
-    'We tried to charge your card' + (amount ? ' ' + amount : '') + ' for your Arizona Pet Waste plan. The charge did not go through.', '',
-    'Your visits are on hold until this bill is paid.', '',
-    payUrl ? 'To fix it, pick one:' : 'To fix it:',
-    payUrl ? '1. Pay this bill now: ' + payUrl : null,
-    (payUrl ? '2. ' : '') + 'Use a new card. Sign in to My Yard, tap Change my card, add your new card and make it your default card. We try it right away.',
-    yard, '',
-    'If you do nothing, we try your card again in a few days.',
-    'Your visits start again as soon as the bill is paid.', '',
-    'Questions? Call or text 623.309.6104.', '', 'Arizona Pet Waste'
-  ].filter((x) => x !== null).join('\n'));
-  // The text waits in the office Texts tab like every other text, and staff send it by hand (Twilio is not approved).
-  let texted = 'no';
-  if (c.texts_visit && c.phone) {
+  if (kind === 'last') {
+    return Object.assign({ subject: 'Last notice: your visits are on hold' }, brandMail(env, 'Your visits are on hold', [hi,
+      'We tried your card ' + tries + (tries === 1 ? ' time' : ' times') + (amount ? ' for ' + amount : '') + '. It did not go through, so we have stopped trying.',
+      'Your visits stay on hold until the bill is paid. To start again, tap the button and put in a new card. We try it right away.'], btn, [safe, help]));
+  }
+  if (kind === 'again') {
+    return Object.assign({ subject: 'Reminder: your card still did not go through' }, brandMail(env, 'Your card still did not go through', [hi,
+      'We tried your card again' + (amount ? ' for ' + amount : '') + '. It still did not go through.',
+      'Tap the button to put in a new card. It takes about one minute, and we try it right away.'], btn,
+    ['Your visits are still on hold. They start again as soon as the payment goes through.', safe, help]));
+  }
+  return Object.assign({ subject: 'Your card did not go through' }, brandMail(env, 'Your card did not go through', [hi,
+    'We tried to charge your card' + (amount ? ' ' + amount : '') + ' for your dog poop pickup. It did not go through.',
+    'This is easy to fix. Tap the button to put in a new card. It takes about one minute, and we try it right away.'], btn,
+  ['Is your card fine? Then you do not need to do anything. We will try it again ' + (next ? 'on ' + longDay(next) + '.' : 'in a few days.'),
+    'Your visits are on hold until the payment goes through. They start again as soon as it does.', safe, help]));
+}
+
+async function cardFailed(env, ctx, cust, invoiceId, opt) {
+  opt = opt || {};
+  const who = 'stripe_customer_id=eq.' + enc(cust);
+  // Only a live plan. A sign up still at the card step is left alone (a card refused in the card form gets fixed in
+  // the form), and so is a canceled customer (a failed early cancel charge leaves a canceled customer canceled).
+  const before = (await db(env, 'GET', 'customers?' + who + '&status=in.(trialing,active,paused,past_due)&select=*'))[0];
+  if (!before) return false;
+  // Ask Stripe how the bill stands right now: a late copy of this event for a bill that has since been paid, or that
+  // the office voided, must not put the customer on hold or tell anyone.
+  let bill = invoiceId ? await stripe(env, 'GET', 'invoices/' + enc(invoiceId)) : null;
+  if (bill && (bill.status !== 'open' || !(bill.amount_remaining > 0))) return false;
+  let last = !!opt.last, gone = !!opt.gone;
+  if (bill && !last && !bill.next_payment_attempt && bill.collection_method !== 'send_invoice') {
+    // The bill shows no next try. With plain retry settings Stripe sets the next try before it sends the event. An
+    // account that uses Stripe's automations gets it a moment later. So look twice more, a few seconds apart, before
+    // calling this the last try: a wrong "last notice" on a first failed try would scare a customer for nothing.
+    // Then see if Stripe canceled the plan over it.
+    for (let i = 0; i < 2 && !bill.next_payment_attempt; i++) {
+      await wait(tryWait(env));
+      bill = await stripe(env, 'GET', 'invoices/' + enc(bill.id));
+      if (bill.status !== 'open' || !(bill.amount_remaining > 0)) return false;
+    }
+    if (!bill.next_payment_attempt) {
+      last = true;
+      if (before.stripe_subscription_id) {
+        try { const sub = await stripe(env, 'GET', 'subscriptions/' + enc(before.stripe_subscription_id)); gone = sub.status === 'canceled' && cardLost(sub); } catch (e) { gone = false; }
+      }
+    }
+  }
+  // The hold. The row moves once. A paused customer whose first charge back failed goes on hold too. A plan Stripe
+  // has canceled is left to the cancel event.
+  let c = before, moved = false;
+  if (!gone) {
+    const rows = await db(env, 'PATCH', 'customers?' + who + '&status=in.(trialing,active,paused)', { status: 'past_due', pause_from: null, pause_until: null, updated_at: new Date().toISOString() }, 'return=representation');
+    if (rows && rows[0]) {
+      c = rows[0]; moved = true;
+      await db(env, 'DELETE', 'stops?customer_id=eq.' + c.id + '&status=in.(scheduled,skipped)&day=gt.' + azToday(), null, 'return=minimal').catch((e) => console.error('route cleanup', e));
+    }
+  }
+  const nowS = Math.floor(Date.now() / 1000);
+  const md = (bill && bill.metadata) || {};
+  const tries = bill ? Math.max(1, Number(bill.attempt_count) || 1) : 1;
+  const told = parseInt(md.apw_try || '0', 10) || 0;
+  const mailed = parseInt(md.apw_mail || '0', 10) || 0;
+  const newTry = bill ? tries > told : moved; // with no bill to keep the note on, the call that moved the row tells
+  const stop = (last && !md.apw_final) || (gone && !md.apw_gone);
+  if (!newTry && !stop) return false;
+  const kind = stop ? (gone ? 'ended' : 'last') : !mailed ? 'first' : nowS - mailed >= REMIND_DAYS * 86400 ? 'again' : '';
+  if (bill) {
+    const note = { apw_try: String(Math.max(told, tries)) };
+    if (kind) note.apw_mail = String(nowS);
+    if (last) note.apw_final = '1';
+    if (gone) note.apw_gone = '1';
     try {
-      const had = await db(env, 'GET', 'messages?customer_id=eq.' + c.id + '&kind=eq.card_failed&status=eq.queued&select=id');
-      if (!(had && had.length)) await db(env, 'POST', 'messages', [{ customer_id: c.id, stop_id: null, kind: 'card_failed', channel: 'sms', to_addr: c.phone, body: CARD_TEXT(env) }], 'return=minimal');
-      texted = 'yes';
-    } catch (e) { texted = 'failed'; console.error('card text', e); }
+      const kept = await stripe(env, 'POST', 'invoices/' + enc(bill.id), { metadata: note }, 'apw-try-' + bill.id + '-' + tries + (last ? '-last' : '') + (gone ? '-gone' : ''));
+      // Stripe hands back the answer it gave the first writer: another copy of this event already told this try.
+      if (kept && kept._replayed) return false;
+    } catch (e) {
+      // Another copy of this event is writing the same note right now. It does the telling.
+      if (e.status === 409 || (e.stripe && e.stripe.type === 'idempotency_error')) return false;
+      // The note could not be kept. Tell everyone anyway: an alert that comes twice is better than one that never comes.
+      ctx.waitUntil(logError(env, 'server', '/api/stripe-webhook', 'A failed payment was told, but the note on the bill could not be saved, so this alert may come twice', bill.id + '. ' + clean(e && e.message, 300)));
+    }
   }
-  ctx.waitUntil(mail(env, owner(env), 'Card failed: ' + c.name, [
-    'A payment' + (amount ? ' of ' + amount : '') + ' failed. Stripe will try the card again on its own.', '',
-    'Their visits are on hold. They stay off new routes until the bill is paid. A visit already on today’s route still happens.',
-    emailed ? 'We emailed them how to fix it.' : 'The email to them did not send. Reach out to them today.',
-    texted === 'yes' ? 'A text to them is waiting in the Texts tab. Send it today.'
-      : texted === 'failed' ? 'The text to them could not be saved to the Texts tab. Text or call them today.'
-        : 'They did not agree to texts, so no text is waiting. Call them today.', '',
-    'Name: ' + c.name, 'Mobile: ' + c.phone, 'Email: ' + c.email, 'Address: ' + c.address + ', ' + c.zip, 'Stripe customer: ' + (c.stripe_customer_id || '')
-  ].join('\n')));
+  const amount = bill ? money(bill.amount_remaining || bill.amount_due || 0) : '';
+  const next = bill && bill.next_payment_attempt && !last ? new Date(bill.next_payment_attempt * 1000) : null;
+  let emailed = null;
+  if (kind) {
+    const m = cardMail(env, kind, c, amount, tries, next, kind === 'ended' ? '' : await cardLink(env, c.id));
+    emailed = await mail(env, c.email, m.subject, m.text, m.html);
+  }
+  // The text waits in the office Texts tab like every other text, and staff send it by hand (Twilio is not approved).
+  let texted = '';
+  if (kind === 'first') {
+    texted = 'no';
+    if (c.texts_visit && c.phone) {
+      try {
+        const had = await db(env, 'GET', 'messages?customer_id=eq.' + c.id + '&kind=eq.card_failed&status=eq.queued&select=id');
+        if (!(had && had.length)) await db(env, 'POST', 'messages', [{ customer_id: c.id, stop_id: null, kind: 'card_failed', channel: 'sms', to_addr: c.phone, body: CARD_TEXT(env) }], 'return=minimal');
+        texted = 'yes';
+      } catch (e) { texted = 'failed'; console.error('card text', e); }
+    }
+  }
+  const whoIs = c.name + ', ' + c.address;
+  const facts = ['Name: ' + c.name, 'Address: ' + c.address + ', ' + c.zip, 'Amount: ' + (amount || 'not known'), (stop ? 'Tries: ' : 'Try: ') + tries, 'Mobile: ' + c.phone, 'Email: ' + c.email, 'Stripe customer: ' + (c.stripe_customer_id || cust)];
+  const toldThem = !kind ? 'No new email went to them today. Their last one went ' + Math.max(1, Math.round((nowS - mailed) / 86400)) + ' days ago, and the next reminder goes after ' + REMIND_DAYS + ' days.'
+    : emailed ? (kind === 'first' ? 'We emailed them how to fix it, with a button that opens the card page.' : kind === 'again' ? 'We emailed them a reminder with the same button.' : kind === 'last' ? 'We emailed them a last notice with the button to change their card.' : 'We emailed them that their plan has ended.')
+      : 'The email to them did not send. Reach out to them today.';
+  if (stop) {
+    ctx.waitUntil(mail(env, owner(env), 'PAUSE SERVICE: ' + whoIs + ' (' + (amount || 'bill') + ' unpaid after ' + tries + (tries === 1 ? ' try' : ' tries') + ')', [
+      gone ? 'PAUSE SERVICE. Stripe tried their card ' + tries + (tries === 1 ? ' time' : ' times') + ', and then Stripe canceled their plan. ' + (amount || 'The bill') + ' is unpaid.'
+        : 'PAUSE SERVICE. Stripe tried their card ' + tries + (tries === 1 ? ' time' : ' times') + ' and has stopped trying. ' + (amount || 'The bill') + ' is unpaid.', '',
+      ...facts, '',
+      'What to do:',
+      '1. Keep them off the route. The site took them off new routes at the first failed try, so only check a route that is already built.',
+      gone ? '2. Call them. To come back they sign up again, or you start them again in Stripe.'
+        : '2. Call them. If they change their card, the site tries the open bill on it, puts them back on the schedule and emails you "Paid".',
+      gone ? '3. Stripe canceled the plan because it is still set to cancel after the last try. To stop that: Stripe, Billing, Revenue recovery, Retries, "If all retries for a payment fail", pick "Mark the subscription as unpaid".'
+        : '3. Their plan is not canceled. Canceling is your call. Do it in Stripe when you decide to.', '',
+      toldThem
+    ].join('\n')));
+  } else {
+    ctx.waitUntil(mail(env, owner(env), (tries > 1 ? 'Card failed again: ' : 'Card failed: ') + whoIs + ' (' + (amount || 'bill') + ', try ' + tries + ')', [
+      'A payment' + (amount ? ' of ' + amount : '') + ' failed. This was try ' + tries + '.',
+      next ? 'Stripe will try the card again on ' + longDay(next) + '.' : 'Stripe has not said when it will try again.', '',
+      ...facts, '',
+      'Their visits are on hold. They stay off new routes until the bill is paid. A visit already on today’s route still happens.',
+      toldThem,
+      texted === 'yes' ? 'A text to them is waiting in the Texts tab. Send it today.'
+        : texted === 'failed' ? 'The text to them could not be saved to the Texts tab. Text or call them today.'
+          : texted === 'no' ? 'They did not agree to texts, so no text is waiting. Call them today.' : null,
+      'When Stripe stops trying, you get one more email that starts with PAUSE SERVICE.'
+    ].filter((x) => x !== null).join('\n')));
+  }
   return true;
 }
 const CARD_TEXT = (env) => 'Arizona Pet Waste: Your card did not work, so your visits are on hold. Fix it at ' + siteHost(env) + '/account or call 623.309.6104. Reply STOP to opt out.';
 
+// "We come on your next Thursday." for an email.
+const dayLine = (c) => (c.service_day != null ? 'We come on your next ' + DAYS[c.service_day] + (c.service_day2 != null ? ' or ' + DAYS[c.service_day2] : '') + '.' : 'We will reach out with your day.');
 // The bill got paid. The row comes off hold once, and only the call that moves it sends the thank you.
 async function backOn(env, ctx, filter, status) {
   const now = new Date().toISOString();
@@ -1137,12 +1351,10 @@ async function backOn(env, ctx, filter, status) {
   if (!c) return false;
   // A "card did not work" text nobody sent yet is old news now, so it leaves the list. A sent one is left alone.
   await db(env, 'PATCH', 'messages?customer_id=eq.' + c.id + '&kind=eq.card_failed&status=eq.queued', { status: 'skipped', sent_at: now }, 'return=minimal').catch((e) => console.error('card text cleanup', e));
-  ctx.waitUntil(mail(env, c.email, 'Your payment went through', [
-    'Hi ' + first(c.name) + ',', '',
-    'Thank you. Your payment went through, and your visits are back on.',
-    c.service_day != null ? 'We come on your next ' + DAYS[c.service_day] + (c.service_day2 != null ? ' or ' + DAYS[c.service_day2] : '') + '.' : 'We will reach out with your day.', '',
-    'Questions? Call or text 623.309.6104.', '', 'Arizona Pet Waste'
-  ].join('\n')));
+  const thanks = brandMail(env, 'Your payment went through', ['Hi ' + (first(c.name) || 'there') + ',',
+    'Thank you. Your payment went through, and your visits are back on.', dayLine(c),
+    'Questions? Call or text 623.309.6104.'], null, []);
+  ctx.waitUntil(mail(env, c.email, 'Your payment went through', thanks.text, thanks.html));
   ctx.waitUntil(mail(env, owner(env), 'Paid: ' + c.name, [
     'Their bill is paid, so they are off hold and back on the schedule.',
     'They go on the next route built for their day. If their day is today or tomorrow and that route is already built, open the Schedule tab for that day and add them.', '',
@@ -1161,9 +1373,55 @@ async function billPaid(env, ctx, cust, inv) {
   let status = 'active';
   if (c.stripe_subscription_id) {
     const sub = await stripe(env, 'GET', 'subscriptions/' + c.stripe_subscription_id);
-    status = sub.pause_collection ? 'paused' : sub.status;
+    status = planStatus(sub);
   }
   if (status === 'active' || status === 'trialing') await backOn(env, ctx, 'id=eq.' + c.id, status);
+}
+
+/* ---------- back from a pause ---------- */
+// Joe, Nov 16, 2026 (late): when a paused customer comes back, the full month is charged on the day they come back,
+// and that day is their new bill day. No part month. How that is done is in mePause: Stripe does the charging by
+// itself on the day, so nothing here has to be awake for it. What is left for this server is to say so.
+const nth = (n) => n + (n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th');
+// The emails for a customer who is back. `charged`: the pause ran past their bill day, so Stripe charges the full
+// month today and today is the new bill day. If not, they came back inside a month they had paid for: nothing is
+// charged and their bill day stays.
+function backMails(env, ctx, c, charged) {
+  const total = PLANS[c.plan] ? money(monthly(c.plan, c.dogs)) : '';
+  const day = nth(Number(azToday().slice(8)));
+  const m = brandMail(env, 'Welcome back', ['Hi ' + (first(c.name) || 'there') + ',',
+    'Your pause is over, and your visits are back on.', dayLine(c),
+    charged ? 'We charge your card ' + (total || 'your month price') + ' today for the month ahead. From now on, the ' + day + ' is your bill day.' : 'Nothing is charged today. Your bill day stays the same.',
+    'Questions? Call or text 623.309.6104.'], null, []);
+  ctx.waitUntil(mail(env, c.email, 'Welcome back. Your visits are back on', m.text, m.html));
+  ctx.waitUntil(mail(env, owner(env), 'Back from pause: ' + c.name, [
+    c.name + ' is back from a pause.',
+    charged ? 'Stripe charges ' + (total || 'the full month') + ' today. The ' + day + ' is their new bill day.' : 'Nothing is charged today. Their bill day did not change.',
+    'They go on the next route built for their day. If their day is today or tomorrow and that route is already built, open the Schedule tab for that day and add them.', '',
+    'Name: ' + c.name, 'Mobile: ' + c.phone, 'Address: ' + c.address + ', ' + c.zip
+  ].join('\n')));
+}
+// A pause ended by itself, on the day the customer picked. The row comes off pause once, and only the call that moves
+// it tells the customer and the office. (A customer who taps "Start again now" is handled in meResume.)
+async function pauseOver(env, ctx, filter, sub, charged) {
+  const rows = await db(env, 'PATCH', 'customers?' + filter + '&status=eq.paused', { status: 'active', pause_from: null, pause_until: null, updated_at: new Date().toISOString() }, 'return=representation');
+  const c = rows && rows[0];
+  if (charged) ctx.waitUntil(pauseTidy(env, sub));
+  if (!c) return false;
+  backMails(env, ctx, c, charged);
+  return true;
+}
+// After a pause that ran past the bill day: take the pause notes off the plan, and name the first bill back plainly on
+// the card statement. Stripe adds "TRIAL OVER" to a statement when a free trial ends, and it runs this kind of pause
+// as a trial. A bill that has its own statement words does not get that added (Stripe: "Manage trial text in
+// statement descriptors"). It has to be set while the new bill is still a draft, about one hour. If that is missed,
+// nothing breaks: the statement reads TRIAL OVER that one time.
+const STATEMENT = 'ARIZONA PET WASTE';
+async function pauseTidy(env, sub) {
+  if (!sub || !sub.id) return;
+  const inv = idOf(sub.latest_invoice);
+  try { if (inv) await stripe(env, 'POST', 'invoices/' + enc(inv), { statement_descriptor: STATEMENT }); } catch (e) { console.error('statement words', e && e.message); }
+  try { await stripe(env, 'POST', 'subscriptions/' + enc(sub.id), { metadata: { pause_until: '', paid_until: '' } }); } catch (e) { console.error('pause notes', e && e.message); }
 }
 
 // The customer put a new card on file (My Yard opens Stripe's billing page for that). If they are on hold, try the
@@ -1265,9 +1523,11 @@ async function waitlist(request, env, ctx) {
   if (await tooMany(env, 'waitlist')) return fail(429, 'We are getting a lot of sign ups right now. Text 623.309.6104 with your name, address and ZIP, and we will add you.');
   const stored = live(env) ? await db(env, 'POST', 'waitlist', [{ email: email || null, zip, name, phone, address, texts_ok: texts, ip: request.headers.get('cf-connecting-ip') || '' }], 'return=minimal').then(() => true, () => false) : false;
   if (sbLive(env)) await addLead(env, { kind: 'waitlist', name, email: email || null, phone, address, zip, details: texts ? 'Text when we start there' : null });
-  const sent = await mail(env, owner(env), 'Waitlist: ' + name + ', ZIP ' + zip, [
+  // The waitlist form on the sign up page asks for a city, not a ZIP: the city is the last part of the address.
+  const town = zip ? 'ZIP ' + zip : clean(address.includes(',') ? address.split(',').pop() : '', 40);
+  const sent = await mail(env, owner(env), 'Waitlist: ' + name + (town ? ', ' + town : ''), [
     'Someone joined the waitlist.', '',
-    'Name: ' + name, 'Mobile: ' + phone, 'Address: ' + address + ', ' + zip, 'Email: ' + (email || 'none'),
+    'Name: ' + name, 'Mobile: ' + phone, 'Address: ' + address + (zip ? ', ' + zip : ''), 'Email: ' + (email || 'none'),
     'Text them when we start there: ' + (texts ? 'yes' : 'no'), '',
     'Offer shown: ' + WAIT_OFFER
   ].join('\n'));
@@ -3192,7 +3452,7 @@ async function skippedOn(env, day) {
   try { return new Set((await db(env, 'GET', 'customers?skips=cs.{' + day + '}&select=id')).map((x) => x.id)); } catch (e) { return new Set(); }
 }
 async function myRow(env, id) {
-  const base = 'plan,status,first_visit,service_day,service_day2,eow_week,pause_from,pause_until,stripe_customer_id,stripe_subscription_id,name,address,zip';
+  const base = 'plan,dogs,status,first_visit,service_day,service_day2,eow_week,pause_from,pause_until,stripe_customer_id,stripe_subscription_id,name,phone,address,zip';
   try { const r = await db(env, 'GET', 'customers?id=eq.' + id + '&select=' + base + ',skips'); return r[0] ? Object.assign(r[0], { skipReady: true, skips: [...new Set((r[0].skips || []).map((d) => String(d).slice(0, 10)))] }) : null; }
   catch (e) { const r = await db(env, 'GET', 'customers?id=eq.' + id + '&select=' + base); return r[0] ? Object.assign(r[0], { skipReady: false, skips: [] }) : null; }
 }
@@ -3208,26 +3468,49 @@ function nextVisits(c, from, n) {
   }
   return out;
 }
-// Pausing opens after the 60 day minimum, so a pause cannot be used to sit out the minimum and keep the free month.
-async function minEndOf(env, c) {
-  if (!c.stripe_subscription_id) return 0;
-  try { const md = (await stripe(env, 'GET', 'subscriptions/' + c.stripe_subscription_id)).metadata || {}; return parseInt(md.pause_from || md.min_end || '0', 10) || 0; } catch (e) { return 0; }
+// The day the month they paid for runs out: their next bill day. Stripe keeps it on each line of the plan.
+function paidUntil(sub) {
+  const ends = ((sub && sub.items && sub.items.data) || []).map((i) => Number(i.current_period_end) || 0);
+  return Math.max(0, Number(sub && sub.current_period_end) || 0, ...ends);
 }
-function planView(c, minEnd) {
-  const today = azToday();
-  const early = !!minEnd && Date.now() / 1000 < minEnd;
+// Pausing opens after the first 60 days (pause_from on the plan), so a pause cannot be used to stretch a free month.
+const pauseOpens = (sub) => parseInt(((sub && sub.metadata) || {}).pause_from || ((sub && sub.metadata) || {}).min_end || '0', 10) || 0;
+// One look at the plan in Stripe for My Yard: when pausing opens, the next bill day, and how a pause that is on ends.
+//  billDay: their next bill day, when the plan is running. My Yard names it next to the pause button.
+//  back:    the day they come back, when the pause runs past their bill day. The full month is charged that day.
+//  keep:    their old bill day, while it is still ahead. Coming back before it keeps it, and nothing is charged early.
+async function planInfo(env, c) {
+  const out = { minEnd: 0, billDay: 0, back: 0, keep: 0 };
+  if (!c.stripe_subscription_id) return out;
+  try {
+    const sub = await stripe(env, 'GET', 'subscriptions/' + enc(c.stripe_subscription_id));
+    const md = sub.metadata || {};
+    out.minEnd = pauseOpens(sub);
+    if (sub.status === 'trialing' && md.pause_until) { out.back = parseInt(md.pause_until, 10) || 0; out.keep = parseInt(md.paid_until || '0', 10) || 0; }
+    else if (sub.status === 'active' && !sub.pause_collection) out.billDay = paidUntil(sub);
+  } catch (e) { /* My Yard still loads without it */ }
+  return out;
+}
+function planView(c, info) {
+  info = info || {};
+  const today = azToday(), nowS = Date.now() / 1000;
+  const early = !!info.minEnd && nowS < info.minEnd;
   const paused = c.status === 'paused';
   // A failed bill puts visits on hold until it is paid, so My Yard shows no next visits then.
   const hold = c.status === 'past_due' || c.status === 'unpaid';
   const days = PAYING.includes(c.status) && !hold ? nextVisits(c, addDays(today, 1), 3) : [];
   const used = c.skips.filter((d) => d.slice(0, 4) === today.slice(0, 4)).length;
+  const total = PLANS[c.plan] ? money(monthly(c.plan, c.dogs)) : '';
   return {
     dayName: c.service_day != null ? DAYS[c.service_day] + (c.service_day2 != null ? ' and ' + DAYS[c.service_day2] : '') : null,
     next: days.map((d) => ({ day: d, skipped: c.skips.includes(d), canSkip: d >= addDays(today, 2) })),
     skipReady: c.skipReady, skipsLeft: Math.max(0, SKIPS_A_YEAR - used),
     hold, paused, pauseUntil: paused && c.pause_until ? addDays(c.pause_until, 1) : null,
     canPause: !early && ['trialing', 'active'].includes(c.status) && !!c.stripe_subscription_id, pauseMax: addDays(today, PAUSE_MAX_DAYS),
-    pauseAfter: early ? dateLabel(new Date(minEnd * 1000)) : null
+    pauseAfter: early ? dateLabel(new Date(info.minEnd * 1000)) : null,
+    // What My Yard says about money next to the pause button. Plain facts only: the page writes the sentences.
+    billDay: !paused && info.billDay > nowS ? dateLabel(new Date(info.billDay * 1000)) : null,
+    backCharge: paused && info.back ? { amount: total, keepDay: info.keep > nowS ? dateLabel(new Date(info.keep * 1000)) : null } : null
   };
 }
 async function me2(request, env) {
@@ -3240,7 +3523,7 @@ async function me2(request, env) {
 }
 async function mePlan(request, env) {
   const x = await me2(request, env);
-  return x.err || ok({ plan: planView(x.c, await minEndOf(env, x.c)) });
+  return x.err || ok({ plan: planView(x.c, await planInfo(env, x.c)) });
 }
 async function meInvoices(request, env) {
   const x = await me2(request, env);
@@ -3273,31 +3556,90 @@ async function meSkip(request, env, ctx) {
     (b.undo ? '\n\nAdd the stop back to the route in the office.' : '')));
   return ok({ plan: planView(Object.assign(c, { skips })) });
 }
+// Pause (Joe, Nov 16, 2026, late): when a paused customer comes back, the full month is charged on the day they come
+// back, and that day is their new bill day. No part month. There are two kinds of pause, told apart by their bill day:
+//  1. The pause runs to or past their next bill day. That bill is skipped. In Stripe the plan gets a free time that
+//     ends on the day they come back (`trial_end`, with `proration_behavior: none`). On that day Stripe itself makes
+//     one bill for the full month and bills on that day of the month from then on. This is Stripe's own way to move a
+//     bill day ("Change the billing period using a trial period"), and it needs nothing from this server on the day.
+//     Stripe shows such a plan as "trialing". Its metadata says it is a pause (pause_until, paid_until), and
+//     planStatus reads it as "paused".
+//  2. The pause ends before their next bill day. They are inside a month they already paid for, so billing is left
+//     alone: charging them the day they come back would bill the same days twice. Stripe only holds the plan
+//     (pause_collection) and lets go on the day, which is what tells this server they are back.
+// Never reset the bill day with billing_cycle_anchor here: on these plans (Stripe's flexible billing mode) that
+// makes no bill at all, or a bill for part of a month.
 async function mePause(request, env, ctx) {
   const x = await me2(request, env);
   if (x.err) return x.err;
   const c = x.c, b = (await body(request)) || {};
   const until = String(b.until || ''), today = azToday();
   if (!['trialing', 'active'].includes(c.status) || !c.stripe_subscription_id) return fail(400, 'We could not pause this plan. ' + CALL_US);
-  const minEnd = await minEndOf(env, c);
+  const id = enc(c.stripe_subscription_id);
+  const sub = await stripe(env, 'GET', 'subscriptions/' + id);
+  const minEnd = pauseOpens(sub);
   if (minEnd && Date.now() / 1000 < minEnd) return fail(400, 'You can pause after ' + dateLabel(new Date(minEnd * 1000)) + '. Need a break before then? Skip a visit, or text 623.309.6104.');
   if (!isDay(until) || until <= today) return fail(400, 'Pick the day you want us to start again.');
   if (until > addDays(today, PAUSE_MAX_DAYS)) return fail(400, 'You can pause for up to 120 days.');
-  await stripe(env, 'POST', 'subscriptions/' + c.stripe_subscription_id, { pause_collection: { behavior: 'void', resumes_at: Math.floor(noonAZ(until).getTime() / 1000) } });
+  // Only a plan that is running and paid up. A plan still in its free month is never paused: that would move the
+  // day the free month ends. (Pausing opens after the first 60 days, so this is a second lock on the same door.)
+  if (sub.status !== 'active' || sub.pause_collection) return fail(400, 'We could not pause this plan. ' + CALL_US);
+  const back = unix(noonAZ(until)), paidTo = paidUntil(sub);
+  const skips = paidTo > 0 && back >= paidTo;
+  if (skips) await stripe(env, 'POST', 'subscriptions/' + id, { trial_end: back, proration_behavior: 'none', metadata: { pause_until: String(back), paid_until: String(paidTo) } });
+  else await stripe(env, 'POST', 'subscriptions/' + id, { pause_collection: { behavior: 'void', resumes_at: back } });
   const patch = { status: 'paused', pause_from: today, pause_until: addDays(until, -1), updated_at: new Date().toISOString() };
   await db(env, 'PATCH', 'customers?id=eq.' + x.u.id, patch, 'return=minimal');
   await db(env, 'DELETE', 'stops?customer_id=eq.' + x.u.id + '&status=eq.scheduled&day=gte.' + today + '&day=lt.' + until, null, 'return=minimal').catch((e) => console.error('pause cleanup', e));
-  ctx.waitUntil(mail(env, owner(env), 'Paused: ' + c.name, c.name + ' paused until ' + until + '. No bills go out while paused.\n\nAddress: ' + c.address + ', ' + c.zip));
-  return ok({ plan: planView(Object.assign(c, patch)) });
+  const total = PLANS[c.plan] ? money(monthly(c.plan, c.dogs)) : 'the full month';
+  const backDay = dateLabel(noonAZ(until)), billDay = paidTo ? dateLabel(new Date(paidTo * 1000)) : '';
+  ctx.waitUntil(mail(env, owner(env), 'Paused: ' + c.name, [
+    c.name + ' paused until ' + until + '. No bills go out while paused.',
+    skips ? 'Their bill day (' + billDay + ') falls inside the pause, so that bill is skipped. Stripe charges ' + total + ' on ' + backDay + ', the day they come back. That day is their new bill day.'
+      : 'Their pause ends before their next bill day' + (billDay ? ' (' + billDay + ')' : '') + ', so their bills do not change.',
+    skips ? 'In Stripe this plan reads "Trialing" until ' + backDay + '. That is the pause, not a free month.' : null, '',
+    'Address: ' + c.address + ', ' + c.zip
+  ].filter((v) => v !== null).join('\n')));
+  // The customer hears what the pause does to their bill before it happens: we never bill something they were not told.
+  const m = brandMail(env, 'You are paused', ['Hi ' + (first(c.name) || 'there') + ',',
+    'Your visits are paused. We start again on ' + longDay(noonAZ(until)) + '.',
+    skips ? 'You pay nothing while you are paused. On ' + backDay + ' we charge your card ' + total + ' for the month ahead. From then on, that day of the month is your bill day.'
+      : 'Your bill day stays the same.' + (billDay ? ' Your next bill is ' + total + ' on ' + billDay + '.' : ''),
+    'Want to come back sooner? Sign in to My Yard and tap Start again now.',
+    'Questions? Call or text 623.309.6104.'], null, []);
+  if (x.u.email) ctx.waitUntil(mail(env, x.u.email, 'Your visits are paused until ' + backDay, m.text, m.html));
+  return ok({ plan: planView(Object.assign(c, patch), { back: skips ? back : 0, keep: skips ? paidTo : 0 }) });
 }
+// "Start again now" in My Yard, before the day they picked.
 async function meResume(request, env, ctx) {
   const x = await me2(request, env);
   if (x.err) return x.err;
   const c = x.c;
   if (c.status !== 'paused' || !c.stripe_subscription_id) return fail(400, 'Your plan is not paused.');
-  const s = await stripe(env, 'POST', 'subscriptions/' + c.stripe_subscription_id, { pause_collection: '' });
-  const patch = { status: s.status || 'active', pause_from: null, pause_until: null, updated_at: new Date().toISOString() };
+  const id = enc(c.stripe_subscription_id);
+  const sub = await stripe(env, 'GET', 'subscriptions/' + id);
+  const md = sub.metadata || {};
+  let s, charged = false;
+  if (sub.status === 'trialing' && md.pause_until) {
+    // A pause that was set to run past their bill day (kind 1 in mePause).
+    const paidTo = parseInt(md.paid_until || '0', 10) || 0;
+    if (paidTo > Date.now() / 1000 + 300) {
+      // They are back before the month they paid for runs out. Nothing is charged today: their old bill day is put
+      // back, and Stripe bills the full month on it as it always did.
+      s = await stripe(env, 'POST', 'subscriptions/' + id, { trial_end: paidTo, proration_behavior: 'none', metadata: { pause_until: '' } });
+    } else {
+      // The month they paid for ran out during the pause. Stripe bills the full month now, and today is the bill day.
+      s = await stripe(env, 'POST', 'subscriptions/' + id, { trial_end: 'now', proration_behavior: 'none', metadata: { pause_until: '', paid_until: '' } });
+      charged = true;
+      ctx.waitUntil(pauseTidy(env, s));
+    }
+  } else {
+    s = await stripe(env, 'POST', 'subscriptions/' + id, { pause_collection: '' });
+  }
+  const now = planStatus(s || {});
+  const patch = { status: !now || now === 'paused' ? 'active' : now, pause_from: null, pause_until: null, updated_at: new Date().toISOString() };
   await db(env, 'PATCH', 'customers?id=eq.' + x.u.id, patch, 'return=minimal');
-  ctx.waitUntil(mail(env, owner(env), 'Back from pause: ' + c.name, c.name + ' started the plan again.\n\nAddress: ' + c.address + ', ' + c.zip));
-  return ok({ plan: planView(Object.assign(c, patch)) });
+  backMails(env, ctx, Object.assign({}, c, { email: x.u.email }), charged);
+  return ok({ plan: planView(Object.assign(c, patch)), charged });
 }
+

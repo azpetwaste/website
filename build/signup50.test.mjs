@@ -226,6 +226,11 @@ globalThis.fetch = async (u, init = {}) => {
     if (p.startsWith('subscriptions/') && m === 'POST') { subPosts.push(p.slice(14) + ' ' + String(init.body)); return reply({ id: p.slice(14), status: 'active' }); }
     if (p === 'invoices' && m === 'GET') return reply({ data: invoiceList.concat(madeBills.filter((b) => b.customer === new URLSearchParams(query).get('customer'))) });
     if (/^invoices\/in_open\d*\/pay$/.test(p)) { payCalls.push(p + ' ' + ((init.headers || {})['idempotency-key'] || '')); return reply({ id: 'in', status: 'paid' }); }
+    if (m === 'POST' && pay.bills[p.slice(9)] && /^invoices\/in_open\d*$/.test(p)) {
+      const b = pay.bills[p.slice(9)];
+      b.metadata = Object.assign({}, b.metadata, Object.fromEntries([...f.entries()].filter(([k]) => k.startsWith('metadata[')).map(([k, v]) => [k.slice(9, -1), v])));
+      return reply(b);
+    }
     if (p === 'invoiceitems' && m === 'GET') return reply({ data: [] });
     if (p === 'invoiceitems') { lastItem = { amount: Number(f.get('amount')), description: f.get('description') }; if (lastItem.amount > 0) charges.push(lastItem); return reply({ id: 'ii_1' }); }
     if (p === 'invoices') { const b = { id: 'in_' + (++invN), status: 'draft', customer: f.get('customer'), metadata: Object.fromEntries([...f.entries()].filter(([k]) => k.startsWith('metadata[')).map(([k, v]) => [k.slice(9, -1), v])) }; madeBills.push(b); return reply(b); }
@@ -424,13 +429,15 @@ metaOverride['sub_' + ids[11].n] = { min_end: String(Math.floor(Date.now() / 100
 await hook({ type: 'customer.subscription.deleted', data: { object: subObj(11, { status: 'canceled', canceled_at: Math.floor(Date.now() / 1000) }) } });
 ok('cancel after 60 days: no charge', charges.length === 0, charges);
 mails.length = 0;
-const failedInv = { id: 'in_open1', customer: 'cus_' + ids[12].n, status: 'open', amount_due: 4200, amount_remaining: 4200, attempted: true, collection_method: 'charge_automatically', hosted_invoice_url: 'https://invoice.stripe.com/i/acct_1/test_x' };
+const failedInv = { id: 'in_open1', customer: 'cus_' + ids[12].n, status: 'open', amount_due: 4200, amount_remaining: 4200, attempted: true, attempt_count: 1, next_payment_attempt: Math.floor(Date.now() / 1000) + 3 * 86400, metadata: {},
+  collection_method: 'charge_automatically', hosted_invoice_url: 'https://invoice.stripe.com/i/acct_1/test_x' };
 pay.bills.in_open1 = failedInv;
 await hook({ type: 'invoice.payment_failed', data: { object: failedInv } });
 await Promise.all(waits.splice(0));
 const d12 = dayFor(AREA_DAY[list.find((c) => c.id === ids[12].uid).area]);
 ok('card failed: customer is marked past due and taken off future routes', (await db.query('select status from customers where id = $1', [ids[12].uid])).rows[0].status === 'past_due' && (d12 === today || (await count("select count(*)::int n from stops where status = 'scheduled' and customer_id = '" + ids[12].uid + "'")) === 0));
-ok('card failed: the customer is emailed that day with the bill link and My Yard', mails.filter((x) => x.subject === 'Your card did not work' && x.to[0] === 'test13@example.com' && x.text.includes('https://invoice.stripe.com/i/acct_1/test_x') && x.text.includes('/account/')).length === 1, mails.map((x) => x.subject));
+ok('card failed: the customer is emailed that day with a button that opens the card page', mails.filter((x) => x.subject === 'Your card did not go through' && x.to[0] === 'test13@example.com' && /Update my card: https:\/\/[^\s]+\/api\/card\?k=/.test(x.text) && />Update my card<\/a>/.test(x.html || '')).length === 1, mails.map((x) => x.subject));
+ok('card failed: the office gets the name, the address, the amount and the try number', mails.filter((x) => /^Card failed: /.test(x.subject) && /\(\$42, try 1\)$/.test(x.subject) && x.text.includes('Name: ' + HOMES[12][0] + '\n') && x.text.includes('Address: ' + HOMES[12][1]) && /Amount: \$42\n/.test(x.text) && /Try: 1\n/.test(x.text)).length === 1, mails.map((x) => x.subject));
 { const q = (await db.query("select kind, channel, status, stop_id, to_addr, body from messages where customer_id = $1 and kind = 'card_failed'", [ids[12].uid])).rows;
   ok('card failed: one text waits for staff to send', q.length === 1 && q[0].status === 'queued' && q[0].channel === 'sms' && q[0].stop_id === null && q[0].body.length <= 160 && /Reply STOP to opt out\.$/.test(q[0].body), q);
   r = await call('/api/office/texts', 'GET', null, owner);
@@ -441,7 +448,12 @@ await hook({ type: 'invoice.payment_failed', data: { object: failedInv } });
 pay.status['sub_' + ids[12].n] = 'past_due';
 await hook({ type: 'customer.subscription.updated', data: { previous_attributes: { status: 'trialing' }, object: subObj(12, { status: 'past_due' }) } });
 await Promise.all(waits.splice(0));
-ok('Stripe’s retries do not email or text again', mails.filter((x) => x.subject === 'Your card did not work').length === 1 && mails.filter((x) => /^Card failed/.test(x.subject)).length === 1 && (await count("select count(*)::int n from messages where kind = 'card_failed'")) === 1);
+ok('the same failed try reported again, and the plan going past due, tell nobody twice', mails.filter((x) => x.subject === 'Your card did not go through').length === 1 && mails.filter((x) => /^Card failed/.test(x.subject)).length === 1 && (await count("select count(*)::int n from messages where kind = 'card_failed'")) === 1, mails.map((x) => x.subject));
+{ // Stripe tries the card again the next day and it fails again: the office hears about every try, the customer is not emailed again so soon.
+  failedInv.attempt_count = 2; failedInv.next_payment_attempt = Math.floor(Date.now() / 1000) + 5 * 86400;
+  await hook({ type: 'invoice.payment_failed', data: { object: failedInv } });
+  await Promise.all(waits.splice(0));
+  ok('a second failed try: the office is told it is try 2, the customer gets no second email yet', mails.filter((x) => /^Card failed again: .*try 2\)$/.test(x.subject)).length === 1 && mails.filter((x) => /card (still )?did not go through/i.test(x.subject)).length === 1, mails.map((x) => x.subject)); }
 r = await call('/api/office/plan', 'POST', { date: d12 }, owner);
 ok('a customer on hold is left off a new route and counted for the office', r.d.unpaid >= 1 && (d12 === today || (await count("select count(*)::int n from stops where day = '" + d12 + "' and customer_id = '" + ids[12].uid + "'")) === 0), r.d);
 r = await call('/api/me/plan', 'GET', null, ids[12].token);
@@ -471,18 +483,32 @@ ok('card fixed: thanked once, office told once, the unsent text leaves the list'
     && (await count("select count(*)::int n from messages where kind = 'card_failed' and status = 'queued'")) === 0, mails.slice(n).map((x) => x.subject)); }
 r = await call('/api/office/plan', 'POST', { date: d12 }, owner);
 ok('back on the next route for their day', d12 === today || (await count("select count(*)::int n from stops where day = '" + d12 + "' and customer_id = '" + ids[12].uid + "'")) === 1 || HOMES[12][3] === 'eow', r.d);
-// pause over a bill day, then come back: nothing is charged (no part month charges anywhere, Joe, Nov 16, 2026)
-const P = 13; metaOverride['sub_' + ids[P].n] = { pause_from: String(Math.floor(Date.now() / 1000) - 86400) };
+// Pause (Joe, Nov 16, 2026): no part month charges anywhere. A pause that ends before the bill day changes no bill.
+// A pause that runs past the bill day skips that bill, and Stripe charges the full month on the day they come back.
+const P = 13; metaOverride['sub_' + ids[P].n] = { pause_from: String(Math.floor(Date.now() / 1000) - 86400) }; pay.status['sub_' + ids[P].n] = 'active';
 await hook({ type: 'customer.subscription.updated', data: { object: subObj(P, { status: 'active' }) } });
 r = await call('/api/me/pause', 'POST', { until: dayFor((wd + 5) % 7) }, ids[P].token);
 ok('after 60 days a customer can pause', r.status === 200 && r.d.plan.paused, r.d);
+ok('a pause that ends before their bill day is Stripe’s own pause: no trial, no billing day, no proration', /pause_collection%5Bbehavior%5D=void/.test(subPosts[subPosts.length - 1]) && !/trial_end|billing_cycle_anchor|proration/.test(subPosts[subPosts.length - 1]), subPosts[subPosts.length - 1]);
 ok('paused customer is off the route', (await count("select count(*)::int n from stops where status = 'scheduled' and day > '" + today + "' and customer_id = '" + ids[P].uid + "'")) === 0);
 charges.length = 0; invoiceList = [{ billing_reason: 'subscription_cycle', status: 'void', created: Math.floor(Date.now() / 1000) }];
 await hook({ type: 'customer.subscription.updated', data: { previous_attributes: { pause_collection: { behavior: 'void' } }, object: subObj(P, { status: 'active', pause_collection: null }) } });
-ok('pause over a bill day then come back: no part month is charged', charges.length === 0, charges);
+ok('the pause ends: the server adds no charge of its own', charges.length === 0, charges);
 charges.length = 0; invoiceList = [{ billing_reason: 'subscription_cycle', status: 'paid', amount_paid: monthOf(P), created: Math.floor(Date.now() / 1000) }];
 await hook({ type: 'customer.subscription.updated', data: { previous_attributes: { pause_collection: { behavior: 'void' } }, object: subObj(P, { status: 'active', pause_collection: null }) } });
 ok('pause inside a month that was already paid: no extra charge', charges.length === 0, charges);
+{ // A pause that runs past the bill day: that bill is skipped, and the full month is charged the day they come back.
+  const Q = 16, sq = 'sub_' + ids[Q].n, nowS = Math.floor(Date.now() / 1000);
+  metaOverride[sq] = { pause_from: String(nowS - 86400) }; pay.status[sq] = 'active';
+  subItems[sq] = [{ id: 'si_q', price: { id: 'price_' + HOMES[Q][3] + '_base' }, quantity: 1, current_period_end: nowS + 2 * 86400 }];
+  await hook({ type: 'customer.subscription.updated', data: { object: subObj(Q, { status: 'active' }) } });
+  mails.length = 0;
+  r = await call('/api/me/pause', 'POST', { until: new Date(Date.parse(today + 'T19:00:00Z') + 5 * 86400e3).toISOString().slice(0, 10) }, ids[Q].token);
+  await Promise.all(waits.splice(0));
+  const sent = subPosts[subPosts.length - 1] || '';
+  ok('a pause past the bill day holds the plan free until the return day: only trial_end, with prorations off and no billing day', r.status === 200 && r.d.plan.paused && sent.startsWith(sq + ' ') && /(^| |&)trial_end=\d{10}(&|$)/.test(sent) && /proration_behavior=none/.test(sent) && !/billing_cycle_anchor|pause_collection/.test(sent), sent);
+  ok('My Yard is told the full month is charged on the return day', !!r.d.plan.backCharge && r.d.plan.backCharge.amount === '$' + monthOf(Q) / 100, r.d.plan);
+  ok('the customer and the office are both told before it happens', mails.some((x) => /^Your visits are paused until /.test(x.subject) && /we charge your card \$\d+ for the month ahead/.test(x.text)) && mails.some((x) => /^Paused: /.test(x.subject) && /that bill is skipped/.test(x.text)), mails.map((x) => x.subject)); }
 const S = 14; r = await call('/api/me/plan', 'GET', null, ids[S].token);
 const mine = r.d.plan.next.filter((v) => v.canSkip);
 for (let k = 0; k < 6; k++) { r = await call('/api/me/skip', 'POST', { date: (mine[k % mine.length] || {}).day }, ids[S].token); }

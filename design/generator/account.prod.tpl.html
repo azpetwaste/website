@@ -50,6 +50,9 @@
 </div></header>
 
 <main class="accm" style="flex: 1;">
+  <sc-if value="{{ cardOld }}" hint-placeholder-val="{{ false }}">
+    <div class="note" role="status" style="margin: 0 0 22px;"><p style="margin: 0;"><strong>That link is too old to use.</strong> {{ cardOldLine }}</p></div>
+  </sc-if>
   <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
     <h1 class="h1" style="font-size: 48px;">My Yard</h1>
     <p class="note" aria-live="polite">Loading your yard…</p>
@@ -155,6 +158,7 @@
     </sc-if>
     <sc-if value="{{ canPause }}" hint-placeholder-val="{{ true }}">
       <p class="lead" style="font-size: 16px;">Pause for up to 120 days. You do not pay while paused. We start again on the day you pick.</p>
+      <p class="lead" style="font-size: 16px;">{{ pauseBillLine }}</p>
       <label for="a-until" class="flab">Start again on</label>
       <input id="a-until" class="fin" type="date" min="{{ pauseMin }}" max="{{ pauseMax }}" value="{{ until }}" onChange="{{ onUntil }}">
       <button type="button" class="btn btn-line" style="width: 100%; margin-top: 12px;" onClick="{{ pause }}" disabled="{{ actBusy }}">Pause my visits</button>
@@ -197,7 +201,7 @@
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.state = { dark: this._themeFromProps(), phase: 'loading', email: '', code: '', err: '', busy: false, me: null, form: {}, saved: false, saveErr: '', portalErr: '', plan: null, visits: [], bills: [], until: '', actErr: '', actBusy: false };
+    this.state = { dark: this._themeFromProps(), phase: 'loading', email: '', code: '', err: '', busy: false, me: null, form: {}, saved: false, saveErr: '', portalErr: '', plan: null, visits: [], bills: [], until: '', actErr: '', actBusy: false, cardOld: false };
   }
   componentDidMount() { this._themeInit(); this._load(); }
   componentWillUnmount() { this._themeStop(); }
@@ -210,6 +214,14 @@ class Component extends DCLogic {
   }
   async _load() {
     const a = this._apw();
+    // The link in a "your card did not go through" email is good for 30 days. An older one, or one that was changed,
+    // lands here with ?card=old. Say so, and take it out of the address.
+    try {
+      if (new URLSearchParams(location.search).get('card') === 'old') {
+        this.setState({ cardOld: true });
+        history.replaceState(null, '', location.pathname + location.hash);
+      }
+    } catch (e) { }
     if (this._demo()) {
       let signed = false;
       try { signed = sessionStorage.getItem('apw.demoIn') === '1'; } catch (e) { }
@@ -381,7 +393,16 @@ class Component extends DCLogic {
       hasPast: s.visits.length > 0,
       pastList: s.visits.map((v) => ({ label: nice(v.day, true), sub: (pastNames[v.status] || 'Done') + (v.reason ? ': ' + v.reason : ''), photo: v.photo || '' })),
       isPaused: !!(pl && pl.paused),
-      pausedLine: pl && pl.paused ? (pl.pauseUntil ? 'You are paused. We start again on ' + nice(pl.pauseUntil, true) + '. You do not pay while paused.' : 'You are paused. You do not pay while paused.') : '',
+      cardOld: !!s.cardOld,
+      cardOldLine: s.phase === 'in' ? 'Tap Change card or cancel below to add a new card.' : 'Sign in below. Then tap Change card or cancel to add a new card.',
+      // What a pause does to the bill, said before it happens. Back before the bill day: nothing changes. Still paused
+      // on the bill day: that bill is skipped, and the full month is charged the day visits start again (the new bill day).
+      pauseBillLine: 'Back before your bill day' + (pl && pl.billDay ? ', ' + pl.billDay : '') + '? Your bill day stays the same. Still paused on that day? We skip that bill. The day we start again, we charge '
+        + (me.plan ? '$' + this._price(me.plan, me.dogs || 2) : 'your month price') + ' for the next month, and that day is your new bill day.',
+      pausedLine: pl && pl.paused ? 'You are paused.' + (pl.pauseUntil ? ' We start again on ' + nice(pl.pauseUntil, true) + '.' : '') + ' You do not pay while paused.'
+        + (pl.backCharge ? ' The day we start again, we charge ' + (pl.backCharge.amount || 'your month price') + ' for the next month, and that day is your new bill day.'
+          + (pl.backCharge.keepDay ? ' Start again before ' + pl.backCharge.keepDay + ' and you pay nothing that day. Your bill day stays ' + pl.backCharge.keepDay + '.' : ' If you start again sooner, we charge it that day.')
+          : ' Your bill day stays the same.') : '',
       canPause: !!(pl && pl.canPause && !pl.paused),
       pauseByText: paying && !(pl && (pl.canPause || pl.paused || pl.pauseAfter || pl.hold)),
       pauseLater: !!(pl && pl.pauseAfter && !pl.paused),

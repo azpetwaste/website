@@ -245,7 +245,7 @@ class Component extends DCLogic {
       name: '', phone: '', email: '', addr: '', txtVisit: false, tried: false, sugs: [], addrNote: '',
       wait: '', waitDone: false, waitBusy: false, waitErr: '',
       code: '', codeErr: '', resent: false, busy: false, err: '',
-      payState: 'idle', payErr: '', payFree: null, wName: '', wPhone: '', wAddr: '', wCity: '', wTexts: false, req: false
+      payState: 'idle', payErr: '', payFree: null, payLineSrv: '', wName: '', wPhone: '', wAddr: '', wCity: '', wTexts: false, req: false
     }, this._initial());
   }
   componentDidMount() { this._themeInit(); }
@@ -327,9 +327,9 @@ class Component extends DCLogic {
   // exactly one month from the sign up day (Joe, Nov 16, 2026: sign up November 16, first bill December 16). The day it
   // ends we charge the month price, and that is the bill day from then on. With no free month we charge the month
   // price today, and today is the bill day. All in Arizona time (noon there is always 19:00 UTC), so it reads the
-  // same from any time zone.
+  // same from any time zone. Once the card form is made, the server sends its own line back and the page shows that
+  // one (payLineSrv), so a sign up that crosses midnight still reads the day Stripe will charge.
   _bill(free) {
-    const cfg = this._cfg ? this._cfg() : {};
     const noon = (iso) => new Date(iso + 'T19:00:00Z');
     const plusMonth = (x) => {
       const d = new Date(x.getTime()), dd = d.getUTCDate();
@@ -478,7 +478,7 @@ class Component extends DCLogic {
     const a = this._apw();
     const s = this.state;
     const tok = this._payTok = (this._payTok || 0) + 1;
-    this.setState({ payState: 'loading', payErr: '' });
+    this.setState({ payState: 'loading', payErr: '', payLineSrv: '' });
     try {
       const signed = !!a.auth.session();
       const bot = signed ? null : await a.botToken();
@@ -492,6 +492,8 @@ class Component extends DCLogic {
       if (r && r.already) { this.setState({ payState: 'already' }); return; }
       // The server made the card form, so it has the last word on free month or not. The price line follows it.
       if (r && typeof r.free === 'boolean' && r.free !== this.state.payFree) this.setState({ payFree: r.free });
+      // And the price line itself: the server's own words, the same ones Stripe shows by its button.
+      if (r && typeof r.line === 'string' && r.line && r.line.length < 120) this.setState({ payLineSrv: r.line });
       this._session = r.session || '';
       const stripe = await a.stripe();
       if (tok !== this._payTok || this.state.step !== 4) return;
@@ -630,7 +632,7 @@ class Component extends DCLogic {
       // The pay step says the money in one plain line, the same words as the note Stripe shows by its button.
       payFree: free,
       payTitle: free ? 'Start your free month.' : 'Start your plan.',
-      payLine: free ? '$0 today. Then $' + price + ' a month starting ' + bill.freeShort + '.' : '$' + price + ' today. Then $' + price + ' a month starting ' + bill.nextShort + '.',
+      payLine: s.payLineSrv || (free ? '$0 today. Then $' + price + ' a month starting ' + bill.freeShort + '.' : '$' + price + ' today. Then $' + price + ' a month starting ' + bill.nextShort + '.'),
       planLine: names[s.plan] + ', ' + dogsLabel + '.',
       payAgree: free ? 'By starting your free month, you agree to our' : 'By starting your plan, you agree to our',
       payDemo: demo,

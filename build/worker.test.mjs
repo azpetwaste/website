@@ -7,6 +7,19 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import worker from '../src/worker/worker.js';
 
+// A clock the tests can set. The free month ends on the same day of the next month, counted from the sign up day, so
+// a test has to say which day it is. `clock('2027-03-10T17:00:00Z')` makes it that moment for the server and the
+// test alike, `clock(null)` gives the real time back, and `at(day, fn)` runs one thing at 10 in the morning Arizona
+// time on that day.
+const RealDate = Date;
+let fakeNow = null;
+globalThis.Date = class extends RealDate {
+  constructor(...a) { if (a.length === 0 && fakeNow != null) super(fakeNow); else super(...a); }
+  static now() { return fakeNow != null ? fakeNow : RealDate.now(); }
+};
+const clock = (iso) => { fakeNow = iso ? RealDate.parse(iso) : null; };
+const at = async (dayOrIso, fn) => { clock(/T/.test(dayOrIso) ? dayOrIso : dayOrIso + 'T17:00:00Z'); try { return await fn(); } finally { clock(null); } };
+
 const SB = 'https://demo.supabase.co';
 const U1 = '11111111-1111-4111-8111-111111111111', U2 = '22222222-2222-4222-8222-222222222222';
 const baseEnv = {
@@ -15,6 +28,8 @@ const baseEnv = {
   // The free month is the sale, and the sale has an end date. These tests pin it on, so they pass after the sale too.
   // The cases with no free month set SALE_OVER.
   FREE_MONTH_UNTIL: '2099-01-01T06:59:59Z',
+  // How long the server waits before it looks at a failed bill a second time (2.5 seconds on the live site).
+  TRY_WAIT_MS: '1',
   ASSETS: { fetch: async () => new Response('static') }
 };
 const SALE_OVER = { FREE_MONTH_UNTIL: '2020-01-01T06:59:59Z' };
@@ -86,7 +101,7 @@ function rest(method, rel, body, prefer) {
 /* ---------- pretend Stripe ---------- */
 const S = { n: 0, customers: {}, prices: [{ id: 'price_wb', lookup_key: 'apw_week_base' }], sessions: {}, intents: {}, cards: {}, subs: {}, keys: {}, invoices: {}, calls: [], posts: [],
   funding: 'credit', failPlan: null, paidSoFar: [], subMeta: null, subPosts: [], items: [], payCalls: [],
-  busy: 0, preview: null, keepDay: false, made: [], lines: [], failBill: false, all: [], refuse: [], expired: [] };
+  busy: 0, preview: null, keepDay: false, made: [], lines: [], failBill: false, all: [], refuse: [], expired: [], notes: [], blind: false, failNote: false };
 // What one unit of a price costs, by its lookup key (the same numbers as PLANS in the server).
 const UNIT = { apw_week_base: 10800, apw_week_extra: 1300, apw_twice_base: 18900, apw_twice_extra: 1300, apw_eow_base: 7500, apw_eow_extra: 900 };
 const unitOf = (priceId) => UNIT[(S.prices.find((x) => x.id === priceId) || {}).lookup_key] || UNIT[String(priceId).replace(/^price_/, '')] || 0;
@@ -173,6 +188,19 @@ function stripeApi(m, url, init) {
       if (S.failCardMove) return reply({ error: { message: 'Stripe had a problem' } }, 500);
       sub.default_payment_method = f.get('default_payment_method') || null;
     }
+    if (sub) {
+      // A change to a plan, the way Stripe does it. Free time until a day ("trial_end") makes the plan "trialing" and
+      // moves its bill day to that day. "now" ends it: one bill for the full month is made, and today is the bill day.
+      const nowS = Math.floor(Date.now() / 1000);
+      for (const [k, v] of Object.entries(metaOf(f, 'metadata'))) { if (v === '') delete sub.metadata[k]; else sub.metadata[k] = v; }
+      if (f.get('pause_collection[behavior]')) sub.pause_collection = { behavior: f.get('pause_collection[behavior]'), resumes_at: Number(f.get('pause_collection[resumes_at]')) || null };
+      if (f.has('pause_collection') && f.get('pause_collection') === '') sub.pause_collection = null;
+      if (f.get('trial_end') === 'now') {
+        sub.status = 'active'; sub.trial_end = nowS; sub.billing_cycle_anchor = nowS;
+        const bill = { id: id('in_back'), object: 'invoice', customer: sub.customer, status: 'draft', billing_reason: 'subscription_cycle', amount_due: 10800, amount_remaining: 10800, metadata: {} };
+        S.invoices[bill.id] = bill; sub.latest_invoice = bill.id;
+      } else if (f.get('trial_end')) { sub.status = 'trialing'; sub.trial_end = Number(f.get('trial_end')); sub.billing_cycle_anchor = sub.trial_end; }
+    }
     return reply(sub ? Object.assign({}, sub, { form: undefined }) : { id: p.slice(14), status: 'active' });
   }
   if (p === 'invoiceitems' && m === 'GET') return reply({ data: S.lines.filter((l) => l.customer === q.get('customer') && (q.get('pending') !== 'true' || l.pending)) });
@@ -195,14 +223,32 @@ function stripeApi(m, url, init) {
   }
   if (/^invoices\/[^/]+\/finalize$/.test(p)) return reply({ id: 'in_new', status: 'open' });
   if (/^invoices\/[^/]+\/pay$/.test(p)) { const i = S.invoices[p.split('/')[1]]; S.payCalls.push({ id: p.split('/')[1], key }); if (i) i.status = 'paid'; return reply({ id: p.split('/')[1], status: 'paid' }); }
-  if (p.startsWith('invoices/')) return reply(S.invoices[p.slice(9)] || { error: { message: 'No such invoice' } }, S.invoices[p.slice(9)] ? 200 : 404);
+  if (p.startsWith('invoices/') && m === 'POST') {
+    // A note on a bill (metadata), or its words on the card statement. Stripe keeps a keyed request to one writer:
+    // the same key again gets the first answer back, marked as a replay, and nothing is written twice.
+    const i = S.invoices[p.slice(9)]; if (!i) return reply({ error: { message: 'No such invoice' } }, 404);
+    if (S.failNote) return reply({ error: { message: 'Stripe had a problem' } }, 500);
+    if (key && S.keys[key]) return reply(S.keys[key], 200, { 'idempotent-replayed': 'true' });
+    if (f.has('statement_descriptor')) { if (i.status !== 'draft') return reply({ error: { message: 'You can only change this on a draft invoice' } }, 400); i.statement_descriptor = f.get('statement_descriptor'); }
+    i.metadata = Object.assign({}, i.metadata || {}, metaOf(f, 'metadata'));
+    S.notes.push({ id: i.id, key, f });
+    if (key) S.keys[key] = Object.assign({}, i);
+    return reply(i);
+  }
+  // S.blind: this reader sees the bill the way it was before another writer's note landed.
+  if (p.startsWith('invoices/')) {
+    const i = S.invoices[p.slice(9)];
+    // S.lateNext: Stripe fills in the next try a moment after the event, the way it does for accounts on automations.
+    if (i && S.lateNext && S.lateNext.id === i.id && --S.lateNext.reads <= 0) { i.next_payment_attempt = S.lateNext.at; S.lateNext = null; }
+    return reply(i ? Object.assign({}, i, S.blind ? { metadata: {} } : {}) : { error: { message: 'No such invoice' } }, i ? 200 : 404);
+  }
   if (p === 'billing_portal/sessions') return reply({ url: 'https://billing.stripe.com/p/session/test' });
   return reply({ error: { message: 'unmocked stripe ' + m + ' ' + p } }, 500);
 }
 
 const mails = [];
 const META = []; // what the server sends Meta (Conversions API)
-const MAIL = { down: false };
+const MAIL = { down: false, all: [] }; // MAIL_OUT=/path/file.json writes every email the tests sent, to look at the branded ones in a browser
 // Pretend Meta Graph API for lead forms: one Page, one app, lead forms and leads. Two tokens: the Page's own token,
 // which can read leads, and a system user's token, which cannot (Meta answers that it wants a Page token).
 const G = { calls: [], page: { id: '104000000000001', name: 'Arizona Pet Waste' }, app: { id: '900100200300', name: 'APW site leads' }, pageTok: 'PAGE_TOKEN_abc', userTok: 'SYSUSER_TOKEN_xyz',
@@ -237,14 +283,14 @@ function graphApi(m, url) {
 }
 const PLACES = { off: false, zip: '85396' }, placeCalls = [];
 const AUTH = {}, authCalls = []; // pretend Supabase Auth: email to { id, password }
-const reply = (data, status = 200) => new Response(data === '' ? '' : JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
+const reply = (data, status = 200, headers) => new Response(data === '' ? '' : JSON.stringify(data), { status, headers: Object.assign({ 'content-type': 'application/json' }, headers || {}) });
 globalThis.fetch = async (url, init = {}) => {
   url = String(url);
   const m = init.method || 'GET';
   if (url === SB + '/auth/v1/user') { const u = tokens[String(init.headers.authorization || '').slice(7)]; return u ? reply(u) : reply({ msg: 'bad' }, 401); }
   if (url.startsWith(SB + '/rest/v1/')) return rest(m, url.slice((SB + '/rest/v1/').length), init.body ? JSON.parse(init.body) : null, init.headers && init.headers.prefer);
   if (url.startsWith('https://api.stripe.com/v1/')) return stripeApi(m, url, init);
-  if (url === 'https://api.resend.com/emails') { if (MAIL.down) return reply({ message: 'mail is down' }, 500); mails.push(JSON.parse(init.body)); return reply({ id: 'm1' }); }
+  if (url === 'https://api.resend.com/emails') { if (MAIL.down) return reply({ message: 'mail is down' }, 500); mails.push(JSON.parse(init.body)); if (process.env.MAIL_OUT) MAIL.all.push(JSON.parse(init.body)); return reply({ id: 'm1' }); }
   if (url === SB + '/auth/v1/admin/users' && m === 'POST') {
     const b = JSON.parse(init.body); authCalls.push('create ' + b.email);
     if (b.password) return reply({ msg: 'this server must never set a password' }, 400);
@@ -431,6 +477,7 @@ async function quote(today, plan, dogs, token, extraEnv, at) {
   ok('the 60 day rule is off: the sign up carries no early cancel date, only the day pausing opens (60 days after the soonest first visit, May 10)', q.md.min_label === undefined && q.md.min_end === undefined && day(Number(q.md.pause_from)) === '2027-05-10T19:00', q.md);
   ok('the note by the button is one plain price line and one cancel line, with no 60 day rule',
     q.note === '$0 today. Then $121 a month starting Apr 10. Cancel anytime in My Yard.', q.note);
+  ok('the page gets the same price line back, word for word, to show over the card form', q.r.d.line === '$0 today. Then $121 a month starting Apr 10.', q.r.d);
   ok('the note fits Stripe’s 1200 letter limit', q.note.length < 1200);
   const f = q.s.form;
   ok('the card form only saves a card: setup mode, embedded, never leaves the page', f.get('mode') === 'setup' && f.get('ui_mode') === 'embedded_page' && f.get('redirect_on_completion') === 'never' && f.get('currency') === 'usd');
@@ -443,6 +490,13 @@ async function quote(today, plan, dogs, token, extraEnv, at) {
   const e = await quote('2027-03-10', 'week', 3, 'good', { EARLY_CANCEL: 'on' });
   ok('if the 60 day rule is ever switched back on, the note says it in one line and the date rides on the sign up',
     e.note === '$0 today. Then $121 a month starting Apr 10. Cancel anytime in My Yard. Cancel before May 10 and you pay for one month.' && e.md.min_label === 'May 10' && e.md.min_end === e.md.pause_from, [e.note, e.md]);
+}
+{ // Joe's own examples (Nov 16, 2026): sign up Nov 25, first charge Dec 25. Sign up Nov 30, first charge Dec 30.
+  const a = await quote('2026-11-25', 'week', 2);
+  ok('sign up November 25: the full $108 on December 25, and the 25th is the bill day', day(Number(a.md.free_end)) === '2026-12-25T19:00' && a.md.first_charge === '10800'
+    && a.note === '$0 today. Then $108 a month starting Dec 25. Cancel anytime in My Yard.', [a.md, a.note]);
+  const b = await quote('2026-11-30', 'week', 2);
+  ok('sign up November 30: the full $108 on December 30, and the page is sent that same line', day(Number(b.md.free_end)) === '2026-12-30T19:00' && b.md.first_charge === '10800' && b.r.d.line === '$0 today. Then $108 a month starting Dec 30.', [b.md, b.r.d]);
 }
 { // The 1st is a day like any other now. Sign up 2027-04-01: the free month ends May 1.
   const q = await quote('2027-04-01', 'eow', 2);
@@ -762,37 +816,88 @@ head('The webhook secret');
 }
 
 /* ---------- a payment fails ---------- */
-head('A payment fails: same day notice, visits on hold');
+head('A payment fails: a friendly email with a card link, an office alert with the try number, visits on hold');
 const cus = row(U1).stripe_customer_id, subId = row(U1).stripe_subscription_id;
 const liveSub = S.subs[subId];
-const inv = { id: 'in_fail', object: 'invoice', customer: cus, status: 'open', amount_due: 5040, amount_remaining: 5040, amount_paid: 0, attempted: true, attempt_count: 1, collection_method: 'charge_automatically', hosted_invoice_url: 'https://invoice.stripe.com/i/acct_1/test_abc' };
+const DAY = 86400;
+const nowS = () => Math.floor(Date.now() / 1000);
+const later = (days) => new Date((RealDate.now() / 1000 + days * DAY) * 1000).toISOString();
+const inv = { id: 'in_fail', object: 'invoice', customer: cus, status: 'open', amount_due: 12100, amount_remaining: 12100, amount_paid: 0, attempted: true, attempt_count: 1, collection_method: 'charge_automatically',
+  next_payment_attempt: nowS() + 3 * DAY, metadata: {}, hosted_invoice_url: 'https://invoice.stripe.com/i/acct_1/test_abc' };
 S.invoices.in_fail = inv;
 row(U1).service_day = 2;
+const cardTexts = () => T.messages.filter((x) => x.kind === 'card_failed');
+const failedEvt = (over) => ({ type: 'invoice.payment_failed', data: { object: Object.assign({}, inv, over || {}) } });
+// A brand new failed bill: try 1, with Stripe's next try three days out, and nothing told yet.
+const fresh = (over) => {
+  Object.assign(inv, { status: 'open', amount_remaining: 12100, attempt_count: 1, next_payment_attempt: nowS() + 3 * DAY, metadata: {} }, over || {});
+  for (const k of Object.keys(S.keys)) if (k.startsWith('apw-try-')) delete S.keys[k];
+};
 reset();
-ok('failed payment event is taken', (await hook({ type: 'invoice.payment_failed', data: { object: inv } })) === 200);
+ok('failed payment event is taken', (await hook(failedEvt())) === 200);
+let cardUrl = '';
 { ok('the customer is on hold', row(U1).status === 'past_due');
   ok('visits after today come off the routes', deleted.some((d) => d.startsWith('stops?customer_id=eq.' + U1 + '&status=in.(scheduled,skipped)&day=gt.')), deleted);
-  const m = sent(/^Your card did not work$/)[0];
-  ok('the customer is emailed the same day: what failed, the hold, and two ways to fix it', !!m && m.to[0] === 'test@example.com' && /We tried to charge your card \$50\.40/.test(m.text) && /Your visits are on hold until this bill is paid/.test(m.text)
-    && m.text.includes('1. Pay this bill now: https://invoice.stripe.com/i/acct_1/test_abc') && /2\. Use a new card\. Sign in to My Yard, tap Change my card/.test(m.text) && m.text.includes('https://arizonapetwaste.com/account/') && /623\.309\.6104/.test(m.text), m && m.text);
-  const t = T.messages.filter((x) => x.kind === 'card_failed');
+  const m = sent(/^Your card did not go through$/)[0];
+  cardUrl = (m && (/Update my card: (https:\/\/arizonapetwaste\.com\/api\/card\?k=[^\s]+)/.exec(m.text) || [])[1]) || '';
+  ok('the customer is emailed the same day in plain, friendly words: what failed, one link to fix the card, when we try again, and the hold', !!m && m.to[0] === 'test@example.com' && /^Hi Test,/.test(m.text)
+    && /We tried to charge your card \$121 for your dog poop pickup\. It did not go through\./.test(m.text) && /This is easy to fix\./.test(m.text) && !!cardUrl && /We will try it again on \w+day, \w+ \d+\./.test(m.text)
+    && /Your visits are on hold until the payment goes through\. They start again as soon as it does\./.test(m.text) && /623\.309\.6104/.test(m.text) && !/[–—]| - /.test(m.text), m && m.text);
+  ok('the email has our look: the logo on navy, one orange button to the card page, and the same words', !!m && /<img src="https:\/\/arizonapetwaste\.com\/assets\/img\/email-logo\.png"[^>]*alt="Arizona Pet Waste"/.test(m.html)
+    && m.html.includes('<a href="' + cardUrl + '"') && />Update my card<\/a>/.test(m.html) && /background:#FF4A1C/.test(m.html) && /background:#0A0F24/.test(m.html) && /We tried to charge your card \$121/.test(m.html)
+    && (m.html.match(/>Update my card</g) || []).length === 1 && !/<script|javascript:/i.test(m.html), m && m.html.slice(0, 400));
+  const t = cardTexts();
   ok('a text waits for staff to send (they said yes to visit texts)', t.length === 1 && t[0].status === 'queued' && t[0].channel === 'sms' && t[0].to_addr === '6235550100' && t[0].stop_id === null && t[0].customer_id === U1, t);
   ok('the text is one text long, names us, and says how to stop', t[0].body.length <= 160 && /^Arizona Pet Waste: /.test(t[0].body) && /Reply STOP to opt out\.$/.test(t[0].body) && t[0].body.includes('arizonapetwaste.com/account') && t[0].body.includes('623.309.6104'), t[0].body + ' (' + t[0].body.length + ')');
-  const o = sent(/^Card failed: Test Person$/)[0];
-  ok('the office is told, and told to send the text today', !!o && /A payment of \$50\.40 failed/.test(o.text) && /A text to them is waiting in the Texts tab\. Send it today\./.test(o.text) && /Their visits are on hold/.test(o.text), o && o.text);
+  const o = sent(/^Card failed: /)[0];
+  ok('the office gets an alert with the name, address, amount and try number', !!o && o.subject === 'Card failed: Test Person, 123 W Test St ($121, try 1)' && o.to[0] === 'info@arizonapetwaste.com' && !o.html
+    && /A payment of \$121 failed\. This was try 1\./.test(o.text) && /Stripe will try the card again on \w+day, \w+ \d+\./.test(o.text) && o.text.includes('Name: Test Person\nAddress: 123 W Test St, 85396\nAmount: $121\nTry: 1\nMobile: 6235550100\nEmail: test@example.com')
+    && /Their visits are on hold\. They stay off new routes until the bill is paid\./.test(o.text) && /We emailed them how to fix it/.test(o.text) && /A text to them is waiting in the Texts tab\. Send it today\./.test(o.text) && /PAUSE SERVICE/.test(o.text), o && [o.subject, o.text]);
+  ok('the bill itself remembers that try 1 was told, and Stripe is asked to keep that note to one writer', inv.metadata.apw_try === '1' && Number(inv.metadata.apw_mail) > 0 && !inv.metadata.apw_final && S.notes.slice(-1)[0].key === 'apw-try-in_fail-1', [inv.metadata, S.notes.slice(-1)[0] && S.notes.slice(-1)[0].key]);
+  ok('this server cancels nothing in Stripe over a failed card', !S.calls.some((c) => c.m === 'DELETE') && !S.calls.some((c) => c.m === 'POST' && /^subscriptions/.test(c.p)));
+
+  // The link in the email opens Stripe's own card page, with no sign in.
+  const tap = async (u) => { S.calls.length = 0; const r = await worker.fetch(new Request(u), env, ctx); await settle(); return { status: r.status, to: r.headers.get('location'), stripe: S.calls.filter((c) => c.p === 'billing_portal/sessions') }; };
+  const old = (r) => r.status === 302 && r.to === 'https://arizonapetwaste.com/account/?card=old' && r.stripe.length === 0;
+  const g = await tap(cardUrl), pf = g.stripe[0] && g.stripe[0].f;
+  ok('the link opens Stripe\'s card page for that one customer, with no sign in and nothing else to tap', g.status === 302 && /^https:\/\/billing\.stripe\.com\//.test(g.to) && !!pf && pf.get('customer') === cus
+    && pf.get('flow_data[type]') === 'payment_method_update' && pf.get('flow_data[after_completion][type]') === 'hosted_confirmation' && /new card is saved/.test(pf.get('flow_data[after_completion][hosted_confirmation][custom_message]'))
+    && pf.get('return_url') === 'https://arizonapetwaste.com/account/', [g.status, g.to, pf && String(pf)]);
+  const [uid, exp, sig] = cardUrl.split('k=')[1].split('.');
+  ok('a changed link opens nothing', old(await tap(cardUrl.slice(0, -2) + (cardUrl.slice(-2) === 'AA' ? 'BB' : 'AA'))) && old(await tap('https://arizonapetwaste.com/api/card')) && old(await tap('https://arizonapetwaste.com/api/card?k=../../x')));
+  ok('a link cannot be moved to another customer or given a later end date', old(await tap('https://arizonapetwaste.com/api/card?k=' + U2 + '.' + exp + '.' + sig)) && old(await tap('https://arizonapetwaste.com/api/card?k=' + uid + '.' + (Number(exp) + 999) + '.' + sig)));
+  const yardSig = crypto.createHmac('sha256', 'apw-yard-link|' + env.SUPABASE_SERVICE_ROLE_KEY).update(uid + '.' + exp).digest('base64url');
+  ok('a My Yard link cannot be used as a card link, and a card link does not sign anyone in', old(await tap('https://arizonapetwaste.com/api/card?k=' + uid + '.' + exp + '.' + yardSig))
+    && (await call('/api/me/link', 'POST', { k: uid + '.' + exp + '.' + sig })).status === 410);
+  ok('the link lasts 30 days', Number(exp) - nowS() > 29 * DAY && Number(exp) - nowS() <= 30 * DAY && old(await at(later(31), () => tap(cardUrl))));
+  T.errors.length = 0;
+
   const before = mails.length;
-  await hook({ type: 'invoice.payment_failed', data: { object: Object.assign({}, inv, { attempt_count: 2 }) } });
+  await hook(failedEvt());
   liveSub.status = 'past_due'; liveSub.latest_invoice = 'in_fail';
   ok('before it puts anyone on hold the server asks Stripe about the bill', S.calls.some((c) => c.m === 'GET' && c.p === 'invoices/in_fail'));
   S.calls.length = 0;
   await hook(subEvt('updated', liveSub, {}, { status: 'trialing' }));
   ok('and about the plan', S.calls.some((c) => c.m === 'GET' && c.p === 'subscriptions/' + liveSub.id));
-  await hook({ type: 'invoice.payment_failed', data: { object: Object.assign({}, inv, { attempt_count: 3 }) } });
-  ok('Stripe’s retries do not email or text again', mails.length === before && T.messages.filter((x) => x.kind === 'card_failed').length === 1 && row(U1).status === 'past_due');
+  ok('the same failed try heard again, as a bill event or as a plan event, tells nobody twice', mails.length === before && cardTexts().length === 1 && row(U1).status === 'past_due', mails.slice(before).map((x) => x.subject));
+
+  // Stripe's retries. Every failed try tells the office. The customer is not emailed on every one.
+  inv.attempt_count = 2;
+  await at(later(1), () => hook(failedEvt()));
+  const o2 = sent(/^Card failed again: /)[0];
+  ok('try 2 fails a day later: the office gets a new alert with the try number, and the customer is not emailed again so soon', mails.length === before + 1 && !!o2 && o2.subject === 'Card failed again: Test Person, 123 W Test St ($121, try 2)'
+    && /This was try 2\./.test(o2.text) && /\nTry: 2\n/.test(o2.text) && /No new email went to them today\./.test(o2.text) && inv.metadata.apw_try === '2' && cardTexts().length === 1, mails.slice(before).map((x) => [x.subject, x.text]));
+  inv.attempt_count = 3;
+  await at(later(6), () => hook(failedEvt()));
+  const again = sent(/^Reminder: your card still did not go through$/)[0], o3 = sent(/^Card failed again: .*try 3\)$/)[0];
+  ok('try 3 fails six days after their last email: the customer gets one reminder with the same button', !!again && again.to[0] === 'test@example.com' && /We tried your card again for \$121\. It still did not go through\./.test(again.text)
+    && /Update my card: https:\/\/arizonapetwaste\.com\/api\/card\?k=/.test(again.text) && />Update my card<\/a>/.test(again.html) && /Your visits are still on hold/.test(again.text), again && again.text);
+  ok('and the office alert for try 3 says a reminder went out', !!o3 && /This was try 3\./.test(o3.text) && /We emailed them a reminder with the same button\./.test(o3.text) && cardTexts().length === 1, o3 && o3.text);
   const p = await call('/api/me/plan', 'GET', null, 'good');
   ok('My Yard shows the hold and no next visits', p.d.plan.hold === true && p.d.plan.next.length === 0 && p.d.plan.canPause === false, p.d);
+  const n = mails.length;
   await hook(subEvt('updated', liveSub, { status: 'active' }));
-  ok('a plan change that is not a payment does not lift the hold', row(U1).status === 'past_due' && mails.length === before);
+  ok('a plan change that is not a payment does not lift the hold', row(U1).status === 'past_due' && mails.length === n);
 }
 head('The bill gets paid: visits come back');
 { reset();
@@ -802,55 +907,153 @@ head('The bill gets paid: visits come back');
   await hook({ type: 'invoice.paid', data: { object: { id: 'in_zero', customer: cus, status: 'paid', amount_paid: 0 } } });
   ok('a $0 bill changes nothing', row(U1).status === 'past_due' && mails.length === 0);
   liveSub.status = 'active'; inv.status = 'paid';
-  ok('paid event is taken', (await hook({ type: 'invoice.paid', data: { object: Object.assign({}, inv, { status: 'paid', amount_paid: 5040, amount_remaining: 0 }) } })) === 200);
+  ok('paid event is taken', (await hook({ type: 'invoice.paid', data: { object: Object.assign({}, inv, { status: 'paid', amount_paid: 12100, amount_remaining: 0 }) } })) === 200);
   ok('the customer is off hold', row(U1).status === 'active');
-  ok('the text nobody sent leaves the list', T.messages.filter((x) => x.kind === 'card_failed')[0].status === 'skipped');
+  ok('the text nobody sent leaves the list', cardTexts()[0].status === 'skipped');
   const m = sent(/^Your payment went through$/)[0];
-  ok('the customer is thanked and told their day', !!m && /your visits are back on/.test(m.text) && /We come on your next Tuesday\./.test(m.text), m && m.text);
+  ok('the customer is thanked and told their day, in an email with our look', !!m && /your visits are back on/.test(m.text) && /We come on your next Tuesday\./.test(m.text) && /email-logo\.png/.test(m.html) && /your visits are back on/.test(m.html) && !/Update my card/.test(m.html), m && m.text);
   ok('the office is told they are back on the schedule', sent(/^Paid: Test Person$/).length === 1);
   const before = mails.length;
-  await hook({ type: 'invoice.paid', data: { object: Object.assign({}, inv, { status: 'paid', amount_paid: 5040 }) } });
+  await hook({ type: 'invoice.paid', data: { object: Object.assign({}, inv, { status: 'paid', amount_paid: 12100 }) } });
   await hook(subEvt('updated', liveSub, { status: 'active' }, { status: 'past_due' }));
   ok('the same news twice sends nothing more', mails.length === before && row(U1).status === 'active');
   const p = await call('/api/me/plan', 'GET', null, 'good');
   ok('My Yard shows next visits again', p.d.plan.hold === false && p.d.plan.next.length === 3, p.d);
 }
 head('The other order, and a customer with no texts');
-{ reset(); T.messages.length = 0;
-  row(U1).texts_visit = false; inv.status = 'open'; liveSub.status = 'past_due'; liveSub.latest_invoice = 'in_fail';
+{ reset(); T.messages.length = 0; fresh();
+  row(U1).texts_visit = false; liveSub.status = 'past_due'; liveSub.latest_invoice = 'in_fail';
   await hook(subEvt('updated', liveSub, {}, { status: 'active' }));
-  ok('Stripe’s plan event lands first: on hold, emailed with the bill link, no text queued', row(U1).status === 'past_due' && sent(/^Your card did not work$/).length === 1 && sent(/^Your card did not work$/)[0].text.includes('https://invoice.stripe.com/i/acct_1/test_abc') && T.messages.length === 0);
-  ok('the office is told to call (no text consent)', /They did not agree to texts, so no text is waiting\. Call them today\./.test(sent(/^Card failed/)[0].text));
-  await hook({ type: 'invoice.payment_failed', data: { object: inv } });
-  ok('then the bill event lands: nothing more', sent(/^Your card did not work$/).length === 1 && sent(/^Card failed/).length === 1);
+  ok('Stripe’s plan event lands first: on hold, emailed with the card link, no text queued', row(U1).status === 'past_due' && sent(/^Your card did not go through$/).length === 1
+    && /Update my card: https:\/\/arizonapetwaste\.com\/api\/card\?k=/.test(sent(/^Your card did not go through$/)[0].text) && /charge your card \$121/.test(sent(/^Your card did not go through$/)[0].text) && T.messages.length === 0);
+  ok('the office is told to call (no text consent)', /They did not agree to texts, so no text is waiting\. Call them today\./.test(sent(/^Card failed: /)[0].text));
+  await hook(failedEvt());
+  ok('then the bill event lands: nothing more', sent(/^Your card did not go through$/).length === 1 && sent(/^Card failed/).length === 1);
   liveSub.status = 'active';
   await hook(subEvt('updated', liveSub, { status: 'active' }, { status: 'past_due' }));
   ok('Stripe says the plan went from past due to paid: off hold, thanked once', row(U1).status === 'active' && sent(/^Your payment went through$/).length === 1);
   row(U1).texts_visit = true;
 }
+{ // One failed try can reach us as two events at the very same moment: the bill and the plan. Both read the bill
+  // before either has written its note. Stripe keeps the note to one writer, and only that one tells.
+  reset(); T.messages.length = 0; fresh(); liveSub.status = 'past_due';
+  await hook(failedEvt());
+  const n = mails.length;
+  S.blind = true;
+  await hook(subEvt('updated', liveSub, {}, { status: 'active' }));
+  await hook(failedEvt());
+  S.blind = false;
+  ok('one failed try that reaches us twice at the same moment still tells everyone once', n === 2 && mails.length === n && cardTexts().length === 1, mails.map((x) => x.subject));
+  // And if Stripe will not keep the note at all, the alert still goes out.
+  reset(); T.messages.length = 0; T.errors.length = 0; fresh(); row(U1).status = 'active';
+  S.failNote = true;
+  await hook(failedEvt());
+  S.failNote = false;
+  ok('if the note on the bill cannot be saved, everyone is still told, and the Health tab says an alert may come twice', sent(/^Card failed: /).length === 1 && sent(/^Your card did not go through$/).length === 1
+    && T.errors.some((e) => /note on the bill could not be saved/.test(e.message)), [mails.map((x) => x.subject), T.errors]);
+  T.errors.length = 0; liveSub.status = 'active'; inv.status = 'paid';
+  await hook({ type: 'invoice.paid', data: { object: Object.assign({}, inv, { status: 'paid', amount_paid: 12100 }) } });
+}
 head('A new card while on hold is tried right away');
-{ reset(); inv.status = 'open'; liveSub.status = 'past_due';
-  await hook({ type: 'invoice.payment_failed', data: { object: inv } });
+{ reset(); fresh(); liveSub.status = 'past_due';
+  await hook(failedEvt());
   const cu = { id: cus, object: 'customer', invoice_settings: { default_payment_method: 'pm_new' } };
   await hook({ type: 'customer.updated', data: { object: cu, previous_attributes: { name: 'Old Name' } } });
   ok('a change that is not the card tries nothing', S.payCalls.length === 0);
   await hook({ type: 'customer.updated', data: { object: cu, previous_attributes: { invoice_settings: { default_payment_method: 'pm_old' } } } });
-  ok('a new card on file: the open bill is tried on it, once for that card', S.payCalls.length === 1 && S.payCalls[0].id === 'in_fail' && S.payCalls[0].key === 'apw-newcard-in_fail-pm_new', S.payCalls);
-  S.invoices.in_old = Object.assign({}, inv, { id: 'in_old', created: Math.floor(Date.now() / 1000) - 90 * 86400 }); S.payCalls.length = 0; inv.status = 'open'; inv.created = Math.floor(Date.now() / 1000) - 3 * 86400;
+  ok('a new card on file (the card link in the email does this): the open bill is tried on it, once for that card', S.payCalls.length === 1 && S.payCalls[0].id === 'in_fail' && S.payCalls[0].key === 'apw-newcard-in_fail-pm_new', S.payCalls);
+  S.invoices.in_old = Object.assign({}, inv, { id: 'in_old', created: nowS() - 90 * DAY }); S.payCalls.length = 0; inv.status = 'open'; inv.created = nowS() - 3 * DAY;
   await hook({ type: 'customer.updated', data: { object: Object.assign({}, cu, { invoice_settings: { default_payment_method: 'pm_newer' } }), previous_attributes: { invoice_settings: { default_payment_method: 'pm_new' } } } });
   ok('a bill left open for three months is not charged to the new card on its own', S.payCalls.length === 1 && S.payCalls[0].id === 'in_fail', S.payCalls);
   delete S.invoices.in_old;
   liveSub.status = 'active';
-  await hook({ type: 'invoice.paid', data: { object: Object.assign({}, inv, { status: 'paid', amount_paid: 5040 }) } });
+  await hook({ type: 'invoice.paid', data: { object: Object.assign({}, inv, { status: 'paid', amount_paid: 12100 }) } });
   ok('and when it goes through they are off hold', row(U1).status === 'active');
   S.payCalls.length = 0;
   await hook({ type: 'customer.updated', data: { object: cu, previous_attributes: { invoice_settings: { default_payment_method: 'pm_new' } } } });
   ok('a new card when nothing is owed tries nothing', S.payCalls.length === 0);
 }
+head('A next try that shows up a moment late is not the last try');
+{ // With Stripe's automations the bill gets its next try a moment after the event. The first look shows none.
+  reset(); fresh({ attempt_count: 1, next_payment_attempt: null, metadata: {} });
+  row(U1).status = 'active'; liveSub.status = 'past_due'; liveSub.latest_invoice = 'in_fail';
+  S.lateNext = { id: 'in_fail', reads: 3, at: nowS() + 3 * DAY };
+  await hook(failedEvt());
+  ok('the server looks again, sees the next try, and treats it as an ordinary failed try: a first notice, no last notice, no PAUSE SERVICE', sent(/^Your card did not go through$/).length === 1 && sent(/^Card failed: /).length === 1
+    && sent(/^PAUSE SERVICE|^Last notice/).length === 0 && !inv.metadata.apw_final && row(U1).status === 'past_due' && /Stripe will try the card again on /.test(sent(/^Card failed: /)[0].text), mails.map((x) => x.subject));
+}
+head('The last try fails: PAUSE SERVICE for the office, a last notice for the customer, and the plan is not canceled');
+{ // Stripe has tried four times. The bill shows no next try. The plan is still there, past due.
+  reset(); fresh({ attempt_count: 4, next_payment_attempt: null, metadata: { apw_try: '3', apw_mail: String(nowS() - DAY) } });
+  row(U1).status = 'past_due'; liveSub.status = 'past_due'; liveSub.latest_invoice = 'in_fail';
+  await hook(failedEvt());
+  const ps = sent(/^PAUSE SERVICE: /);
+  ok('the office gets one alert that starts with PAUSE SERVICE, with the name, address, amount and how many tries', ps.length === 1 && ps[0].subject === 'PAUSE SERVICE: Test Person, 123 W Test St ($121 unpaid after 4 tries)' && ps[0].to[0] === 'info@arizonapetwaste.com'
+    && /^PAUSE SERVICE\. Stripe tried their card 4 times and has stopped trying\. \$121 is unpaid\./.test(ps[0].text) && ps[0].text.includes('Name: Test Person\nAddress: 123 W Test St, 85396\nAmount: $121\nTries: 4\n'), ps.map((x) => [x.subject, x.text]));
+  ok('it says what to do, and that the plan is not canceled', /1\. Keep them off the route\./.test(ps[0].text) && /2\. Call them\./.test(ps[0].text) && /3\. Their plan is not canceled\. Canceling is your call\./.test(ps[0].text) && /We emailed them a last notice/.test(ps[0].text), ps[0].text);
+  const l = sent(/^Last notice: your visits are on hold$/)[0];
+  ok('the customer gets a last notice with the button to change their card', !!l && /We tried your card 4 times for \$121\. It did not go through, so we have stopped trying\./.test(l.text) && /Your visits stay on hold until the bill is paid\. To start again, tap the button/.test(l.text)
+    && /Update my card: https:\/\/arizonapetwaste\.com\/api\/card\?k=/.test(l.text) && />Update my card<\/a>/.test(l.html), l && l.text);
+  ok('that is all: no second alert for the same try', mails.length === 2 && sent(/^Card failed/).length === 0, mails.map((x) => x.subject));
+  ok('the server looked at the bill three times before calling it the last try, and asked Stripe if the plan was canceled', S.calls.filter((c) => c.m === 'GET' && c.p === 'invoices/in_fail').length === 3 && S.calls.some((c) => c.m === 'GET' && c.p === 'subscriptions/' + liveSub.id));
+  ok('nothing is canceled by this server', !S.calls.some((c) => c.m === 'DELETE') && !S.calls.some((c) => c.m === 'POST' && /^subscriptions/.test(c.p)) && row(U1).status === 'past_due');
+  ok('the bill remembers the last notice', inv.metadata.apw_final === '1' && inv.metadata.apw_try === '4', inv.metadata);
+  // Stripe then marks the plan unpaid (its setting for "if all retries for a payment fail").
+  liveSub.status = 'unpaid';
+  await hook(subEvt('updated', liveSub, {}, { status: 'past_due' }));
+  ok('Stripe marks the plan unpaid: the row stays on hold the way the office knows it (past due), and nobody is told twice', row(U1).status === 'past_due' && mails.length === 2, [row(U1).status, mails.map((x) => x.subject)]);
+  await hook(failedEvt());
+  ok('the last try heard again tells nobody twice', mails.length === 2);
+  // They change their card a week later: the open bill is tried, it goes through, they are back.
+  S.payCalls.length = 0;
+  await hook({ type: 'customer.updated', data: { object: { id: cus, object: 'customer', invoice_settings: { default_payment_method: 'pm_fix' } }, previous_attributes: { invoice_settings: { default_payment_method: 'pm_new' } } } });
+  liveSub.status = 'active';
+  await hook(subEvt('updated', liveSub, {}, { status: 'unpaid' }));
+  ok('a new card after the last notice still pays the open bill and puts them back on', S.payCalls.length === 1 && S.payCalls[0].id === 'in_fail' && row(U1).status === 'active' && sent(/^Your payment went through$/).length === 1 && sent(/^Paid: /).length === 1, [S.payCalls, row(U1).status]);
+}
+{ // The other order: Stripe's "unpaid" is what says the last try failed, before the bill shows it.
+  reset(); fresh({ attempt_count: 4, metadata: { apw_try: '3', apw_mail: String(nowS() - DAY) } });
+  row(U1).status = 'past_due'; liveSub.status = 'unpaid'; liveSub.latest_invoice = 'in_fail';
+  await hook(subEvt('updated', liveSub, {}, { status: 'past_due' }));
+  ok('"unpaid" from Stripe is the last try: PAUSE SERVICE once and a last notice once', sent(/^PAUSE SERVICE: .*after 4 tries\)$/).length === 1 && sent(/^Last notice/).length === 1 && mails.length === 2 && row(U1).status === 'past_due', mails.map((x) => x.subject));
+  inv.next_payment_attempt = null;
+  await hook(failedEvt());
+  ok('then the bill event for that try lands: nothing more', mails.length === 2);
+  // A plan Stripe paused by itself after the last failed try (another Stripe setting) reads the same way.
+  reset(); fresh({ attempt_count: 2, metadata: { apw_try: '1', apw_mail: String(nowS() - DAY) } });
+  liveSub.status = 'paused'; liveSub.status_details = { paused: { type: 'subscription', transitioned_at: nowS(), subscription: { type: 'final_payment_failure' } } };
+  await hook(subEvt('updated', liveSub, {}, { status: 'past_due' }));
+  ok('a plan Stripe paused after the last failed try: PAUSE SERVICE, and the row reads past due, not paused', sent(/^PAUSE SERVICE: /).length === 1 && row(U1).status === 'past_due', [mails.map((x) => x.subject), row(U1).status]);
+  delete liveSub.status_details;
+}
+{ // Until the Stripe setting is changed, Stripe cancels the plan after the last try. The office and the customer are
+  // told what really happened.
+  reset(); fresh({ attempt_count: 4, next_payment_attempt: null, metadata: { apw_try: '3', apw_mail: String(nowS() - DAY) } });
+  row(U1).status = 'past_due'; liveSub.status = 'canceled'; liveSub.cancellation_details = { reason: 'payment_failed' }; liveSub.latest_invoice = 'in_fail';
+  await hook(failedEvt());
+  const ps = sent(/^PAUSE SERVICE: /)[0], end = sent(/^Your plan has ended$/)[0];
+  ok('Stripe canceled the plan after the last try: PAUSE SERVICE says so and names the Stripe setting to change', !!ps && /and then Stripe canceled their plan\. \$121 is unpaid\./.test(ps.text) && /"If all retries for a payment fail", pick "Mark the subscription as unpaid"/.test(ps.text)
+    && /To come back they sign up again/.test(ps.text) && !/Their plan is not canceled/.test(ps.text), ps && ps.text);
+  ok('the customer is told their plan has ended, with no card button that would do nothing', !!end && /your plan has ended and your visits have stopped/.test(end.text) && !/Update my card/.test(end.text) && !/Update my card/.test(end.html) && sent(/^Last notice/).length === 0, end && end.text);
+  const n = mails.length;
+  await hook(subEvt('deleted', liveSub));
+  const gone = sent(/^Canceled: Test Person$/)[0];
+  ok('then the cancel event lands: the row is canceled, the office hears Stripe did it, and nobody is told twice', row(U1).status === 'canceled' && mails.length === n + 1 && !!gone && /Stripe canceled this plan because the card kept failing/.test(gone.text), mails.slice(n).map((x) => x.subject));
+  // The cancel event alone (the bill event was lost): it still tells both.
+  reset(); fresh({ attempt_count: 4, metadata: { apw_try: '3', apw_mail: String(nowS() - DAY) } }); row(U1).status = 'past_due';
+  await hook(subEvt('deleted', liveSub));
+  ok('the cancel event by itself still sends PAUSE SERVICE and the "plan has ended" email', sent(/^PAUSE SERVICE: /).length === 1 && sent(/^Your plan has ended$/).length === 1 && row(U1).status === 'canceled', mails.map((x) => x.subject));
+  // A customer who cancels on their own is not a failed card.
+  reset(); row(U1).status = 'active'; liveSub.cancellation_details = { reason: 'cancellation_requested' };
+  await hook(subEvt('deleted', liveSub));
+  ok('a customer who cancels on their own gets no PAUSE SERVICE', sent(/^PAUSE SERVICE/).length === 0 && /A customer canceled\./.test(sent(/^Canceled: /)[0].text), mails.map((x) => x.subject));
+  delete liveSub.cancellation_details; liveSub.status = 'active'; inv.status = 'paid';
+  Object.assign(row(U1), { status: 'active', stripe_subscription_id: liveSub.id });
+}
 head('Old news from Stripe changes nothing');
 { // Stripe does not promise the order of its events, and it sends one again for up to three days when it got no answer.
-  reset(); T.messages.length = 0;
-  const failed = () => ({ type: 'invoice.payment_failed', data: { object: Object.assign({}, inv, { status: 'open', amount_remaining: 5040 }) } });
+  reset(); T.messages.length = 0; fresh();
+  const failed = () => failedEvt({ status: 'open', amount_remaining: 12100 });
   // The customer is paid up: the plan is active and the bill is paid.
   row(U1).status = 'active'; liveSub.status = 'active'; liveSub.latest_invoice = 'in_fail'; inv.status = 'paid'; inv.amount_remaining = 0;
   ok('a late "payment failed" is answered', (await hook(failed())) === 200);
@@ -861,23 +1064,27 @@ head('Old news from Stripe changes nothing');
   await hook(failed());
   ok('a bill the office voided does not put anyone on hold', row(U1).status === 'active' && mails.length === 0);
   // Now a real failure, then an old "paid" shows up late.
-  inv.status = 'open'; inv.amount_remaining = 5040; liveSub.status = 'past_due';
+  inv.status = 'open'; inv.amount_remaining = 12100; liveSub.status = 'past_due';
   await hook(failed());
-  ok('a bill that is still unpaid in Stripe does put them on hold', row(U1).status === 'past_due' && sent(/^Your card did not work$/).length === 1);
+  ok('a bill that is still unpaid in Stripe does put them on hold', row(U1).status === 'past_due' && sent(/^Your card did not go through$/).length === 1);
   const before = mails.length;
   await hook(subEvt('updated', liveSub, { status: 'active' }, { status: 'past_due' }));
   ok('a late "paid" while Stripe still shows the plan past due: the hold stays and nobody is thanked', row(U1).status === 'past_due' && mails.length === before);
   S.calls.length = 0;
   await hook(failed()); await hook(failed());
-  ok('more failed tries while on hold do not ask Stripe anything', S.calls.length === 0 && mails.length === before);
+  ok('the same failed try sent again and again only asks Stripe about the bill, and tells nobody', S.calls.every((c) => c.m === 'GET') && mails.length === before, S.calls.map((c) => c.m + ' ' + c.p));
   liveSub.status = 'active'; inv.status = 'paid'; inv.amount_remaining = 0;
   await hook(subEvt('updated', liveSub, {}, { status: 'past_due' }));
   ok('the real "paid" lifts it', row(U1).status === 'active' && sent(/^Your payment went through$/).length === 1);
 }
 { reset();
   T.customers.push({ id: U2, name: 'Gone Person', email: 'two@example.com', phone: '6235550122', status: 'canceled', stripe_customer_id: 'cus_gone', texts_visit: true });
-  await hook({ type: 'invoice.payment_failed', data: { object: Object.assign({}, inv, { customer: 'cus_gone' }) } });
+  await hook(failedEvt({ customer: 'cus_gone' }));
   ok('a failed bill for a canceled customer leaves them canceled and sends nothing', row(U2).status === 'canceled' && mails.length === 0);
+  row(U2).status = 'checkout';
+  await hook(failedEvt({ customer: 'cus_gone' }));
+  ok('a card refused in the sign up card form is not a failed bill: nobody is emailed', row(U2).status === 'checkout' && mails.length === 0);
+  row(U2).status = 'canceled';
   ok('an event we do not use is answered and ignored', (await hook({ type: 'charge.succeeded', data: { object: {} } })) === 200 && (await hook({ type: 'checkout.session.completed', data: { object: { mode: 'payment' } } })) === 200);
 }
 
@@ -887,7 +1094,10 @@ env = Object.assign({}, baseEnv, { FIRST_VISIT_FROM: '2027-03-10' });
 { reset();
   ok('waitlist with no name is refused', (await call('/api/waitlist', 'POST', { email: 'nope', zip: '85001' })).status === 400);
   ok('waitlist with a short phone is refused', (await call('/api/waitlist', 'POST', { name: 'Wendy Wait', phone: '623', address: '1 W Main St', zip: '85301' })).status === 400);
-  ok('waitlist ok', (await call('/api/waitlist', 'POST', { name: 'Wendy Wait', phone: '(623) 555-0111', address: '1 W Main St', zip: '85301', texts: true })).status === 200 && sent(/^Waitlist: Wendy Wait/).length === 1);
+  ok('waitlist ok', (await call('/api/waitlist', 'POST', { name: 'Wendy Wait', phone: '(623) 555-0111', address: '1 W Main St', zip: '85301', texts: true })).status === 200 && sent(/^Waitlist: Wendy Wait, ZIP 85301$/).length === 1);
+  // The form on the sign up page asks for a city and sends no ZIP. The office email names the city, not an empty ZIP.
+  ok('a waitlist sign up with a city and no ZIP names the city in the subject', (await call('/api/waitlist', 'POST', { name: 'Cory City', phone: '6235550112', address: '9 E Oak St, Surprise', zip: '' })).status === 200
+    && sent(/^Waitlist: Cory City, Surprise$/).length === 1 && /Address: 9 E Oak St, Surprise\n/.test(sent(/^Waitlist: Cory City/)[0].text), mails.map((x) => x.subject));
   // The sign up day is held at March 10, 2027, so the free month in the email ends April 10.
   const realNow = Date.now;
   Date.now = () => Date.parse('2027-03-10T09:30:00-07:00');
@@ -977,18 +1187,107 @@ head('My Yard: bills, skips, pause');
   ok('a pause inside the first 60 days is blocked', (await call('/api/me/pause', 'POST', { until: az(30) }, 'good')).status === 400);
   r = await call('/api/me/plan', 'GET', null, 'good');
   ok('the plan says when pausing opens', !r.d.plan.canPause && !!r.d.plan.pauseAfter, r.d);
-  S.subMeta = { min_end: String(Math.floor(Date.now() / 1000) - 86400) };
-  S.subPosts.length = 0;
+  S.subMeta = null;
+
+  // Joe, Nov 16, 2026 (late): when a paused customer comes back, the full month is charged on the day they come back,
+  // and that day is their new bill day. No part month.
+  // This customer pays $108 a month (every week, 2 dogs). The month they paid for runs out in 10 days: that is their bill day.
+  const noon = (d) => Math.floor(new Date(d + 'T19:00:00Z').getTime() / 1000);
+  const label = (unixS) => new Date(unixS * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'America/Phoenix' });
+  const billDay = noon(az(10));
+  const plan1 = () => { S.subs.sub_1 = { id: 'sub_1', object: 'subscription', status: 'active', customer: cus, pause_collection: null, trial_end: null, billing_cycle_anchor: billDay - 30 * 86400, latest_invoice: 'in_paid_1',
+    metadata: { user_id: U1, pause_from: String(Math.floor(Date.now() / 1000) - 86400) }, items: { data: [{ current_period_end: billDay, price: { unit_amount: 10800 }, quantity: 1 }] }, form: new URLSearchParams() }; };
+  const start = () => { plan1(); Object.assign(row(U1), { status: 'active', dogs: 2, pause_from: null, pause_until: null }); reset(); S.subPosts.length = 0; S.items.length = 0; S.made.length = 0; S.notes.length = 0; };
+  const noBillByHand = () => S.items.length === 0 && S.made.length === 0 && !S.calls.some((c) => c.m === 'POST' && /^invoice(item)?s$/.test(c.p)) && !S.subPosts.some((x) => /billing_cycle_anchor|create_prorations|always_invoice/.test(x));
+  start();
+  r = await call('/api/me/plan', 'GET', null, 'good');
+  ok('My Yard knows their next bill day, to say it next to the pause button', r.d.plan.canPause === true && r.d.plan.billDay === label(billDay) && r.d.plan.backCharge === null, r.d.plan);
+
+  head('Pause that ends before the bill day: they are inside a month they paid for, so their bills do not change');
+  r = await call('/api/me/pause', 'POST', { until: az(5) }, 'good'); await settle();
+  ok('pause 5 days: Stripe only holds the plan until the day picked. No free time, no new bill day', r.status === 200 && S.subPosts.length === 1 && S.subPosts[0] === 'pause_collection%5Bbehavior%5D=void&pause_collection%5Bresumes_at%5D=' + noon(az(5))
+    && row(U1).status === 'paused' && row(U1).pause_until === az(4) && r.d.plan.paused === true && r.d.plan.backCharge === null, [S.subPosts, r.d.plan]);
+  { const o = sent(/^Paused: Test Person$/)[0], m = sent(/^Your visits are paused until /)[0];
+    ok('the office is told their bills do not change', !!o && /Their pause ends before their next bill day \(.+\), so their bills do not change\./.test(o.text) && !/Trialing/.test(o.text), o && o.text);
+    ok('the customer is told the same, with their next bill', !!m && m.to[0] === 'test@example.com' && m.subject === 'Your visits are paused until ' + label(noon(az(5))) && /Your bill day stays the same\. Your next bill is \$108 on /.test(m.text)
+      && m.text.includes(label(billDay)) && /email-logo\.png/.test(m.html), m && m.text); }
+  // Stripe lets go of the plan on the day. That is what tells us they are back.
+  reset(); S.subs.sub_1.pause_collection = null;
+  const letGo = () => subEvt('updated', S.subs.sub_1, {}, { pause_collection: { behavior: 'void', resumes_at: noon(az(5)) } });
+  await hook(letGo());
+  ok('the day comes: they are back, nothing is charged, and their bill day stays', row(U1).status === 'active' && row(U1).pause_until === null && noBillByHand() && S.subPosts.length === 1
+    && /Nothing is charged today\. Your bill day stays the same\./.test((sent(/^Welcome back/)[0] || {}).text || '') && /Nothing is charged today\. Their bill day did not change\./.test((sent(/^Back from pause: Test Person$/)[0] || {}).text || ''), [row(U1).status, mails.map((x) => x.subject), S.subPosts]);
+  { const n = mails.length; await hook(letGo()); ok('Stripe says it twice: nobody is told twice', mails.length === n); }
+  // Or they tap "Start again now" first.
+  start();
+  await call('/api/me/pause', 'POST', { until: az(5) }, 'good'); await settle(); reset();
+  r = await call('/api/me/resume', 'POST', {}, 'good'); await settle();
+  ok('start again now, before the bill day: Stripe lets go of the plan, and nothing is charged', r.status === 200 && r.d.charged === false && S.subPosts[1] === 'pause_collection=' && row(U1).status === 'active' && row(U1).pause_until === null
+    && noBillByHand() && sent(/^Welcome back/).length === 1 && sent(/^Back from pause/).length === 1, [S.subPosts, mails.map((x) => x.subject)]);
+  { const n = mails.length; await hook(letGo()); ok('then Stripe’s own news of it lands: nobody is told twice', mails.length === n && row(U1).status === 'active'); }
+
+  head('Pause that runs past the bill day: that bill is skipped, and the full month is charged the day they come back');
+  start();
+  r = await call('/api/me/pause', 'POST', { until: az(30) }, 'good'); await settle();
+  const back = noon(az(30));
+  ok('pause 30 days: Stripe is told one thing, free time until the day they come back, with no part month', r.status === 200 && S.subPosts.length === 1
+    && S.subPosts[0] === 'trial_end=' + back + '&proration_behavior=none&metadata%5Bpause_until%5D=' + back + '&metadata%5Bpaid_until%5D=' + billDay && row(U1).status === 'paused' && row(U1).pause_until === az(29), S.subPosts);
+  ok('Stripe now bills the full month on that day by itself, and it is the bill day from then on', S.subs.sub_1.status === 'trialing' && S.subs.sub_1.trial_end === back && S.subs.sub_1.billing_cycle_anchor === back && noBillByHand());
+  ok('My Yard can say what happens when they come back', r.d.plan.paused === true && r.d.plan.backCharge.amount === '$108' && r.d.plan.backCharge.keepDay === label(billDay), r.d.plan);
+  { const o = sent(/^Paused: Test Person$/)[0], m = sent(/^Your visits are paused until /)[0];
+    ok('the office is told the bill is skipped, what is charged when, and why Stripe reads "Trialing"', !!o && o.text.includes('Their bill day (' + label(billDay) + ') falls inside the pause, so that bill is skipped. Stripe charges $108 on ' + label(back) + ', the day they come back. That day is their new bill day.')
+      && o.text.includes('In Stripe this plan reads "Trialing" until ' + label(back) + '. That is the pause, not a free month.'), o && o.text);
+    ok('the customer is told before it happens: nothing while paused, the full month on the day they come back, and the new bill day', !!m && m.text.includes('You pay nothing while you are paused. On ' + label(back) + ' we charge your card $108 for the month ahead. From then on, that day of the month is your bill day.')
+      && /We start again on \w+day, /.test(m.text) && !/[–—]/.test(m.text), m && m.text); }
+  reset();
+  await hook(subEvt('updated', S.subs.sub_1, {}, { status: 'active', trial_end: null }));
+  ok('Stripe’s news of that pause does not turn them into a free month customer: the row stays paused', row(U1).status === 'paused' && mails.length === 0, row(U1).status);
+  r = await call('/api/me/plan', 'GET', null, 'good');
+  ok('My Yard still shows the pause and what coming back costs', r.d.plan.paused === true && r.d.plan.canPause === false && r.d.plan.backCharge.amount === '$108', r.d.plan);
+  ok('a paused plan cannot be paused again', (await call('/api/me/pause', 'POST', { until: az(40) }, 'good')).status === 400);
+  // The day comes. Stripe ends the free time, makes one bill for the full month, and says the plan is active.
+  reset(); S.subPosts.length = 0;
+  S.invoices.in_back_day = { id: 'in_back_day', object: 'invoice', customer: cus, status: 'draft', billing_reason: 'subscription_cycle', amount_due: 10800, amount_remaining: 10800, metadata: {} };
+  Object.assign(S.subs.sub_1, { status: 'active', latest_invoice: 'in_back_day' });
+  const dayCame = () => subEvt('updated', S.subs.sub_1, {}, { status: 'trialing', latest_invoice: 'in_paid_1' });
+  await at(az(30) + 'T19:00:05Z', () => hook(dayCame()));
+  const nthDay = Number(az(30).slice(8)), nthWord = nthDay + (nthDay % 10 === 1 && nthDay !== 11 ? 'st' : nthDay % 10 === 2 && nthDay !== 12 ? 'nd' : nthDay % 10 === 3 && nthDay !== 13 ? 'rd' : 'th');
+  ok('the day they come back: the row is active again', row(U1).status === 'active' && row(U1).pause_from === null && row(U1).pause_until === null);
+  ok('the customer is told the full month is charged today and which day is their bill day now', /We charge your card \$108 today for the month ahead\. From now on, the \d+(st|nd|rd|th) is your bill day\./.test((sent(/^Welcome back/)[0] || {}).text || '')
+    && sent(/^Welcome back/)[0].text.includes('the ' + nthWord + ' is your bill day') && /email-logo\.png/.test(sent(/^Welcome back/)[0].html), sent(/^Welcome back/).map((x) => x.text));
+  ok('the office is told the same', (sent(/^Back from pause: Test Person$/)[0] || {}).text.includes('Stripe charges $108 today. The ' + nthWord + ' is their new bill day.'), sent(/^Back from pause/).map((x) => x.text));
+  ok('this server charges nothing itself and never resets a bill day: Stripe made the one full month bill', noBillByHand() && !S.subPosts.some((x) => /trial_end|pause_collection/.test(x)), S.subPosts);
+  ok('the first bill back is named plainly on the card statement, and the pause notes come off the plan', S.invoices.in_back_day.statement_descriptor === 'ARIZONA PET WASTE' && !S.subs.sub_1.metadata.pause_until && !S.subs.sub_1.metadata.paid_until, [S.invoices.in_back_day, S.subs.sub_1.metadata]);
+  { const n = mails.length; S.subs.sub_1.metadata.pause_until = String(back); await hook(dayCame()); delete S.subs.sub_1.metadata.pause_until; ok('Stripe says it twice: nobody is told twice', mails.length === n); }
+  // If that first bill back fails, it is a failed bill like any other.
+  start(); await call('/api/me/pause', 'POST', { until: az(30) }, 'good'); await settle(); reset(); T.messages.length = 0;
+  S.invoices.in_back_fail = { id: 'in_back_fail', object: 'invoice', customer: cus, status: 'open', amount_due: 10800, amount_remaining: 10800, attempt_count: 1, collection_method: 'charge_automatically', next_payment_attempt: Math.floor(Date.now() / 1000) + 3 * 86400, metadata: {} };
+  await hook({ type: 'invoice.payment_failed', data: { object: S.invoices.in_back_fail } });
+  ok('the first charge back fails: on hold, with the card email and the office alert', row(U1).status === 'past_due' && row(U1).pause_until === null && sent(/^Your card did not go through$/).length === 1 && sent(/^Card failed: Test Person, 123 W Test St \(\$108, try 1\)$/).length === 1, [row(U1).status, mails.map((x) => x.subject)]);
+  delete S.invoices.in_back_fail;
+
+  head('Back early from a pause that was set to run past the bill day');
+  start(); await call('/api/me/pause', 'POST', { until: az(30) }, 'good'); await settle(); reset();
+  r = await call('/api/me/resume', 'POST', {}, 'good'); await settle();
+  ok('back before the old bill day: nothing is charged, and the old bill day is put back', r.status === 200 && r.d.charged === false && S.subPosts[1] === 'trial_end=' + billDay + '&proration_behavior=none&metadata%5Bpause_until%5D='
+    && row(U1).status === 'active' && S.subs.sub_1.billing_cycle_anchor === billDay && /Nothing is charged today\. Your bill day stays the same\./.test(sent(/^Welcome back/)[0].text) && noBillByHand(), [S.subPosts, row(U1).status]);
+  await hook(subEvt('updated', S.subs.sub_1, {}, { trial_end: back }));
+  ok('Stripe still reads "trialing" until that bill day, but the row reads active: they are back', S.subs.sub_1.status === 'trialing' && row(U1).status === 'active');
+  start(); await call('/api/me/pause', 'POST', { until: az(30) }, 'good'); await settle(); reset();
+  r = await at(az(12) + 'T17:00:00Z', () => call('/api/me/resume', 'POST', {}, 'good')); await settle();
+  ok('back after the old bill day: Stripe is told to end the free time now, so the full month is charged today and today is the bill day', r.status === 200 && r.d.charged === true
+    && S.subPosts[1] === 'trial_end=now&proration_behavior=none&metadata%5Bpause_until%5D=&metadata%5Bpaid_until%5D=' && S.subs.sub_1.status === 'active' && row(U1).status === 'active' && noBillByHand(), [S.subPosts, r.d]);
+  ok('and both are told', /We charge your card \$108 today for the month ahead\./.test(sent(/^Welcome back/)[0].text) && /Stripe charges \$108 today\./.test(sent(/^Back from pause/)[0].text), mails.map((x) => x.text));
+
+  head('Pause: the locks');
+  start(); S.subs.sub_1.status = 'trialing'; S.subs.sub_1.trial_end = noon(az(20));
   r = await call('/api/me/pause', 'POST', { until: az(30) }, 'good');
-  ok('pause 30 days: Stripe stops billing until the day picked', r.status === 200 && /^pause_collection%5Bbehavior%5D=void&pause_collection%5Bresumes_at%5D=\d+$/.test(S.subPosts[0]) && row(U1).status === 'paused' && row(U1).pause_until === az(29), S.subPosts[0]);
-  r = await call('/api/me/resume', 'POST', {}, 'good');
-  ok('start again', r.status === 200 && S.subPosts[1] === 'pause_collection=' && row(U1).status === 'active' && row(U1).pause_until === null, S.subPosts[1]);
-  // Stripe tells us the pause is over. The bill that fell inside the pause was voided. Nothing is charged for it now.
-  S.items.length = 0; S.made.length = 0; S.calls.length = 0;
-  S.paidSoFar = [];
-  await hook({ type: 'customer.subscription.updated', data: { previous_attributes: { pause_collection: { behavior: 'void' } },
-    object: { id: 'sub_1', customer: cus, status: 'active', pause_collection: null, metadata: { user_id: U1 }, items: { data: [{ price: { unit_amount: 10800 }, quantity: 1 }] } } } });
-  ok('back from a pause: no part month is charged, and no bill is made by hand', S.items.length === 0 && S.made.length === 0 && !S.calls.some((c) => c.m === 'POST' && /^invoice/.test(c.p)) && row(U1).status === 'active', S.calls.map((c) => c.m + ' ' + c.p));
+  ok('a plan still in its free month is never paused, so a pause cannot move the day a free month ends', r.status === 400 && S.subPosts.length === 0 && row(U1).status === 'active', [r.status, S.subPosts]);
+  start(); row(U1).status = 'past_due';
+  ok('a customer on hold for a failed card cannot pause', (await call('/api/me/pause', 'POST', { until: az(30) }, 'good')).status === 400 && S.subPosts.length === 0);
+  start();
+  ok('start again when nothing is paused is refused', (await call('/api/me/resume', 'POST', {}, 'good')).status === 400 && S.subPosts.length === 0);
+  delete S.subs.sub_1; Object.assign(row(U1), { status: 'active', pause_from: null, pause_until: null });
   r = await call('/api/portal', 'POST', {}, 'good');
   ok('Change card opens Stripe’s billing page and comes back to My Yard', r.status === 200 && /^https:\/\/billing\.stripe\.com\//.test(r.d.url) && S.calls.filter((c) => c.p === 'billing_portal/sessions')[0].f.get('return_url') === 'https://arizonapetwaste.com/account/');
 }
@@ -1459,5 +1758,6 @@ if (process.env.STRIPE_SPEC) {
   failN += bad;
 }
 
+if (process.env.MAIL_OUT) fs.writeFileSync(process.env.MAIL_OUT, JSON.stringify(MAIL.all));
 console.log('\n' + pass + ' passed, ' + failN + ' failed');
 process.exit(failN ? 1 : 0);
