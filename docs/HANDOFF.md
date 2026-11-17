@@ -602,6 +602,56 @@ Joe asked for five things in a row. All are live.
 - `/texts/`, privacy, `CONSENT`, `GO_LIVE.md` part 10 and three screenshots match (new: `sms-optin-myyard.png`, made by `build/optin-shots.py` from the sample account).
 - Checked: `worker.test.mjs` 212, `desk` 134, `signup10` 40, `signup50` 125, build and check with the sale on and off, the two browser flows (28 and 8).
 
+## Nov 17, 2026, 9:15 am. A real sign up failed with "Checkout did not load". A Stripe customer that was deleted is now replaced (website and money rules chat), Atlas's report
+
+### What happened
+- 8:45 am, live site. A person typed their details, reached the card step and got "Checkout did not load. Something went wrong on our side." The Health tab line was `stripe 400 No such customer: 'cus_...'`.
+- They had opened the card step the night before (November 16, 9:17 pm), so their row was waiting at `checkout` and held a Stripe customer id. That Stripe customer was deleted in the Stripe dashboard in between. When they came back with the same email, `newAccount` handed their row back (that is right), and `checkout` asked Stripe to update the saved customer.
+- Stripe answered with HTTP 400 and the code `resource_missing`. `checkout` only took a 404 for "this customer is gone", so it threw, and the page got a 500.
+- Nothing was charged and no plan was made. Their row is still at `checkout`. When they try again, it works.
+
+### The fix (`src/worker/worker.js`)
+- **`stripeGone(e, param)`**: one test for "Stripe no longer has this id". True for a 404, and for any status with the code `resource_missing`. With `param` (for a request that names the id in a field, like `customer`), only a "missing" about that field counts. Use this, never a bare 404.
+- **`checkout`**: the update of the saved customer now reads all three answers as gone: a 404, a 400 `resource_missing`, and a 200 with `deleted: true`. Then one new Stripe customer is made with the same name, email, phone and address, the row takes its id, and the Health tab gets one line ("A sign up's saved Stripe customer was gone, so a new one was made", three an hour at most, "Nothing to do").
+- **A second net in `checkout`** (`custGone`, `remake`): if the update goes through and Stripe only says "No such customer" at a later step (the list of plans in a pay today sign up, or the card form itself), a new customer is made there, the row takes its id, and that step is asked for again. Once per try. This chat has no Stripe key, so it cannot see which of Stripe's answers a deleted customer gets on each call. Both are covered.
+- Any other refusal from Stripe is still an error and never makes a second customer (test: a refused email).
+
+### Every place that asks Stripe about a saved id
+| Place | Before | Now |
+| --- | --- | --- |
+| `checkout`, update of the saved customer | 404 only, else a 500 | replaced by a new customer |
+| `checkout`, list of plans and the card form | a 500 | replaced by a new customer, asked again |
+| `checkoutDone`, the card form id | 404 only | a 400 `resource_missing` is "Something was missing" too |
+| `portal` (Change card in My Yard) | a 500 | "We could not find a card on file. Call or text 623.309.6104 and we will help." and one Health line |
+| `meInvoices` (bills in My Yard) | a 500 | an empty list |
+| `mePause`, `meResume` (the saved plan id) | a 500 | "We could not pause this plan." or "We could not start this plan again.", with our number, and nothing is changed |
+| `product` (price setup) | 404 only | `stripeGone` |
+| `cardGo` (the link in a failed card email) | already safe | lands on My Yard sign in |
+| `planInfo` (My Yard) | already safe | My Yard loads without it |
+
+### Left alone on purpose
+- **The webhook.** Every Stripe call it makes uses the id that came in the event, not one read from a row. A customer deleted in Stripe has their plans canceled by Stripe, and that arrives as `customer.subscription.deleted`, which already sets the row to `canceled`.
+- **`billPaid`** reads the saved plan id with no catch. A plan Stripe canceled stays readable, so this only fails for an id from other keys. If it ever does, the webhook answers 500, Stripe sends the event again and the Health tab shows it. Guessing a status there would be worse than failing out loud.
+- **`setDogs`** (the office changes the dog count) is the same and is field desk code. Field desk session: if you want it to say something kinder than an error, `stripeGone(e)` is there to use.
+- No new webhook event. `customer.deleted` is not one of the seven, and the fix does not need it.
+
+### For the people who work in Stripe
+- Deleting a customer in the Stripe dashboard is safe for sign up now: the next visit makes a new customer. It still cancels that customer's plans in Stripe, at once and for good, so only delete one that should lose service.
+- A row at `checkout` whose Stripe customer was deleted needs nothing. It heals on the next visit.
+- Never make a plan by hand in Stripe for someone the site lost. They sign up again on the site.
+
+### Tests
+- `build/worker.test.mjs`: 499 checks, 501 with `STRIPE_SPEC` (102 kinds of field on 27 kinds of request, 727 requests, none refused). 91 are new.
+- New section "A saved Stripe customer that Stripe no longer has": the pretend Stripe now answers the way the real one did (`S.lost`: `r400`, `r404`, `deleted`, and `ghost` for a customer Stripe only disowns at the next step). A deleted customer gets a 200 with a `clientSecret`, one new customer, the old id is asked for once and never again, one Health line, one plan. The same for pay today. A refused email is still a 500 with no second customer. Change card, bills, the card link, pause, start again and an unknown card form id.
+- New section "Abandoned checkout": the same email comes back the next morning with no sign in. Three cases (the saved customer is still there, it was deleted, the old card form has expired), each for the free month and for pay today. Each gets a card form that works, one row, one account, one Stripe customer in use, one plan, one welcome email. Finishing the old card form as well starts no second plan. One more visit after booking gets the code and makes nothing.
+- The new checks were run against the server as it was live (`2991a64`): the deleted customer case fails there with the same line the Health tab showed.
+- `week.test.mjs` 76, `signup10` 40, `signup50` 131, `desk` 134, `nav.test.py` 68, `npm run check` passes.
+- **Not run against the real Stripe.** This chat holds no Stripe key. The proof on live is the next person who comes back to a row whose customer was deleted: they get the card form, and the Health tab shows the "was gone" line.
+
+### Field desk session
+- No screen changed in the crew app, the office or the truck link, so the training video was not rebuilt.
+- The Health tab can show two new lines: "A sign up's saved Stripe customer was gone, so a new one was made" (nothing to do) and "A customer tapped Change card, and Stripe no longer has their customer".
+
 ## Nov 17, 2026, 1:30 am. Pause charges the full month on the return day, and a branded failed card flow (website and money rules chat), Joe's decisions through Atlas
 Joe's decisions, passed on by Atlas at 10:49 pm on Nov 16: (1) leave the free month deal and the December 1 switch as they are, no copy changes before then. (2) Bill the full price on the same day of the next month after sign up, no proration, no 1st of the month. That shipped as `ffdc9c5` (the 11:45 pm note below). (3) "Pause: when a paused customer comes back, charge the full month on the day they return, and that becomes their new billing date. No proration." (4) A branded failed payment flow: a friendly email to the customer with a link to update their card, an alert to info@ for every failed try (name, address, amount, try number), "PAUSE SERVICE" to info@ after the last retry, Stripe Smart Retries plus our webhook, and no automatic cancel. (5) Referral reward and Google Search are on hold.
 

@@ -101,7 +101,18 @@ function rest(method, rel, body, prefer) {
 /* ---------- pretend Stripe ---------- */
 const S = { n: 0, customers: {}, prices: [{ id: 'price_wb', lookup_key: 'apw_week_base' }], sessions: {}, intents: {}, cards: {}, subs: {}, keys: {}, invoices: {}, calls: [], posts: [],
   funding: 'credit', failPlan: null, paidSoFar: [], subMeta: null, subPosts: [], items: [], payCalls: [],
-  busy: 0, preview: null, keepDay: false, made: [], lines: [], failBill: false, all: [], refuse: [], expired: [], notes: [], blind: false, failNote: false };
+  busy: 0, preview: null, keepDay: false, made: [], lines: [], failBill: false, all: [], refuse: [], expired: [], notes: [], blind: false, failNote: false,
+  // Things Stripe no longer has.
+  //  lost[customer id]: 'r400' is what the real Stripe answered on Nov 17, 2026 for a customer that had been deleted in
+  //    the Dashboard: a 400 with the code resource_missing. 'r404' is the same answer as a 404. 'deleted' is the 200
+  //    answer with deleted: true. 'ghost' answers a change to the customer as if nothing were wrong. In all four,
+  //    every other request that names the customer is told "No such customer" (400, resource_missing, param customer).
+  //  lostSubs[plan id]: 400 or 404, the status of "No such subscription".
+  //  sessionGone: an unknown card form id is answered with a 400 resource_missing in place of the 404.
+  //  custErr: any change to a customer is refused with this error (a 400 that is not "gone").
+  lost: {}, lostSubs: {}, sessionGone: false, custErr: null };
+// Stripe's own words for an id it does not have.
+const noSuch = (what, id, param) => ({ error: { code: 'resource_missing', doc_url: 'https://stripe.com/docs/error-codes/resource-missing', message: 'No such ' + what + ": '" + id + "'", param, type: 'invalid_request_error' } });
 // What one unit of a price costs, by its lookup key (the same numbers as PLANS in the server).
 const UNIT = { apw_week_base: 10800, apw_week_extra: 1300, apw_twice_base: 18900, apw_twice_extra: 1300, apw_eow_base: 7500, apw_eow_extra: 900 };
 const unitOf = (priceId) => UNIT[(S.prices.find((x) => x.id === priceId) || {}).lookup_key] || UNIT[String(priceId).replace(/^price_/, '')] || 0;
@@ -126,10 +137,16 @@ function stripeApi(m, url, init) {
   S.all.push({ m, p, q, f }); // every request of the whole run, for the check against Stripe's field list (S.calls is emptied between cases)
   if (p === 'customers' && m === 'POST') { const c = { id: id('cus'), invoice_settings: { default_payment_method: null } }; S.customers[c.id] = c; return reply(c); }
   if (p.startsWith('customers/')) {
-    const c = S.customers[p.slice(10)]; if (!c) return reply({ error: { message: 'No such customer' } }, 404);
+    const cid = p.slice(10), lost = S.lost[cid];
+    if (lost === 'deleted') return reply({ id: cid, object: 'customer', deleted: true });
+    if (lost === 'r400' || lost === 'r404') return reply(noSuch('customer', cid, 'id'), lost === 'r404' ? 404 : 400);
+    const c = S.customers[cid]; if (!c) return reply({ error: { message: 'No such customer' } }, 404);
+    if (S.custErr && m === 'POST') return reply({ error: S.custErr }, 400);
     if (m === 'POST' && f.get('invoice_settings[default_payment_method]')) c.invoice_settings.default_payment_method = f.get('invoice_settings[default_payment_method]');
     return reply(Object.assign({}, c, q.get('expand[0]') ? { invoice_settings: { default_payment_method: S.cards[c.invoice_settings.default_payment_method] || null } } : {}));
   }
+  // Every other request that names a customer Stripe no longer has: a card form, a list of plans or bills, the billing page.
+  { const named = m === 'GET' ? q.get('customer') : f.get('customer'); if (named && S.lost[named]) return reply(noSuch('customer', named, 'customer'), 400); }
   if (p === 'prices' && m === 'GET') { const want = [...q.entries()].filter(([k]) => k.startsWith('lookup_keys')).map(([, v]) => v); return reply({ data: S.prices.filter((x) => want.includes(x.lookup_key)) }); }
   if (p.startsWith('products/')) return reply({ error: { message: 'No such product' } }, 404);
   if (p === 'products') return reply({ id: f.get('id') });
@@ -158,7 +175,8 @@ function stripeApi(m, url, init) {
     return reply({ id: s.id, status: 'expired' });
   }
   if (p.startsWith('checkout/sessions/')) {
-    const s = S.sessions[p.slice(18)]; if (!s) return reply({ error: { message: 'No such session' } }, 404);
+    const s = S.sessions[p.slice(18)];
+    if (!s) return S.sessionGone ? reply(noSuch('checkout.session', p.slice(18), 'session'), 400) : reply({ error: { message: 'No such session' } }, 404);
     const si = S.intents[s.setup_intent];
     return reply(Object.assign({}, s, { form: undefined, card: undefined, setup_intent: si ? Object.assign({}, si, { payment_method: S.cards[si.payment_method] }) : null }));
   }
@@ -176,6 +194,7 @@ function stripeApi(m, url, init) {
     S.subs[sub.id] = sub; if (key) S.keys[key] = sub;
     return reply(sub);
   }
+  if (p.startsWith('subscriptions/') && S.lostSubs[p.slice(14)]) return reply(noSuch('subscription', p.slice(14), 'id'), S.lostSubs[p.slice(14)]);
   if (p.startsWith('subscriptions/') && m === 'GET') {
     const sub = S.subs[p.slice(14)];
     if (sub) return reply(Object.assign({}, sub, { form: undefined }));
@@ -242,7 +261,7 @@ function stripeApi(m, url, init) {
     if (i && S.lateNext && S.lateNext.id === i.id && --S.lateNext.reads <= 0) { i.next_payment_attempt = S.lateNext.at; S.lateNext = null; }
     return reply(i ? Object.assign({}, i, S.blind ? { metadata: {} } : {}) : { error: { message: 'No such invoice' } }, i ? 200 : 404);
   }
-  if (p === 'billing_portal/sessions') return reply({ url: 'https://billing.stripe.com/p/session/test' });
+  if (p === 'billing_portal/sessions') return S.portalErr ? reply({ error: S.portalErr }, 400) : reply({ url: 'https://billing.stripe.com/p/session/test' });
   return reply({ error: { message: 'unmocked stripe ' + m + ' ' + p } }, 500);
 }
 
@@ -1704,6 +1723,212 @@ head('Facebook lead forms: Meta checks the address, sends a signed notice, and t
   ok('a notice past the size cap is refused', big.status === 413, big.status);
   ok('Facebook leads count as sign up requests in the office app, and the website form still takes its own', (await call('/api/request', 'POST', Object.assign({}, good, { email: 'after-fb@example.com' }))).status === 200);
   clear(); env = Object.assign({}, baseEnv); G.subs = []; }
+
+/* ---------- a saved Stripe id that Stripe no longer has ---------- */
+head('A saved Stripe customer that Stripe no longer has (live, Nov 17, 2026: "Checkout did not load")');
+{ // What happened: a person opened the card step on the night of November 16, so their row held a Stripe customer id.
+  // That customer was then deleted in the Stripe dashboard. They came back at 8:45 am, and Stripe answered the update
+  // of that customer with a 400 ("No such customer", code resource_missing). The server only knew a 404 as "gone",
+  // gave up with a 500, and the page said "Checkout did not load. Something went wrong on our side."
+  env = Object.assign({}, baseEnv);
+  const wipe = () => { T.customers.length = 0; T.consent_log.length = 0; for (const k of Object.keys(S.subs)) delete S.subs[k]; reset(); };
+  const newCust = () => S.calls.filter((c) => c.m === 'POST' && c.p === 'customers').length;
+  const forms = () => S.calls.filter((c) => c.m === 'POST' && c.p === 'checkout/sessions');
+  const named = (cid) => S.calls.filter((c) => c.p === 'customers/' + cid || c.f.get('customer') === cid || c.q.get('customer') === cid);
+  const goneLines = () => T.errors.filter((e) => /saved Stripe customer was gone/.test(e.message));
+  const plans = () => Object.values(S.subs);
+  wipe(); T.errors.length = 0;
+
+  let r = await call('/api/checkout', 'POST', good, 'good'); await settle();
+  const first = row(U1).stripe_customer_id;
+  ok('the first visit opens the card form and saves the Stripe customer on the row', r.status === 200 && !!r.d.clientSecret && /^cus_/.test(first) && newCust() === 1, r);
+
+  // The customer is deleted in the Stripe dashboard. The row still holds its id.
+  S.lost[first] = 'r400'; reset();
+  r = await call('/api/checkout', 'POST', good, 'good'); await settle();
+  const second = row(U1).stripe_customer_id;
+  ok('a deleted customer answers 400 resource_missing, and checkout still returns 200 with a clientSecret',
+    r.status === 200 && typeof r.d.clientSecret === 'string' && r.d.clientSecret.length > 10 && /^cs_test/.test(r.d.session) && r.d.free === true && /^\$0 today\. Then \$121 a month starting /.test(r.d.line), r);
+  ok('one new Stripe customer is made, with the same name, email and phone, and the row takes its id', newCust() === 1 && /^cus_/.test(second) && second !== first
+    && (() => { const f = S.calls.filter((c) => c.m === 'POST' && c.p === 'customers')[0].f; return f.get('email') === 'test@example.com' && f.get('name') === 'Test Person' && f.get('phone') === '+16235550100' && f.get('address[postal_code]') === '85396' && f.get('metadata[user_id]') === U1; })(), [first, second, newCust()]);
+  ok('the card form is made for the new customer, and the old id is asked for once and never again', forms().length === 1 && forms()[0].f.get('customer') === second && S.sessions[r.d.session].customer === second && named(first).length === 1, S.calls.map((c) => c.m + ' ' + c.p));
+  ok('the Health tab gets one line that names the old customer and says nothing is needed', goneLines().length === 1 && goneLines()[0].path === '/api/checkout' && goneLines()[0].detail.includes(first) && /Nothing to do\.$/.test(goneLines()[0].detail), T.errors);
+  ok('still one row and one sign up waiting at the card step', T.customers.length === 1 && row(U1).status === 'checkout' && !row(U1).stripe_subscription_id);
+
+  reset();
+  r = await call('/api/checkout', 'POST', good, 'good'); await settle();
+  ok('the next visit uses the new customer and makes no other', r.status === 200 && !!r.d.clientSecret && newCust() === 0 && row(U1).stripe_customer_id === second && forms()[0].f.get('customer') === second && named(first).length === 0, S.calls.map((c) => c.m + ' ' + c.p));
+  const openForm = r.d.session;
+  reset();
+  ok('the card is saved: the plan starts on the new customer', (await hook(sessionEvt(openForm))) === 200 && row(U1).status === 'trialing' && plans().length === 1 && plans()[0].customer === second && row(U1).stripe_subscription_id === plans()[0].id
+    && S.customers[second].invoice_settings.default_payment_method === S.sessions[openForm].card, [row(U1), plans().map((p) => p.customer)]);
+  ok('one welcome and one office email', sent(/^You are booked/).length === 1 && sent(/^New booking: Test Person/).length === 1 && sent(/^New booking/)[0].text.includes('Stripe customer: ' + second), mails.map((m) => m.subject));
+
+  // Stripe's two other ways to say the same thing, and a customer Stripe says nothing about until the card form is asked for.
+  const lose = async (kind, more) => {
+    wipe();
+    const a = await call('/api/checkout', 'POST', Object.assign({}, good, more || {}), 'good'); await settle();
+    const old = row(U1).stripe_customer_id;
+    S.lost[old] = kind; reset(); const before = T.errors.length;
+    const b = await call('/api/checkout', 'POST', Object.assign({}, good, more || {}), 'good'); await settle();
+    return { a, b, old, now: row(U1).stripe_customer_id, made: newCust(), forms: forms(), noted: T.errors.slice(before) };
+  };
+  let x = await lose('r404');
+  ok('the same with a 404 (a customer id made with other keys)', x.b.status === 200 && !!x.b.d.clientSecret && x.made === 1 && x.now !== x.old && S.sessions[x.b.d.session].customer === x.now && named(x.old).length === 1, x.b);
+  x = await lose('deleted');
+  ok('the same when Stripe answers 200 with deleted: true', x.b.status === 200 && !!x.b.d.clientSecret && x.made === 1 && x.now !== x.old && S.sessions[x.b.d.session].customer === x.now && named(x.old).length === 1, x.b);
+  ok('and that one becomes one plan on the new customer', (await hook(sessionEvt(x.b.d.session))) === 200 && row(U1).status === 'trialing' && plans().length === 1 && plans()[0].customer === x.now, plans().map((p) => p.customer));
+  x = await lose('ghost');
+  ok('if Stripe takes the update and only says "No such customer" when the card form is asked for, a new customer is made there and the form is asked for again',
+    x.b.status === 200 && !!x.b.d.clientSecret && x.made === 1 && x.now !== x.old && S.sessions[x.b.d.session].customer === x.now && x.forms.length === 2 && x.forms[0].f.get('customer') === x.old && x.forms[1].f.get('customer') === x.now, [x.b, x.forms.map((c) => c.f.get('customer'))]);
+  ok('that card form is still cards only with Link off, and nobody is told Stripe refused the ways to pay', x.forms[1].f.get('allowed_payment_method_types[0]') === 'card' && x.forms[1].f.get('wallet_options[link][display]') === 'never' && x.forms[1].f.get('currency') === 'usd'
+    && !x.noted.some((e) => /ways to pay/.test(e.message)), x.noted);
+  ok('and it becomes one plan on the new customer', (await hook(sessionEvt(x.b.d.session))) === 200 && row(U1).status === 'trialing' && plans().length === 1 && plans()[0].customer === x.now && row(U1).stripe_customer_id === x.now, plans().map((p) => p.customer));
+  ok('the Health tab is told about a gone customer three times an hour at most', goneLines().length >= 1 && goneLines().length <= 3, goneLines().length);
+
+  // The same hole in the sign up that pays today (no free month: after the sale, or /book/?nofree=1).
+  x = await lose('r400', { noFree: true });
+  ok('pay today: a deleted customer still gets the card form, on a new customer', x.b.status === 200 && !!x.b.d.clientSecret && x.b.d.free === false && x.made === 1 && x.now !== x.old && x.forms.length === 1 && x.forms[0].f.get('mode') === 'subscription' && x.forms[0].f.get('customer') === x.now, x.b);
+  { const sub = payNow(x.b.d.session);
+    ok('pay today: it is paid and booked once, on the new customer', (await hook(paidEvt(x.b.d.session))) === 200 && row(U1).status === 'active' && row(U1).stripe_subscription_id === sub.id && sub.customer === x.now && plans().length === 1, row(U1)); }
+  x = await lose('ghost', { noFree: true });
+  ok('pay today: the same when Stripe only says so at the next step', x.b.status === 200 && !!x.b.d.clientSecret && x.b.d.free === false && x.made === 1 && x.now !== x.old && x.forms.length === 1 && x.forms[0].f.get('customer') === x.now && row(U1).stripe_customer_id === x.now, [x.b, x.forms.map((c) => c.f.get('customer'))]);
+
+  // A refusal that is not "gone" is still a failure. It must never be papered over with a second customer.
+  wipe();
+  await call('/api/checkout', 'POST', good, 'good'); await settle();
+  const kept = row(U1).stripe_customer_id;
+  S.custErr = { code: 'email_invalid', message: 'Invalid email address: nope', param: 'email', type: 'invalid_request_error' }; reset();
+  r = await call('/api/checkout', 'POST', good, 'good'); await settle(); S.custErr = null;
+  ok('any other refusal from Stripe is still an error: no card form and no second customer', r.status === 500 && !(r.d && r.d.clientSecret) && newCust() === 0 && forms().length === 0 && row(U1).stripe_customer_id === kept, r);
+  reset();
+  r = await call('/api/checkout', 'POST', good, 'good'); await settle();
+  ok('and once Stripe takes it again, the same customer is used', r.status === 200 && !!r.d.clientSecret && newCust() === 0 && forms()[0].f.get('customer') === kept, r);
+
+  // The other places that ask Stripe about a saved id: Change card, the bills list, the card link, pause and start again.
+  wipe(); T.errors.length = 0;
+  const az = (n) => new Date(Date.now() - 7 * 3600e3 + n * 86400e3).toISOString().slice(0, 10);
+  T.customers.push({ id: U1, email: 'test@example.com', name: 'Test Person', phone: '6235550100', address: '123 W Test St', zip: '85396', plan: 'week', dogs: 2, status: 'active',
+    stripe_customer_id: 'cus_del', stripe_subscription_id: 'sub_del', service_day: 2, service_day2: null, skips: [], texts_visit: true });
+  S.customers.cus_del = { id: 'cus_del', invoice_settings: { default_payment_method: null } };
+  S.lost.cus_del = 'r400'; S.lostSubs.sub_del = 400;
+  r = await call('/api/portal', 'POST', {}, 'good'); await settle();
+  ok('Change card for a customer Stripe no longer has: a plain message with our number, not an error', r.status === 404 && /623\.309\.6104/.test(r.d.error) && !r.d.url, r);
+  ok('and the office sees why, with no advice to make a plan by hand', T.errors.length === 1 && T.errors[0].path === '/api/portal' && T.errors[0].detail.includes('cus_del') && /Do not make a plan by hand/.test(T.errors[0].detail), T.errors);
+  r = await call('/api/me/invoices', 'GET', null, 'good');
+  ok('their bills list is empty, not an error', r.status === 200 && Array.isArray(r.d.invoices) && r.d.invoices.length === 0, r);
+  // Something else that is missing in Stripe is not a customer that is gone. It must stay an error the office can see.
+  delete S.lost.cus_del;
+  S.portalErr = { code: 'resource_missing', message: "No such configuration: 'bpc_123'", param: 'configuration', type: 'invalid_request_error' };
+  r = await call('/api/portal', 'POST', {}, 'good'); await settle();
+  ok('Change card with some other thing missing in Stripe is still an error, not "no card on file"', r.status === 500 && !/card on file/.test(JSON.stringify(r.d)), r);
+  S.portalErr = { message: 'No configuration provided and your live mode default configuration has not been created.', type: 'invalid_request_error' };
+  r = await call('/api/portal', 'POST', {}, 'good'); await settle();
+  ok('and so is a billing page that was never saved in Stripe', r.status === 500, r);
+  S.portalErr = null; S.lost.cus_del = 'r400'; T.errors.length = 0;
+  r = await call('/api/me/plan', 'GET', null, 'good');
+  ok('My Yard still loads', r.status === 200 && !!r.d.plan, r);
+  { const exp = Math.floor(Date.now() / 1000) + 86400, sig = crypto.createHmac('sha256', 'apw-yard-link|' + env.SUPABASE_SERVICE_ROLE_KEY).update('card|' + U1 + '.' + exp).digest('base64url');
+    const g = await worker.fetch(new Request('https://arizonapetwaste.com/api/card?k=' + U1 + '.' + exp + '.' + sig), env, ctx); await settle();
+    ok('the card link from an email lands on My Yard, not on an error page', g.status === 302 && g.headers.get('location') === 'https://arizonapetwaste.com/account/?card=old', [g.status, g.headers.get('location')]); }
+  S.subPosts.length = 0;
+  r = await call('/api/me/pause', 'POST', { until: az(30) }, 'good');
+  ok('pause when Stripe no longer has the plan (400): a plain message, and the row is not touched', r.status === 400 && /could not pause/.test(r.d.error) && /623\.309\.6104/.test(r.d.error) && row(U1).status === 'active' && S.subPosts.length === 0, r);
+  S.lostSubs.sub_del = 404;
+  r = await call('/api/me/pause', 'POST', { until: az(30) }, 'good');
+  ok('the same with a 404', r.status === 400 && /could not pause/.test(r.d.error) && row(U1).status === 'active', r);
+  row(U1).status = 'paused'; S.lostSubs.sub_del = 400;
+  r = await call('/api/me/resume', 'POST', {}, 'good');
+  ok('start again when Stripe no longer has the plan: a plain message, and the row is not touched', r.status === 400 && /could not start this plan again/.test(r.d.error) && row(U1).status === 'paused' && S.subPosts.length === 0, r);
+  S.sessionGone = true;
+  r = await call('/api/checkout/done', 'POST', { session: 'cs_test_longgone' });
+  ok('a card form id Stripe does not know (400 resource_missing) starts nothing and is not a server error', r.status === 400 && !r.d.booked, r);
+  S.sessionGone = false;
+  for (const k of Object.keys(S.lost)) delete S.lost[k];
+  for (const k of Object.keys(S.lostSubs)) delete S.lostSubs[k];
+  delete S.customers.cus_del;
+  wipe(); T.errors.length = 0; mails.length = 0; }
+
+head('Abandoned checkout: the same email comes back later with no sign in. One card form that works, one customer, one plan');
+{ // A new customer has no sign in, so "comes back" means: the same email is typed again, hours later, in a new tab or
+  // on another phone. The first visit was the night of November 16, the second the next morning (the real case).
+  // Free month: the card form saves a card and the server starts the plan. Pay today: Stripe's form makes the plan.
+  const NIGHT = '2026-11-17T04:17:00Z', MORNING = '2026-11-17T15:45:00Z'; // 9:17 pm on Nov 16 and 8:45 am on Nov 17, Arizona time
+  const CASES = [['a', 'their saved Stripe customer is still there'], ['b', 'their saved Stripe customer was deleted'], ['c', 'their old card form has expired']];
+  let n = 0;
+  const comeBack = async (kase, what, paid) => {
+    n++;
+    env = Object.assign({}, baseEnv, paid ? SALE_OVER : {});
+    const email = 'back' + n + '@example.com', me = Object.assign({}, good, { email: 'Back' + n + '@Example.com', dogs: 2, phone: '62355502' + String(10 + n), address: (200 + n) + ' W Return St' });
+    const tag = (paid ? 'pay today, ' : 'free month, ') + '(' + kase + ') ' + what + ': ';
+    const rows = () => T.customers.filter((c) => c.email === email);
+    const uid = () => rows()[0] && rows()[0].id;
+    const myPlans = () => Object.values(S.subs).filter((x) => x.metadata && x.metadata.user_id === uid());
+    const count = (m, p) => S.calls.filter((c) => c.m === m && c.p === p).length;
+    S.calls.length = 0; mails.length = 0; S.expired.length = 0;
+    const before = Object.keys(S.subs).length, accounts = authCalls.length;
+
+    // The first visit. They get as far as the card form and leave.
+    const v1 = await at(NIGHT, () => call('/api/checkout', 'POST', me)); await settle();
+    const c1 = rows()[0] && rows()[0].stripe_customer_id, s1 = v1.d && v1.d.session;
+    if (kase === 'b') S.lost[c1] = 'r400';            // deleted in the Stripe dashboard overnight
+    if (kase === 'c') S.sessions[s1].status = 'expired'; // Stripe closes a card form that is left open
+
+    // They come back the next morning: same email, no sign in, a new card form.
+    const v2 = await at(MORNING, () => call('/api/checkout', 'POST', me)); await settle();
+    const c2 = rows()[0] && rows()[0].stripe_customer_id, s2 = v2.d && v2.d.session;
+    ok(tag + 'the first visit and the visit the next morning both get a card form', v1.status === 200 && !!v1.d.clientSecret && v2.status === 200 && !!v2.d.clientSecret && !!s2 && s2 !== s1 && v2.d.free === !paid && !v2.d.auth
+      && S.sessions[s2].status === 'open' && S.sessions[s2].customer === c2 && S.sessions[s2].client_reference_id === uid(), [v1, v2]);
+    ok(tag + 'one row and one account for that email', rows().length === 1 && rows()[0].status === 'checkout' && authCalls.slice(accounts).filter((a) => a === 'create ' + email).length === 1, [rows().length, authCalls.slice(accounts)]);
+    ok(tag + (kase === 'b' ? 'the deleted customer is replaced by one new customer, and the new card form is on it' : 'the same Stripe customer is used again, and no second one is made'),
+      kase === 'b' ? (count('POST', 'customers') === 2 && c2 !== c1 && /^cus_/.test(c2)) : (count('POST', 'customers') === 1 && c2 === c1), [c1, c2, count('POST', 'customers')]);
+    if (!paid) ok(tag + 'the price line follows the day they came back', v2.d.line === '$0 today. Then $108 a month starting Dec 17.', v2.d.line);
+    else ok(tag + 'the price line says what is charged today', /^\$108 today\./.test(v2.d.line), v2.d.line);
+    if (paid && kase === 'a') ok(tag + 'the card form left open the night before is closed, so it cannot be paid as well', S.sessions[s1].status === 'expired' && S.expired.includes(s1), S.expired);
+
+    // They put in their card on the new form. The page reports it, and Stripe's webhook reports the same thing.
+    let sub = null;
+    const done = await at(MORNING, async () => {
+      if (paid) sub = payNow(s2); else S.sessions[s2].status = 'complete';
+      const d = await call('/api/checkout/done', 'POST', { session: s2 }); await settle();
+      const h = await hook(paid ? paidEvt(s2) : sessionEvt(s2));
+      return { d, h };
+    });
+    const mine = myPlans();
+    ok(tag + 'the card form they finish books them', done.d.status === 200 && done.d.d.booked === true && done.h === 200 && rows()[0].status === (paid ? 'active' : 'trialing') && rows()[0].stripe_customer_id === c2, [done, rows()[0]]);
+    ok(tag + 'a single subscription, on the customer the row holds', mine.length === 1 && Object.keys(S.subs).length === before + 1 && mine[0].customer === c2 && rows()[0].stripe_subscription_id === mine[0].id
+      && (paid ? count('POST', 'subscriptions') === 0 : count('POST', 'subscriptions') === 1), [mine.map((p) => p.id + ' ' + p.customer), count('POST', 'subscriptions')]);
+    if (!paid) ok(tag + 'free until one month from the day they came back, with no billing day and no part month sent to Stripe',
+      mine[0].trial_end === Math.floor(RealDate.parse('2026-12-17T19:00:00Z') / 1000) && !mine[0].form.has('billing_cycle_anchor') && !mine[0].form.has('proration_behavior'), [mine[0].trial_end, day(mine[0].trial_end)]);
+    ok(tag + 'one welcome email and one office email', sent(/^You are booked/).length === 1 && sent(/^New booking: Test Person/).length === 1, mails.map((m) => m.subject));
+
+    // The old card form, if they find that tab again.
+    const posts = count('POST', 'subscriptions'), welcomes = sent(/^You are booked/).length;
+    if (kase === 'a' && !paid) {
+      // Still open in Stripe (a card form that only saves a card is not closed by a new one). They finish it too.
+      const late = await at(MORNING, async () => { const h = await hook(sessionEvt(s1)); const d = await call('/api/checkout/done', 'POST', { session: s1 }); await settle(); return { h, d }; });
+      ok(tag + 'finishing the old card form as well starts no second plan and sends no second welcome', late.h === 200 && late.d.status === 200 && myPlans().length === 1 && count('POST', 'subscriptions') === posts && sent(/^You are booked/).length === welcomes, [late, myPlans().length]);
+    } else if (kase !== 'b') {
+      const late = await at(MORNING, async () => { const d = await call('/api/checkout/done', 'POST', { session: s1 }); await settle(); return d; });
+      ok(tag + 'the old card form is closed: reporting it books nothing more', late.status === 200 && late.d.booked === false && myPlans().length === 1 && count('POST', 'subscriptions') === posts && sent(/^You are booked/).length === welcomes, late);
+    }
+
+    // And one more visit, now that they are booked.
+    S.calls.length = 0;
+    const v3 = await at(MORNING, () => call('/api/checkout', 'POST', me)); await settle();
+    ok(tag + 'coming back once more makes no card form, no customer and no plan: that email has a plan now', v3.status === 409 && v3.d.code === 'use_code' && !v3.d.clientSecret && S.calls.filter((c) => c.m === 'POST').length === 0
+      && rows().length === 1 && myPlans().length === 1 && Object.keys(S.subs).length === before + 1, [v3, S.calls.map((c) => c.m + ' ' + c.p)]);
+    if (kase === 'b') delete S.lost[c1];
+  };
+  T.customers.length = 0; T.consent_log.length = 0; T.errors.length = 0; for (const k of Object.keys(S.subs)) delete S.subs[k]; reset();
+  for (const [kase, what] of CASES) await comeBack(kase, what, false);
+  ok('after the three free month cases: three people, three rows, three plans, nothing doubled', T.customers.length === 3 && Object.keys(S.subs).length === 3 && new Set(T.customers.map((c) => c.stripe_customer_id)).size === 3
+    && new Set(Object.values(S.subs).map((p) => p.customer)).size === 3 && T.customers.every((c) => c.status === 'trialing'), T.customers.map((c) => c.status));
+  for (const [kase, what] of CASES) await comeBack(kase, what, true);
+  ok('after all six: six rows, six plans, one each', T.customers.length === 6 && Object.keys(S.subs).length === 6 && new Set(T.customers.map((c) => c.stripe_subscription_id)).size === 6 && new Set(Object.values(S.subs).map((p) => p.customer)).size === 6, [T.customers.length, Object.keys(S.subs).length]);
+  ok('none of it left an error for the office, apart from the notes about the deleted customers', T.errors.every((e) => /saved Stripe customer was gone/.test(e.message)), T.errors);
+  env = Object.assign({}, baseEnv);
+  T.customers.length = 0; T.consent_log.length = 0; T.errors.length = 0; mails.length = 0; for (const k of Object.keys(S.subs)) delete S.subs[k]; reset(); }
 
 /* ---------- every Stripe request against Stripe's own field list (optional) ---------- */
 if (process.env.STRIPE_SPEC) {

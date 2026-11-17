@@ -386,6 +386,21 @@ async function stripe(env, method, path, params, idem) {
   if (idem && data && typeof data === 'object' && r.headers.get('idempotent-replayed') === 'true') Object.defineProperty(data, '_replayed', { value: true });
   return data;
 }
+// Stripe has three ways to say that an id we saved is no longer there. A 404. A 400 with the code resource_missing
+// ("No such customer: ..."): that is what it answered on Nov 17, 2026 for a customer that had been deleted in the
+// Stripe dashboard, and checkout only knew the 404, so a real sign up got "Checkout did not load". And for a deleted
+// customer it can answer 200 with deleted: true (see the callers). All three mean gone. Never test a saved Stripe id
+// with a bare 404 again: use this.
+// `param` is for a request that names the saved id in a field (customer: ...) next to other things. Then only a
+// "missing" that is about that field counts, so some other missing thing is never taken for a customer that is gone.
+function stripeGone(e, param) {
+  if (!e) return false;
+  if (e.status === 404) return true;
+  const x = e.stripe || {};
+  if (x.code !== 'resource_missing') return false;
+  if (!param) return true;
+  return x.param === param || (!x.param && new RegExp('^No such ' + param + '\\b', 'i').test(String(x.message || '')));
+}
 function money(cents) { return '$' + (cents / 100).toFixed(cents % 100 ? 2 : 0); }
 function monthly(plan, dogs) { const p = PLANS[plan]; return p.base + Math.max(0, dogs - 2) * p.extra; }
 
@@ -514,7 +529,7 @@ const LOOKUP = {
 };
 let priceCache = null;
 async function product(env, id, name) {
-  try { return (await stripe(env, 'GET', 'products/' + id)).id; } catch (e) { if (e.status !== 404) throw e; }
+  try { return (await stripe(env, 'GET', 'products/' + id)).id; } catch (e) { if (!stripeGone(e)) throw e; }
   try { return (await stripe(env, 'POST', 'products', { id, name })).id; } catch (e) { return (await stripe(env, 'GET', 'products/' + id)).id; }
 }
 async function prices(env) {
@@ -610,11 +625,38 @@ async function checkout(request, env, ctx) {
     metadata: { user_id: u.id }
   };
   let customer = row && row.stripe_customer_id;
+  // One line for the Health tab when a saved customer turned out to be gone (three an hour at most).
+  const goneNote = (was) => {
+    if (!hitLimit('cust-gone', 3, 3600e3)) ctx.waitUntil(logError(env, 'server', '/api/checkout', 'A sign up’s saved Stripe customer was gone, so a new one was made',
+      'Stripe no longer has ' + clean(was, 60) + ' (deleted in the Stripe dashboard, or made with other keys). The sign up went on with a new Stripe customer. Nothing to do.'));
+  };
   if (customer) {
-    // A customer id Stripe does not know was made with other keys (test mode, before the switch to live). Start a new one.
-    try { await stripe(env, 'POST', 'customers/' + customer, cust); } catch (e) { if (e.status !== 404) throw e; customer = null; }
+    // A customer id Stripe no longer has: it was deleted in the Stripe dashboard, or it was made with other keys (test
+    // mode, before the switch to live). Start a new one. The row takes the new id a few lines down, so the old id is
+    // never asked for again. Stripe says "gone" in three ways (see stripeGone): all three land here.
+    let lost = false;
+    try {
+      const c = await stripe(env, 'POST', 'customers/' + enc(customer), cust);
+      lost = !!(c && c.deleted);
+    } catch (e) {
+      if (!stripeGone(e)) throw e;
+      lost = true;
+    }
+    if (lost) { goneNote(customer); customer = null; }
   }
   if (!customer) customer = (await stripe(env, 'POST', 'customers', cust)).id;
+  // A second net under the same hole. If the update above went through and Stripe still says, at a later step of this
+  // sign up, that it does not have the customer (a 400 that names the customer), a new one is made there, the row
+  // takes its id and that step is asked for again. Once per try, so no customer is ever made for nothing.
+  let remade = false;
+  const custGone = (e) => !remade && !!(e && e.stripe && e.stripe.code === 'resource_missing' && (e.stripe.param === 'customer' || /^No such customer/i.test(String(e.stripe.message || ''))));
+  const remake = async () => {
+    remade = true;
+    const was = customer;
+    customer = (await stripe(env, 'POST', 'customers', cust)).id;
+    await db(env, 'PATCH', 'customers?id=eq.' + u.id + '&status=eq.checkout', { stripe_customer_id: customer, updated_at: new Date().toISOString() }, 'return=minimal');
+    goneNote(was);
+  };
 
   await db(env, 'POST', 'customers?on_conflict=id', [{
     id: u.id, email: u.email, name, phone, address, zip, area: z.area, plan: b.plan, dogs, first_visit: null,
@@ -667,7 +709,9 @@ async function checkout(request, env, ctx) {
     // paidPlan books the yard once the first month is paid.
     // One plan for one customer. A plan Stripe already has for them that is still going is their plan: a second tab
     // that was paid, or a sign up whose booking is still on its way.
-    const all = (await stripe(env, 'GET', 'subscriptions', { customer, status: 'all', limit: 100 })).data || [];
+    let all;
+    try { all = (await stripe(env, 'GET', 'subscriptions', { customer, status: 'all', limit: 100 })).data || []; }
+    catch (e) { if (!custGone(e)) throw e; await remake(); all = []; } // a customer that is gone has no plan, and the new one has none yet
     if (all.some((x) => ['trialing', 'active', 'past_due', 'unpaid', 'paused'].includes(x.status))) return ok({ already: true });
     // One open card form for one customer. Two tabs paid one after the other would be two plans and two charges, so a
     // card form left open from before is closed before a new one is made. This never stops a sign up.
@@ -713,6 +757,8 @@ async function checkout(request, env, ctx) {
   let ck, refused = null;
   for (let i = 0; !ck; i++) {
     try { ck = await stripe(env, 'POST', 'checkout/sessions', ways[i][1]); } catch (e) {
+      // Stripe does not have the customer after all: make a new one and ask for the card form again, from the top of the list.
+      if (custGone(e)) { await remake(); for (const w of ways) w[1].customer = customer; refused = null; i = -1; continue; }
       if (e.status !== 400 || i + 1 >= ways.length) throw e;
       refused = refused || e;
       continue;
@@ -739,7 +785,7 @@ async function checkoutDone(request, env, ctx) {
   // that opened that card form has it. All this call can do with it is start that one sign up's plan, the same as the webhook.
   let s;
   try { s = await stripe(env, 'GET', 'checkout/sessions/' + id, { expand: ['setup_intent.payment_method'] }); }
-  catch (e) { if (e.status === 404) return fail(400, 'Something was missing. Please try again.'); throw e; }
+  catch (e) { if (stripeGone(e)) return fail(400, 'Something was missing. Please try again.'); throw e; }
   if (u && s.client_reference_id !== u.id) return fail(403, 'That sign up belongs to someone else.');
   if (s.status !== 'complete') return ok({ booked: false });
   try {
@@ -1615,7 +1661,16 @@ async function portal(request, env) {
   const cus = rows && rows[0] && rows[0].stripe_customer_id;
   if (!cus) return fail(404, 'We could not find a card on file. ' + CALL_US);
   const site = env.SITE_URL || new URL(request.url).origin;
-  const s = await stripe(env, 'POST', 'billing_portal/sessions', { customer: cus, return_url: site + '/account/' });
+  let s;
+  try { s = await stripe(env, 'POST', 'billing_portal/sessions', { customer: cus, return_url: site + '/account/' }); }
+  catch (e) {
+    // Stripe no longer has this customer (deleted in the Stripe dashboard, or made with other keys). There is no card
+    // page to open, and a plan cannot be running on a customer that is gone.
+    if (!stripeGone(e, 'customer')) throw e;
+    if (!hitLimit('portal-gone', 3, 3600e3)) await logError(env, 'server', '/api/portal', 'A customer tapped Change card, and Stripe no longer has their customer',
+      'Stripe no longer has ' + clean(cus, 60) + '. They were told to call or text. To start service again they sign up on the site again, which makes a new Stripe customer. Do not make a plan by hand in Stripe.');
+    return fail(404, 'We could not find a card on file. ' + CALL_US);
+  }
   return ok({ url: s.url });
 }
 
@@ -3529,7 +3584,9 @@ async function meInvoices(request, env) {
   const x = await me2(request, env);
   if (x.err) return x.err;
   if (!x.c.stripe_customer_id) return ok({ invoices: [] });
-  const r = await stripe(env, 'GET', 'invoices', { customer: x.c.stripe_customer_id, limit: 12 });
+  let r;
+  try { r = await stripe(env, 'GET', 'invoices', { customer: x.c.stripe_customer_id, limit: 12 }); }
+  catch (e) { if (!stripeGone(e, 'customer')) throw e; return ok({ invoices: [] }); } // Stripe no longer has this customer: there are no bills to show
   return ok({ invoices: (r.data || []).filter((i) => i.status !== 'draft' && i.status !== 'void').map((i) => ({
     date: new Date(i.created * 1000).toISOString().slice(0, 10), amount: i.total, status: i.status, url: i.hosted_invoice_url || null })) });
 }
@@ -3576,7 +3633,9 @@ async function mePause(request, env, ctx) {
   const until = String(b.until || ''), today = azToday();
   if (!['trialing', 'active'].includes(c.status) || !c.stripe_subscription_id) return fail(400, 'We could not pause this plan. ' + CALL_US);
   const id = enc(c.stripe_subscription_id);
-  const sub = await stripe(env, 'GET', 'subscriptions/' + id);
+  let sub;
+  try { sub = await stripe(env, 'GET', 'subscriptions/' + id); }
+  catch (e) { if (!stripeGone(e)) throw e; return fail(400, 'We could not pause this plan. ' + CALL_US); }
   const minEnd = pauseOpens(sub);
   if (minEnd && Date.now() / 1000 < minEnd) return fail(400, 'You can pause after ' + dateLabel(new Date(minEnd * 1000)) + '. Need a break before then? Skip a visit, or text 623.309.6104.');
   if (!isDay(until) || until <= today) return fail(400, 'Pick the day you want us to start again.');
@@ -3617,7 +3676,9 @@ async function meResume(request, env, ctx) {
   const c = x.c;
   if (c.status !== 'paused' || !c.stripe_subscription_id) return fail(400, 'Your plan is not paused.');
   const id = enc(c.stripe_subscription_id);
-  const sub = await stripe(env, 'GET', 'subscriptions/' + id);
+  let sub;
+  try { sub = await stripe(env, 'GET', 'subscriptions/' + id); }
+  catch (e) { if (!stripeGone(e)) throw e; return fail(400, 'We could not start this plan again. ' + CALL_US); }
   const md = sub.metadata || {};
   let s, charged = false;
   if (sub.status === 'trialing' && md.pause_until) {
