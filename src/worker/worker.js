@@ -9,6 +9,8 @@
 //   Optional: NOTIFY_EMAIL, MAIL_FROM (needs a domain verified in Resend), SITE_URL, FIRST_VISIT_FROM (default 2026-11-20), SCHEDULE_DAYS (default 7)
 //   Live map on the truck link: GOOGLE_MAPS_BROWSER_KEY (Maps JavaScript API, locked to arizonapetwaste.com) and
 //     GOOGLE_MAPS_SERVER_KEY (Routes API, secret). Without them the link shows arrival time and miles with no map.
+//   Ads: META_CAPI_TOKEN (the server's copy of each booking and lead for Meta). Facebook and Instagram lead forms:
+//     META_APP_SECRET, META_VERIFY_TOKEN and META_PAGE_TOKEN (see "Facebook and Instagram lead ads" below).
 // With the keys missing, /api/config says live: false and the site runs its demo sign up.
 
 const STRIPE_VERSION = '2026-10-28.endive';
@@ -98,8 +100,10 @@ async function route(path, request, env, ctx) {
   if (path === '/api/me/pause' && m === 'POST') return mePause(request, env, ctx);
   if (path === '/api/me/resume' && m === 'POST') return meResume(request, env, ctx);
   if (path === '/api/demo/week' && m === 'GET') return demoWeek(env, new URL(request.url).searchParams);
-  if (path === '/api/health' && m === 'GET') return ok({ ok: true, live: live(env), desk: sbLive(env), keys: keyMode(env), hook: !!env.STRIPE_WEBHOOK_SECRET, mail: !!env.RESEND_API_KEY, meta: metaOn(env) });
+  if (path === '/api/health' && m === 'GET') return ok({ ok: true, live: live(env), desk: sbLive(env), keys: keyMode(env), hook: !!env.STRIPE_WEBHOOK_SECRET, mail: !!env.RESEND_API_KEY, meta: metaOn(env), leads: metaLeadsOn(env) });
   if (path === '/api/log' && m === 'POST') return clientLog(request, env);
+  if (path === '/api/meta/leadgen' && m === 'GET') return metaVerify(request, env, ctx);
+  if (path === '/api/meta/leadgen' && m === 'POST') return metaLeads(request, env, ctx);
   if (/^\/api\/(staff|crew|office|track)\//.test(path)) return desk(path, request, env, ctx);
   return fail(404, 'Not found.');
 }
@@ -138,7 +142,7 @@ const base = (env) => String(env.SUPABASE_URL || '').replace(/\/$/, '');
 // The most one request may send: a gate photo is up to 3 MB (about 4 MB once it is packed as text), a Stripe event
 // is well under 1 MB, and every form is tiny. Checked twice: by the size the sender states, and again while reading,
 // because a sender can leave the size off.
-function maxBody(path) { return /^\/api\/(crew|office)\/photo$/.test(path) ? 6e6 : path === '/api/stripe-webhook' ? 1e6 : 100e3; }
+function maxBody(path) { return /^\/api\/(crew|office)\/photo$/.test(path) ? 6e6 : path === '/api/stripe-webhook' || path === '/api/meta/leadgen' ? 1e6 : 100e3; }
 async function readText(request) {
   const max = maxBody(new URL(request.url).pathname);
   if (!request.body) return '';
@@ -2765,6 +2769,369 @@ async function metaBooked(env, c, totalCents, session, md, subId) {
   return metaEvent(env, 'StartTrial', 'bk_' + session,
     { email: c.email, city: (ZIPS[c.zip] || {}).city, zip: c.zip, uid: c.id, ip: md.ad_ip, ua: md.ad_ua, fbp: md.ad_fbp, fbc: md.ad_fbc },
     { value: totalCents / 100, currency: 'USD', content_name: c.plan, num_items: c.dogs });
+}
+
+// ---------- Facebook and Instagram lead ads (Meta Instant Forms) ----------
+// A lead form on Facebook or Instagram never touches the website. Meta keeps the answers and sends this server a short
+// notice with the lead's id (a "leadgen" webhook, POST /api/meta/leadgen). The server reads the lead from Meta with the
+// Page token, emails every answer to the office, and saves it in the leads table, where the office app lists it.
+// Settings in Cloudflare, all three are needed (GO_LIVE.md part 11 has the steps):
+//   META_APP_SECRET    the Meta app's App Secret. Meta signs every notice with it, and an unsigned notice is refused.
+//   META_VERIFY_TOKEN  any long word we make up. It is typed into the Meta app's Webhooks page, and Meta sends it back
+//                      once to prove the address is ours (GET /api/meta/leadgen).
+//   META_PAGE_TOKEN    a token that can read the Page's leads: the Page's own token, or a system user's token (the
+//                      server then asks Meta for the Page's token itself).
+//   Optional META_PAGE_ID: only this Page's leads are taken. Needed when the token can act for more than one Page.
+// A lead is never dropped without a sound. If it cannot be read (no token yet, a dead token, Meta is down), the office
+// still gets an email with the lead id, the row is saved as "not read yet", and Meta is told to send the notice again.
+// Meta tries for 36 hours, and the row and the email are finished on the first try that works. A lead is emailed once:
+// the row is looked up by its Meta lead id before anything is sent.
+const metaLeadsOn = (env) => !!(env.META_APP_SECRET && env.META_VERIFY_TOKEN && env.META_PAGE_TOKEN);
+const LEAD_TAG = 'Meta lead id '; // the end of a saved lead's details, and how the lead is found again
+const LEADS_A_CALL = 5; // leads handled in one notice. More than that waits for Meta to send the notice again
+const LEAD_ALL = 'id,created_time,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,form_id,platform,is_organic,field_data,custom_disclaimer_responses';
+const LEAD_MIN = 'id,created_time,ad_id,form_id,field_data';
+const META_MEM = { page: {}, form: {}, told: new Set() }; // kept in this server only: a Page's own token, the names of lead forms, and the unread leads the office was emailed about
+const nap = (ms) => new Promise((r) => setTimeout(r, ms));
+const numId = (v) => { v = String(v == null ? '' : v); return /^\d{1,30}$/.test(v) ? v : ''; };
+async function metaSigned(payload, header, secret) {
+  const m = /^sha256=([0-9a-f]{64})$/i.exec(String(header || '').trim());
+  if (!m || !secret) return false;
+  const te = new TextEncoder();
+  const key = await crypto.subtle.importKey('raw', te.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const mac = new Uint8Array(await crypto.subtle.sign('HMAC', key, te.encode(payload)));
+  return sameSecret(m[1].toLowerCase(), Array.from(mac, (x) => x.toString(16).padStart(2, '0')).join(''));
+}
+// One Graph API call. The token rides in the address, the way Meta's own examples send it, so the address is never
+// logged and never put in an error. What comes back on a failure is Meta's own message, which holds no token.
+async function graph(path, token, method) {
+  const url = 'https://graph.facebook.com/' + META_API + '/' + path + (path.includes('?') ? '&' : '?') + 'access_token=' + encodeURIComponent(token);
+  for (let i = 0; i < 2; i++) {
+    let r = null, d = null;
+    try { r = await fetch(url, { method: method || 'GET', signal: AbortSignal.timeout(7000) }); d = await r.json().catch(() => null); } catch (e) { r = null; }
+    if (r && r.ok && d && !d.error) return { ok: true, data: d };
+    // Meta being down for a moment is worth one more try. A refusal is not.
+    if ((!r || r.status >= 500) && i === 0) { await nap(300); continue; }
+    const e = (d && d.error) || {};
+    return { ok: false, status: r ? r.status : 0, code: Number(e.code) || 0, sub: Number(e.error_subcode) || 0, err: clean(e.message, 300) || (r ? 'Meta answered ' + r.status + '.' : 'Meta did not answer.') };
+  }
+}
+// Reads one lead. A system user's token, or a person's, cannot read a lead: the Page's own token can, and the first
+// token can ask Meta for it. The ad's name needs ad rights the token may not have, so the last try asks for less.
+async function metaLeadRead(env, id, pageId) {
+  const tok = env.META_PAGE_TOKEN;
+  if (!tok) return { ok: false, why: 'token', err: 'META_PAGE_TOKEN is not set in Cloudflare.' };
+  let first = null, lead = null;
+  const read = async (t, fields) => { const r = await graph(id + '?fields=' + fields, t); if (!r.ok) first = first || r; return r.ok ? r.data : null; };
+  let t = (pageId && META_MEM.page[pageId]) || tok;
+  lead = await read(t, LEAD_ALL);
+  if (!lead && t !== tok) { delete META_MEM.page[pageId]; t = tok; lead = await read(t, LEAD_ALL); }
+  if (!lead && pageId) {
+    const p = await graph(pageId + '?fields=access_token', tok);
+    const pt = p.ok && p.data && typeof p.data.access_token === 'string' ? p.data.access_token : '';
+    if (pt && pt !== tok) { t = pt; lead = await read(t, LEAD_ALL); }
+  }
+  if (!lead) lead = await read(t, LEAD_MIN);
+  if (!lead || !Array.isArray(lead.field_data)) return Object.assign({ ok: false, status: 0, code: 0, sub: 0, err: 'Meta sent no answers for this lead.' }, first || {}, { ok: false });
+  if (pageId && t !== tok) META_MEM.page[pageId] = t;
+  return { ok: true, lead, token: t };
+}
+async function metaFormName(formId, token) {
+  if (!formId) return '';
+  if (formId in META_MEM.form) return META_MEM.form[formId];
+  const r = await graph(formId + '?fields=name', token);
+  return (META_MEM.form[formId] = r.ok ? clean(r.data.name, 120) : '');
+}
+// Why a lead could not be read, in words the office can act on.
+function leadWhy(r) {
+  if (r.why === 'token') return 'The Meta token is not in Cloudflare yet (META_PAGE_TOKEN).';
+  if (r.code === 190) return 'The Meta token in Cloudflare (META_PAGE_TOKEN) has ended or is not valid. It needs a new one.';
+  if (r.code === 10 || r.code === 200 || r.code === 3 || r.code === 100) return 'The Meta token is not allowed to read this lead. It needs the leads_retrieval right, and its person or system user needs lead access on the Page (Business Settings, Integrations, Leads Access).';
+  if (r.code === 4 || r.code === 17 || r.code === 32 || r.code === 613) return 'Meta says too many requests were made. That clears on its own.';
+  if (!r.status || r.status >= 500) return 'Meta did not answer. It may be down for a moment.';
+  return 'Meta refused the request.';
+}
+const LEAD_LABELS = { full_name: 'Name', name: 'Name', first_name: 'First name', last_name: 'Last name', email: 'Email', work_email: 'Work email', phone_number: 'Mobile', phone: 'Mobile', work_phone_number: 'Work phone',
+  street_address: 'Street address', address: 'Street address', city: 'City', state: 'State', province: 'State', zip_code: 'ZIP', zip: 'ZIP', post_code: 'ZIP', postal_code: 'ZIP', country: 'Country' };
+// The answers of a lead form. Meta sends each one as a name and a list of values. The names a form uses for its own
+// questions are the question in small letters with underscores, so they are turned back into words.
+function leadParse(fieldData) {
+  const o = { name: '', email: '', phone: '', phoneRaw: '', street: '', city: '', state: '', zip: '', all: [], extra: [], test: false };
+  let firstName = '', lastName = '';
+  for (const f of Array.isArray(fieldData) ? fieldData.slice(0, 60) : []) {
+    const key = clean(f && f.name, 120);
+    const val = (Array.isArray(f && f.values) ? f.values : []).map((v) => clean(v, 500)).filter(Boolean).join(', ');
+    if (!key || !val) continue;
+    const k = key.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    const words = clean(key.replace(/_+/g, ' ').replace(/[?:]+\s*$/, ''), 120);
+    const label = LEAD_LABELS[k] || (words ? words[0].toUpperCase() + words.slice(1) : 'Answer');
+    if (/<test lead:/i.test(val)) o.test = true;
+    o.all.push([label, val]);
+    if (k === 'full_name' || k === 'name') { if (!o.name) o.name = clean(val, 120); else o.extra.push([label, val]); }
+    else if (k === 'first_name') firstName = val;
+    else if (k === 'last_name') lastName = val;
+    else if (/(^|_)e_?mail(_|$)/.test(k) && !o.email && emailOk(val.toLowerCase())) o.email = clean(val.toLowerCase(), 200);
+    else if (/(^|_)(phone|mobile|cell)(_|$)/.test(k) && !o.phoneRaw) { o.phoneRaw = clean(val, 40); if (digits(val).length === 10) o.phone = digits(val); }
+    else if (/(^|_)(zip|zipcode|postal|postcode|post_code)(_|$)/.test(k) && !o.zip && /\d{5}/.test(val)) o.zip = /\d{5}/.exec(val)[0];
+    else if ((/(^|_)street(_|$)/.test(k) || (/(^|_)address(_|$)/.test(k) && !/mail/.test(k))) && !o.street) o.street = clean(val, 160);
+    else if (k === 'city' && !o.city) o.city = clean(val, 60);
+    else if ((k === 'state' || k === 'province') && !o.state) o.state = clean(val, 30);
+    else o.extra.push([label, val]);
+  }
+  if (!o.name) o.name = clean((firstName + ' ' + lastName).trim(), 120);
+  return o;
+}
+function leadState(details) {
+  const d = String(details || '');
+  return /^\w+ lead ad, not read yet\./.test(d) ? 'stub' : /^\w+ lead ad, email not sent\./.test(d) ? 'nomail' : 'done';
+}
+// The row the office app lists under Leads. It is a sign up request: someone asked us to reach out and sign them up.
+// The details end with the Meta lead id, which is how the same lead is never saved or emailed twice.
+function leadRow(p, x, state) {
+  const bits = [];
+  if (p.test) bits.push('Test lead from Meta’s testing tool');
+  if (p.phoneRaw && !p.phone) bits.push('Mobile: ' + p.phoneRaw);
+  for (const [l, v] of p.extra) bits.push(l + ': ' + v);
+  for (const b of x.boxes) bits.push(b);
+  if (x.form) bits.push('Form: ' + x.form);
+  if (x.ad) bits.push('Ad: ' + x.ad);
+  if (x.campaign) bits.push('Campaign: ' + x.campaign);
+  const tail = ' ' + LEAD_TAG + x.id;
+  const text = x.src + ' lead ad' + (state === 'nomail' ? ', email not sent. ' : '. ') + bits.map((b) => b.replace(/[.\s]+$/, '')).join('. ') + (bits.length ? '.' : '');
+  return { kind: 'signup_request', name: p.name || x.src + ' lead', email: p.email || null, phone: p.phone || null,
+    address: clean([p.street, p.city, p.state].filter(Boolean).join(', '), 200) || null, zip: p.zip || null, details: clean(text, 1400 - tail.length) + tail };
+}
+function leadMail(env, p, x) {
+  const where = [p.city, p.zip].filter(Boolean).join(' ');
+  const lines = [p.test ? 'This is a test lead from Meta’s testing tool. The lead link works.' : 'A new lead came in from ' + (x.src === 'Instagram' ? 'an Instagram' : 'a Facebook') + ' ad form. Call them to sign them up.', ''];
+  for (const [l, v] of p.all) lines.push(l + ': ' + v);
+  if (!p.all.length) lines.push('The form sent no answers.');
+  for (const b of x.boxes) lines.push(b);
+  lines.push('', 'Form: ' + (x.form ? x.form + ' (' + x.formId + ')' : x.formId || 'not given'));
+  if (x.ad || x.adId) lines.push('Ad: ' + (x.ad || x.adId));
+  if (x.adset) lines.push('Ad set: ' + x.adset);
+  if (x.campaign) lines.push('Campaign: ' + x.campaign);
+  if (x.organic) lines.push('Paid ad: no. It came from a test or a shared link to the form.');
+  lines.push('Sent: ' + x.when + ' Arizona time', 'Lead id: ' + x.id, '', 'It is saved in the office app under Leads: https://' + siteHost(env) + '/crew/');
+  return { subject: (p.test ? 'Test lead from ' + x.src : 'New ' + x.src + ' lead') + ': ' + (p.test ? 'the lead link works' : (p.name || 'no name') + (where ? ', ' + where : '')), text: lines.join('\n') };
+}
+// "Nov 16, 11:40 PM". Newer servers put a thin space that mail programs show badly before AM and PM, so it is made a plain one.
+const leadWhen = (v) => { const d = new Date(v); return isNaN(d) ? '' : d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix' }).replace(/[\u202f\u00a0]/g, ' '); };
+// Two notices for the same lead can land at once (Meta sends a notice again when an answer is slow). The lower row
+// wins and the other one is taken back out, so the office gets one row and one email.
+async function leadTwin(env, find, myId) {
+  try {
+    const rows = await find();
+    if (rows.length > 1 && rows[0].id !== myId) { await db(env, 'DELETE', 'leads?id=eq.' + myId, null, 'return=minimal'); return true; }
+  } catch (e) { console.error('lead twin check', e); }
+  return false;
+}
+// One lead from a notice. Answers 'done' (saved and emailed, now or before) or 'again' (ask Meta to send it again).
+async function metaLeadIn(env, n) {
+  const tag = LEAD_TAG + n.id;
+  const find = () => db(env, 'GET', 'leads?details=ilike.' + enc('*' + tag) + '&select=id,details&order=id.asc&limit=5');
+  let dbUp = sbLive(env), rows = [];
+  if (dbUp) { try { rows = (await find()) || []; } catch (e) { dbUp = false; console.error('lead lookup', e); } }
+  const known = rows[0] || null;
+  if (known && leadState(known.details) === 'done') return 'done';
+  const now = () => new Date().toISOString();
+  const got = await metaLeadRead(env, n.id, n.page);
+  if (!got.ok) {
+    if (known) return 'again'; // the office was told once. The row waits for a try that works
+    const why = leadWhy(got);
+    if (dbUp) {
+      let mine = null;
+      try {
+        mine = ((await db(env, 'POST', 'leads', [{ kind: 'signup_request', name: 'Facebook lead, not read yet',
+          details: 'Facebook lead ad, not read yet. Open Meta Business Suite, Leads Center, to see it. ' + why + (n.form ? ' Form ' + n.form + '.' : '') + ' ' + tag }], 'return=representation')) || [])[0] || null;
+      } catch (e) { console.error('lead not saved', e); }
+      if (mine && mine.id && await leadTwin(env, find, mine.id)) return 'again';
+    }
+    // With no row to look up, the same server at least does not email the same lead twice.
+    if (!META_MEM.told.has(n.id)) {
+      if (META_MEM.told.size > 2000) META_MEM.told.clear();
+      const told = await mail(env, owner(env), 'New Facebook lead: open Leads Center to read it', [
+        'A new lead came in from a Facebook or Instagram ad form, but the site could not read the answers from Meta.', '',
+        'To see the lead now: open Meta Business Suite and go to Leads Center. Or open Ads Manager, pick the lead form and download the leads.', '',
+        'Lead id: ' + n.id, 'Form id: ' + (n.form || 'not given'), 'Sent: ' + (leadWhen((n.at || 0) * 1000 || Date.now())) + ' Arizona time', '',
+        'Why the site could not read it: ' + why, 'What Meta said: ' + (got.err || 'nothing') + (got.code ? ' (code ' + got.code + ')' : ''), '',
+        'The site keeps trying for 36 hours. When a try works, you get the full lead by email and the lead in the office app fills in.'
+      ].join('\n'));
+      if (told) META_MEM.told.add(n.id);
+    }
+    if (!hitLimit('metalead-read', 1, 3600e3)) await logError(env, 'server', '/api/meta/leadgen', 'A Facebook lead could not be read from Meta', why + ' What Meta said: ' + (got.err || 'nothing') + (got.code ? ' (code ' + got.code + ')' : '') + '. Lead id ' + n.id + '. The office was emailed to read it in Leads Center. Meta sends the notice again for 36 hours. GO_LIVE.md part 11 has the token steps.');
+    return 'again';
+  }
+  const lead = got.lead, p = leadParse(lead.field_data);
+  const x = { id: n.id, src: String(lead.platform || '').toLowerCase() === 'ig' ? 'Instagram' : 'Facebook', formId: numId(lead.form_id) || n.form, adId: numId(lead.ad_id) || n.ad,
+    ad: clean(lead.ad_name, 150), adset: clean(lead.adset_name, 150), campaign: clean(lead.campaign_name, 150), organic: lead.is_organic === true,
+    boxes: (Array.isArray(lead.custom_disclaimer_responses) ? lead.custom_disclaimer_responses.slice(0, 10) : []).map((b) => 'Checked the box "' + clean(String(b && b.checkbox_key || '').replace(/_+/g, ' '), 80) + '": ' + (b && (b.is_checked === true || b.is_checked === '1' || b.is_checked === 1) ? 'yes' : 'no')),
+    when: leadWhen(lead.created_time) || leadWhen((n.at || 0) * 1000 || Date.now()) };
+  x.form = await metaFormName(x.formId, got.token);
+  let rowId = known ? known.id : 0;
+  if (dbUp) {
+    try {
+      if (known) await db(env, 'PATCH', 'leads?id=eq.' + known.id, Object.assign(leadRow(p, x, 'nomail'), { updated_at: now() }), 'return=minimal');
+      else {
+        const made = ((await db(env, 'POST', 'leads', [leadRow(p, x, 'nomail')], 'return=representation')) || [])[0];
+        rowId = made && made.id ? made.id : 0;
+        if (rowId && await leadTwin(env, find, rowId)) return 'done';
+      }
+    } catch (e) { dbUp = false; console.error('lead not saved', e); }
+  }
+  const m = leadMail(env, p, x);
+  const sent = await mail(env, owner(env), m.subject, m.text);
+  if (!sent) {
+    // Saved or not, the office has not been told. Meta sends the notice again, and the email goes out then.
+    if (!hitLimit('metalead-mail', 1, 3600e3)) await logError(env, 'server', '/api/meta/leadgen', 'A Facebook lead came in but the email to the office did not send', (dbUp && rowId ? 'The lead is saved in the office app under Leads. ' : 'The lead is NOT saved either. ') + 'Lead id ' + n.id + '. Meta sends the notice again for 36 hours. Check RESEND_API_KEY and the Resend account.');
+    return 'again';
+  }
+  if (dbUp && rowId) {
+    try { await db(env, 'PATCH', 'leads?id=eq.' + rowId, { details: leadRow(p, x, 'done').details, updated_at: now() }, 'return=minimal'); } catch (e) { console.error('lead row not finished', e); }
+  } else console.error('a Facebook lead was emailed to the office but not saved', n.id);
+  return 'done';
+}
+// A row saved as "not read yet" whose 36 hours with Meta ran out stays that way. So when a lead has just been read,
+// which proves the token works, up to two old ones are tried again.
+async function metaLeadHeal(env, pageId) {
+  try {
+    const rows = (await db(env, 'GET', 'leads?details=ilike.' + enc('*lead ad, not read yet.*') + '&created_at=gte.' + enc(new Date(Date.now() - 60 * 86400e3).toISOString()) + '&select=id,details&order=id.desc&limit=2')) || [];
+    for (const r of rows) {
+      const m = new RegExp(LEAD_TAG + '(\\d{5,30})$').exec(String(r.details || ''));
+      if (m) await metaLeadIn(env, { id: m[1], page: pageId, form: '', ad: '', at: 0 });
+    }
+  } catch (e) { console.error('lead heal', e); }
+}
+async function metaLeads(request, env, ctx) {
+  const payload = await readText(request);
+  if (payload == null) return fail(413, 'That is too much to send at once.');
+  const later = (p) => { if (ctx && ctx.waitUntil) ctx.waitUntil(p); };
+  if (!env.META_APP_SECRET) {
+    // Without the app secret a real notice cannot be told from a fake one, so nothing is taken. Meta sends it again.
+    if (!hitLimit('metalead-nosecret', 1, 3600e3)) later(logError(env, 'server', '/api/meta/leadgen', 'A Facebook lead notice came in, but META_APP_SECRET is not set',
+      'The site cannot tell a real notice from a fake one without the app secret, so it took nothing. Meta sends each notice again for 36 hours. Add META_APP_SECRET in Cloudflare (GO_LIVE.md part 11) and redeploy. Until then, read new leads in Meta Business Suite, Leads Center.'));
+    return fail(503, 'Lead ads are not set up yet.');
+  }
+  if (!(await metaSigned(payload, request.headers.get('x-hub-signature-256'), env.META_APP_SECRET))) {
+    if (!hitLimit('metalead-badsig', 1, 3600e3)) later(logError(env, 'server', '/api/meta/leadgen', 'A Facebook lead notice was refused: its signature does not match META_APP_SECRET',
+      'If this keeps coming back, the app secret in Cloudflare is not the one the Meta app shows (App settings, Basic, App secret), or it was reset in Meta. Until it is fixed no Facebook lead reaches the office: read them in Meta Business Suite, Leads Center.'));
+    return fail(401, 'Bad signature.');
+  }
+  let evt = null;
+  try { evt = JSON.parse(payload); } catch (e) { evt = null; }
+  if (!evt || typeof evt !== 'object') return fail(400, 'That is not a notice we can read.');
+  if (evt.object !== 'page') return ok({ ok: true, leads: 0 });
+  const list = [], seen = new Set();
+  let test = false;
+  for (const en of Array.isArray(evt.entry) ? evt.entry : []) {
+    for (const ch of Array.isArray(en && en.changes) ? en.changes : []) {
+      const v = ch && ch.field === 'leadgen' && ch.value && typeof ch.value === 'object' ? ch.value : null;
+      const id = v ? numId(v.leadgen_id) : '';
+      if (id.length < 5 || seen.has(id)) continue;
+      seen.add(id);
+      const page = numId(v.page_id) || numId(en.id);
+      // The Test button on the Meta app's Webhooks page sends a made up lead, all fours. There is nothing to read.
+      if (/^4{9,}$/.test(id)) { test = true; continue; }
+      if (env.META_PAGE_ID && page && page !== String(env.META_PAGE_ID)) continue;
+      list.push({ id, page, form: numId(v.form_id), ad: numId(v.ad_id), at: Number(v.created_time) || 0 });
+    }
+  }
+  if (test && !hitLimit('metalead-test', 1, 600e3)) {
+    later(mail(env, owner(env), 'Facebook leads: Meta’s test notice reached the site', 'Someone pressed Test on the Meta app’s Webhooks page, and the site got the notice. It was signed with the right app secret.\n\nThat test lead is made up, so there is nothing to read or save. To try a real one, make a test lead with Meta’s Lead Ads Testing Tool (developers.facebook.com/tools/lead-ads-testing). A "Test lead from Facebook" email should reach this inbox in about a minute.'));
+  }
+  // A long notice is worked off a few leads at a time. The ones already finished are found with one look at the table,
+  // so each time Meta sends the notice again the next few get done.
+  let todo = list, done = 0, page = '';
+  if (list.length > LEADS_A_CALL && sbLive(env)) {
+    try {
+      const rows = (await db(env, 'GET', 'leads?details=ilike.' + enc('*' + LEAD_TAG + '*') + '&created_at=gte.' + enc(new Date(Date.now() - 4 * 86400e3).toISOString()) + '&select=details&order=id.desc&limit=1000')) || [];
+      const fin = new Set(rows.filter((r) => leadState(r.details) === 'done').map((r) => (/(\d{5,30})$/.exec(String(r.details || '')) || [])[1]));
+      todo = list.filter((n) => !fin.has(n.id));
+      done = list.length - todo.length;
+    } catch (e) { todo = list; done = 0; }
+  }
+  let again = todo.length > LEADS_A_CALL;
+  for (const n of todo.slice(0, LEADS_A_CALL)) {
+    let r = 'again';
+    try { r = await metaLeadIn(env, n); } catch (e) { console.error('lead failed', e && e.stack || e); later(logError(env, 'server', '/api/meta/leadgen', 'A Facebook lead could not be handled', (e && e.message) + '. Lead id ' + n.id + '. Meta sends the notice again for 36 hours.')); }
+    if (r === 'done') { done++; page = n.page; } else again = true;
+  }
+  if (done && list.length <= 2 && sbLive(env)) await metaLeadHeal(env, page);
+  // Anything but 200 makes Meta send the whole notice again, for 36 hours. Leads that are finished are skipped then.
+  return again ? fail(503, 'Some leads are not finished. Send this notice again.') : ok({ ok: true, leads: done });
+}
+// What the Page and the token look like from here, and the one step the server can do itself: tell Meta that the
+// Page sends its new leads to this app. It keeps the other things the app already listens for on the Page.
+async function metaSetup(env) {
+  const out = { ok: false, appSecret: !!env.META_APP_SECRET, verifyToken: !!env.META_VERIFY_TOKEN, pageToken: !!env.META_PAGE_TOKEN, page: null, app: null, subscribed: false, note: '' };
+  const tok = env.META_PAGE_TOKEN;
+  if (!tok) { out.note = 'META_PAGE_TOKEN is not set in Cloudflare, so the site cannot read a lead.'; return out; }
+  const me = await graph('me?fields=id,name', tok);
+  if (!me.ok) { out.note = 'Meta refused META_PAGE_TOKEN. ' + leadWhy(me) + ' What Meta said: ' + me.err; return out; }
+  let page = { id: numId(me.data.id), name: clean(me.data.name, 120) }, pageTok = tok;
+  // A Page's own token answers "me" with the Page. A person's or a system user's token lists the Pages it can act for.
+  const acc = await graph('me/accounts?fields=id,name,access_token&limit=100', tok);
+  if (acc.ok && Array.isArray(acc.data.data)) {
+    const pages = acc.data.data;
+    const pick = (env.META_PAGE_ID && pages.find((x) => String(x.id) === String(env.META_PAGE_ID))) || (pages.length === 1 ? pages[0] : pages.find((x) => /arizona pet waste/i.test(String(x.name || ''))));
+    if (!pick) {
+      out.note = pages.length ? 'The token can act for ' + pages.length + ' Pages and the site cannot tell which one is ours. Add META_PAGE_ID in Cloudflare with the Page id.'
+        : 'The token cannot act for any Page. In Business Settings, give its system user the Arizona Pet Waste Page, then make the token again.';
+      return out;
+    }
+    page = { id: numId(pick.id), name: clean(pick.name, 120) };
+    if (typeof pick.access_token === 'string' && pick.access_token) pageTok = pick.access_token;
+  }
+  if (!page.id) { out.note = 'Meta did not say which Page the token is for.'; return out; }
+  out.page = page;
+  const app = await graph('app?fields=id,name', tok);
+  if (app.ok) out.app = { id: numId(app.data.id), name: clean(app.data.name, 120) };
+  const cur = await graph(page.id + '/subscribed_apps', pageTok);
+  const mine = cur.ok && out.app && Array.isArray(cur.data.data) ? cur.data.data.find((a) => String(a.id) === out.app.id) : null;
+  const fields = mine && Array.isArray(mine.subscribed_fields) ? mine.subscribed_fields.map(String).filter((f) => /^[a-z_]{2,60}$/.test(f)) : [];
+  if (fields.includes('leadgen')) out.subscribed = true;
+  else {
+    const sub = await graph(page.id + '/subscribed_apps?subscribed_fields=' + [...new Set(fields.concat('leadgen'))].join(','), pageTok, 'POST');
+    if (!sub.ok) { out.note = 'The site could not set the Page to send its leads here. The token needs the pages_manage_metadata right. What Meta said: ' + sub.err; return out; }
+    out.subscribed = true;
+  }
+  if (!out.appSecret) { out.note = 'META_APP_SECRET is not set in Cloudflare, so the site refuses every lead notice.'; return out; }
+  out.ok = true;
+  return out;
+}
+async function metaSetupMail(env) {
+  const s = await metaSetup(env);
+  const tool = 'Make a test lead with Meta’s Lead Ads Testing Tool (developers.facebook.com/tools/lead-ads-testing). A "Test lead from Facebook" email should reach this inbox in about a minute.';
+  if (s.ok) {
+    await mail(env, owner(env), 'Facebook leads are connected to the site', [
+      'Meta just checked the lead link, and it works.', '',
+      'Page: ' + s.page.name + ' (' + s.page.id + ')', 'Meta app: ' + (s.app ? s.app.name : 'not read'), 'The Page is set to send its new leads to the site.', '',
+      'Next: ' + tool, '',
+      'One thing the site cannot see from here: the Meta app has to be published. An app that is still in development only gets test leads.'
+    ].join('\n'));
+  } else {
+    await mail(env, owner(env), 'Facebook leads: the setup needs one more step', [
+      'Meta just checked the lead link and the address is right. One thing is still missing, so leads will not reach this inbox yet.', '',
+      'What is missing: ' + s.note, '',
+      'The steps are in GO_LIVE.md part 11. After the fix, press Verify and save again on the Meta app’s Webhooks page and a new email comes.', '',
+      'Until then, read new leads in Meta Business Suite, Leads Center.'
+    ].join('\n'));
+    await logError(env, 'server', '/api/meta/leadgen', 'Facebook leads are not fully set up', s.note);
+  }
+}
+// GET /api/meta/leadgen. Meta calls it once when someone saves the address on the Meta app's Webhooks page: the verify
+// token has to match, and the number Meta sent is said back. A person can call it too, with ?check= and the verify
+// token, to see how the setup stands. Both make sure the Page sends its leads here.
+async function metaVerify(request, env, ctx) {
+  const q = new URL(request.url).searchParams;
+  if (hitLimit('metaverify|' + (request.headers.get('cf-connecting-ip') || ''), 30, 600e3)) return fail(429, 'Too many tries. Wait a minute, then try again.');
+  const given = q.get('hub.verify_token') || q.get('check') || '';
+  if (!env.META_VERIFY_TOKEN || !sameSecret(given, env.META_VERIFY_TOKEN)) return fail(403, 'Wrong verify token.');
+  if (q.get('check')) return ok(await metaSetup(env));
+  if (q.get('hub.mode') !== 'subscribe') return fail(400, 'Nothing to do.');
+  if (!hitLimit('metasetup', 1, 300e3) && ctx && ctx.waitUntil) ctx.waitUntil(metaSetupMail(env).catch((e) => console.error('meta setup', e)));
+  const ch = String(q.get('hub.challenge') || '');
+  return new Response(/^[\w.-]{1,200}$/.test(ch) ? ch : '', { status: 200, headers: { 'content-type': 'text/plain; charset=utf-8' } });
 }
 
 async function logError(env, source, path, message, detail) {

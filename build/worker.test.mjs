@@ -38,6 +38,7 @@ const T = { customers: [], messages: [], consent_log: [], leads: [], stops: [], 
 const tokens = { good: { id: U1, email: 'Test@Example.com' }, two: { id: U2, email: 'two@example.com' } };
 const deleted = [];
 const blip = { patch: 0 };
+const DBX = { leadId: 0, leadsDown: false }; // leads get an id like the real table, and the table can be switched off
 function match(row, k, expr) {
   const i = expr.indexOf('.'), op = expr.slice(0, i), v = expr.slice(i + 1);
   const x = row[k];
@@ -48,6 +49,7 @@ function match(row, k, expr) {
   if (op === 'is' && v === 'null') return x == null;
   if (op === 'gt') return String(x) > v;
   if (op === 'gte') return String(x) >= v;
+  if (op === 'ilike') return new RegExp('^' + v.split('*').map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$', 'i').test(String(x == null ? '' : x));
   throw new Error('pretend Supabase: no filter ' + op);
 }
 function restRows(table, qs) {
@@ -62,12 +64,14 @@ function rest(method, rel, body, prefer) {
   if (!T[table]) return reply({ message: 'no table ' + table }, 404);
   if (method === 'GET') return reply(restRows(table, qs).map((r) => Object.assign({}, r)));
   if (method === 'POST') {
-    const rows = Array.isArray(body) ? body : [body];
+    const rows = Array.isArray(body) ? body : [body], saved = [];
     for (const r of rows) {
       const old = /on_conflict=id/.test(qs || '') && T[table].find((x) => x.id === r.id);
-      if (old) Object.assign(old, r); else T[table].push(Object.assign(table === 'messages' ? { id: T.messages.length + 1, status: 'queued' } : {}, r));
+      if (old) Object.assign(old, r);
+      else if (table === 'leads') { if (DBX.leadsDown) return reply({ message: 'database is down' }, 500); const made = Object.assign({ id: ++DBX.leadId, status: 'new', created_at: new Date().toISOString() }, r); T.leads.push(made); saved.push(made); }
+      else T[table].push(Object.assign(table === 'messages' ? { id: T.messages.length + 1, status: 'queued' } : {}, r));
     }
-    return reply(/return=representation/.test(prefer || '') ? rows : '', 201);
+    return reply(/return=representation/.test(prefer || '') ? (table === 'leads' ? saved.map((r) => Object.assign({}, r)) : rows) : '', 201);
   }
   if (method === 'PATCH') {
     if (table === 'customers' && blip.patch > 0) { blip.patch--; return reply({ message: 'database blip' }, 500); }
@@ -75,7 +79,7 @@ function rest(method, rel, body, prefer) {
     for (const r of hit) Object.assign(r, body);
     return reply(/return=representation/.test(prefer || '') ? hit.map((r) => Object.assign({}, r)) : '');
   }
-  if (method === 'DELETE') { deleted.push(rel); return reply(''); }
+  if (method === 'DELETE') { deleted.push(rel); if (table === 'leads') { const hit = restRows(table, qs); T.leads = T.leads.filter((r) => !hit.includes(r)); } return reply(''); }
   return reply({ message: 'bad method' }, 400);
 }
 
@@ -198,6 +202,39 @@ function stripeApi(m, url, init) {
 
 const mails = [];
 const META = []; // what the server sends Meta (Conversions API)
+const MAIL = { down: false };
+// Pretend Meta Graph API for lead forms: one Page, one app, lead forms and leads. Two tokens: the Page's own token,
+// which can read leads, and a system user's token, which cannot (Meta answers that it wants a Page token).
+const G = { calls: [], page: { id: '104000000000001', name: 'Arizona Pet Waste' }, app: { id: '900100200300', name: 'APW site leads' }, pageTok: 'PAGE_TOKEN_abc', userTok: 'SYSUSER_TOKEN_xyz',
+  leads: {}, forms: {}, subs: [], subPosts: [], accounts: null, down: false, dead: false, noAds: false, noMeta: false };
+function graphApi(m, url) {
+  const u = new URL(url), parts = u.pathname.split('/').filter(Boolean), a = parts[1], b = parts[2];
+  const tok = u.searchParams.get('access_token'), fields = (u.searchParams.get('fields') || '').split(',').filter(Boolean);
+  G.calls.push({ m, version: parts[0], path: parts.slice(1).join('/'), fields: fields.join(','), tok });
+  const err = (code, message, status = 400, sub) => reply({ error: { message, type: 'OAuthException', code, error_subcode: sub, fbtrace_id: 'AbCdEf' } }, status);
+  if (G.down) return reply({ error: { message: 'An unknown error has occurred.', type: 'OAuthException', code: 1 } }, 500);
+  if (G.dead || (tok !== G.pageTok && tok !== G.userTok)) return err(190, 'Error validating access token: Session has expired on Sunday, 15-Nov-26 22:00:00 PST.', 401, 463);
+  if (a === 'me' && !b) return reply(tok === G.pageTok ? { id: G.page.id, name: G.page.name } : { id: '122000000000777', name: 'apw site system user' });
+  if (a === 'me' && b === 'accounts') return tok === G.pageTok ? err(100, '(#100) Tried accessing nonexisting field (accounts) on node type (Page)') : reply({ data: G.accounts || [{ id: G.page.id, name: G.page.name, access_token: G.pageTok }] });
+  if (a === 'app' && !b) return reply({ id: G.app.id, name: G.app.name });
+  if (a === G.page.id && b === 'subscribed_apps') {
+    if (tok !== G.pageTok) return err(190, '(#190) This method must be called with a Page Access Token');
+    if (m === 'GET') return reply({ data: G.subs.map((x) => Object.assign({}, x)) });
+    G.subPosts.push(u.searchParams.get('subscribed_fields'));
+    if (G.noMeta) return err(200, '(#200) Requires pages_manage_metadata permission to manage the object');
+    G.subs = G.subs.filter((x) => x.id !== G.app.id).concat([{ id: G.app.id, name: G.app.name, subscribed_fields: String(u.searchParams.get('subscribed_fields') || '').split(',') }]);
+    return reply({ success: true });
+  }
+  if (a === G.page.id && !b) return fields.includes('access_token') ? reply({ access_token: G.pageTok, id: G.page.id }) : reply({ id: G.page.id, name: G.page.name });
+  if (G.forms[a] && !b) return tok === G.pageTok ? reply({ id: a, name: G.forms[a] }) : err(190, '(#190) This method must be called with a Page Access Token');
+  const lead = G.leads[a];
+  if (lead && !b) {
+    if (tok !== G.pageTok) return err(190, '(#190) This method must be called with a Page Access Token');
+    if (G.noAds && fields.some((f) => /^(ad_name|adset_|campaign_)/.test(f))) return err(200, '(#200) Requires ads_management permission to read the ad of this lead');
+    return reply(Object.fromEntries(Object.entries(lead).filter(([k]) => k === 'id' || fields.includes(k))));
+  }
+  return err(100, "Unsupported get request. Object with ID '" + a + "' does not exist, cannot be loaded due to missing permissions, or does not support this operation.", 400, 33);
+}
 const PLACES = { off: false, zip: '85396' }, placeCalls = [];
 const AUTH = {}, authCalls = []; // pretend Supabase Auth: email to { id, password }
 const reply = (data, status = 200) => new Response(data === '' ? '' : JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
@@ -207,7 +244,7 @@ globalThis.fetch = async (url, init = {}) => {
   if (url === SB + '/auth/v1/user') { const u = tokens[String(init.headers.authorization || '').slice(7)]; return u ? reply(u) : reply({ msg: 'bad' }, 401); }
   if (url.startsWith(SB + '/rest/v1/')) return rest(m, url.slice((SB + '/rest/v1/').length), init.body ? JSON.parse(init.body) : null, init.headers && init.headers.prefer);
   if (url.startsWith('https://api.stripe.com/v1/')) return stripeApi(m, url, init);
-  if (url === 'https://api.resend.com/emails') { mails.push(JSON.parse(init.body)); return reply({ id: 'm1' }); }
+  if (url === 'https://api.resend.com/emails') { if (MAIL.down) return reply({ message: 'mail is down' }, 500); mails.push(JSON.parse(init.body)); return reply({ id: 'm1' }); }
   if (url === SB + '/auth/v1/admin/users' && m === 'POST') {
     const b = JSON.parse(init.body); authCalls.push('create ' + b.email);
     if (b.password) return reply({ msg: 'this server must never set a password' }, 400);
@@ -238,6 +275,7 @@ globalThis.fetch = async (url, init = {}) => {
     return reply({ addressComponents: [{ longText: '4321', shortText: '4321', types: ['street_number'] }, { longText: 'North Verrado Way', shortText: 'N Verrado Way', types: ['route'] },
       { longText: 'Buckeye', shortText: 'Buckeye', types: ['locality', 'political'] }, { longText: PLACES.zip, shortText: PLACES.zip, types: ['postal_code'] }] });
   }
+  if (url.startsWith('https://graph.facebook.com/') && !/\/events\?/.test(url)) return graphApi(m, url);
   if (url.startsWith('https://graph.facebook.com/')) { META.push({ url, body: JSON.parse(init.body) }); return reply({ events_received: 1 }); }
   if (url === 'https://challenges.cloudflare.com/turnstile/v0/siteverify') return reply({ success: JSON.parse(init.body).response === 'human' });
   return reply({ error: 'unmocked ' + url }, 500); // the Census map pin lookup and the route tables: placeCustomer shrugs these off
@@ -1146,6 +1184,227 @@ head('No free month: the first month is paid in the card form, and that day is t
     ok('a sign up request after the sale tells the office the pay today words', !!m && [b4, nextDay()].some((d) => m.text.includes('Billing they saw: $121 today. Then $121 a month starting ' + d + '.\n')), m && m.text); }
   env = Object.assign({}, baseEnv); wipe();
 }
+
+/* ---------- Facebook and Instagram lead forms ---------- */
+head('Facebook lead forms: Meta checks the address, sends a signed notice, and the lead reaches the office');
+{ const FORM = '1537873488145115', L1 = '900000000000001', L2 = '900000000000002', L3 = '900000000000003', L4 = '900000000000004', L5 = '900000000000005';
+  const leadEnv = (over) => Object.assign({}, baseEnv, { META_APP_SECRET: 'appsecret_test_1', META_VERIFY_TOKEN: 'verify_word_12345', META_PAGE_TOKEN: G.pageTok }, over || {});
+  const sentAt = Math.floor(Date.parse('2026-11-17T06:40:00Z') / 1000);
+  const notice = (...ids) => ({ object: 'page', entry: [{ id: G.page.id, time: sentAt, changes: ids.map((id) => ({ field: 'leadgen', value: { leadgen_id: id, page_id: G.page.id, form_id: FORM, adgroup_id: '120200000000000111', ad_id: '120200000000000111', created_time: sentAt } })) }] });
+  const leadHook = async (o, opt = {}) => {
+    const raw = typeof o === 'string' ? o : JSON.stringify(o);
+    const sig = 'sig' in opt ? opt.sig : 'sha256=' + crypto.createHmac('sha256', opt.secret || env.META_APP_SECRET || 'no secret').update(raw).digest('hex');
+    const r = await worker.fetch(new Request('https://arizonapetwaste.com/api/meta/leadgen', { method: 'POST', body: raw, headers: Object.assign({ 'content-type': 'application/json' }, sig ? { 'x-hub-signature-256': sig } : {}) }), env, ctx);
+    await settle();
+    let d = null; try { d = await r.json(); } catch (e) { }
+    return { status: r.status, d };
+  };
+  const raw = async (path) => { const r = await worker.fetch(new Request('https://arizonapetwaste.com' + path), env, ctx); await settle(); return { status: r.status, text: await r.text(), type: r.headers.get('content-type') || '' }; };
+  const fbLeads = () => T.leads.filter((l) => /Meta lead id \d+$/.test(l.details || ''));
+  const clear = () => { reset(); T.leads.length = 0; T.errors.length = 0; G.calls.length = 0; G.subPosts.length = 0; };
+  G.forms[FORM] = 'Free month lead form';
+  G.leads[L1] = { id: L1, created_time: '2026-11-17T06:40:12+0000', ad_id: '120200000000000111', ad_name: 'Free month video 1', adset_id: '120200000000000222', adset_name: 'Buckeye homeowners', campaign_id: '120200000000000333', campaign_name: 'Black Friday free month',
+    form_id: FORM, platform: 'fb', is_organic: false, custom_disclaimer_responses: [{ checkbox_key: 'ok_to_call_me', is_checked: '1' }],
+    field_data: [{ name: 'full_name', values: ['Dana Lopez'] }, { name: 'phone_number', values: ['+16235550142'] }, { name: 'email', values: ['Dana.Lopez@Example.com'] }, { name: 'street_address', values: ['4321 N Verrado Way'] },
+      { name: 'city', values: ['Buckeye'] }, { name: 'zip_code', values: ['85396'] }, { name: 'how_many_dogs_do_you_have?', values: ['2'] }, { name: 'how_often_should_we_come?', values: ['Every week'] }] };
+  G.leads[L2] = { id: L2, created_time: '2026-11-17T06:41:00+0000', form_id: FORM, platform: 'ig', is_organic: false, ad_id: '120200000000000111', ad_name: 'Free month video 1', campaign_name: 'Black Friday free month',
+    field_data: [{ name: 'first_name', values: ['Sam'] }, { name: 'last_name', values: ['Reyes'] }, { name: 'phone_number', values: ['(623) 555-0177'] }, { name: 'email', values: ['sam@example.com'] }, { name: 'what_is_your_zip_code?', values: ['85338'] }] };
+  G.leads[L3] = { id: L3, created_time: '2026-11-17T06:42:00+0000', form_id: FORM, platform: 'fb', is_organic: true,
+    field_data: [{ name: 'full_name', values: ['<test lead: dummy data for full_name>'] }, { name: 'phone_number', values: ['<test lead: dummy data for phone_number>'] }, { name: 'email', values: ['test@fb.com'] }] };
+  G.leads[L4] = { id: L4, created_time: '2026-11-17T06:43:00+0000', form_id: FORM, platform: 'fb', is_organic: false, field_data: [{ name: 'full_name', values: ['Lee Park'] }, { name: 'phone_number', values: ['6235550188'] }] };
+  G.leads[L5] = { id: L5, created_time: '2026-11-17T06:44:00+0000', form_id: FORM, platform: 'fb', is_organic: false, field_data: [{ name: 'full_name', values: ['Pat Moss'] }, { name: 'phone_number', values: ['+44 20 7946 0958'] }] };
+
+  // 1. Not set up yet.
+  env = Object.assign({}, baseEnv); clear();
+  ok('the health check says lead forms are not set up, and shows no token', (await call('/api/health')).d.leads === false);
+  ok('with no verify token set, Meta’s check of the address is refused', (await raw('/api/meta/leadgen?hub.mode=subscribe&hub.verify_token=verify_word_12345&hub.challenge=1158201444')).status === 403);
+  let r = await leadHook(notice(L1));
+  ok('with no app secret a notice is not trusted: 503 so Meta sends it again, nothing saved, nothing emailed, one line for the Health tab', r.status === 503 && fbLeads().length === 0 && mails.length === 0 && G.calls.length === 0
+    && T.errors.filter((e) => /META_APP_SECRET is not set/.test(e.message)).length === 1, [r, T.errors]);
+
+  // 2. Meta checks the address.
+  env = leadEnv(); clear();
+  const h = await call('/api/health');
+  ok('with the three settings in, the health check reads leads: true and still shows no secret', h.d.leads === true && !/appsecret_test|verify_word|PAGE_TOKEN_abc/.test(JSON.stringify(h.d)), h.d);
+  ok('no lead setting reaches the sign up page', !/appsecret_test|verify_word|PAGE_TOKEN_abc/.test(JSON.stringify((await call('/api/config')).d)));
+  r = await raw('/api/meta/leadgen?hub.mode=subscribe&hub.verify_token=wrong_word&hub.challenge=1158201444');
+  ok('a wrong verify token is refused', r.status === 403 && !r.text.includes('1158201444'), r);
+  r = await raw('/api/meta/leadgen?hub.mode=subscribe&hub.verify_token=verify_word_12345&hub.challenge=1158201444');
+  ok('the right verify token gets the number said back as plain text, which is what Meta wants', r.status === 200 && r.text === '1158201444' && /^text\/plain/.test(r.type), r);
+  ok('that check also sets the Page to send its leads to this app, and tells the office it is connected', G.subPosts.length === 1 && G.subPosts[0] === 'leadgen' && G.subs[0].subscribed_fields.includes('leadgen')
+    && sent(/^Facebook leads are connected to the site$/).length === 1 && /Page: Arizona Pet Waste \(104000000000001\)/.test(sent(/^Facebook leads are connected/)[0].text) && sent(/^Facebook leads are connected/)[0].to[0] === 'info@arizonapetwaste.com', [G.subPosts, mails.map((x) => x.subject)]);
+  ok('nothing the office is sent holds a token or the app secret', !/PAGE_TOKEN_abc|SYSUSER_TOKEN|appsecret_test|verify_word/.test(JSON.stringify(mails)));
+  r = await raw('/api/meta/leadgen?hub.mode=subscribe&hub.verify_token=verify_word_12345&hub.challenge=%3Cscript%3E');
+  ok('a challenge that is not a plain number is not said back', r.status === 200 && r.text === '', r);
+
+  // 3. A person checks the setup from a browser.
+  clear();
+  r = await call('/api/meta/leadgen?check=verify_word_12345');
+  ok('the setup check: all three settings, the Page, the app, and leads switched on', r.status === 200 && r.d.ok === true && r.d.appSecret && r.d.verifyToken && r.d.pageToken && r.d.page.name === 'Arizona Pet Waste' && r.d.app.name === 'APW site leads' && r.d.subscribed === true && r.d.note === '', r.d);
+  ok('the Page was already sending leads, so it is not set again', G.subPosts.length === 0, G.subPosts);
+  ok('the setup check is refused without the verify token', (await call('/api/meta/leadgen?check=nope')).status === 403 && (await call('/api/meta/leadgen')).status === 403);
+  G.subs = [{ id: G.app.id, name: G.app.name, subscribed_fields: ['messages', 'feed'] }, { id: '555', name: 'Some other app', subscribed_fields: ['leadgen'] }];
+  r = await call('/api/meta/leadgen?check=verify_word_12345');
+  ok('an app that already listens for other things on the Page keeps them: leads are added, nothing is dropped', r.d.ok === true && G.subPosts.length === 1 && G.subPosts[0] === 'messages,feed,leadgen', G.subPosts);
+  env = leadEnv({ META_PAGE_TOKEN: G.userTok }); G.subs = []; G.subPosts.length = 0;
+  r = await call('/api/meta/leadgen?check=verify_word_12345');
+  ok('a system user token works too: the server finds the Page it can act for and uses that Page’s own token', r.d.ok === true && r.d.page.id === G.page.id && G.subPosts.length === 1 && G.subs[0].subscribed_fields.join() === 'leadgen', [r.d, G.subPosts]);
+  G.accounts = [{ id: '1', name: 'Other Page', access_token: 'x' }, { id: '2', name: 'Second Page', access_token: 'y' }];
+  r = await call('/api/meta/leadgen?check=verify_word_12345');
+  ok('a token for several Pages, none of them ours: it says to set META_PAGE_ID and changes nothing', r.d.ok === false && /META_PAGE_ID/.test(r.d.note) && G.subPosts.length === 1, r.d);
+  G.accounts = [];
+  r = await call('/api/meta/leadgen?check=verify_word_12345');
+  ok('a token with no Page says so', r.d.ok === false && /cannot act for any Page/.test(r.d.note), r.d);
+  G.accounts = null; G.noMeta = true; G.subs = []; env = leadEnv();
+  r = await call('/api/meta/leadgen?check=verify_word_12345');
+  ok('a token that may not change the Page says which right is missing', r.d.ok === false && r.d.subscribed === false && /pages_manage_metadata/.test(r.d.note), r.d);
+  G.noMeta = false; G.dead = true;
+  r = await call('/api/meta/leadgen?check=verify_word_12345');
+  ok('a dead token says so in plain words', r.d.ok === false && /has ended or is not valid/.test(r.d.note) && !/PAGE_TOKEN_abc|SYSUSER_TOKEN/.test(JSON.stringify(r.d)), r.d);
+  G.dead = false;
+  env = leadEnv({ META_PAGE_TOKEN: '' });
+  r = await call('/api/meta/leadgen?check=verify_word_12345');
+  ok('no token yet says so', r.d.ok === false && r.d.pageToken === false && /META_PAGE_TOKEN is not set/.test(r.d.note), r.d);
+  env = leadEnv({ META_APP_SECRET: '' });
+  r = await call('/api/meta/leadgen?check=verify_word_12345');
+  ok('no app secret yet says so', r.d.ok === false && r.d.appSecret === false && /META_APP_SECRET is not set/.test(r.d.note), r.d);
+
+  // 4. A real lead.
+  env = leadEnv(); clear(); G.subs = [{ id: G.app.id, name: G.app.name, subscribed_fields: ['leadgen'] }];
+  r = await leadHook(notice(L1), { sig: '' });
+  ok('a notice with no signature is refused', r.status === 401 && fbLeads().length === 0 && mails.length === 0 && G.calls.length === 0, r);
+  r = await leadHook(notice(L1), { secret: 'some_other_secret' });
+  ok('a notice signed with another secret is refused, with one line for the Health tab', r.status === 401 && fbLeads().length === 0 && mails.length === 0 && T.errors.filter((e) => /signature does not match META_APP_SECRET/.test(e.message)).length === 1, [r, T.errors]);
+  r = await leadHook('{"object":"page","entry":[', {});
+  ok('a signed notice that is not whole is refused', r.status === 400, r);
+  r = await leadHook({ object: 'user', entry: [{ id: '1', changes: [{ field: 'leadgen', value: { leadgen_id: L1 } }] }] });
+  ok('a signed notice about something that is not a Page is taken and nothing is done', r.status === 200 && r.d.leads === 0 && fbLeads().length === 0 && mails.length === 0, r);
+  T.errors.length = 0;
+  r = await leadHook(notice(L1));
+  const row1 = fbLeads()[0], m1 = sent(/^New Facebook lead: Dana Lopez, Buckeye 85396$/)[0];
+  ok('a signed lead notice: 200, and the lead is read from Meta with the Page token and the lead id', r.status === 200 && r.d.leads === 1 && G.calls[0].path === L1 && G.calls[0].tok === G.pageTok && /field_data/.test(G.calls[0].fields) && G.calls[0].version === 'v26.0', [r, G.calls]);
+  ok('the office email has every answer, the form, the ad, the campaign, the time in Arizona and the lead id', !!m1 && m1.to[0] === 'info@arizonapetwaste.com'
+    && ['Name: Dana Lopez', 'Mobile: +16235550142', 'Email: Dana.Lopez@Example.com', 'Street address: 4321 N Verrado Way', 'City: Buckeye', 'ZIP: 85396', 'How many dogs do you have: 2', 'How often should we come: Every week',
+      'Checked the box "ok to call me": yes', 'Form: Free month lead form (' + FORM + ')', 'Ad: Free month video 1', 'Ad set: Buckeye homeowners', 'Campaign: Black Friday free month', 'Sent: Nov 16, 11:40 PM Arizona time', 'Lead id: ' + L1].every((x) => m1.text.includes(x + '\n')), m1 && m1.text);
+  ok('the lead is saved for the office app: name, mobile as 10 numbers, email, address, ZIP, and the rest in the details', !!row1 && fbLeads().length === 1 && row1.kind === 'signup_request' && row1.name === 'Dana Lopez' && row1.phone === '6235550142'
+    && row1.email === 'dana.lopez@example.com' && row1.address === '4321 N Verrado Way, Buckeye' && row1.zip === '85396' && row1.status === 'new'
+    && row1.details === 'Facebook lead ad. How many dogs do you have: 2. How often should we come: Every week. Checked the box "ok to call me": yes. Form: Free month lead form. Ad: Free month video 1. Campaign: Black Friday free month. Meta lead id ' + L1, row1);
+  ok('one lead, one email, and nothing for the Health tab', mails.length === 1 && T.errors.length === 0, [mails.map((x) => x.subject), T.errors]);
+  ok('no token, secret or verify word is in the row, the email or the answer', !/PAGE_TOKEN_abc|SYSUSER_TOKEN|appsecret_test|verify_word/.test(JSON.stringify([T.leads, mails, r.d])));
+  r = await leadHook(notice(L1));
+  ok('the same notice again (Meta does that): 200, no second row, no second email, and Meta is not asked again', r.status === 200 && fbLeads().length === 1 && mails.length === 1 && G.calls.filter((c) => c.path === L1).length === 1, [r, mails.length]);
+
+  // 5. Instagram, a split name, a ZIP asked in the form's own words, two leads in one notice, and other Page news.
+  clear();
+  const two = notice(L2, L4); two.entry[0].changes.splice(1, 0, { field: 'feed', value: { item: 'post', verb: 'add' } }); two.entry[0].changes.push(two.entry[0].changes[0]);
+  r = await leadHook(two);
+  const row2 = fbLeads().find((l) => l.name === 'Sam Reyes'), row4 = fbLeads().find((l) => l.name === 'Lee Park');
+  ok('two leads in one notice, with other Page news and a repeat mixed in: two rows, two emails', r.status === 200 && r.d.leads === 2 && fbLeads().length === 2 && mails.length === 2, [r, fbLeads().length, mails.map((x) => x.subject)]);
+  ok('an Instagram lead says Instagram, and first and last name are put together', !!row2 && row2.phone === '6235550177' && row2.zip === '85338' && /^Instagram lead ad\. /.test(row2.details) && sent(/^New Instagram lead: Sam Reyes, 85338$/).length === 1
+    && /from an Instagram ad form/.test(sent(/^New Instagram lead/)[0].text), [row2, mails.map((x) => x.subject)]);
+  ok('a lead with only a name and a mobile is fine', !!row4 && row4.phone === '6235550188' && row4.email === null && row4.zip === null && sent(/^New Facebook lead: Lee Park$/).length === 1, row4);
+  clear();
+  r = await leadHook(notice(L5));
+  ok('a mobile that is not 10 numbers is kept as typed in the details and the email', r.status === 200 && fbLeads()[0].phone === null && /Mobile: \+44 20 7946 0958\./.test(fbLeads()[0].details) && /Mobile: \+44 20 7946 0958\n/.test(mails[0].text), fbLeads()[0]);
+
+  // 6. Meta's testing tool and the Test button.
+  clear();
+  r = await leadHook(notice(L3));
+  ok('a lead made with Meta’s testing tool is saved and emailed as a test', r.status === 200 && sent(/^Test lead from Facebook: the lead link works$/).length === 1 && /This is a test lead from Meta’s testing tool/.test(mails[0].text) && /Paid ad: no\./.test(mails[0].text)
+    && /Test lead from Meta’s testing tool\./.test(fbLeads()[0].details) && fbLeads()[0].phone === null, [mails.map((x) => x.subject), fbLeads()[0]]);
+  clear();
+  r = await leadHook({ object: 'page', entry: [{ id: '0', time: sentAt, changes: [{ field: 'leadgen', value: { ad_id: '444444444', form_id: '444444444444', leadgen_id: '444444444444', created_time: sentAt, page_id: '444444444444', adgroup_id: '44444444444' } }] }] });
+  ok('the Test button on the Meta app’s Webhooks page sends a made up lead: 200, no row, Meta is not asked, and the office is told the notice arrived', r.status === 200 && fbLeads().length === 0 && G.calls.length === 0 && sent(/^Facebook leads: Meta’s test notice reached the site$/).length === 1, [r, mails.map((x) => x.subject)]);
+
+  // 7. A system user token in Cloudflare: the server gets the Page's own token from Meta and reads the lead with it.
+  env = leadEnv({ META_PAGE_TOKEN: G.userTok }); clear();
+  r = await leadHook(notice(L1));
+  ok('with a system user token the lead is still read: the server asks Meta for the Page’s token once', r.status === 200 && fbLeads().length === 1 && fbLeads()[0].name === 'Dana Lopez' && mails.length === 1
+    && G.calls.some((c) => c.path === G.page.id && c.fields === 'access_token' && c.tok === G.userTok) && G.calls.some((c) => c.path === L1 && c.tok === G.pageTok), G.calls);
+  clear();
+  r = await leadHook(notice(L4));
+  ok('the next lead goes straight to the Page’s token', r.status === 200 && G.calls[0].path === L4 && G.calls[0].tok === G.pageTok && !G.calls.some((c) => c.fields === 'access_token'), G.calls);
+
+  // 8. The token may not read the ad's name.
+  env = leadEnv(); clear(); G.noAds = true;
+  r = await leadHook(notice(L1));
+  ok('a token with no ad rights still gets the lead: the answers are all there and the ad shows by its id', r.status === 200 && fbLeads().length === 1 && /Name: Dana Lopez\n/.test(mails[0].text) && /Ad: 120200000000000111\n/.test(mails[0].text) && !/Campaign:/.test(mails[0].text), mails[0] && mails[0].text);
+  G.noAds = false;
+
+  // 9. The lead cannot be read: no token yet.
+  env = leadEnv({ META_PAGE_TOKEN: '' }); clear();
+  r = await leadHook(notice(L2));
+  const stub = fbLeads()[0], sm = sent(/^New Facebook lead: open Leads Center to read it$/)[0];
+  ok('no token yet: the office is still emailed the lead id and where to read the lead, and Meta is told to send it again', r.status === 503 && !!sm && sm.text.includes('Lead id: ' + L2 + '\n') && /Leads Center/.test(sm.text) && /META_PAGE_TOKEN/.test(sm.text) && /keeps trying for 36 hours/.test(sm.text), [r, sm && sm.text]);
+  ok('the lead is saved as not read yet, so it shows in the office app', !!stub && stub.name === 'Facebook lead, not read yet' && /^Facebook lead ad, not read yet\. /.test(stub.details) && stub.details.endsWith('Meta lead id ' + L2), stub);
+  ok('the Health tab says why', T.errors.filter((e) => /could not be read from Meta/.test(e.message)).length === 1 && /META_PAGE_TOKEN/.test(T.errors[0].detail), T.errors);
+  r = await leadHook(notice(L2));
+  ok('Meta sends it again with the token still missing: 503 again, and the office is not emailed twice', r.status === 503 && mails.length === 1 && fbLeads().length === 1, [r, mails.length]);
+  env = leadEnv();
+  r = await leadHook(notice(L2));
+  ok('the token is added and Meta sends it again: the row fills in, the full email goes out, and Meta gets 200', r.status === 200 && fbLeads().length === 1 && fbLeads()[0].id === stub.id && fbLeads()[0].name === 'Sam Reyes' && fbLeads()[0].phone === '6235550177'
+    && /^Instagram lead ad\. /.test(fbLeads()[0].details) && sent(/^New Instagram lead: Sam Reyes/).length === 1 && mails.length === 2, [r, fbLeads()[0], mails.map((x) => x.subject)]);
+  r = await leadHook(notice(L2));
+  ok('and once more: nothing new', r.status === 200 && mails.length === 2 && fbLeads().length === 1);
+
+  // 10. A dead token, Meta down, and a lead the token cannot see.
+  clear(); G.dead = true;
+  r = await leadHook(notice(L4));
+  ok('a dead token: the office is told the token has ended, in plain words, with what Meta said', r.status === 503 && /has ended or is not valid/.test(mails[0].text) && /Session has expired/.test(mails[0].text) && /code 190/.test(mails[0].text) && fbLeads().length === 1, mails[0] && mails[0].text);
+  G.dead = false; clear(); G.down = true;
+  r = await leadHook(notice(L5));
+  ok('Meta is down: each call is tried twice, then the office is told and Meta is asked to send it again', r.status === 503 && /Meta did not answer/.test(mails[0].text) && G.calls.filter((c) => c.path === L5 && /campaign_name/.test(c.fields)).length === 2, [mails[0] && mails[0].text, G.calls.length]);
+  G.down = false;
+  r = await leadHook(notice(L5));
+  ok('Meta is back: the same lead is finished', r.status === 200 && fbLeads().length === 1 && fbLeads()[0].name === 'Pat Moss' && mails.length === 2, [r, fbLeads()[0]]);
+  clear();
+  r = await leadHook(notice('900000000000099'));
+  ok('a lead the token cannot see: the office is told it needs lead access', r.status === 503 && /not allowed to read this lead/.test(mails[0].text) && /Leads Access/.test(mails[0].text), mails[0] && mails[0].text);
+
+  // 11. An old unread lead is finished when the next lead proves the token works.
+  ok('that unread lead is still waiting', fbLeads().length === 1 && /not read yet/.test(fbLeads()[0].details));
+  G.leads['900000000000099'] = { id: '900000000000099', created_time: '2026-11-17T06:50:00+0000', form_id: FORM, platform: 'fb', field_data: [{ name: 'full_name', values: ['Ana Ruiz'] }, { name: 'phone_number', values: ['6235550155'] }] };
+  reset();
+  r = await leadHook(notice(L4));
+  ok('when a later lead is read fine, the waiting one is tried again and finished too', r.status === 200 && fbLeads().length === 2 && fbLeads().every((l) => !/not read yet/.test(l.details)) && sent(/^New Facebook lead: Ana Ruiz$/).length === 1 && sent(/^New Facebook lead: Lee Park$/).length === 1, [fbLeads(), mails.map((x) => x.subject)]);
+  delete G.leads['900000000000099'];
+
+  // 12. The email does not send.
+  clear(); MAIL.down = true;
+  r = await leadHook(notice(L1));
+  ok('the mail service is down: the lead is saved, marked email not sent, and Meta is told to send it again', r.status === 503 && fbLeads().length === 1 && /^Facebook lead ad, email not sent\. /.test(fbLeads()[0].details) && fbLeads()[0].name === 'Dana Lopez' && mails.length === 0, [r, fbLeads()[0]]);
+  MAIL.down = false;
+  ok('the Health tab says the email did not send and that the lead is saved', T.errors.some((e) => /email to the office did not send/.test(e.message) && /is saved in the office app/.test(e.detail)), T.errors);
+  r = await leadHook(notice(L1));
+  ok('mail is back: one email, the mark comes off, 200', r.status === 200 && mails.length === 1 && fbLeads().length === 1 && /^Facebook lead ad\. /.test(fbLeads()[0].details) && sent(/^New Facebook lead: Dana Lopez/).length === 1, [r, fbLeads()[0]]);
+
+  // 13. The database does not answer.
+  clear(); DBX.leadsDown = true;
+  r = await leadHook(notice(L4));
+  ok('the leads table is down: the lead is still emailed to the office in full', r.status === 200 && fbLeads().length === 0 && sent(/^New Facebook lead: Lee Park$/).length === 1, [r, mails.map((x) => x.subject)]);
+  DBX.leadsDown = false;
+
+  // 14. Two notices for one lead at the same moment.
+  clear();
+  const both = await Promise.all([leadHook(notice(L1)), leadHook(notice(L1))]);
+  ok('the same lead twice at once: one row is kept and the office gets one email', fbLeads().length === 1 && sent(/^New Facebook lead: Dana Lopez/).length === 1 && both.every((x) => x.status === 200 || x.status === 503), [both, fbLeads().length, mails.map((x) => x.subject)]);
+
+  // 15. Only our Page, and a big notice.
+  env = leadEnv({ META_PAGE_ID: '999' }); clear();
+  r = await leadHook(notice(L1));
+  ok('with META_PAGE_ID set, a lead from another Page is left alone', r.status === 200 && r.d.leads === 0 && fbLeads().length === 0 && mails.length === 0, r);
+  env = leadEnv(); clear();
+  const many = ['900000000000011', '900000000000012', '900000000000013', '900000000000014', '900000000000015', '900000000000016', '900000000000017'];
+  for (const idm of many) G.leads[idm] = { id: idm, created_time: '2026-11-17T07:00:00+0000', form_id: FORM, platform: 'fb', field_data: [{ name: 'full_name', values: ['Lead ' + idm.slice(-2)] }, { name: 'phone_number', values: ['62355501' + idm.slice(-2)] }] };
+  r = await leadHook(notice(...many));
+  ok('seven leads in one notice: five are done and Meta is asked to send the notice again', r.status === 503 && fbLeads().length === 5 && mails.length === 5, [r, fbLeads().length]);
+  r = await leadHook(notice(...many));
+  ok('the second time the last two are done, nobody is emailed twice, and Meta gets 200', r.status === 200 && fbLeads().length === 7 && mails.length === 7 && new Set(mails.map((x) => x.subject)).size === 7, [r, fbLeads().length, mails.length]);
+  for (const idm of many) delete G.leads[idm];
+  const big = await worker.fetch(new Request('https://arizonapetwaste.com/api/meta/leadgen', { method: 'POST', body: 'x'.repeat(1100000), headers: { 'content-length': '1100000' } }), env, ctx);
+  ok('a notice past the size cap is refused', big.status === 413, big.status);
+  ok('Facebook leads count as sign up requests in the office app, and the website form still takes its own', (await call('/api/request', 'POST', Object.assign({}, good, { email: 'after-fb@example.com' }))).status === 200);
+  clear(); env = Object.assign({}, baseEnv); G.subs = []; }
 
 /* ---------- every Stripe request against Stripe's own field list (optional) ---------- */
 if (process.env.STRIPE_SPEC) {

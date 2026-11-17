@@ -49,6 +49,8 @@ npm run check      # one H1 per page, titles, no dashes in copy, links, structur
 | `MAIL_FROM` | `Arizona Pet Waste <info@arizonapetwaste.com>` | text |
 | `NOTIFY_EMAIL` | `info@arizonapetwaste.com` | text |
 | `SITE_URL` | `https://arizonapetwaste.com` | text |
+| `META_CAPI_TOKEN` | Meta Events Manager > Settings > Generate access token (the server's copy of each booking and lead for Meta ads) | secret |
+| `META_APP_SECRET`, `META_PAGE_TOKEN`, `META_VERIFY_TOKEN` | Facebook and Instagram lead forms reach the office and the office app. The steps are `GO_LIVE.md` part 11 | secret |
 | `FIRST_VISIT_FROM` | `2026-11-20` (first day people can pick) | text |
 | `FREE_MONTH_UNTIL` | not needed. Only to move the last moment a sign up gets a free month. The default is `2026-12-01T06:59:59Z`, the end of the Black Friday sale | text |
 | `NODE_VERSION` | `22` | text |

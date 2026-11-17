@@ -100,6 +100,7 @@ Every setting the live site reads in Cloudflare Pages > Settings > Variables and
 - Must have: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`.
 - Mail (without these no email leaves the site: no welcome, no "card did not work", no office notice): `RESEND_API_KEY`, `MAIL_FROM`, `NOTIFY_EMAIL`.
 - Ads (Meta Conversions API, the server's copy of each booking and lead): `META_CAPI_TOKEN` (Secret, from Meta Events Manager, Settings, Generate access token for pixel 1982997959354953). `/api/health` reads `"meta":true` once it is in. Optional: `META_TEST_CODE` while testing in Events Manager's Test events tab (take it out after).
+- Facebook and Instagram lead forms (part 11): `META_APP_SECRET`, `META_VERIFY_TOKEN`, `META_PAGE_TOKEN` (all three as Secret). `/api/health` reads `"leads":true` once all three are in. Optional: `META_PAGE_ID` when the token can act for more than one Page.
 - Good to set: `SITE_URL` (`https://arizonapetwaste.com`), `GOOGLE_MAPS_BROWSER_KEY`, `GOOGLE_MAPS_SERVER_KEY`, `TURNSTILE_SITE_KEY`, `CRON_SECRET`.
 - Only to change a default: `FIRST_VISIT_FROM` (2026-11-20), `SCHEDULE_DAYS` (7), `FREE_MONTH_UNTIL` (2026-12-01T06:59:59Z, the last moment a sign up gets a free month), `STOPS_PER_DAY`, `WORK_DAYS`, `ROUTE_START`, `ROUTE_START_LABEL`.
 - Build setting: `NODE_VERSION` = `22`.
@@ -135,3 +136,41 @@ Sample messages:
 4. Arizona Pet Waste: Guests coming over? We can scoop your yard the same day when we have a spot, from $99. Text us back to book it. Reply STOP to opt out.
 
 Sample 4 changed on November 16, 2026. It used to offer a turf odor treatment for $35. Joe ended that paid extra: deodorizing is included free with every visit. If the old sample was already sent to Twilio, swap it for this one on the next edit of the campaign.
+
+## 11. Facebook and Instagram lead forms (Meta lead ads)
+A lead form on Facebook or Instagram (an Instant Form) never touches the website. Meta keeps the answers. To get each lead to info@arizonapetwaste.com and into the office app, Meta has to send the site a notice for every new lead, and the site has to be allowed to read the lead. The site side is built (`/api/meta/leadgen` in `src/worker/worker.js`). The Meta side below needs a person who is an admin of the Arizona Pet Waste business portfolio. Nobody pastes a token into chat, email or GitHub: tokens go from Meta straight into Cloudflare.
+
+Until this is done, new leads sit in Meta only. Read them in Meta Business Suite, Leads Center, or in Ads Manager by opening the form and downloading the leads. Meta has no email of its own for each new lead.
+
+What you put in Cloudflare Pages > Settings > Variables and Secrets (all three as Secret, in Production):
+- `META_APP_SECRET`: the Meta app's App secret (step 3).
+- `META_PAGE_TOKEN`: a system user token that can read the Page's leads (step 5). The site turns it into the Page's own token by itself.
+- `META_VERIFY_TOKEN`: any long word you make up, 20 letters and numbers or more (step 7).
+
+Steps:
+1. Go to developers.facebook.com > My Apps > Create app. Pick the use case "Capture & manage ad leads with Marketing API". Connect the app to the business portfolio that owns the Arizona Pet Waste Page. One app is enough. If the business already has an app with that use case, use it.
+2. In the app, open Use cases > "Capture & manage ad leads with Marketing API" > Permissions and features. Add every one it lists (`leads_retrieval`, `pages_show_list`, `pages_read_engagement`, `pages_manage_ads`, `ads_management`, `ads_read`, `business_management`) and also the optional one `pages_manage_metadata`. That last one lets the Page send its lead notices to the app.
+3. App settings > Basic: press Show next to App secret and put it in Cloudflare as `META_APP_SECRET`. On the same page fill in the privacy policy address (`https://arizonapetwaste.com/privacy/`), the category, an app icon and the user data deletion box (the privacy page address works). Meta asks for those before it lets you publish.
+4. Publish the app. Meta's own words: "To receive webhook notifications your app must be published." An app that is still in development only gets test leads from people who have a role on the app. App Review is not needed: we only read leads from our own Page.
+5. Make the token. Business settings (business.facebook.com/settings) > Users > System users > Add. Name it `apw-site`, role Admin. Press Assign assets and give it the Page Arizona Pet Waste with full control, and the app from step 1. Press Generate token, pick the app, set the token to never expire, and tick `leads_retrieval`, `pages_show_list`, `pages_read_engagement`, `pages_manage_metadata`, `pages_manage_ads`, `ads_management` and `business_management`. Copy the token and put it in Cloudflare as `META_PAGE_TOKEN`. Meta shows it once.
+6. Lead access. Business settings > Integrations > Leads Access > pick the Page. If lead access was never customized there, every Page admin can read leads and there is nothing to do. If it was, add the system user `apw-site` under People and the app under CRMs. Without this Meta refuses to hand over a lead even with a good token.
+7. Make up the verify word and put it in Cloudflare as `META_VERIFY_TOKEN`.
+8. Redeploy the site in Cloudflare Pages (Deployments > the newest one > Retry deployment). A setting only counts after a new deployment. Then open https://arizonapetwaste.com/api/health: it must read `"leads":true`.
+9. Back in the Meta app: Webhooks. Pick Page in the list at the top. Callback URL: `https://arizonapetwaste.com/api/meta/leadgen`. Verify token: the word from step 7. Press Verify and save. Then find `leadgen` in the list of fields and press Subscribe.
+   - The moment Meta checks the address, the site sets the Page to send its leads to the app (so there is no Graph API Explorer step) and emails info@ either "Facebook leads are connected to the site" or "Facebook leads: the setup needs one more step" with what is missing.
+   - To see the same thing in a browser, open `https://arizonapetwaste.com/api/meta/leadgen?check=` with your verify word after the equals sign. It must read `"ok":true` and `"subscribed":true`. The `note` says what is missing when it does not.
+   - Only if the note says the site could not set the Page: do it by hand in Meta's Graph API Explorer. Pick the app, get a Page token for Arizona Pet Waste with `pages_manage_metadata`, switch GET to POST, type `{page-id}/subscribed_apps?subscribed_fields=leadgen` with the Page's id, and press Submit. It answers `"success": true`.
+10. Send a test lead. Open developers.facebook.com/tools/lead-ads-testing, pick the Page and the form (the Black Friday form is 1537873488145115), press Create lead. Meta lets you make one test lead per form, so press Delete lead first if one is there. Within a minute info@ gets "Test lead from Facebook: the lead link works" and the lead shows in the office app under Leads. The tool's Track status button shows whether Meta reached the site.
+
+How the site handles a lead:
+- Every notice has to be signed with the app secret. An unsigned notice, or one signed with another secret, is refused and nothing is read.
+- The lead is read from Meta, saved in the `leads` table as a sign up request (the details start with "Facebook lead ad." or "Instagram lead ad." and end with the Meta lead id), and emailed to `NOTIFY_EMAIL` with every answer, the form, the ad, the campaign and the time.
+- A lead is emailed once. Meta sends a notice again when it gets no answer, and the site finds the saved lead by its Meta lead id and skips it.
+- If the site cannot read a lead (no token yet, a token that ended, lead access taken away, Meta down), the office still gets an email, "New Facebook lead: open Leads Center to read it", with the lead id and the reason, the lead is saved as "Facebook lead, not read yet", and Meta is told to send the notice again. Meta tries for 36 hours. The first try that works fills in the saved lead and sends the full email. A lead that was still unread after that is tried again whenever a later lead is read fine.
+- If the email does not send, the lead is saved with "email not sent" and Meta is asked to send the notice again, so the email goes out on the next try.
+- The Test button on the Meta app's Webhooks page sends a made up lead (all fours). The site answers 200, saves nothing, and emails the office that the notice arrived.
+- Problems show on the Health tab of the office app: a missing app secret, a signature that does not match, a lead that could not be read, an email that did not send.
+
+If Verify and save fails in step 9, Meta could not reach the address or the word did not match. Check that the site was redeployed after the settings went in (step 8), and that the verify word has no space at either end. If both are right, look in Cloudflare > Security > Events for a request to `/api/meta/leadgen` that Cloudflare blocked, and let it through.
+
+If Meta ever shows the token as ended or the app secret is reset, make a new one the same way, put it in Cloudflare, redeploy, and press Verify and save again in step 9. Leads from the gap are in Leads Center, and Meta keeps them there for 90 days.
