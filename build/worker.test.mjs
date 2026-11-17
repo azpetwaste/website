@@ -155,6 +155,7 @@ function stripeApi(m, url, init) {
 }
 
 const mails = [];
+const META = []; // what the server sends Meta (Conversions API)
 const PLACES = { off: false, zip: '85396' }, placeCalls = [];
 const AUTH = {}, authCalls = []; // pretend Supabase Auth: email to { id, password }
 const reply = (data, status = 200) => new Response(data === '' ? '' : JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
@@ -195,6 +196,7 @@ globalThis.fetch = async (url, init = {}) => {
     return reply({ addressComponents: [{ longText: '4321', shortText: '4321', types: ['street_number'] }, { longText: 'North Verrado Way', shortText: 'N Verrado Way', types: ['route'] },
       { longText: 'Buckeye', shortText: 'Buckeye', types: ['locality', 'political'] }, { longText: PLACES.zip, shortText: PLACES.zip, types: ['postal_code'] }] });
   }
+  if (url.startsWith('https://graph.facebook.com/')) { META.push({ url, body: JSON.parse(init.body) }); return reply({ events_received: 1 }); }
   if (url === 'https://challenges.cloudflare.com/turnstile/v0/siteverify') return reply({ success: JSON.parse(init.body).response === 'human' });
   return reply({ error: 'unmocked ' + url }, 500); // the Census map pin lookup and the route tables: placeCustomer shrugs these off
 };
@@ -446,6 +448,39 @@ head('Sign up: nothing doubles up');
   S.funding = 'prepaid'; q = await quote('2027-03-10', 'week', 2); S.funding = 'credit'; reset();
   await hook(sessionEvt(q.s.id));
   ok('a prepaid card is flagged for the office', sent(/^Prepaid card: Test Person/).length === 1 && sent(/^PREPAID CARD\. New booking/).length === 1);
+}
+head('Meta: the booking and the leads reach Meta once, scrambled, with no phone number');
+{ for (const k of Object.keys(S.subs)) delete S.subs[k];
+  const sha = (v) => crypto.createHash('sha256').update(v).digest('hex');
+  env = Object.assign({}, baseEnv, { FIRST_VISIT_FROM: '2027-03-10', META_CAPI_TOKEN: 'meta_test_token' });
+  T.customers.length = 0; T.consent_log.length = 0; reset(); META.length = 0;
+  const fbp = 'fb.1.1763355000000.1234567890', fbc = 'fb.1.1763355000000.IwAR0abcdefghijk';
+  const r = await call('/api/checkout', 'POST', Object.assign({}, good, { plan: 'week', dogs: 2, ad: { fbp, fbc: fbc, junk: 'x' } }), 'good');
+  const s = S.sessions[r.d && r.d.session];
+  ok('the card form carries Meta\'s browser and click ids', !!s && s.metadata.ad_fbp === fbp && s.metadata.ad_fbc === fbc && !('ad_junk' in s.metadata), s && s.metadata);
+  ok('a made up Meta id is dropped', (await call('/api/checkout', 'POST', Object.assign({}, good, { plan: 'week', dogs: 2, ad: { fbp: '<script>', fbc: 'x' } }), 'good')).status === 200
+    && !Object.values(S.sessions).slice(-1)[0].metadata.ad_fbp && !Object.values(S.sessions).slice(-1)[0].metadata.ad_fbc);
+  await hook(sessionEvt(s.id));
+  await call('/api/checkout/done', 'POST', { session: s.id }, 'good'); await settle();
+  const bk = META.filter((x) => x.body.data[0].event_name === 'StartTrial');
+  const e = bk[0] && bk[0].body.data[0];
+  ok('one booking sends Meta one StartTrial, with the event id the page uses', bk.length === 1 && e.event_id === 'bk_' + s.id && /\/v\d+\.0\/1982997959354953\/events\?access_token=meta_test_token$/.test(bk[0].url), META);
+  ok('Meta gets the month price, a scrambled email, city and ZIP and the ad ids, never the phone, name or street', !!e && e.custom_data.value === 108 && e.custom_data.currency === 'USD'
+    && e.user_data.em[0] === sha('test@example.com') && e.user_data.zp[0] === sha('85396') && e.user_data.ct[0] === sha('buckeye') && e.user_data.fbc === fbc && e.user_data.fbp === fbp
+    && !/623|555|Test Person|Test St/.test(JSON.stringify(e)), e);
+  META.length = 0;
+  const w = await call('/api/waitlist', 'POST', { name: 'Wait Person', phone: '6235550199', address: '9 N Far St, Surprise', email: 'wait@example.com', zip: '', texts: false, website: '', eid: 'wl_abc123def', ad: { fbc } }); await settle();
+  const l = META[0] && META[0].body.data[0];
+  ok('a waitlist sign up sends one Lead with the page\'s event id and no phone, name or street', w.status === 200 && META.length === 1 && l.event_name === 'Lead' && l.event_id === 'wl_abc123def'
+    && l.user_data.em[0] === sha('wait@example.com') && !/6235550199|Wait Person|Far St/.test(JSON.stringify(l)), META);
+  META.length = 0;
+  await call('/api/waitlist', 'POST', { name: 'Wait Odd', phone: '6235550197', address: '9 N Far St, Surprise', email: '', zip: '', texts: false, website: '', eid: '"><img>' }); await settle();
+  ok('a lead with no good event id is not sent (Meta could not match it to the page)', META.length === 0);
+  env = Object.assign({}, baseEnv, { FIRST_VISIT_FROM: '2027-03-10' });
+  await call('/api/waitlist', 'POST', { name: 'Wait Two', phone: '6235550198', address: '9 N Far St, Surprise', email: 'w2@example.com', zip: '', texts: false, website: '', eid: 'wl_abc123xyz' }); await settle();
+  ok('with no Meta token nothing goes to Meta', META.length === 0);
+  const r2 = await call('/api/checkout', 'POST', Object.assign({}, good, { phone: '6235550111', address: '11 W Other St', ad: { fbp, fbc } }), 'two');
+  ok('with no Meta token the card form carries no Meta ids', r2.status === 200 && !Object.keys(S.sessions[r2.d.session].metadata).some((k) => /^ad_/.test(k)), S.sessions[r2.d.session] && S.sessions[r2.d.session].metadata);
 }
 head('Sign up: Stripe refuses to start the plan');
 { for (const k of Object.keys(S.subs)) delete S.subs[k];

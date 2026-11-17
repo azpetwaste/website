@@ -65,6 +65,14 @@ for (const file of pages) {
     if (/IBM Plex Mono|Schibsted Grotesk/.test(html)) bad(rel, 'names a font we no longer use');
     if (/<span style="color: var\(--accent\);">[.?]<\/span>|<span class="dot">/.test(html)) bad(rel, 'colored period after a heading');
     if (!/rel="preload" href="\/assets\/fonts\//.test(html)) bad(rel, 'does not preload the font');
+    // Tags (Joe, Nov 16, 2026): one Google Tag Manager container, GTM-KPDVN8FQ, on every public page but My Yard, and
+    // no other container or Google tag on the page. Two would count visits and sign ups twice.
+    const isYard = /^\/account\//.test(rel);
+    const gtm = (html.match(/googletagmanager\.com\/gtm\.js\?id=GTM-KPDVN8FQ/g) || []).length;
+    if (!isYard && gtm !== 1) bad(rel, 'must load Google Tag Manager GTM-KPDVN8FQ once (found ' + gtm + ')');
+    if (isYard && gtm) bad(rel, 'My Yard must not load Google Tag Manager');
+    const other = html.match(/GTM-(?!KPDVN8FQ\b)[A-Z0-9]{6,10}\b|googletagmanager\.com\/gtag\/js/);
+    if (other) bad(rel, 'loads another Google tag or container (' + other[0] + '). Put it inside GTM-KPDVN8FQ instead');
   }
   owner(rel, html);
   // every image says what it is (alt="" is fine for pictures that are only decoration)

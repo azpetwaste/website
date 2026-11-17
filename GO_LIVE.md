@@ -98,6 +98,7 @@ While the Stripe test keys are in Cloudflare, the public gets the "we call you" 
 Every setting the live site reads in Cloudflare Pages > Settings > Variables and Secrets:
 - Must have: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`.
 - Mail (without these no email leaves the site: no welcome, no "card did not work", no office notice): `RESEND_API_KEY`, `MAIL_FROM`, `NOTIFY_EMAIL`.
+- Ads (Meta Conversions API, the server's copy of each booking and lead): `META_CAPI_TOKEN` (Secret, from Meta Events Manager, Settings, Generate access token for pixel 1982997959354953). `/api/health` reads `"meta":true` once it is in. Optional: `META_TEST_CODE` while testing in Events Manager's Test events tab (take it out after).
 - Good to set: `SITE_URL` (`https://arizonapetwaste.com`), `GOOGLE_MAPS_BROWSER_KEY`, `GOOGLE_MAPS_SERVER_KEY`, `TURNSTILE_SITE_KEY`, `CRON_SECRET`.
 - Only to change a default: `FIRST_VISIT_FROM` (2026-11-20), `SCHEDULE_DAYS` (7), `STOPS_PER_DAY`, `WORK_DAYS`, `ROUTE_START`, `ROUTE_START_LABEL`.
 - Build setting: `NODE_VERSION` = `22`.

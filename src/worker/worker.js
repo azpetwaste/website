@@ -98,7 +98,7 @@ async function route(path, request, env, ctx) {
   if (path === '/api/me/pause' && m === 'POST') return mePause(request, env, ctx);
   if (path === '/api/me/resume' && m === 'POST') return meResume(request, env, ctx);
   if (path === '/api/demo/week' && m === 'GET') return demoWeek(env, new URL(request.url).searchParams);
-  if (path === '/api/health' && m === 'GET') return ok({ ok: true, live: live(env), desk: sbLive(env), keys: keyMode(env), hook: !!env.STRIPE_WEBHOOK_SECRET, mail: !!env.RESEND_API_KEY });
+  if (path === '/api/health' && m === 'GET') return ok({ ok: true, live: live(env), desk: sbLive(env), keys: keyMode(env), hook: !!env.STRIPE_WEBHOOK_SECRET, mail: !!env.RESEND_API_KEY, meta: metaOn(env) });
   if (path === '/api/log' && m === 'POST') return clientLog(request, env);
   if (/^\/api\/(staff|crew|office|track)\//.test(path)) return desk(path, request, env, ctx);
   return fail(404, 'Not found.');
@@ -559,7 +559,9 @@ async function checkout(request, env, ctx) {
       user_id: u.id, plan: b.plan, dogs: String(dogs), zip, first_charge: String(bill.firstCents),
       free_end: String(bill.freeEnd), anchor: String(bill.anchor), pause_from: String(bill.minEnd),
       free_label: bill.freeLabel, next_label: bill.nextLabel,
-      min_end: earlyOn(env) ? String(bill.minEnd) : undefined, min_label: earlyOn(env) ? bill.minLabel : undefined
+      min_end: earlyOn(env) ? String(bill.minEnd) : undefined, min_label: earlyOn(env) ? bill.minLabel : undefined,
+      // Meta's browser and click ids, so the booking sent to Meta later (metaBooked) names the ad. Only when that is on.
+      ...(metaOn(env) ? adMeta(b, ip, ua) : {})
     },
     custom_text: { submit: { message: 'You pay $0 today. ' + billText(bill) + ' Cancel anytime in My Yard.' + (earlyOn(env) ? ' ' + freeRule(bill.minLabel) : '') } }
   };
@@ -673,13 +675,13 @@ async function startPlan(env, ctx, s) {
     // Look at the first bill now. Queued before the row is touched, so a row update that fails cannot skip the look.
     ctx.waitUntil(checkPlan(env, s, sub));
   }
-  await booked(env, ctx, uid, sub, customer, card);
+  await booked(env, ctx, uid, sub, customer, card, s);
   return sub;
 }
 
 // The row leaves "checkout" once. Only the call that moves it puts the yard on a route and sends the welcome emails,
 // so a sign up finished by the Stripe webhook and by the sign up page still gets one of each.
-async function booked(env, ctx, uid, sub, customer, card) {
+async function booked(env, ctx, uid, sub, customer, card, s) {
   const status = sub.pause_collection ? 'paused' : sub.status;
   const meta = sub.metadata || {};
   const patch = { status, stripe_subscription_id: sub.id, stripe_customer_id: customer, updated_at: new Date().toISOString() };
@@ -717,6 +719,8 @@ async function booked(env, ctx, uid, sub, customer, card) {
     'Want our deals by text? Turn on "Text me deals too" in My Yard.', '',
     'Questions? Call or text 623.309.6104.', '', 'Arizona Pet Waste'
   ].join('\n')));
+  // The booking, sent to Meta once (this is the one call that moved the row), with the page's event id.
+  if (metaOn(env)) ctx.waitUntil(metaBooked(env, c, total, meta.session || (s && s.id) || '', s && s.metadata));
   return true;
 }
 
@@ -1131,6 +1135,7 @@ async function waitlist(request, env, ctx) {
     'Offer shown: ' + WAIT_OFFER
   ].join('\n'));
   if (!stored && !sent) return fail(503, 'Our waitlist is not taking sign ups online yet. Text 623.309.6104 with your name, address and ZIP, and we will add you.');
+  if (metaOn(env) && ctx && ctx.waitUntil) ctx.waitUntil(metaEvent(env, 'Lead', eventIdOk(b.eid), Object.assign({ email, ip: request.headers.get('cf-connecting-ip') || '', ua: clean(request.headers.get('user-agent'), 300) }, adIds(b.ad)), { lead_type: 'waitlist' }));
   return ok({ ok: true });
 }
 
@@ -1162,6 +1167,8 @@ async function signupRequest(request, env, ctx) {
   const kept = sbLive(env) ? await addLead(env, { kind: 'signup_request', name, email, phone, address, zip,
     details: PLANS[b.plan].name + ', ' + dogs + (dogs === 1 ? ' dog, ' : ' dogs, ') + money(total) + ' a month. Visit texts: ' + (b.textsVisit ? 'yes' : 'no') }) : false;
   if (!sent && !kept) return fail(503, 'Online sign up opens soon. Call or text 623.309.6104 and we will book you today.');
+  if (metaOn(env) && ctx && ctx.waitUntil) ctx.waitUntil(metaEvent(env, 'Lead', eventIdOk(b.eid), Object.assign({ email, city: z.city, zip, ip: request.headers.get('cf-connecting-ip') || '', ua: clean(request.headers.get('user-agent'), 300) }, adIds(b.ad)),
+    { lead_type: 'request', value: total / 100, currency: 'USD', content_name: b.plan, num_items: dogs }));
   return ok({ ok: true });
 }
 
@@ -2561,6 +2568,67 @@ async function trackDemo(env) {
 
 /* ---------- crash log and health check ---------- */
 // Every server error and every crash in the crew app or on a truck link lands in the errors table. The office reads it on the Health tab.
+// ---------- Meta Conversions API ----------
+// The page sends the Meta Pixel its events (APW.track in apw.js). The booking and the leads also go to Meta from here,
+// with the same event id, so a visitor whose browser blocks the pixel still counts and Meta counts each one once.
+// Off until META_CAPI_TOKEN is set in Cloudflare. META_PIXEL_ID can override the pixel id below (a public value).
+// What Meta gets: a scrambled (SHA 256) email, city, state, ZIP and customer id, the IP address and browser line, and
+// Meta's own browser and click ids. Never the phone number, the name, the street address, the gate code or the card:
+// the privacy policy and the text terms promise that. META_TEST_CODE sends to Events Manager's Test events tab.
+const META_PIXEL = '1982997959354953';
+const META_API = 'v26.0';
+function metaOn(env) { return !!(env.META_CAPI_TOKEN && (env.META_PIXEL_ID || META_PIXEL)); }
+async function sha256(v) {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v));
+  return [...new Uint8Array(d)].map((x) => x.toString(16).padStart(2, '0')).join('');
+}
+// Only values in Meta's own formats get through: fbp is fb.1.<time>.<number>, fbc is fb.1.<time>.<click id>.
+function adIds(a) {
+  a = a && typeof a === 'object' ? a : {};
+  const fbp = String(a.fbp || ''), fbc = String(a.fbc || '');
+  return { fbp: /^fb\.\d\.\d{10,16}\.\d{1,30}$/.test(fbp) ? fbp : '', fbc: /^fb\.\d\.\d{10,16}\.[\w-]{10,500}$/.test(fbc) ? fbc : '' };
+}
+function adMeta(b, ip, ua) {
+  const a = adIds(b && b.ad);
+  return { ad_fbp: a.fbp || undefined, ad_fbc: a.fbc || undefined, ad_ip: ip || undefined, ad_ua: ua || undefined };
+}
+function eventIdOk(v) { v = String(v || ''); return /^[a-z]{2,10}_[a-z0-9]{6,40}$/i.test(v) ? v : ''; }
+async function metaUser(o) {
+  const u = { st: [await sha256('az')], country: [await sha256('us')] };
+  if (o.email) u.em = [await sha256(String(o.email).trim().toLowerCase())];
+  if (o.city) u.ct = [await sha256(String(o.city).toLowerCase().replace(/[^a-z]/g, ''))];
+  if (/^\d{5}/.test(String(o.zip || ''))) u.zp = [await sha256(String(o.zip).slice(0, 5))];
+  if (o.uid) u.external_id = [await sha256(String(o.uid))];
+  if (o.ip) u.client_ip_address = o.ip;
+  if (o.ua) u.client_user_agent = o.ua;
+  if (o.fbp) u.fbp = o.fbp;
+  if (o.fbc) u.fbc = o.fbc;
+  return u;
+}
+async function metaEvent(env, name, id, user, custom, path) {
+  if (!metaOn(env) || !id) return false;
+  try {
+    const body = { data: [{ event_name: name, event_time: Math.floor(Date.now() / 1000), event_id: id, action_source: 'website',
+      event_source_url: 'https://' + siteHost(env) + (path || '/book/'), user_data: await metaUser(user || {}), custom_data: custom || {} }] };
+    if (env.META_TEST_CODE) body.test_event_code = String(env.META_TEST_CODE);
+    const r = await fetch('https://graph.facebook.com/' + META_API + '/' + encodeURIComponent(env.META_PIXEL_ID || META_PIXEL) + '/events?access_token=' + encodeURIComponent(env.META_CAPI_TOKEN),
+      { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    if (r.ok) return true;
+    await logError(env, 'server', 'meta', 'Meta did not take a ' + name + ' event (' + r.status + '). Check META_CAPI_TOKEN.', (await r.text().catch(() => '')).slice(0, 800));
+  } catch (e) { await logError(env, 'server', 'meta', 'Meta ' + name + ' event failed', e && e.message); }
+  return false;
+}
+// The booking: Meta's StartTrial, worth the month price. The ids come from the card form (metadata from /api/checkout).
+// A booking the Stripe webhook finished has no card form in hand, so the card form is read once from Stripe.
+async function metaBooked(env, c, totalCents, session, md) {
+  if (!session) return false;
+  if (!md && /^cs_/.test(session)) { try { md = (await stripe(env, 'GET', 'checkout/sessions/' + session)).metadata; } catch (e) { md = null; } }
+  md = md || {};
+  return metaEvent(env, 'StartTrial', 'bk_' + session,
+    { email: c.email, city: (ZIPS[c.zip] || {}).city, zip: c.zip, uid: c.id, ip: md.ad_ip, ua: md.ad_ua, fbp: md.ad_fbp, fbc: md.ad_fbc },
+    { value: totalCents / 100, currency: 'USD', content_name: c.plan, num_items: c.dogs });
+}
+
 async function logError(env, source, path, message, detail) {
   if (!sbLive(env)) return;
   try {

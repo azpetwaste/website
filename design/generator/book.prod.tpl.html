@@ -272,10 +272,16 @@ class Component extends DCLogic {
       if (prev.step === 4) this._stopPay();
       if (s.step === 4) this._startPay();
       this._focusStep();
+      // Ad tracking (APW.track): sign up started, then the card step. Once each per visit. No personal details.
+      if (s.step === 1 && !this._tStart) { this._tStart = 1; this._t('start', this._tPlan()); }
+      if (s.step === 4 && !this._tCard && !this._demo()) { this._tCard = 1; this._t('card', this._tPlan()); }
     }
     if (s.step < 4) this._save();
   }
   _apw() { return typeof window !== 'undefined' ? window.APW || null : null; }
+  _t(step, d) { const a = this._apw(); if (a && a.track) a.track(step, d); }
+  _tPlan() { const s = this.state; return { plan: s.plan, dogs: s.dogs, value: this._price(s.plan, s.dogs) }; }
+  _adIds() { const a = this._apw(); return a && a.adIds ? a.adIds() : {}; }
   _cfg() { const a = this._apw(); return (a && a.cfg) || {}; }
   _demo() { const a = this._apw(); return !a || !a.live; }
   _closed() { const a = this._apw(); return !!(a && a.closed); }
@@ -451,8 +457,10 @@ class Component extends DCLogic {
     if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) { this.setState({ waitErr: 'Type your email, like you@email.com.' }); return; }
     if (this._demo() && !this._closed()) { this.setState({ waitDone: true, waitErr: '' }); return; }
     this.setState({ waitBusy: true, waitErr: '' });
+    const eid = this._apw().eventId ? this._apw().eventId('wl') : '';
     try {
-      await this._apw().post('/api/waitlist', { name: s.wName.trim(), phone: ph, address: s.wAddr.trim() + ', ' + String(s.wCity || '').trim(), email: em, zip: '', texts: !!s.wTexts, website: '' });
+      await this._apw().post('/api/waitlist', { name: s.wName.trim(), phone: ph, address: s.wAddr.trim() + ', ' + String(s.wCity || '').trim(), email: em, zip: '', texts: !!s.wTexts, website: '', eid: eid, ad: this._adIds() });
+      this._t('waitlist', { id: eid });
       this.setState({ waitBusy: false, waitDone: true });
     } catch (e) { this.setState({ waitBusy: false, waitErr: this._apw().msg(e) }); }
   }
@@ -460,14 +468,14 @@ class Component extends DCLogic {
   async _request() {
     const s = this.state;
     this.setState({ busy: true, err: '' });
+    const eid = this._apw().eventId ? this._apw().eventId('rq') : '';
     try {
       await this._apw().post('/api/request', {
         zip: s.zip, plan: s.plan, dogs: s.dogs, name: s.name.trim(), phone: this._phone10(), email: s.email.trim(), address: s.addr.trim(),
-        textsVisit: !!s.txtVisit, textsDeals: false, page: location.pathname, website: ''
+        textsVisit: !!s.txtVisit, textsDeals: false, page: location.pathname, website: '', eid: eid, ad: this._adIds()
       });
       this._clearDraft();
-      const a = this._apw();
-      if (a && a.track) a.track('request');
+      this._t('request', Object.assign({ id: eid }, this._tPlan()));
       this.setState({ busy: false, req: true, step: 5 });
     } catch (e) { this.setState({ busy: false, err: this._apw().msg(e) }); }
   }
@@ -484,7 +492,7 @@ class Component extends DCLogic {
       const r = await a.post('/api/checkout', {
         zip: s.zip, plan: s.plan, dogs: s.dogs,
         name: s.name.trim(), phone: this._phone10(), email: s.email.trim(), address: s.addr.trim(),
-        textsVisit: !!s.txtVisit, textsDeals: false, page: location.pathname, bot: bot
+        textsVisit: !!s.txtVisit, textsDeals: false, page: location.pathname, bot: bot, ad: this._adIds()
       }, signed);
       if (tok !== this._payTok) return;
       if (r && r.already) { this.setState({ payState: 'already' }); return; }
@@ -512,7 +520,8 @@ class Component extends DCLogic {
     const a = this._apw(), id = this._session;
     this._stopPay();
     this._clearDraft();
-    if (a && a.track) a.track('booked');
+    // The booking. The event id is the card form id, the same one the server sends Meta, so Meta counts it once.
+    this._t('booked', Object.assign({ id: id ? 'bk_' + id : '' }, this._tPlan()));
     this.setState({ step: 5, payState: 'idle', signedIn: !!(a && a.auth.session()) });
     // The card is saved. Tell the server so the plan starts now. Stripe tells the server too (the webhook), so if this
     // call is lost the sign up still finishes, and if both arrive the plan is still made once.

@@ -25,28 +25,45 @@ const DEAL_ON = process.env.DEAL_ON ? process.env.DEAL_ON === '1' : Date.now() <
 // The insurance has been in force since November 16, 2026. Copy says so in the present tense with no start date: "Insured and bonded."
 // The [[ins:before||after]] tag is retired and no file uses it. If one ever comes back, only its second half is written.
 const bfx = (t) => t.replace(/\[\[bf:([\s\S]*?)\|\|([\s\S]*?)\]\]/g, (m, on, off) => (DEAL_ON ? on : off)).replace(/\[\[ins:([\s\S]*?)\|\|([\s\S]*?)\]\]/g, (m, before, after) => after);
+// Meta Pixel switch: copy written as [[meta:with the pixel||without it]] shows the first half once "metaPixel" in
+// src/site.config.json holds the pixel id. The privacy policy uses it, so it never names a tag the site does not load.
+const META_PIXEL = /^\d{6,20}$/.test(String(cfg.metaPixel || '')) ? String(cfg.metaPixel) : '';
+const metax = (t) => t.replace(/\[\[meta:([\s\S]*?)\|\|([\s\S]*?)\]\]/g, (m, on, off) => (META_PIXEL ? on : off));
 const _write = fs.writeFileSync.bind(fs);
-fs.writeFileSync = (p, data, ...rest) => _write(p, typeof data === 'string' ? bfx(data) : data, ...rest);
-// Google Tag Manager (for Google Ads). Google's own install: the script high in <head>, the noscript frame right after <body>.
-// It is left off My Yard (/account/), where a signed in customer's own details are on screen.
-// Two containers share one dataLayer (Joe, Nov 16, 2026). GTM_ID is the first one (Nov 10). GTM_ID2 came on Nov 16 in Google's newer
-// install code: one async script and a gtag('js') line, no noscript part. Its container holds the GA4 tag G-E2N3R204ZH.
-const GTM_ID = 'GTM-T8GX2H6D';
-const GTM_ID2 = 'GTM-KPDVN8FQ';
-const gtmOn = (p) => !!(GTM_ID || GTM_ID2) && !/^\/account\//.test(p.route || '');
+fs.writeFileSync = (p, data, ...rest) => _write(p, typeof data === 'string' ? metax(bfx(data)) : data, ...rest);
+// Tags (Joe, Nov 16, 2026): ONE Google Tag Manager container, GTM-KPDVN8FQ, the one his Google Analytics made (it
+// carries the GA4 tag G-E2N3R204ZH). Google Ads and every Google tag go inside that container, never as another
+// container or a second Google tag on the page. The old container GTM-T8GX2H6D (Nov 10) is off the site for good.
+// The install code is Google's current one, as Joe sent it: one async script and a gtag('js') line high in <head>, no
+// noscript part. The Meta Pixel (src/site.config.json "metaPixel") rides on the same pages, and the server sends Meta
+// the same sign up and lead events (Conversions API, worker.js) with the same event id, so each counts once.
+// Tags are left off My Yard (/account/), where a signed in customer's own details are on screen.
+const GTM_ID = 'GTM-KPDVN8FQ';
+const gtmOn = (p) => !!(GTM_ID || META_PIXEL) && !/^\/account\//.test(p.route || '');
 const gtmHead = (p) => (gtmOn(p) ? (GTM_ID ? `<!-- Google Tag Manager -->
-<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${GTM_ID}');</script>
-<!-- End Google Tag Manager -->
-` : '') + (GTM_ID2 ? `<script async src="https://www.googletagmanager.com/gtm.js?id=${GTM_ID2}"></script>
+<script async src="https://www.googletagmanager.com/gtm.js?id=${GTM_ID}"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
 </script>
+<!-- End Google Tag Manager -->
+` : '') + (META_PIXEL ? `<!-- Meta Pixel Code -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '${META_PIXEL}');
+fbq('track', 'PageView');
+</script>
+<!-- End Meta Pixel Code -->
 ` : '') : '');
-const gtmBody = (p) => (gtmOn(p) && GTM_ID ? `<!-- Google Tag Manager (noscript) -->
-<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${GTM_ID}" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-<!-- End Google Tag Manager (noscript) -->
+const gtmBody = (p) => (gtmOn(p) && META_PIXEL ? `<noscript><img height="1" width="1" style="display:none" alt="" src="https://www.facebook.com/tr?id=${META_PIXEL}&amp;ev=PageView&amp;noscript=1"></noscript>
 ` : '');
 const readIf = (p, fallback) => (fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : fallback);
 const policyMeta = JSON.parse(readIf(path.join(ROOT, 'content/policies/meta.json'), '{}'));
@@ -80,7 +97,7 @@ function emit(name, code) {
   return assets[name];
 }
 emit('dc.js', fs.readFileSync(path.join(SRC, 'runtime/dc.js'), 'utf8'));
-const cfgForClient = { firstVisitFrom: cfg.firstVisitFrom, scheduleDays: cfg.scheduleDays };
+const cfgForClient = { firstVisitFrom: cfg.firstVisitFrom, scheduleDays: cfg.scheduleDays, metaPixel: META_PIXEL };
 emit('apw.js', 'window.APW=window.APW||{};window.APW.cfg=' + JSON.stringify(cfgForClient) + ';\n' + fs.readFileSync(path.join(SRC, 'runtime/apw.js'), 'utf8'));
 // The phone with our videos. Only pages that hold one (data-reel in the page body) load this file.
 emit('reel.js', fs.readFileSync(path.join(SRC, 'runtime/reel.js'), 'utf8'));

@@ -8,7 +8,6 @@
   APW.live = false;
   APW.cfg = Object.assign({ firstVisitFrom: '2026-11-20', scheduleDays: 7 }, APW.cfg || {});
   APW.comps = [];
-  APW.track = APW.track || function () { };
 
   /* ---------- look ---------- */
   function storedTheme() {
@@ -58,6 +57,65 @@
   }
   APW.post = function (path, body, auth) { return call('POST', path, body, auth); };
   APW.get = function (path, auth) { return call('GET', path, null, auth); };
+
+  /* ---------- ad tracking: Google Tag Manager (dataLayer) and the Meta Pixel ----------
+     One call, APW.track(step, data), feeds both. It never carries a name, email, phone, address or gate code: only
+     the plan, the dog count, the month price and an event id. The server sends the sign up and the leads to Meta too
+     (Conversions API) with the same event id, so Meta counts each one once. My Yard loads no tags and sends nothing. */
+  var TRACK_ON = !/^\/account\//.test(location.pathname);
+  var STEPS = {
+    start: ['begin_checkout', 'InitiateCheckout'], // picked a city on the sign up form
+    card: ['add_payment_info', 'AddPaymentInfo'], // the card step opened
+    booked: ['sign_up', 'StartTrial'], // card saved, plan started: the booking
+    request: ['generate_lead', 'Lead'], // sign up sent to us to call back (online checkout off)
+    waitlist: ['generate_lead', 'Lead'], // joined the waitlist for a town we do not serve yet
+    call: ['contact', 'Contact'], // tapped a call link
+    text: ['contact', 'Contact'] // tapped a text link
+  };
+  var sent = {};
+  function cookie(n) { var m = document.cookie.match(new RegExp('(?:^|; )' + n + '=([^;]*)')); return m ? decodeURIComponent(m[1]) : ''; }
+  APW.eventId = function (step) { return (step || 'ev') + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); };
+  // Meta's browser id and ad click id, for the server's copy of an event. Empty when the pixel is off.
+  APW.adIds = function () {
+    if (!TRACK_ON || !APW.cfg.metaPixel) return {};
+    return { fbp: cookie('_fbp').slice(0, 200), fbc: cookie('_fbc').slice(0, 300) };
+  };
+  APW.track = function (step, d) {
+    var ev = STEPS[step];
+    if (!TRACK_ON || !ev) return;
+    d = d || {};
+    var id = d.id || APW.eventId(step);
+    if (sent[id]) return;
+    sent[id] = 1;
+    var g = { event: ev[0], apw_step: step, event_id: id };
+    if (d.value > 0) { g.value = d.value; g.currency = 'USD'; }
+    if (d.plan) g.plan = d.plan;
+    if (d.dogs) g.dogs = d.dogs;
+    if (step === 'request' || step === 'waitlist') g.lead_type = step;
+    if (step === 'call' || step === 'text') g.method = step === 'call' ? 'phone' : 'text';
+    try { (window.dataLayer = window.dataLayer || []).push(g); } catch (e) { }
+    if (APW.cfg.metaPixel && typeof window.fbq === 'function') {
+      var m = {};
+      if (d.value > 0) { m.value = d.value; m.currency = 'USD'; }
+      if (d.plan) m.content_name = d.plan;
+      if (d.dogs) m.num_items = d.dogs;
+      try { window.fbq('track', ev[1], m, { eventID: id }); } catch (e) { }
+    }
+  };
+  if (TRACK_ON) {
+    // A visit from a Facebook or Instagram ad carries fbclid. The pixel keeps it in the _fbc cookie. When an ad blocker
+    // stops the pixel, keep it ourselves (Meta's own format), so the server's copy of a sign up still names the ad.
+    try {
+      var fbclid = new URLSearchParams(location.search).get('fbclid');
+      if (APW.cfg.metaPixel && fbclid && /^[\w-]{10,500}$/.test(fbclid) && !cookie('_fbc')) {
+        document.cookie = '_fbc=' + encodeURIComponent('fb.1.' + Date.now() + '.' + fbclid) + '; max-age=7776000; path=/; SameSite=Lax; Secure';
+      }
+    } catch (e) { }
+    document.addEventListener('click', function (e) {
+      var a = e.target && e.target.closest && e.target.closest('a[href^="tel:"],a[href^="sms:"]');
+      if (a) APW.track(/^tel:/.test(a.getAttribute('href')) ? 'call' : 'text');
+    }, true);
+  }
 
   /* ---------- sign in with an email code (Supabase Auth) ---------- */
   var KEY = 'apw.session';
