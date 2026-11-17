@@ -11,26 +11,26 @@
 @@FONTS@@
 <style>
 @@BASE_CSS@@
-.apw .flab{display:block;margin-top:16px;font-size:15px;font-weight:700}
-.apw .fin{display:block;width:100%;height:54px;margin-top:6px;padding:0 16px;border-radius:12px;border:2px solid var(--field);background:var(--card);color:var(--ink);font:inherit;font-size:17px}
+.apw .flab{display:block;margin-top:18px;font-size:17px;font-weight:700}
+.apw .fin{display:block;width:100%;height:54px;margin-top:6px;padding:0 16px;border-radius:12px;border:2px solid var(--field);background:var(--card);color:var(--ink);font:inherit;font-size:18px}
 .apw textarea.fin{height:96px;padding:12px 16px;line-height:1.45;resize:vertical}
-.apw .ferr{margin:8px 0 0;font-size:14px;font-weight:700;color:var(--accent-text)}
+.apw .ferr{margin:8px 0 0;font-size:16px;font-weight:700;color:var(--accent-text)}
 .apw .cbx{display:flex;gap:12px;align-items:flex-start;margin-top:10px;padding:14px;border-radius:12px;border:2px solid var(--field);background:var(--card);cursor:pointer}
 .apw .cbx input{width:24px;height:24px;flex:0 0 24px;margin:1px 0 0;accent-color:#FF4A1C}
-.apw .cbx b{display:block;font-size:16px;line-height:1.3}
-.apw .cbx small{display:block;margin-top:3px;font-size:14px;line-height:1.45;color:var(--mute)}
+.apw .cbx b{display:block;font-size:18px;line-height:1.3}
+.apw .cbx small{display:block;margin-top:3px;font-size:16px;line-height:1.45;color:var(--mute)}
 .apw .rec{color:#FF3B3B;font-weight:800;white-space:nowrap}
-.apw .rec-note{margin:8px 0 0;font-size:14px;line-height:1.5;color:var(--ink);font-weight:600}
-.apw .fine{margin:12px 0 0;font-size:13px;line-height:1.55;color:var(--mute)}
+.apw .rec-note{margin:8px 0 0;font-size:16px;line-height:1.5;color:var(--ink);font-weight:600}
+.apw .fine{margin:12px 0 0;font-size:15px;line-height:1.55;color:var(--mute)}
 .apw .fine a,.apw .tlink{color:var(--ink);font-weight:700}
-.apw .tlink{display:inline-flex;align-items:center;min-height:44px;padding:0;border:0;background:none;font:inherit;font-size:16px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.apw .tlink{display:inline-flex;align-items:center;min-height:44px;padding:0;border:0;background:none;font:inherit;font-size:17px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .apw .ycard{margin-top:18px;border-radius:12px;border:1px solid var(--line);background:var(--card);overflow:hidden}
-.apw .yrow{display:flex;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);font-size:15px}
+.apw .yrow{display:flex;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);font-size:17px}
 .apw .yrow:last-child{border-bottom:0}
 .apw .yrow span{color:var(--mute)}.apw .yrow b{text-align:right}
 .apw .yh2{margin:40px 0 0;font-family:var(--f-head);font-stretch:74%;font-weight:850;font-size:32px;line-height:1}
-.apw .note{display:flex;gap:12px;align-items:flex-start;margin-top:14px;padding:14px 16px;border-radius:12px;background:var(--bg2);font-size:15px;line-height:1.5;color:var(--ink2)}
-.apw .vrow{align-items:center}.apw .vday{text-align:left!important;font-size:16px}.apw .vday small{display:block;margin-top:2px;font-size:13px;font-weight:500;color:var(--mute)}.apw .vbtn{min-height:44px;padding:0 16px;font-size:15px;flex:0 0 auto}.apw .ylab{margin:22px 0 0;font-size:15px;font-weight:700;color:var(--mute)}.apw .fine svg{width:14px;height:14px;vertical-align:-2px}
+.apw .note{display:flex;gap:12px;align-items:flex-start;margin-top:14px;padding:14px 16px;border-radius:12px;background:var(--bg2);font-size:17px;line-height:1.5;color:var(--ink2)}
+.apw .vrow{align-items:center}.apw .vday{text-align:left!important;font-size:18px}.apw .vday small{display:block;margin-top:2px;font-size:15px;font-weight:500;color:var(--mute)}.apw .vbtn{min-height:48px;padding:0 18px;font-size:17px;flex:0 0 auto}.apw .ylab{margin:22px 0 0;font-size:17px;font-weight:700;color:var(--mute)}.apw .fine svg{width:14px;height:14px;vertical-align:-2px}
 .apw .demo{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:6px 12px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);font-size:13px;font-weight:700;color:var(--mute)}
 @@HDR_CSS@@
 .apw .accm{width:100%;max-width:560px;margin:0 auto;padding:26px 20px 64px}
@@ -92,10 +92,17 @@
       <div class="yrow"><span>Status</span><b>{{ statusLine }}</b></div>
       <div class="yrow"><span>Address</span><b>{{ addrLine }}</b></div>
     </div>
+    <sc-if value="{{ hasToday }}" hint-placeholder-val="{{ false }}">
+      <div class="note" role="status" style="flex-direction: column; gap: 10px;">
+        <p style="margin: 0;"><strong>{{ todayHead }}</strong> {{ todayLine }}</p>
+        <a href="{{ todayHref }}" class="btn btn-dot" style="width: 100%;">{{ todayBtn }}</a>
+      </div>
+    </sc-if>
     <sc-if value="{{ cardBad }}" hint-placeholder-val="{{ false }}">
       <div class="note" role="alert" style="flex-direction: column; gap: 10px;">
-        <p style="margin: 0;"><strong>Your card did not work.</strong> Your visits are on hold until your bill is paid. Add a new card and make it your default card. We try it right away. Or pay the bill under Bills and card.</p>
-        <button type="button" class="btn btn-dot" style="width: 100%;" onClick="{{ portal }}" disabled="{{ busy }}">Change my card</button>
+[[self:        <p style="margin: 0;"><strong>Your card did not work.</strong> Your visits are on hold until your bill is paid. Add a new card and make it your default card. We try it right away. Or pay the bill under Bills and card.</p>
+        <button type="button" class="btn btn-dot" style="width: 100%;" onClick="{{ portal }}" disabled="{{ busy }}">Change my card</button>||        <p style="margin: 0;"><strong>Your card did not work.</strong> Your visits are on hold until your bill is paid. We sent you an email. Tap the button in it to put in a new card. Or call us and we help.</p>
+        <a href="tel:+16233096104" class="btn btn-dot" style="width: 100%;">Call 623.309.6104</a>]]
       </div>
     </sc-if>
     <sc-if value="{{ needsFinish }}" hint-placeholder-val="{{ false }}">
@@ -106,7 +113,7 @@
     </sc-if>
 
     <h2 class="yh2">Set up your yard</h2>
-    <p class="lead" style="font-size: 16px;">Only your scooper sees this, and only on your day.</p>
+    <p class="lead" style="font-size: 18px;">Only your scooper sees this, and only on your day.</p>
     <label for="a-gate" class="flab">Gate code</label>
     <input id="a-gate" class="fin mono" type="text" autocomplete="off" value="{{ gate }}" onChange="{{ onGate }}" placeholder="None">
     <label for="a-notes" class="flab">How do we get in?</label>
@@ -120,13 +127,12 @@
     <h2 class="yh2">Texts from us</h2>
     <label class="cbx" for="a-tv"><input id="a-tv" type="checkbox" checked="{{ txtVisit }}" onChange="{{ onTxtVisit }}"><span><b>Text me about my visits. <span class="rec">* Recommended</span></b><small>Night before reminders, on the way, and your gate photo. About 2 to 4 texts a visit.</small></span></label>
     <p class="rec-note">Skip this and your gate photo comes by email and in My Yard.</p>
-    <label class="cbx" for="a-td"><input id="a-td" type="checkbox" checked="{{ txtDeals }}" onChange="{{ onTxtDeals }}"><span><b>Text me deals too.</b><small>Up to 4 texts a month. You can skip this one.</small></span></label>
-    <p class="fine">By checking a box, you agree to get texts from Arizona Pet Waste at {{ phoneLine }}. Message and data rates may apply. Reply STOP to stop or HELP for help. You do not have to agree to texts to buy. See our <a href="/texts/">Text Terms</a> and <a href="/privacy/">Privacy Policy</a>.</p>
+    <p class="fine">By checking the box, you agree to get texts from Arizona Pet Waste at {{ phoneLine }}. Message and data rates may apply. Reply STOP to stop or HELP for help. You do not have to agree to texts to buy. See our <a href="/texts/">Text Terms</a> and <a href="/privacy/">Privacy Policy</a>.</p>
     <sc-if value="{{ saveErr }}" hint-placeholder-val="{{ false }}"><p class="ferr" role="alert">{{ saveErr }}</p></sc-if>
     <button type="button" class="btn btn-dot" style="width: 100%; margin-top: 18px;" onClick="{{ save }}" disabled="{{ busy }}">{{ saveLabel }}</button>
 
     <h2 class="yh2" id="visits">Your visits</h2>
-    <p class="lead" style="font-size: 16px;">{{ dayLine }}</p>
+    <p class="lead" style="font-size: 18px;">{{ dayLine }}</p>
     <sc-if value="{{ hasNext }}" hint-placeholder-val="{{ false }}">
       <div class="ycard">
         <sc-for list="{{ nextList }}" as="v" hint-placeholder-count="3">
@@ -153,24 +159,24 @@
     </sc-if>
     <h2 class="yh2" id="pause">Going away? Pause</h2>
     <sc-if value="{{ isPaused }}" hint-placeholder-val="{{ false }}">
-      <p class="lead" style="font-size: 16px;">{{ pausedLine }}</p>
+      <p class="lead" style="font-size: 18px;">{{ pausedLine }}</p>
       <button type="button" class="btn btn-dot" style="width: 100%; margin-top: 14px;" onClick="{{ resume }}" disabled="{{ actBusy }}">Start again now</button>
     </sc-if>
     <sc-if value="{{ canPause }}" hint-placeholder-val="{{ true }}">
-      <p class="lead" style="font-size: 16px;">Pause for up to 120 days. You do not pay while paused. We start again on the day you pick.</p>
-      <p class="lead" style="font-size: 16px;">{{ pauseBillLine }}</p>
+      <p class="lead" style="font-size: 18px;">Pause for up to 120 days. You do not pay while paused. We start again on the day you pick.</p>
+      <p class="lead" style="font-size: 18px;">{{ pauseBillLine }}</p>
       <label for="a-until" class="flab">Start again on</label>
       <input id="a-until" class="fin" type="date" min="{{ pauseMin }}" max="{{ pauseMax }}" value="{{ until }}" onChange="{{ onUntil }}">
       <button type="button" class="btn btn-line" style="width: 100%; margin-top: 12px;" onClick="{{ pause }}" disabled="{{ actBusy }}">Pause my visits</button>
     </sc-if>
     <sc-if value="{{ pauseByText }}" hint-placeholder-val="{{ false }}">
-      <p class="lead" style="font-size: 16px;">Pause for up to 120 days. You do not pay while paused.</p>
+      <p class="lead" style="font-size: 18px;">Pause for up to 120 days. You do not pay while paused.</p>
       <a href="{{ pauseHref }}" class="btn btn-line" style="width: 100%; margin-top: 14px;">Pause</a>
     </sc-if>
-    <sc-if value="{{ pauseLater }}" hint-placeholder-val="{{ false }}"><p class="lead" style="font-size: 16px;">{{ pauseLaterLine }}</p></sc-if>
+    <sc-if value="{{ pauseLater }}" hint-placeholder-val="{{ false }}"><p class="lead" style="font-size: 18px;">{{ pauseLaterLine }}</p></sc-if>
     <sc-if value="{{ actErr }}" hint-placeholder-val="{{ false }}"><p class="ferr" role="alert">{{ actErr }}</p></sc-if>
-    <h2 class="yh2" id="bills">Bills and card</h2>
-    <sc-if value="{{ hasBills }}" hint-placeholder-val="{{ false }}">
+    <h2 class="yh2" id="bills">[[self:Bills and card||Card, bills or cancel]]</h2>
+[[self:    <sc-if value="{{ hasBills }}" hint-placeholder-val="{{ false }}">
       <div class="ycard">
         <sc-for list="{{ billList }}" as="i" hint-placeholder-count="2">
           <div class="yrow vrow"><b class="vday">{{ i.amount }}<small>{{ i.sub }}</small></b>
@@ -179,13 +185,16 @@
         </sc-for>
       </div>
     </sc-if>
-    <sc-if value="{{ noBills }}" hint-placeholder-val="{{ true }}"><p class="lead" style="font-size: 16px;">No bills yet. Your first month is free.</p></sc-if>
+    <sc-if value="{{ noBills }}" hint-placeholder-val="{{ true }}"><p class="lead" style="font-size: 18px;">No bills yet. Your first month is free.</p></sc-if>
     <sc-if value="{{ portalErr }}" hint-placeholder-val="{{ false }}"><p class="ferr" role="alert">{{ portalErr }}</p></sc-if>
     <button type="button" class="btn btn-line" style="width: 100%; margin-top: 14px;" onClick="{{ portal }}" disabled="{{ busy }}">Change card or cancel</button>
-    <p class="fine">@@ICON_LOCK@@ Your card is kept by Stripe. We never see or store your card number. You can cancel online any time, with no phone call.</p>
+    <p class="fine">@@ICON_LOCK@@ Your card is kept by Stripe. We never see or store your card number. You can cancel online any time, with no phone call.</p>||    <p class="lead" style="font-size: 18px;">Call or text us. We change your card, send you a bill, or cancel for you.</p>
+    <a href="tel:+16233096104" class="btn btn-dot" style="width: 100%; margin-top: 14px;">Call 623.309.6104</a>
+    <a href="sms:+16233096104" class="btn btn-line" style="width: 100%; margin-top: 12px;">Text 623.309.6104</a>
+    <p class="fine">@@ICON_LOCK@@ Your card is kept by Stripe. We never see or store your card number.</p>]]
     <div class="note" style="margin-top: 32px;">
       <span style="color: var(--accent-text); display: flex; padding-top: 1px;">@@ICON_CAMERA@@</span>
-      <p style="margin: 0;">On visit day, your live map and your gate photos show up here. Questions? Text <a href="sms:+16233096104" style="color: var(--ink); font-weight: 700;">623.309.6104</a>.</p>
+      <p style="margin: 0;">On your visit day, a See our truck button shows at the top of this page. Your gate photos are under Your visits. Questions? Call or text <a href="tel:+16233096104" style="color: var(--ink); font-weight: 700;">623.309.6104</a>.</p>
     </div>
   </sc-if>
 </main>
@@ -201,7 +210,7 @@
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.state = { dark: this._themeFromProps(), phase: 'loading', email: '', code: '', err: '', busy: false, me: null, form: {}, saved: false, saveErr: '', portalErr: '', plan: null, visits: [], bills: [], until: '', actErr: '', actBusy: false, cardOld: false };
+    this.state = { dark: this._themeFromProps(), phase: 'loading', email: '', code: '', err: '', busy: false, me: null, form: {}, saved: false, saveErr: '', portalErr: '', plan: null, visits: [], today: null, bills: [], until: '', actErr: '', actBusy: false, cardOld: false };
   }
   componentDidMount() { this._themeInit(); this._load(); }
   componentWillUnmount() { this._themeStop(); }
@@ -249,7 +258,7 @@ class Component extends DCLogic {
     if (this._demo() && !this.state.plan) this.setState({ plan: this._samplePlan(), visits: [{ day: this._iso(-4), status: 'done', doneAt: null, photo: null }], bills: [] });
     this.setState({ phase: 'in', me: me, busy: false, err: '', form: {
       gate: me.gate_code || '', notes: me.gate_notes || '', dogNames: me.dog_names || '', spots: me.problem_spots || '',
-      noSpray: !!me.skip_spray, txtVisit: !!me.texts_visit, txtDeals: !!me.texts_deals } });
+      noSpray: !!me.skip_spray, txtVisit: !!me.texts_visit } });
   }
   async _send() {
     const a = this._apw();
@@ -281,7 +290,7 @@ class Component extends DCLogic {
     if (this._demo()) { this.setState({ saved: true, saveErr: '' }); return; }
     this.setState({ busy: true, saveErr: '', saved: false });
     try {
-      const r = await a.post('/api/me', { gate_code: f.gate, gate_notes: f.notes, dog_names: f.dogNames, problem_spots: f.spots, skip_spray: !!f.noSpray, texts_visit: !!f.txtVisit, texts_deals: !!f.txtDeals }, true);
+      const r = await a.post('/api/me', { gate_code: f.gate, gate_notes: f.notes, dog_names: f.dogNames, problem_spots: f.spots, skip_spray: !!f.noSpray, texts_visit: !!f.txtVisit }, true);
       this.setState({ busy: false, saved: true, me: r.customer || this.state.me });
     } catch (e) { this.setState({ busy: false, saveErr: a.msg(e) }); }
   }
@@ -307,7 +316,7 @@ class Component extends DCLogic {
     const a = this._apw();
     const quiet = (p) => p.catch(() => null);
     const [p, v, b] = await Promise.all([quiet(a.get('/api/me/plan', true)), quiet(a.get('/api/me/visits', true)), quiet(a.get('/api/me/invoices', true))]);
-    this.setState({ plan: p && p.plan, visits: (v && v.visits) || [], bills: (b && b.invoices) || [] });
+    this.setState({ plan: p && p.plan, visits: (v && v.visits) || [], today: (v && v.today) || null, bills: (b && b.invoices) || [] });
   }
   async _act(path, body, demo) {
     const a = this._apw();
@@ -375,15 +384,21 @@ class Component extends DCLogic {
       dogNames: f.dogNames || '', onDogNames: set('dogNames'),
       spots: f.spots || '', onSpots: set('spots'),
       noSpray: !!f.noSpray, onNoSpray: set('noSpray', true),
-      // Two boxes here, on purpose: deals texts need their own box (Twilio error 30913). Sign up only has the visit box.
+      // One box, the same as sign up (Joe, Nov 17, 2026: the deals box came out). A deals box that ever comes back
+      // must be its own unchecked box, never part of this one (Twilio error 30913).
       txtVisit: !!f.txtVisit, onTxtVisit: set('txtVisit', true),
-      txtDeals: !!f.txtDeals, onTxtDeals: set('txtDeals', true),
       save: () => this._save(),
       saveLabel: s.busy ? 'Saving…' : (s.saved ? 'Saved' : 'Save my yard'),
       saveErr: s.saveErr,
       skipHref: this._sms('Hi! Please skip my next visit. My address is ' + (me.address || '') + '.'),
       pauseHref: this._sms('Hi! Please pause my visits. My address is ' + (me.address || '') + '. Start again on: '),
       cardBad: me.status === 'past_due' || me.status === 'unpaid',
+      // Visit day: the same truck link the "on the way" text carries, as one big button.
+      hasToday: !!(s.today && s.today.code),
+      todayHead: s.today && s.today.status === 'done' ? 'Your yard is done.' : (s.today && (s.today.status === 'on_the_way' || s.today.status === 'here') ? 'We are on the way.' : 'We come today.'),
+      todayLine: s.today && s.today.status === 'done' ? 'See the photo of your latched gate.' : 'See where our truck is on a map.',
+      todayBtn: s.today && s.today.status === 'done' ? 'See my gate photo' : 'See our truck',
+      todayHref: s.today && s.today.code ? '/t/' + s.today.code : '/account/',
       dayLine: !paying ? 'Your visits show up here after you sign up.' : (me.status === 'past_due' ? 'Your visits are on hold until your bill is paid.' : pl && pl.paused ? 'Your visits are paused.' : (pl && pl.dayName ? 'Your day is ' + pl.dayName + '. We text you the night before with a 30 minute window.' : 'We are setting your day. We will reach out with your day and time.')),
       hasNext: selfSkip,
       nextList: selfSkip ? pl.next.map((v) => ({ label: nice(v.day, true), sub: v.skipped ? 'Skipped. We will not come.' : 'Scheduled', showBtn: v.skipped || (v.canSkip && pl.skipsLeft > 0),
@@ -394,7 +409,7 @@ class Component extends DCLogic {
       pastList: s.visits.map((v) => ({ label: nice(v.day, true), sub: (pastNames[v.status] || 'Done') + (v.reason ? ': ' + v.reason : ''), photo: v.photo || '' })),
       isPaused: !!(pl && pl.paused),
       cardOld: !!s.cardOld,
-      cardOldLine: s.phase === 'in' ? 'Tap Change card or cancel below to add a new card.' : 'Sign in below. Then tap Change card or cancel to add a new card.',
+      cardOldLine: s.phase === 'in' ? '[[self:Tap Change card or cancel below to add a new card.||Call or text 623.309.6104 and we help you put in a new card.]]' : '[[self:Sign in below. Then tap Change card or cancel to add a new card.||Call or text 623.309.6104 and we help you put in a new card.]]',
       // What a pause does to the bill, said before it happens. Back before the bill day: nothing changes. Still paused
       // on the bill day: that bill is skipped, and the full month is charged the day visits start again (the new bill day).
       pauseBillLine: 'Back before your bill day' + (pl && pl.billDay ? ', ' + pl.billDay : '') + '? Your bill day stays the same. Still paused on that day? We skip that bill. The day we start again, we charge '

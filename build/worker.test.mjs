@@ -64,6 +64,8 @@ function match(row, k, expr) {
   if (op === 'is' && v === 'null') return x == null;
   if (op === 'gt') return String(x) > v;
   if (op === 'gte') return String(x) >= v;
+  if (op === 'lt') return String(x) < v;
+  if (op === 'lte') return String(x) <= v;
   if (op === 'ilike') return new RegExp('^' + v.split('*').map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$', 'i').test(String(x == null ? '' : x));
   throw new Error('pretend Supabase: no filter ' + op);
 }
@@ -480,7 +482,7 @@ async function quote(today, plan, dogs, token, extraEnv, at) {
   const j = await quote('2026-11-16', 'week', 2, 'good', null, '23:25');
   ok('sign up November 16 late at night: the free month ends December 16, and the first charge is the full $108',
     day(Number(j.md.free_end)) === '2026-12-16T19:00' && j.md.free_label === 'December 16' && j.md.first_charge === '10800', j.md);
-  ok('the note by the button says December 16', j.note === '$0 today. Then $108 a month starting Dec 16. Cancel anytime in My Yard.', j.note);
+  ok('the note by the button says December 16', j.note === '$0 today. Then $108 a month starting Dec 16. Cancel anytime. Call or text 623.309.6104.', j.note);
   const k = await quote('2026-11-17', 'week', 2, 'good', null, '00:05');
   ok('five minutes after midnight is the next day: December 17', day(Number(k.md.free_end)) === '2026-12-17T19:00' && k.note.startsWith('$0 today. Then $108 a month starting Dec 17. '), [k.md, k.note]);
   const l = await quote('2026-11-30', 'week', 2, 'good', null, '23:50');
@@ -495,7 +497,7 @@ async function quote(today, plan, dogs, token, extraEnv, at) {
   ok('no billing day and no part month ride on the card form', !('anchor' in q.md) && !('next_label' in q.md), q.md);
   ok('the 60 day rule is off: the sign up carries no early cancel date, only the day pausing opens (60 days after the soonest first visit, May 10)', q.md.min_label === undefined && q.md.min_end === undefined && day(Number(q.md.pause_from)) === '2027-05-10T19:00', q.md);
   ok('the note by the button is one plain price line and one cancel line, with no 60 day rule',
-    q.note === '$0 today. Then $121 a month starting Apr 10. Cancel anytime in My Yard.', q.note);
+    q.note === '$0 today. Then $121 a month starting Apr 10. Cancel anytime. Call or text 623.309.6104.', q.note);
   ok('the page gets the same price line back, word for word, to show over the card form', q.r.d.line === '$0 today. Then $121 a month starting Apr 10.', q.r.d);
   ok('the note fits Stripe’s 1200 letter limit', q.note.length < 1200);
   const f = q.s.form;
@@ -508,19 +510,19 @@ async function quote(today, plan, dogs, token, extraEnv, at) {
   ok('the row waits at "checkout" with the text choices saved', row(U1).status === 'checkout' && row(U1).texts_visit === true && row(U1).texts_deals === false && T.consent_log.length === 2);
   const e = await quote('2027-03-10', 'week', 3, 'good', { EARLY_CANCEL: 'on' });
   ok('if the 60 day rule is ever switched back on, the note says it in one line and the date rides on the sign up',
-    e.note === '$0 today. Then $121 a month starting Apr 10. Cancel anytime in My Yard. Cancel before May 10 and you pay for one month.' && e.md.min_label === 'May 10' && e.md.min_end === e.md.pause_from, [e.note, e.md]);
+    e.note === '$0 today. Then $121 a month starting Apr 10. Cancel anytime. Call or text 623.309.6104. Cancel before May 10 and you pay for one month.' && e.md.min_label === 'May 10' && e.md.min_end === e.md.pause_from, [e.note, e.md]);
 }
 { // Joe's own examples (Nov 16, 2026): sign up Nov 25, first charge Dec 25. Sign up Nov 30, first charge Dec 30.
   const a = await quote('2026-11-25', 'week', 2);
   ok('sign up November 25: the full $108 on December 25, and the 25th is the bill day', day(Number(a.md.free_end)) === '2026-12-25T19:00' && a.md.first_charge === '10800'
-    && a.note === '$0 today. Then $108 a month starting Dec 25. Cancel anytime in My Yard.', [a.md, a.note]);
+    && a.note === '$0 today. Then $108 a month starting Dec 25. Cancel anytime. Call or text 623.309.6104.', [a.md, a.note]);
   const b = await quote('2026-11-30', 'week', 2);
   ok('sign up November 30: the full $108 on December 30, and the page is sent that same line', day(Number(b.md.free_end)) === '2026-12-30T19:00' && b.md.first_charge === '10800' && b.r.d.line === '$0 today. Then $108 a month starting Dec 30.', [b.md, b.r.d]);
 }
 { // The 1st is a day like any other now. Sign up 2027-04-01: the free month ends May 1.
   const q = await quote('2027-04-01', 'eow', 2);
   ok('a free month that ends on May 1: the full $75 that day', day(Number(q.md.free_end)) === '2027-05-01T19:00' && q.md.first_charge === '7500', q.md);
-  ok('the note says so', q.note === '$0 today. Then $75 a month starting May 1. Cancel anytime in My Yard.', q.note);
+  ok('the note says so', q.note === '$0 today. Then $75 a month starting May 1. Cancel anytime. Call or text 623.309.6104.', q.note);
 }
 { // A free month that ends two days before a month does: still one full month, not two days.
   const q = await quote('2027-06-30', 'twice', 6);
@@ -585,7 +587,7 @@ ok('webhook with a good signature is taken', (await hook(sessionEvt(q.s.id))) ==
     delete AUTH.wrongUser; T.errors.length = 0;
   }
   ok('the customer gets one welcome email with the price line and cancel anytime, and no 60 day rule', sent(/^You are booked/).length === 1 && hi.to[0] === 'test@example.com'
-    && /Your card is saved\. \$0 today\. Then \$121 a month starting Apr 10\.\n/.test(hi.text) && /You can cancel anytime in My Yard\.\n/.test(hi.text) && !/Keep your plan|60 days|charge one month|you pay for one month/.test(hi.text), hi && hi.text);
+    && /Your card is saved\. \$0 today\. Then \$121 a month starting Apr 10\.\n/.test(hi.text) && /You can cancel anytime\. Call or text 623\.309\.6104\.\n/.test(hi.text) && !/deals/i.test(hi.text) && !/Keep your plan|60 days|charge one month|you pay for one month/.test(hi.text), hi && hi.text);
   ok('no email says the 1st, a part month or days left', !mails.some((m) => /\b1st\b|part month|days left|part of a month/.test(m.text)), mails.filter((m) => /\b1st\b|part month|days left/.test(m.text)).map((m) => m.subject));
   ok('every Stripe request names the API version', S.calls.every((c) => c.version === '2026-10-28.endive'));
 }
@@ -1193,8 +1195,36 @@ head('My Yard: bills, skips, pause');
 { const az = (n) => new Date(Date.now() - 7 * 3600e3 + n * 86400e3).toISOString().slice(0, 10);
   const wd = (d) => new Date(d + 'T19:00:00Z').getUTCDay();
   Object.assign(row(U1), { status: 'active', plan: 'week', stripe_subscription_id: 'sub_1', stripe_customer_id: cus, service_day: wd(az(3)), service_day2: null, skips: [], first_visit: null, pause_from: null, pause_until: null });
+  env = Object.assign({}, env, { SELF_SERVE: 'on' }); // bills and Change card are closed for now (Joe, Nov 17, 2026). These run with them switched back on.
   let r = await call('/api/me/invoices', 'GET', null, 'good');
+  env = Object.assign({}, env); delete env.SELF_SERVE;
   ok('bills list leaves out drafts and links to the bill', r.d.invoices.length === 1 && r.d.invoices[0].amount === 4290 && /^https:\/\/invoice\.stripe\.com\//.test(r.d.invoices[0].url), r.d);
+  // Joe, Nov 17, 2026: customers call or text the office to change a card, see a bill or cancel. Skips and pauses stay.
+  r = await call('/api/me/invoices', 'GET', null, 'good');
+  ok('with self serve off (the default) My Yard gets no bills list', r.status === 200 && r.d.invoices.length === 0, r.d);
+  { const before = S.calls.filter((c) => c.p === 'billing_portal/sessions').length;
+    r = await call('/api/portal', 'POST', {}, 'good');
+    ok('and Change card or cancel is closed: one plain line with our number, and Stripe is not asked for a billing page',
+      r.status === 403 && r.d.code === 'call_office' && /623\.309\.6104/.test(r.d.error) && !r.d.url && S.calls.filter((c) => c.p === 'billing_portal/sessions').length === before, r); }
+  { const wsrc = fs.readFileSync(new URL('../src/worker/worker.js', import.meta.url), 'utf8'), cfg = JSON.parse(fs.readFileSync(new URL('../src/site.config.json', import.meta.url), 'utf8'));
+    const m = /\nconst SELF_SERVE = (true|false);/.exec(wsrc);
+    ok('the server switch and the site copy switch say the same (SELF_SERVE in worker.js, "selfServe" in site.config.json)', !!m && (m[1] === 'true') === (cfg.selfServe === true), [m && m[1], cfg.selfServe]); }
+  { // No deals box in My Yard: a save never opts anyone in or out of deals texts.
+    const keep = Object.assign({}, row(U1)), n = T.consent_log.length;
+    row(U1).texts_deals = true;
+    r = await call('/api/me', 'POST', { gate_code: keep.gate_code || '', texts_visit: !!keep.texts_visit, texts_deals: false }, 'good');
+    const kept = r.status === 200 && row(U1).texts_deals === true;
+    row(U1).texts_deals = false;
+    r = await call('/api/me', 'POST', { gate_code: keep.gate_code || '', texts_visit: !!keep.texts_visit, texts_deals: true }, 'good');
+    ok('a My Yard save never touches the deals choice, on or off, and logs no deals consent', kept && r.status === 200 && row(U1).texts_deals === false && !T.consent_log.slice(n).some((c) => c.kind === 'texts_deals'), [row(U1).texts_deals, T.consent_log.slice(n)]);
+    Object.assign(row(U1), keep); T.consent_log.length = n; }
+  { // Visit day: My Yard gets this customer's own truck link, for one big "See our truck" button.
+    T.stops.push({ customer_id: U1, day: az(0), status: 'on_the_way', code: 'ABC123' }, { customer_id: U2, day: az(0), status: 'scheduled', code: 'ZZZ999' }, { customer_id: U1, day: az(1), status: 'scheduled', code: 'TMR111' });
+    r = await call('/api/me/visits', 'GET', null, 'good');
+    ok('on visit day My Yard gets its own truck link and nobody else’s', r.status === 200 && !!r.d.today && r.d.today.code === 'ABC123' && r.d.today.status === 'on_the_way' && r.d.visits.length === 0, r.d);
+    T.stops.length = 0;
+    r = await call('/api/me/visits', 'GET', null, 'good');
+    ok('with no visit today there is no truck button', r.status === 200 && r.d.today === null, r.d); }
   r = await call('/api/me/plan', 'GET', null, 'good');
   ok('plan shows the day and the next three visits', r.d.plan.next.length === 3 && r.d.plan.next[0].day === az(3) && r.d.plan.hold === false, r.d);
   r = await call('/api/me/skip', 'POST', { date: az(3) }, 'good');
@@ -1307,7 +1337,9 @@ head('My Yard: bills, skips, pause');
   start();
   ok('start again when nothing is paused is refused', (await call('/api/me/resume', 'POST', {}, 'good')).status === 400 && S.subPosts.length === 0);
   delete S.subs.sub_1; Object.assign(row(U1), { status: 'active', pause_from: null, pause_until: null });
+  env = Object.assign({}, env, { SELF_SERVE: 'on' });
   r = await call('/api/portal', 'POST', {}, 'good');
+  env = Object.assign({}, env); delete env.SELF_SERVE;
   ok('Change card opens Stripe’s billing page and comes back to My Yard', r.status === 200 && /^https:\/\/billing\.stripe\.com\//.test(r.d.url) && S.calls.filter((c) => c.p === 'billing_portal/sessions')[0].f.get('return_url') === 'https://arizonapetwaste.com/account/');
 }
 
@@ -1376,7 +1408,7 @@ head('No free month: the first month is paid in the card form, and that day is t
     && f.get('subscription_data[metadata][dogs]') === '3' && day(Number(f.get('subscription_data[metadata][pause_from]'))) === '2027-05-09T19:00' && f.get('subscription_data[metadata][pause_from]') === s.metadata.pause_from
     && !f.has('subscription_data[metadata][free_end]') && !f.has('subscription_data[metadata][min_end]') && /Every week, 3 dogs, Buckeye/.test(f.get('subscription_data[description]')), String(f));
   const note = f.get('custom_text[submit][message]');
-  ok('the note by the button says the price today, the price each month, and cancel anytime', [before, nextDay()].some((d) => note === '$121 today. Then $121 a month starting ' + d + '. Cancel anytime in My Yard.'), note);
+  ok('the note by the button says the price today, the price each month, and cancel anytime', [before, nextDay()].some((d) => note === '$121 today. Then $121 a month starting ' + d + '. Cancel anytime. Call or text 623.309.6104.'), note);
   ok('the session is tied to the signed in person and the row waits at the card step', f.get('client_reference_id') === U1 && f.get('customer') === row(U1).stripe_customer_id && row(U1).status === 'checkout');
 
   // The card is refused: Stripe has a plan, but its first payment has not gone through.
@@ -1399,7 +1431,7 @@ head('No free month: the first month is paid in the card form, and that day is t
   { const o = sent(/^New booking: Test Person/), hi = sent(/^You are booked/)[0];
     ok('the office gets one new booking email that says they paid today', o.length === 1 && [before, nextDay()].some((d) => o[0].text.includes('Billing: $121 today. Then $121 a month starting ' + d + '.\n')), o.map((m) => m.text));
     ok('the welcome says the card was charged, when the next bill comes, and cancel anytime', sent(/^You are booked/).length === 1 && [before, nextDay()].some((d) => hi.text.includes('Your card was charged. $121 today. Then $121 a month starting ' + d + '.\n'))
-      && hi.text.includes('You can cancel anytime in My Yard.\n') && !/you pay for one month|free month|\$0 today|did not charge/.test(hi.text), hi && hi.text); }
+      && hi.text.includes('You can cancel anytime. Call or text 623.309.6104.\n') && !/you pay for one month|free month|\$0 today|did not charge/.test(hi.text), hi && hi.text); }
   ok('the first bill is already paid, so there is no first bill to look at', !S.calls.some((c) => c.p === 'invoices/create_preview') && sent(/^CHECK BILLING/).length === 0);
   { const n = mails.length; S.calls.length = 0;
     const d = await call('/api/checkout/done', 'POST', { session: s.id }, 'good'); await settle();
@@ -1812,6 +1844,7 @@ head('A saved Stripe customer that Stripe no longer has (live, Nov 17, 2026: "Ch
     stripe_customer_id: 'cus_del', stripe_subscription_id: 'sub_del', service_day: 2, service_day2: null, skips: [], texts_visit: true });
   S.customers.cus_del = { id: 'cus_del', invoice_settings: { default_payment_method: null } };
   S.lost.cus_del = 'r400'; S.lostSubs.sub_del = 400;
+  env = Object.assign({}, env, { SELF_SERVE: 'on' }); // Change card and the bills list, for the day they are switched back on
   r = await call('/api/portal', 'POST', {}, 'good'); await settle();
   ok('Change card for a customer Stripe no longer has: a plain message with our number, not an error', r.status === 404 && /623\.309\.6104/.test(r.d.error) && !r.d.url, r);
   ok('and the office sees why, with no advice to make a plan by hand', T.errors.length === 1 && T.errors[0].path === '/api/portal' && T.errors[0].detail.includes('cus_del') && /Do not make a plan by hand/.test(T.errors[0].detail), T.errors);

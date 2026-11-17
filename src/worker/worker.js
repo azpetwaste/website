@@ -33,12 +33,23 @@ const CONSENT = {
   // Joe, Nov 16, 2026: sign up has ONE text box, for visit texts, marked Recommended with a red star. It stays optional:
   // texts are never a condition of buying (TCPA), and Twilio refuses a required text box. Deals texts are NOT in that box.
   // Twilio turns a campaign down when one box covers both visit texts and deals (error 30913, "Marketing and informational
-  // consent must be separate"), so the deals box is its own unchecked box in My Yard. Sign up never turns deals texts on.
+  // consent must be separate"). Joe, Nov 17, 2026: the deals box came out of My Yard too, so no screen asks for deals texts
+  // and nothing turns texts_deals on. A deals box that ever comes back must be its own unchecked box, never part of the visit box.
   visit: 'Text me about my visits. Setting your day, night before reminders, on the way, and your gate photo. About 2 to 4 texts a visit.',
   deals: 'Text me deals too. Up to 4 texts a month.',
   fine: 'By checking the box, you agree to get texts from Arizona Pet Waste at the number above. Message and data rates may apply. Reply STOP to stop or HELP for help. You do not have to agree to texts to book. See our Text Terms and Privacy Policy.'
 };
 const CALL_US = 'Call or text 623.309.6104 and we will help.';
+// Joe, Nov 17, 2026: customers do not change their card, see bills or cancel by themselves yet. They call or text the
+// office and the office does it in Stripe. My Yard shows that line in place of the bills list and the "Change card or
+// cancel" button, and the two routes behind them are closed (portal, meInvoices). Skips and pauses stay in My Yard.
+// The card link in a "your card did not go through" email (/api/card) stays: it opens Stripe's card page only, with
+// no way to cancel, and it is how a failed bill gets paid.
+// To give it back: set SELF_SERVE to true here and "selfServe" to true in src/site.config.json in the same commit
+// (worker.test.mjs holds the two together). The site copy flips with it ([[self:..||..]] in build.mjs).
+const SELF_SERVE = false;
+const selfOn = (env) => (env && env.SELF_SERVE ? env.SELF_SERVE === 'on' : SELF_SERVE);
+const CALL_BILLING = 'To change your card, see a bill or cancel, call or text 623.309.6104. We do it for you.';
 
 export default {
   async fetch(request, env, ctx) {
@@ -668,7 +679,7 @@ async function checkout(request, env, ctx) {
   const page = clean(b.page, 120);
   await db(env, 'POST', 'consent_log', [
     { user_id: u.id, email: u.email, phone, kind: 'texts_visit', granted: !!b.textsVisit, text_shown: CONSENT.visit + ' ' + CONSENT.fine, page, ip, user_agent: ua },
-    { user_id: u.id, email: u.email, phone, kind: 'texts_deals', granted: false, text_shown: 'Not asked at sign up. The deals box is in My Yard.', page, ip, user_agent: ua }
+    { user_id: u.id, email: u.email, phone, kind: 'texts_deals', granted: false, text_shown: 'Not asked at sign up.', page, ip, user_agent: ua }
   ], 'return=minimal');
 
   // Make sure the prices exist in Stripe before the card form shows (first sign up in a new Stripe mode creates them).
@@ -953,11 +964,10 @@ async function booked(env, ctx, uid, sub, customer, card, s) {
     'Hi ' + first(c.name) + ',', '',
     'You are booked. We will reach out to let you know your day and time.', '',
     (paidToday ? 'Your card was charged. ' : 'Your card is saved. ') + billLine, '',
-    'You can cancel anytime in My Yard.' + (meta.min_end && !paidToday ? ' ' + freeRule(meta.min_label) : ''), '',
+    (selfOn(env) ? 'You can cancel anytime in My Yard.' : 'You can cancel anytime. Call or text 623.309.6104.') + (meta.min_end && !paidToday ? ' ' + freeRule(meta.min_label) : ''), '',
     'Next, set up My Yard: add your gate code, your dogs’ names and any problem spots. This link signs you in, no code needed. It works for ' + LINK_DAYS + ' days:',
     await yardLink(env, c.id), '',
     'After that, sign in at https://' + siteHost(env) + '/account/ with your email.', '',
-    'Want our deals by text? Turn on "Text me deals too" in My Yard.', '',
     'Questions? Call or text 623.309.6104.', '', 'Arizona Pet Waste'
   ].join('\n')));
   // The booking, sent to Meta once (this is the one call that moved the row), with the page's event id.
@@ -1551,7 +1561,7 @@ function freeRule(label) {
 }
 // The cancel line by Stripe's button: one line.
 function cancelText(b, env) {
-  return 'Cancel anytime in My Yard.' + (b.free && earlyOn(env) ? ' ' + freeRule(b.minShort) : '');
+  return (selfOn(env) ? 'Cancel anytime in My Yard.' : 'Cancel anytime. Call or text 623.309.6104.') + (b.free && earlyOn(env) ? ' ' + freeRule(b.minShort) : '');
 }
 const WAIT_OFFER = 'None. The site only says we will tell them when we start in their area. The free month offer came off the waitlist on November 12, 2026.';
 async function waitlist(request, env, ctx) {
@@ -1641,14 +1651,14 @@ async function meSave(request, env) {
   if (!before) return fail(404, 'Finish signing up first, then set up your yard.');
   const patch = {
     gate_code: clean(b.gate_code, 60) || null, gate_notes: clean(b.gate_notes, 600), dog_names: clean(b.dog_names, 200),
-    problem_spots: clean(b.problem_spots, 600), skip_spray: !!b.skip_spray, texts_visit: !!b.texts_visit, texts_deals: !!b.texts_deals,
+    problem_spots: clean(b.problem_spots, 600), skip_spray: !!b.skip_spray, texts_visit: !!b.texts_visit,
     updated_at: new Date().toISOString()
   };
   const saved = await db(env, 'PATCH', 'customers?id=eq.' + u.id + '&select=' + ME_FIELDS, patch, 'return=representation');
   const logs = [];
   const ip = request.headers.get('cf-connecting-ip') || '', ua = clean(request.headers.get('user-agent'), 300);
   if (before.texts_visit !== patch.texts_visit) logs.push({ user_id: u.id, email: u.email, phone: before.phone, kind: 'texts_visit', granted: patch.texts_visit, text_shown: CONSENT.visit + ' ' + CONSENT.fine, page: '/account/', ip, user_agent: ua });
-  if (before.texts_deals !== patch.texts_deals) logs.push({ user_id: u.id, email: u.email, phone: before.phone, kind: 'texts_deals', granted: patch.texts_deals, text_shown: CONSENT.deals + ' ' + CONSENT.fine, page: '/account/', ip, user_agent: ua });
+  // No deals box in My Yard (Joe, Nov 17, 2026): a save never touches texts_deals, so nobody is opted in or out by it.
   if (logs.length) await db(env, 'POST', 'consent_log', logs, 'return=minimal');
   return ok({ customer: saved && saved[0] });
 }
@@ -1657,6 +1667,7 @@ async function portal(request, env) {
   if (!live(env)) return fail(503, 'Billing is not turned on yet. ' + CALL_US);
   const u = await signedIn(request, env);
   if (!u) return fail(401, 'Please sign in again.');
+  if (!selfOn(env)) return fail(403, CALL_BILLING, 'call_office');
   const rows = await db(env, 'GET', 'customers?id=eq.' + u.id + '&select=stripe_customer_id');
   const cus = rows && rows[0] && rows[0].stripe_customer_id;
   if (!cus) return fail(404, 'We could not find a card on file. ' + CALL_US);
@@ -3495,7 +3506,14 @@ async function meVisits(request, env) {
   const rows = await db(env, 'GET', 'stops?customer_id=eq.' + u.id + '&day=lte.' + azToday() + '&status=in.(done,cant,skipped)&select=day,status,reason,note,photo_path,done_at&order=day.desc&limit=12');
   const visits = [];
   for (const r of rows) visits.push({ day: r.day, status: r.status, reason: r.reason ? REASONS[r.reason] : null, note: r.note, doneAt: r.done_at, photo: await photoUrl(env, r.photo_path), photoAt: (photoWhen(r.photo_path) || {}).at || null, timeTyped: !!(photoWhen(r.photo_path) || {}).manual });
-  return ok({ visits });
+  // Today's visit, so My Yard can show one big "See our truck" button on visit day. It is the same truck link the
+  // "on the way" text carries (/t/CODE), for this customer's own stop only.
+  let today = null;
+  try {
+    const t = (await db(env, 'GET', 'stops?customer_id=eq.' + u.id + '&day=eq.' + azToday() + '&select=code,status&limit=1'))[0];
+    if (t && t.code && ['scheduled', 'on_the_way', 'here', 'done'].includes(t.status)) today = { code: t.code, status: t.status };
+  } catch (e) { today = null; }
+  return ok({ visits, today });
 }
 
 /* =====================================================================================================
@@ -3583,6 +3601,7 @@ async function mePlan(request, env) {
 async function meInvoices(request, env) {
   const x = await me2(request, env);
   if (x.err) return x.err;
+  if (!selfOn(env)) return ok({ invoices: [] }); // bills are not shown in My Yard for now: the office reads them out
   if (!x.c.stripe_customer_id) return ok({ invoices: [] });
   let r;
   try { r = await stripe(env, 'GET', 'invoices', { customer: x.c.stripe_customer_id, limit: 12 }); }

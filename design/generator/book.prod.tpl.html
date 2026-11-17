@@ -170,7 +170,7 @@
     <h1 class="bh1" tabindex="-1">{{ payTitle }}</h1>
     <sc-if value="{{ payFree }}" hint-placeholder-val="{{ true }}">[[bf:<p class="bf-chip" data-deal-end="2026-12-01T06:59:59Z"><span>Black Friday sale</span>First month free. Ends Mon, Nov 30.</p>||]]</sc-if>
     <p class="payline">{{ payLine }}</p>
-    <p class="paynote">Cancel anytime in My Yard, with no phone call.</p>
+    <p class="paynote">[[self:Cancel anytime in My Yard, with no phone call.||Cancel anytime. Call or text 623.309.6104.]]</p>
     <p class="paynote" style="margin-top: 4px;">{{ planLine }} We reach out to set your first visit.</p>
     <p class="fine">{{ payAgree }} <a href="/terms/">Terms</a> and <a href="/privacy/">Privacy Policy</a>.</p>
     <sc-if value="{{ payDemo }}" hint-placeholder-val="{{ false }}">
@@ -193,7 +193,7 @@
     </sc-if>
     <sc-if value="{{ payAlready }}" hint-placeholder-val="{{ false }}">
       <div class="note" style="flex-direction: column; gap: 10px;">
-        <p style="margin: 0;"><strong>You already have a plan with us.</strong> You can change it in My Yard.</p>
+        <p style="margin: 0;"><strong>You already have a plan with us.</strong> [[self:You can change it in My Yard.||To change it, call or text 623.309.6104.]]</p>
         <a href="/account/" class="btn btn-dot" style="width: 100%;">Go to My Yard</a>
       </div>
     </sc-if>

@@ -13,7 +13,7 @@ Everything is under info@arizonapetwaste.com.
 | `/pooper-scooper/buckeye-az/` `/pooper-scooper/buckeye-az/verrado/` `/pooper-scooper/goodyear-az/` `/pooper-scooper/litchfield-park-az/` `/pooper-scooper/citrus-park-az/` `/pooper-scooper/waddell-az/` | Town pages with map, neighborhoods, local questions. Short links like `/verrado/` and `/waddell/` forward to them | indexed |
 | `/privacy/` `/terms/` `/texts/` `/accessibility/` | Policies | indexed |
 | `/book/` | Sign up on its own page (for QR codes, yard signs, texts) | not indexed |
-| `/account/` | My Yard: sign in, gate code, dog names, texts, card and cancel | not indexed |
+| `/account/` | My Yard: sign in, gate code, dog names, visit texts, skip, pause, the truck button on visit day. Card, bills and cancel are a call or text to the office for now | not indexed |
 | `/sitemap.xml` `/robots.txt` `/llms.txt` | For Google and AI search | |
 | `/crew/` | Field desk: staff sign in, crew route, office (tiny "staff" link under the footer) | not indexed |
 | `/t/CODE` | Customer truck link for one visit. Ends 2 hours after the visit | not indexed |

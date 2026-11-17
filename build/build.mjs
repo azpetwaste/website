@@ -24,7 +24,14 @@ const DEAL_END = '2026-12-01T06:59:59Z'; // midnight in Phoenix as November 30 e
 const DEAL_ON = process.env.DEAL_ON ? process.env.DEAL_ON === '1' : Date.now() < Date.parse(DEAL_END);
 // The insurance has been in force since November 16, 2026. Copy says so in the present tense with no start date: "Insured and bonded."
 // The [[ins:before||after]] tag is retired and no file uses it. If one ever comes back, only its second half is written.
-const bfx = (t) => t.replace(/\[\[bf:([\s\S]*?)\|\|([\s\S]*?)\]\]/g, (m, on, off) => (DEAL_ON ? on : off)).replace(/\[\[ins:([\s\S]*?)\|\|([\s\S]*?)\]\]/g, (m, before, after) => after);
+// Self serve switch (Joe, Nov 17, 2026). Customers do not change their card, see bills or cancel by themselves yet:
+// they call or text the office. Copy is written as [[self:with self serve||call the office]]. "selfServe" in
+// src/site.config.json picks the side, and SELF_SERVE in src/worker/worker.js must say the same (worker.test.mjs
+// holds the two together). SELF_ON=1 or SELF_ON=0 forces a side for testing. A self tag may sit inside a bf tag,
+// never the other way round, so it is filled in first.
+const SELF_ON = process.env.SELF_ON ? process.env.SELF_ON === '1' : cfg.selfServe === true;
+const selfx = (t) => t.replace(/\[\[self:([\s\S]*?)\|\|([\s\S]*?)\]\]/g, (m, on, off) => (SELF_ON ? on : off));
+const bfx = (t) => selfx(t).replace(/\[\[bf:([\s\S]*?)\|\|([\s\S]*?)\]\]/g, (m, on, off) => (DEAL_ON ? on : off)).replace(/\[\[ins:([\s\S]*?)\|\|([\s\S]*?)\]\]/g, (m, before, after) => after);
 // Meta Pixel switch: copy written as [[meta:with the pixel||without it]] shows the first half once "metaPixel" in
 // src/site.config.json holds the pixel id. The privacy policy uses it, so it never names a tag the site does not load.
 const META_PIXEL = /^\d{6,20}$/.test(String(cfg.metaPixel || '')) ? String(cfg.metaPixel) : '';
@@ -89,6 +96,11 @@ copyDir(path.join(ROOT, 'static'), DIST);
 // ---------- script files with content hashes ----------
 const assets = {};
 function emit(name, code) {
+  // The name is made from the code as it is written, with the sale tag and the self serve tag filled in. These files are
+  // kept by browsers for a year, so a file whose words change when a switch flips must get a new name that day.
+  // (Until Nov 17, 2026 the name came from the code before the tags were filled, so the December 1 build would have
+  // kept the old names and returning visitors would have kept the sale words.)
+  if (typeof code === 'string') code = metax(bfx(code));
   const file = name.replace(/(\.js)$/, '.' + hash(code) + '$1');
   const out = path.join(DIST, 'assets', file);
   fs.mkdirSync(path.dirname(out), { recursive: true });
@@ -762,7 +774,7 @@ for (const [slug, fallbackH1] of POLICIES) {
   const a = useBoard('account');
   built.push(page({
     route: '/account/', board: 'account', index: false, title: 'My Yard | Arizona Pet Waste',
-    description: 'Sign in to My Yard to see your visits, skip, pause, see your bills and manage your card.',
+    description: '[[self:Sign in to My Yard to see your visits, skip, pause, see your bills and manage your card.||Sign in to My Yard to see your visits and gate photos, skip a visit or pause.]]',
     fonts: a.b.fonts, css: [a.b.css], boards: [a], body: ssr(a)
   }));
   const nf = useBoard('doc', (mk) => slots(mk).replace('@@DOC@@', '<h1 class="h1 dh1">We could not find that page</h1>' +
@@ -814,7 +826,7 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 - One time pickup: from $99. A big job, like a yard that has not been cleaned in a long time, gets a quote first, and the price is given before the visit. Same day when we have a spot, at the same price. For a customer on a plan it is added to the next bill.
 - Deodorizing (free every visit): included free with every visit, on rock and turf yards alike. It costs nothing on any plan or cleanup.
 - Billing: each customer is billed the full month price once a month, on their own bill day. There are no part month or prorated charges. [[bf:During the Black Friday sale (sign up by November 30, 2026) the first month is free. A card is saved at sign up and nothing is charged that day. The free month runs one month from the sign up day. The first charge is the full month price on the day the free month ends, and that day of the month is the bill day from then on.||The first charge is the full month price on the day of sign up, and that day of the month is the bill day from then on.]] If a payment fails, the customer is emailed that day and visits are on hold until the bill is paid.
-[[bf:- Black Friday sale: sign up by Monday, November 30, 2026 and the first month is free. The sale ends at midnight on November 30. There is no charge for canceling. Canceling is done online in My Yard, with no phone call.||- Offer: the first cleanup is free. The Black Friday free month sale ended on November 30, 2026.]]
+[[bf:- Black Friday sale: sign up by Monday, November 30, 2026 and the first month is free. The sale ends at midnight on November 30. There is no charge for canceling. [[self:Canceling is done online in My Yard, with no phone call.||To cancel, a customer calls or texts 623.309.6104.]]||- Offer: the first cleanup is free. The Black Friday free month sale ended on November 30, 2026.]]
 
 ## Service area (every home in these ZIP codes)
 - [Buckeye, AZ 85326 and 85396](${ORIGIN}/pooper-scooper/buckeye-az/). Neighborhoods: ${hoodNames('buckeye').join(', ')}.
@@ -866,8 +878,8 @@ ${VIDEOS.map((v) => '- [' + v.name + '](' + videoUrl(v) + '): ' + v.text).join('
 - Missed pile: free return within 24 hours.
 - Waste: we bag it and haul it away. Nothing is left in the customer’s trash can.
 - Tools: boots and tools cleaned after every yard.
-- Contract: [[bf:no long term contract.||none.]] 4 free skips a year. After the first 60 days, pause up to 120 days. Cancel in My Yard.[[bf: One free month per home.||]]
-- My Yard: the customer account at ${ORIGIN}/account/. Sign in with an email code, no password. See next visits, skip a visit, pause, see bills and gate photos, change the card, or cancel. No phone call needed.
+- Contract: [[bf:no long term contract.||none.]] 4 free skips a year. After the first 60 days, pause up to 120 days. [[self:Cancel in My Yard.||Cancel any time by calling or texting 623.309.6104.]][[bf: One free month per home.||]]
+- My Yard: the customer account at ${ORIGIN}/account/. Sign in with an email code, no password. [[self:See next visits, skip a visit, pause, see bills and gate photos, change the card, or cancel. No phone call needed.||See next visits and gate photos, skip a visit or pause. On visit day it has a See our truck button. To change the card, see a bill or cancel, the customer calls or texts 623.309.6104 and the office does it.]]
 - Payment: secure checkout by Stripe. Arizona Pet Waste never sees or stores card numbers.
 
 ## Common questions
@@ -877,7 +889,7 @@ ${faqText}
 ${FILE_PAGES.filter((x) => x.type !== 'blogindex').map((x) => '- [' + x.h1 + '](' + ORIGIN + x.route + '): ' + x.description).join('\n')}${FILE_PAGES.length ? '\n' : ''}- [Home](${ORIGIN}/): plans, prices, how a visit works, service map
 - [How it works](${ORIGIN}/how-it-works/): every step of a visit
 - [About us](${ORIGIN}/about/): who we are, where we work, our bond and insurance
-- [Our promise](${ORIGIN}/our-promise/): gate photo or the visit is $0, free return in 24 hours, cancel online
+- [Our promise](${ORIGIN}/our-promise/): gate photo or the visit is $0, free return in 24 hours, [[self:cancel online||cancel any time with one call or text]]
 - [Contact](${ORIGIN}/contact/): call, text or email
 - [Pricing](${ORIGIN}/pricing/): plans, extras and how billing works
 - [FAQ](${ORIGIN}/faq/): all of our answers

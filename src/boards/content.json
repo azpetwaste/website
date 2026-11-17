@@ -71,7 +71,7 @@
    },
    {
     "q": "How do I cancel?",
-    "a": "Tap cancel in My Yard. There is no long term contract and no phone call."
+    "a": "[[self:Tap cancel in My Yard. There is no long term contract and no phone call.||Call or text 623.309.6104 and we cancel it for you. There is no long term contract and no fee to cancel.]]"
    },
    {
     "q": "What if I get another dog?",
@@ -79,7 +79,7 @@
    },
    {
     "q": "What is My Yard?",
-    "a": "My Yard is your account on our site. Sign in with your email and a 6 digit code. No password. You can see your next visits, skip a visit, pause, see your bills and gate photos, change your card, or cancel."
+    "a": "My Yard is your account on our site. Sign in with your email and a 6 digit code. No password. [[self:You can see your next visits, skip a visit, pause, see your bills and gate photos, change your card, or cancel.||You can see your next visits and gate photos, skip a visit, or pause. On your visit day, tap See our truck. To change your card or cancel, call or text 623.309.6104.]]"
    },
    {
     "q": "Is my card safe?",
@@ -87,7 +87,7 @@
    },
    {
     "q": "How do I see my bills?",
-    "a": "Sign in to My Yard. Every bill is there, and you can open or save each one."
+    "a": "[[self:Sign in to My Yard. Every bill is there, and you can open or save each one.||Call or text 623.309.6104 and we send you any bill.]]"
    },
    {
     "q": "My yard is rock, not grass.",
@@ -133,7 +133,7 @@
    },
    {
     "q": "Is there a contract?",
-    "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel."
+    "a": "No. You pay month to month. [[self:You can cancel any time in My Yard. There is no phone call to cancel.||You can cancel any time. Call or text 623.309.6104 and we do it for you. There is no fee.]]"
    }
   ]
  },
@@ -198,7 +198,7 @@
     },
     {
      "q": "Is there a contract?",
-     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel."
+     "a": "No. You pay month to month. [[self:You can cancel any time in My Yard. There is no phone call to cancel.||You can cancel any time. Call or text 623.309.6104 and we do it for you. There is no fee.]]"
     },
     {
      "q": "What day do you come to Buckeye?",
@@ -307,7 +307,7 @@
     },
     {
      "q": "Is there a contract?",
-     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel."
+     "a": "No. You pay month to month. [[self:You can cancel any time in My Yard. There is no phone call to cancel.||You can cancel any time. Call or text 623.309.6104 and we do it for you. There is no fee.]]"
     },
     {
      "q": "What day do you come to Goodyear?",
@@ -416,7 +416,7 @@
     },
     {
      "q": "Is there a contract?",
-     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel."
+     "a": "No. You pay month to month. [[self:You can cancel any time in My Yard. There is no phone call to cancel.||You can cancel any time. Call or text 623.309.6104 and we do it for you. There is no fee.]]"
     },
     {
      "q": "What day do you come to Litchfield Park?",
@@ -510,7 +510,7 @@
     },
     {
      "q": "Is there a contract?",
-     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel."
+     "a": "No. You pay month to month. [[self:You can cancel any time in My Yard. There is no phone call to cancel.||You can cancel any time. Call or text 623.309.6104 and we do it for you. There is no fee.]]"
     },
     {
      "q": "What day do you come to Citrus Park?",
@@ -598,7 +598,7 @@
     },
     {
      "q": "Is there a contract?",
-     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel."
+     "a": "No. You pay month to month. [[self:You can cancel any time in My Yard. There is no phone call to cancel.||You can cancel any time. Call or text 623.309.6104 and we do it for you. There is no fee.]]"
     },
     {
      "q": "What day do you come to Verrado?",
@@ -691,7 +691,7 @@
     },
     {
      "q": "Is there a contract?",
-     "a": "No. You pay month to month and can cancel any time in My Yard. There is no phone call to cancel."
+     "a": "No. You pay month to month. [[self:You can cancel any time in My Yard. There is no phone call to cancel.||You can cancel any time. Call or text 623.309.6104 and we do it for you. There is no fee.]]"
     },
     {
      "q": "What day do you come to Waddell?",

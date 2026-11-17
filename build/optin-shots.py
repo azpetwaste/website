@@ -6,7 +6,7 @@ Then check that the words quoted in content/policies/texts.html still match, and
 
 Writes static/assets/img/sms-optin-form.png (step 3 of 4, the one visit text box unchecked),
 static/assets/img/sms-optin-waitlist.png (the waitlist form, box unchecked) and
-static/assets/img/sms-optin-myyard.png (the two separate My Yard boxes, both unchecked). Nothing is typed and nothing is sent."""
+static/assets/img/sms-optin-myyard.png (the one My Yard text box, unchecked). Nothing is typed and nothing is sent."""
 import os
 import threading
 import functools
@@ -76,19 +76,19 @@ with sync_playwright() as p:
     save(page, 'sms-optin-waitlist.png')
     ctx.close()
 
-    # My Yard: the two separate boxes (visit texts and deals texts), both unchecked. Deals consent is only asked here,
-    # in its own box, because Twilio turns a campaign down when one box covers both (error 30913).
+    # My Yard: one box, for visit texts, unchecked (Joe, Nov 17, 2026: the deals box came out). No screen asks for
+    # deals texts. If a deals box ever comes back it must be its own box (Twilio error 30913).
     # With no server the page runs as a sample account, so nothing real is shown.
     ctx = phone(browser, 2600)
     ctx.add_init_script("try { sessionStorage.setItem('apw.demoIn', '1'); } catch (e) { }")
     page = ctx.new_page()
     page.goto(BASE + '/account/', wait_until='networkidle')
     page.wait_for_selector('#a-tv')
-    for box in ('#a-tv', '#a-td'):
-        if page.evaluate("document.querySelector('%s').checked" % box):
-            page.locator(box).uncheck()
+    if page.evaluate("document.querySelector('#a-tv').checked"):
+        page.locator('#a-tv').uncheck()
     page.wait_for_timeout(300)
-    assert page.evaluate("[document.querySelector('#a-tv').checked, document.querySelector('#a-td').checked]") == [False, False], 'a My Yard text box is checked'
+    assert page.evaluate("document.querySelector('#a-tv').checked") is False, 'the My Yard text box is checked'
+    assert page.evaluate("document.querySelector('#a-td')") is None, 'My Yard has a deals box again: bring back its proof on /texts/'
     page.evaluate('document.activeElement && document.activeElement.blur()')
     clip = page.evaluate("""() => { const h = [...document.querySelectorAll('.yh2')].find((x) => /Texts from us/.test(x.textContent));
       const b = [...document.querySelectorAll('button')].find((x) => /Save my yard/.test(x.textContent));

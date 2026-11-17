@@ -218,11 +218,11 @@ FAQ_ITEMS = [
     ('What if a dog in the yard is not safe to be near?', 'We don’t go in. We text you to bring the dog inside. We can come back the same day.'),
     ('Can I skip a week?', 'Yes. You get 4 free skips a year. Sign in to My Yard and tap Skip next to the visit, up to 24 hours before. No phone call.'),
     ('Can I pause while we are away?', 'Yes. After your first 60 days, you can pause for up to 120 days in My Yard. You don’t pay while you are paused. Before then, use a free skip.'),
-    ('How do I cancel?', 'Tap cancel in My Yard. There is no long term contract and no phone call.'),
+    ('How do I cancel?', '[[self:Tap cancel in My Yard. There is no long term contract and no phone call.||Call or text 623.309.6104 and we cancel it for you. There is no long term contract and no fee to cancel.]]'),
     ('What if I get another dog?', 'Text us, or we will see on our next visit. We update your plan to match and email you the new price. It starts with your next bill. Each dog after two adds $13 a month, or $9 on the every other week plan.'),
-    ('What is My Yard?', 'My Yard is your account on our site. Sign in with your email and a 6 digit code. No password. You can see your next visits, skip a visit, pause, see your bills and gate photos, change your card, or cancel.'),
+    ('What is My Yard?', 'My Yard is your account on our site. Sign in with your email and a 6 digit code. No password. [[self:You can see your next visits, skip a visit, pause, see your bills and gate photos, change your card, or cancel.||You can see your next visits and gate photos, skip a visit, or pause. On your visit day, tap See our truck. To change your card or cancel, call or text 623.309.6104.]]'),
     ('Is my card safe?', 'Yes. You pay through Stripe, the same checkout big stores use. Stripe keeps your card. We never see or store your card number.'),
-    ('How do I see my bills?', 'Sign in to My Yard. Every bill is there, and you can open or save each one.'),
+    ('How do I see my bills?', '[[self:Sign in to My Yard. Every bill is there, and you can open or save each one.||Call or text 623.309.6104 and we send you any bill.]]'),
     ('My yard is rock, not grass.', 'Rock can hide poop. So we rake rock yards with a wide metal rake.'),
 ]
 
@@ -474,7 +474,7 @@ CK_ITEMS = [('A 30 minute time window', 'We text it to you the night before.'),
             ('A free return within 24 hours', 'If we miss a pile.'),
             ('4 free skips a year', 'One tap in My Yard. After your first 60 days, you can pause for up to 120 days too.'),
             ('Every home in 6 ZIP codes', 'Buckeye, Goodyear, Litchfield Park, Citrus Park and Waddell.'),
-            ('[[bf:No long term contract||No contract]] and no sign up fee', 'Month to month. Cancel in My Yard.')]
+            ('[[bf:No long term contract||No contract]] and no sign up fee', 'Month to month. [[self:Cancel in My Yard.||Cancel any time with one call or text.]]')]
 SPECS = ('<section id="specs" class="sec">\n  <div class="in ck-g">\n'
          '  <div class="shd">\n'
          '    <h2 class="h2">What you get with every visit</h2>\n'
