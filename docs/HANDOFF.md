@@ -558,6 +558,13 @@ Joe: "Say I click Leads, Customers. Is there a way to go back?" and "I just don'
 - Also run and passing: `npm run build`, `npm run check`, `worker.test.mjs` 180, `week.test.mjs` 76, `signup10` 40, `signup50` 123, `signup50` at 500 sign ups 138.
 - Not run: the new code with a real staff sign in on the live site (it needs a code from the info@ inbox).
 
+### Checked on the live site after the push (Nov 16, 9:45 pm, in the Claude browser pane)
+- `/crew/?demo` at phone size: every tab shows Back, Back and the phone back button land on the Schedule, the customer panel closes on back, the logo goes home, Plan the week shows Back, no sideways scroll.
+- The pane was already signed in as staff, so the real app was checked too, reading only: Schedule, Health, Back, Leads and the phone back button all work. Health reads Field desk On, Online sign up On, Live truck map On, Bot check On, **Lock on wrong sign in codes Off** (the patch file has not been run).
+- The Google map in Plan the week draws under the new script rule. Scripts slipped into the page three ways did not run. Six staff, office and My Yard addresses answer 401 with no sign in. A made up password token answers 401. A 150 KB form post answers 413.
+- One thing the script rule blocks on `/crew/` that is not ours: Cloudflare's own visitor counter (`static.cloudflareinsights.com/beacon.min.js`), which Cloudflare adds to pages by itself. It shows as one red line in the browser console and nothing else. The staff app does not need it. The public pages still get counted.
+- Not proven: a fresh staff sign in with the bot check under the new rule. The bot check script loads and nothing is blocked, and Cloudflare's own page says it needs only `script-src` and `frame-src` for `challenges.cloudflare.com` and works with `strict-dynamic`, which is what we send. But the bot check gave no token in the Claude browser pane, with or without the rule (it wants a person). **Next time a person signs in at `/crew` with a code, that is the proof. If no code email comes, this rule is the first place to look: take the `Content-Security-Policy` line out of `/crew/*` in `build.mjs` and push.**
+
 ### Training video
 - Rebuilt, 2 min 51 s, in both places. New clip after the Schedule: "Back is top left". The new header (Back button) is on every screen that has it. Made with `docs/video/patch_header.py`: old screens and voice lines kept, new header pasted in, because this chat cannot reach the live site or Google to retake the map screens. `lines.json` has the new line. The training page has a new office step and two new Help rows.
 
