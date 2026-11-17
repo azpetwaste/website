@@ -440,7 +440,7 @@ class Component extends DCLogic {
       this._session = r.session || '';
       const stripe = await a.stripe();
       if (tok !== this._payTok || this.state.step !== 4) return;
-      const init = (stripe.initEmbeddedCheckout || stripe.createEmbeddedCheckoutPage).bind(stripe);
+      const init = (stripe.createEmbeddedCheckoutPage || stripe.initEmbeddedCheckout).bind(stripe);
       const ck = await init({ fetchClientSecret: () => Promise.resolve(r.clientSecret), onComplete: () => this._paid() });
       if (tok !== this._payTok || this.state.step !== 4) { try { ck.destroy(); } catch (e) { } return; }
       const box = this.__root && this.__root.querySelector('[data-pay-mount]');
