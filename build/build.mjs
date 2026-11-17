@@ -29,13 +29,22 @@ const _write = fs.writeFileSync.bind(fs);
 fs.writeFileSync = (p, data, ...rest) => _write(p, typeof data === 'string' ? bfx(data) : data, ...rest);
 // Google Tag Manager (for Google Ads). Google's own install: the script high in <head>, the noscript frame right after <body>.
 // It is left off My Yard (/account/), where a signed in customer's own details are on screen.
+// Two containers share one dataLayer (Joe, Nov 16, 2026). GTM_ID is the first one (Nov 10). GTM_ID2 came on Nov 16 in Google's newer
+// install code: one async script and a gtag('js') line, no noscript part. Its container holds the GA4 tag G-E2N3R204ZH.
 const GTM_ID = 'GTM-T8GX2H6D';
-const gtmOn = (p) => !!GTM_ID && !/^\/account\//.test(p.route || '');
-const gtmHead = (p) => (gtmOn(p) ? `<!-- Google Tag Manager -->
+const GTM_ID2 = 'GTM-KPDVN8FQ';
+const gtmOn = (p) => !!(GTM_ID || GTM_ID2) && !/^\/account\//.test(p.route || '');
+const gtmHead = (p) => (gtmOn(p) ? (GTM_ID ? `<!-- Google Tag Manager -->
 <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${GTM_ID}');</script>
 <!-- End Google Tag Manager -->
-` : '');
-const gtmBody = (p) => (gtmOn(p) ? `<!-- Google Tag Manager (noscript) -->
+` : '') + (GTM_ID2 ? `<script async src="https://www.googletagmanager.com/gtm.js?id=${GTM_ID2}"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+</script>
+` : '') : '');
+const gtmBody = (p) => (gtmOn(p) && GTM_ID ? `<!-- Google Tag Manager (noscript) -->
 <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${GTM_ID}" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- End Google Tag Manager (noscript) -->
 ` : '');
