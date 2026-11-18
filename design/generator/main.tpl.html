@@ -25,7 +25,7 @@
 <section class="hero hero-hv">
   <div class="hv" data-hv data-wide="/assets/video/header-wide-v1.mp4" data-tall="/assets/video/header-tall-v1.mp4"><picture><source media="(max-width: 699px) and (orientation: portrait)" srcset="/assets/video/header-tall.webp" type="image/webp" width="540" height="864"><img class="hv-po" src="/assets/video/header-wide.webp" width="1280" height="720" alt="" fetchpriority="high" decoding="async"></picture></div>
   <div class="in hero-g">
-  <h1 class="h1 hero-h1"><span class="h1-a">Dog Poop <span class="nb">Pickup Service</span></span> <span class="h1-b">in Verrado, Buckeye, Goodyear and Litchfield Park, AZ</span></h1>
+  <h1 class="h1 hero-h1"><span class="h1-a">Dog Poop <span class="nb">Pickup Service</span></span> <span class="h1-b">in Buckeye, Goodyear, Litchfield Park and Citrus Park, AZ</span></h1>
   <p class="hero-p">We pick up the dog poop in your yard every week and haul it away. You get a photo of your shut gate after every visit.</p>
   <div class="hero-cta">
     <a href="Booking.dc.html" class="btn btn-dot">[[bf:Get the Black Friday deal||Book now]]</a>
@@ -60,40 +60,11 @@
   <div class="in">
   <div class="shd">
     <h2 class="h2">Dog poop pickup prices</h2>
-    <p class="lead">Add your dogs. Then pick how often we come.</p>
+    <p class="lead">Every price is for 1 or 2 dogs. We haul the poop away. Deodorizing is included free with every visit, on rock and turf yards alike.</p>
   </div>
-  <div class="pr-g">
-  <div class="pr-pick">
-    <div class="dogs">
-      <button type="button" class="ibtn" aria-label="One less dog" onClick="{{ dogDown }}">@@ICON_MINUS20@@</button>
-      <div class="dogs-m">
-        <div class="dogrow">
-          <sc-for list="{{ dogList }}" as="d" hint-placeholder-count="2"><span class="dogf" style="color: {{ d.fur }};">@@DOG_SVG@@</span></sc-for>
-        </div>
-        <p class="dogs-n" aria-live="polite">{{ dogLabel }}</p>
-      </div>
-      <button type="button" class="ibtn" aria-label="One more dog" onClick="{{ dogUp }}">@@ICON_PLUS20@@</button>
-    </div>
-    <div role="radiogroup" aria-label="How often we come" class="plans">
-      <sc-for list="{{ plans }}" as="p" hint-placeholder-count="3">
-        <button type="button" role="radio" aria-checked="{{ p.on }}" aria-label="{{ p.aria }}" onClick="{{ p.pick }}" class="plan">
-          <span class="plan-r" aria-hidden="true"></span>
-          <span class="plan-n">{{ p.name }}</span>
-          <span class="plan-s">{{ p.month }}</span>
-          <span class="plan-p">{{ p.week }}<small>a week</small></span>
-        </button>
-      </sc-for>
-    </div>
-  </div>
-  <div class="pr-sum">
-    <p class="pr-line">{{ planLine }}</p>
-    <p class="pr-total"><span class="pr-ab">About</span><b>{{ weekLabel }}</b> a week</p>
-    <p class="pr-per">{{ billLine }} [[bf:Black Friday sale: your first month is free.||Your first cleanup is free.]]</p>
-    <a href="Booking.dc.html" class="btn btn-dot">[[bf:Start your free month||Book now]]</a>
-    <p class="pr-in"><strong>In every price:</strong> we haul the poop away, a 30 minute time window, a live map of our truck and a photo of your shut gate. Deodorizing is included free with every visit, on rock and turf yards alike.</p>
-    <a href="Pricing.dc.html" class="tl">See every price</a>
-  </div>
-  </div>
+  @@PRICE_LIST@@
+  <p class="pc-x"><strong>[[bf:Black Friday sale: your first month is free.||Your first cleanup is free.]]</strong> Each dog after two adds $13 a month ($9 every other week). No sign up fee. @@NO_CONTRACT@@</p>
+  <a href="Pricing.dc.html" class="tl">See every price</a>
   </div>
 </section>
 

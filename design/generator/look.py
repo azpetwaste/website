@@ -364,6 +364,28 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .plan-s{grid-area:s;align-self:start;font-size:15px;line-height:1.3;color:var(--mute)}
 .apw .plan-p{grid-area:p;display:flex;flex-direction:column;align-items:flex-end;font-family:var(--f-head);font-stretch:68%;font-weight:850;font-size:42px;line-height:1}
 .apw .plan-p small{margin-top:3px;font-family:var(--f-text);font-stretch:104%;font-weight:400;font-size:14px;line-height:1.2;color:var(--mute)}
+/* the price list: a name, one line, a price, a Book button. Rows with thin rules, no boxes */
+.apw .pcl{margin:28px 0 0;border-top:1px solid var(--line)}
+.apw .pcl .pc{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"n p" "d p" "m m" "b b";grid-template-rows:auto 1fr auto auto;column-gap:16px;align-items:start;margin:0;padding:22px 0 24px;border-bottom:1px solid var(--line)}
+.apw .pcl .pc-n{grid-area:n;margin:0;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:25px;letter-spacing:0;line-height:1.1;color:var(--ink)}
+.apw .pcl .pc-d{grid-area:d;margin:8px 0 0;font-size:17px;line-height:1.45;color:var(--ink2)}
+.apw .pcl .pc-p{grid-area:p;display:flex;flex-direction:column;align-items:flex-end;margin:0;font-size:15px;line-height:1.2;color:var(--mute);white-space:nowrap}
+.apw .pcl .pc-p b{margin:2px 0 3px;font-family:var(--f-head);font-stretch:66%;font-weight:900;font-size:58px;letter-spacing:-.01em;line-height:.84;color:var(--ink)}
+.apw .pcl .pc-m{grid-area:m;margin:12px 0 0;font-size:16px;line-height:1.45;color:var(--mute)}
+.apw .pcl .pc .btn{grid-area:b;margin:16px 0 0;font-weight:750;text-decoration:none}
+.apw .pc-x{margin:18px 0 0;font-size:16px;line-height:1.55;color:var(--ink2)}
+.apw .pc-x strong{color:var(--ink)}
+.apw .sec>.in>.tl{margin-top:8px}
+@media (min-width:1024px){
+.apw .pcl{margin-top:40px}
+.apw .pcl .pc{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) 240px;grid-template-areas:"n p b" "d m b";grid-template-rows:auto auto;column-gap:40px;align-items:center;padding:26px 0 28px}
+.apw .pcl .pc-n{font-size:30px}
+.apw .pcl .pc-d{margin-top:6px;font-size:18px}
+.apw .pcl .pc-p{flex-direction:row;align-items:baseline;gap:8px;font-size:17px}
+.apw .pcl .pc-p b{margin:0;font-size:64px}
+.apw .pcl .pc-m{margin-top:6px}
+.apw .pcl .pc .btn{margin:0}
+}
 .apw .pr-line{margin:0;font-size:17px;font-weight:700;color:var(--ink2)}
 .apw .pr-total{display:flex;align-items:baseline;gap:10px;margin:8px 0 0;font-size:21px;color:var(--ink2)}
 .apw .pr-total b{font-family:var(--f-head);font-stretch:66%;font-weight:900;font-size:108px;letter-spacing:-.01em;line-height:.8;color:var(--ink)}
@@ -513,9 +535,9 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .fpay{margin:0;font-size:16px;line-height:1.6;color:#D5DAF0}
 .apw .fpay a{color:#F6F4EF;font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px;text-decoration-color:#FF4A1C}
 .apw .fhd-2{margin-top:26px}
-.apw .fmarks{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
-.apw .fmarks img{height:38px;width:auto;display:block;border-radius:6px}
-.apw .fmarks+.fmarks{margin-top:8px}
+.apw .fmarks{display:grid;grid-template-columns:repeat(3,64px);gap:8px;margin:16px 0 0;padding:0;list-style:none}
+.apw .fmarks li{display:grid;place-items:center;width:64px;height:42px;border-radius:6px;background:#FFFFFF}
+.apw .fmarks img{display:block;width:auto;max-width:52px;object-fit:contain}
 .apw .fsoc{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px}
 .apw .fsoc a{display:grid;place-items:center;width:48px;height:48px;border-radius:12px;overflow:hidden;-webkit-tap-highlight-color:transparent}
 .apw .fsoc img{display:block;width:26px;height:26px}

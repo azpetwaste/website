@@ -161,13 +161,15 @@ function socialHtml() {
     '<a' + (x.bg ? ' style="background: ' + x.bg + ';"' : ' class="fsoc-f"') + ' href="' + esc(x.url) + '" rel="noopener" target="_blank" aria-label="Arizona Pet Waste on ' + x.n + '">' +
     '<img src="' + x.img + '" alt="" width="' + (x.bg ? 26 : 48) + '" height="' + (x.bg ? 26 : 48) + '" loading="lazy"></a>').join('') + '</div>';
 }
+// The cards and wallets we take, as marks under Payment options in the footer (Joe, Nov 18, 2026: "Put the icons on there").
+// Each mark is a logo file in static/assets/img/brands/ on a small white tile, like a card, so dark marks read on the navy footer.
+// A mark shows when its file is there. [name people hear, height on the tile in px]
+const PAY_MARKS = [['Visa', 16], ['Mastercard', 28], ['Amex', 32, 'American Express'], ['Discover', 8.4], ['Apple Pay', 20], ['Google Pay', 19.5]];
 function payHtml() {
-  // Card shaped tiles with the name in plain type. An official logo file in static/assets/img/brands/ replaces a tile (never redraw a brand logo).
-  // Joe did not like the plain name tiles (Nov 10), so a mark only shows when its official logo file is in the folder.
-  const tile = (n, cls) => { const img = brandFile(n); return img ? '<img src="' + img + '" alt="' + n + '" height="38" loading="lazy">' : ''; };
-  if (!['Visa', 'Mastercard', 'Amex', 'Discover', 'Apple Pay', 'Google Pay'].some((n) => brandFile(n))) return '';
-  return '<div class="fmarks" role="group" aria-label="Cards we take">' + ['Visa', 'Mastercard', 'Amex', 'Discover'].map((n) => tile(n, 'fc-card')).join('') + '</div>' +
-    '<div class="fmarks" role="group" aria-label="Phone wallets we take">' + ['Apple Pay', 'Google Pay'].map((n) => tile(n, 'fc-pay')).join('') + '</div>';
+  const marks = PAY_MARKS.map((m) => ({ n: m[2] || m[0], h: m[1], img: brandFile(m[0]) })).filter((x) => x.img);
+  if (!marks.length) return '';
+  return '<ul class="fmarks" aria-label="Cards and wallets we take">' + marks.map((x) =>
+    '<li><img src="' + x.img + '" alt="' + x.n + '" style="height: ' + x.h + 'px;" loading="lazy"></li>').join('') + '</ul>';
 }
 // Every ZIP code in each town we serve, with the neighborhoods in it. The town copy (design/generator/longform.py) is the one list.
 function townZips(area) {
@@ -496,7 +498,7 @@ ${p.index || p.canonical ? `<link rel="canonical" href="${url}">` : ''}
 <meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Arizona Pet Waste. Dog poop pickup in Verrado, Buckeye, Goodyear and Litchfield Park, AZ.">
+<meta property="og:image:alt" content="Arizona Pet Waste. Dog poop pickup in Buckeye, Goodyear, Litchfield Park and Citrus Park, AZ.">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(p.ogTitle || p.title)}">
@@ -677,7 +679,7 @@ for (const t of TOWNS) {
     const route = '/' + pg.slug + '/';
     const url = ORIGIN + route;
     const inner = docHead(pg.h1, [['Home', '/'], [pg.crumb || pg.h1, route]]) +
-      fs.readFileSync(path.join(ROOT, 'content/pages', pg.slug + '.html'), 'utf8');
+      fs.readFileSync(path.join(ROOT, 'content/pages', pg.slug + '.html'), 'utf8').replace('<!--PRICE_LIST-->', content.pricelist || '');
     const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc docw"').replace('@@DOC@@', inner));
     const ld = [crumbs(url, [['Home', '/'], [pg.h1, route]])];
     if (pg.slug === 'pricing') ld.push({ '@type': 'Service', '@id': url + '#service', name: 'Pooper scooper service', serviceType: 'Pet waste removal', provider: { '@id': BIZ_ID }, areaServed: SERVED,

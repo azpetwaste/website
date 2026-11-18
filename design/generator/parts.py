@@ -296,6 +296,28 @@ PRICE_TABLE = (
 )
 
 
+# The price list (Joe, Nov 18, 2026: "It's simplicity, simple." He liked a competitor's plain list: a name, one line, a price, a Book button).
+# One row for each plan and one for the one time pickup. No picker, no table, no fine print. No price changed.
+# The week price is the big number and the month price sits right under it, as always. The home page and /pricing/ show this same list.
+def _prow(name, line, small, big, unit, bill, btn):
+    return ('<div class="pc"><h3 class="pc-n">%s</h3><p class="pc-d">%s</p>'
+            '<p class="pc-p"><small>%s</small><b>%s</b>%s</p><p class="pc-m">%s</p>%s</div>' % (
+                name, line, small, big, '<small>%s</small>' % unit if unit else '', bill, btn))
+
+
+def _pbook(plan, label, cls):
+    return '<a href="Booking.dc.html?plan=%s" class="btn %s" aria-label="Book %s">Book now</a>' % (plan, cls, label)
+
+
+PRICE_LIST = ('<div class="pcl">'
+              + _prow('Weekly pickup', 'We come once a week.', 'About', '$25', 'a week', 'We bill $108 once a month.', _pbook('week', 'weekly pickup', 'btn-dot'))
+              + _prow('Twice a week pickup', 'We come two times a week.', 'About', '$44', 'a week', 'We bill $189 once a month.', _pbook('twice', 'twice a week pickup', 'btn-line'))
+              + _prow('Every other week pickup', 'We come every two weeks.', 'About', '$17', 'a week', 'We bill $75 once a month.', _pbook('eow', 'every other week pickup', 'btn-line'))
+              + _prow('One time pickup', 'One visit. No plan needed.', 'From', '$99', '', 'Same day when we have a spot. A big job gets a quote first.',
+                      '<a href="sms:+16233096104" class="btn btn-line" aria-label="Text us to book a one time pickup">Text us</a>')
+              + '</div>')
+
+
 # ---------- page chrome shared by the home page, the town pages and the policy pages ----------
 HDR_CSS = look.HDR_CSS
 PAGE_CSS = look.PAGE_CSS
@@ -437,7 +459,7 @@ def _footer(pre):
             '    </nav>\n'
             '    <div class="fcol">\n'
             '      <p class="fhd">Payment options</p>\n'
-            '      <p class="fpay">We take all major credit cards, Apple Pay and Google Pay. We do not take cash, Venmo or Cash App.</p>\n'
+            '      <p class="fpay">We take all major credit cards, Apple Pay and Google Pay. We do not take cash, Venmo, Cash App or Zelle.</p>\n'
             '      <!--PAYMARKS-->\n'
             '      <p class="fhd fhd-2">Your info is safe</p>\n'
             '      <p class="fpay">Stripe keeps your card. We never see the number. We never sell your info. <a href="/privacy/">Read our Privacy Policy</a>.</p>\n'

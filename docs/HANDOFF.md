@@ -602,6 +602,36 @@ Joe asked for five things in a row. All are live.
 - `/texts/`, privacy, `CONSENT`, `GO_LIVE.md` part 10 and three screenshots match (new: `sms-optin-myyard.png`, made by `build/optin-shots.py` from the sample account).
 - Checked: `worker.test.mjs` 212, `desk` 134, `signup10` 40, `signup50` 125, build and check with the sale on and off, the two browser flows (28 and 8).
 
+## Nov 18, 2026, 10:15 am. A plain price list, four main cities in the H1, payment marks in the footer (website and AEO chat), Joe's asks
+
+Joe looked at a competitor's services page (a name, one line, a price, a Book button for each service) and said: "don't change the pricing. Just look at our prices, and I want to have shit like that", "It's simplicity, simple", "it still seems confusing". Then: "let's take Verado out in the front. Do Citrus Park, Buckeye, Goodyear, and Litchfield Park. Those are the four main cities." Then: payment icons under Payment options, and "We don't do cash, Venmo, Cash App, Zelle".
+
+### The price list
+- The home page price section is one plain list now: Weekly pickup, Twice a week pickup, Every other week pickup, One time pickup. Each row has the name, one line ("We come once a week."), the price ("About $25 a week", "We bill $108 once a month.") and a button. The dog picker, the plan picker and the big number are gone from the home page. **No price changed.**
+- `/pricing/` shows the same list in place of its two tables (`<!--PRICE_LIST-->` in `content/pages/pricing.html`, filled from `content.pricelist`). The list is written once: `PRICE_LIST` in `parts.py`.
+- A Book now button opens sign up on that row's plan. The link is `/book/?plan=week`, `twice` or `eow`. On a page with the sign up sheet, `apw.js` reads the plan off the link. With no script the link opens `/book/` on that plan, as it always could.
+- One time pickup: "From $99", button "Text us" (it is booked by text).
+- One line under the list: the sale, the price of each dog after two, no sign up fee, no long term contract.
+- Left off on purpose, Joe's words: "Limited service areas", "Restrictions may apply", "Deposit required". And no joke services.
+- Deodorizing: it is in the lead above the list ("Deodorizing is included free with every visit, on rock and turf yards alike."), since the competitor sells it. No separate sanitize treatment.
+- `/pricing/` has one new line: "Coming in December: a disinfectant treatment." Joe said it is coming. It has no price yet and nothing sells it.
+- **Not done, needs Joe:** "Some yards may require an initial cleanup fee." The site says "No sign up fee" and tells people to ask other companies about a first cleanup fee, and checkout has no such charge. Adding the line would add a fee. He has to say yes and name the amount, and then the words, checkout and the office all change together.
+
+### The H1 and the share picture
+- Home page H1: "Dog Poop Pickup Service in Buckeye, Goodyear, Litchfield Park and Citrus Park, AZ". Verrado is out. Joe said the four cities with Citrus Park first. They are written in the order the site uses everywhere (Buckeye first, it is the main city).
+- The share picture (`static/assets/img/og.jpg`, made again with `design/share/make_og.py`) and its alt text say the same four.
+- Town lists everywhere else still name five, with Waddell. The sign up form city buttons are unchanged (Twilio screenshot).
+
+### Payment marks
+- Footer, under Payment options, every page: Visa, Mastercard, American Express, Discover, Apple Pay and Google Pay, each on a small white tile, three to a row. `PAY_MARKS` and `payHtml` in `build/build.mjs`, `.fmarks` in `look.py`. The files are from the same open logo library as the Google G (`static/assets/img/brands/README.txt`).
+- The line above them now ends "We do not take cash, Venmo, Cash App or Zelle."
+- Joe sent a screenshot link (gyazo) as the model. It could not be opened from the build machine, so the layout is the plain one. If his picture shows something else, change `.fmarks`.
+
+### Tests
+- `npm run check` passes with the sale on and off. `worker.test.mjs`: 505 pass.
+- In a real browser at 320, 390 and 1280 wide: no sideways scroll on the home page or `/pricing/`. Each Book now button opens sign up on its own plan (week, twice, eow). `/book/?plan=twice` opens on twice a week.
+- Nothing changed in the crew app, the office, My Yard, the truck link or the sign up form.
+
 ## Nov 18, 2026, 10 am. Social buttons in the footer and the Google G by the stars (website and AEO chat), Joe's ask
 
 Joe sent a Google G and the links: "please put social media buttons on the bottom too, give them their color: Facebook, Instagram, Yelp", "the footer needs to be legit and clean".

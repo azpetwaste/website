@@ -338,7 +338,10 @@
     try { u = new URL(a.href, location.href); } catch (err) { return; }
     if (u.origin === location.origin && /\/book\/(index\.html)?$/.test(u.pathname)) {
       e.preventDefault();
-      APW.openBook(intent());
+      // a Book button in the price list carries its plan (/book/?plan=twice), so sign up opens on that plan
+      var o = intent(), pl = u.searchParams.get('plan');
+      if (/^(week|twice|eow)$/.test(pl || '')) o.plan = pl;
+      APW.openBook(o);
     }
   });
 

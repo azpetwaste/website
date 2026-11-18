@@ -18,7 +18,7 @@ Social buttons (footer of every page). A button shows when its file is here AND 
 Google mark (in front of the stars in the home page hero):
   google.svg
 
-Payment marks (shown under Payment options once the file is here):
-  visa.svg  mastercard.svg  american-express.svg  discover.svg  apple-pay.svg  google-pay.svg
+Payment marks (footer, under Payment options, each on a small white tile). All six are from @iconify-json/logos 1.2.20 (CC0):
+  visa.svg  mastercard.svg  amex.svg  discover.svg  apple-pay.svg  google-pay.svg
 
 .svg, .png or .webp all work. File names are lower case with dashes.

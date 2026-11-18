@@ -236,5 +236,6 @@ content['svcmap'] = {
     'com': static_map(COM, 'Map of the towns we serve for HOAs and businesses. Tap a town to open its page.'),
     'css': _mcss + '.mlink{fill:rgba(255,74,28,0);transition:fill .2s ease}a:hover .mlink,a:focus-visible .mlink{fill:rgba(255,74,28,.24)}a:focus-visible .mlink{stroke:#0E1430;stroke-width:2.5px}.dark a:focus-visible .mlink{stroke:#FFFFFF}'
 }
+content['pricelist'] = common(parts.PRICE_LIST)  # the same price list the home page shows, for /pricing/
 json.dump(content, open(OUT + 'content.json', 'w'), ensure_ascii=False, indent=1)
 print('content.json written')
