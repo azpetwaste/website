@@ -961,3 +961,35 @@ Joe, 10:16 to 10:22 am, four messages: weekly is $89 for 1 dog, $99 for 2 dogs (
 - No ZIP code was added to the six the server takes.
 - The after sale words ("Your first cleanup is free", from December 1) were left alone. Joe's "No discounts of any kind" points at taking them out. He was asked.
 - The open questions are 14 to 18 in `CLAUDE.md`, Still open.
+
+## Nov 18, 2026, afternoon. Member seals in the footer, and a last phone pass on the home page (website chat), Joe's ask
+Joe, 2:07 to 2:11 pm: put the aPaws member seal and the two chamber logos "nicely on the bottom of the footer to show more authority", link aPaws to its listing, find the two chamber listings "if u can if not just post em anyway with no link". Then: "maybe we put it in the footer, or maybe we put it up top... I'm going to let you decide." And one more pass on the home page: "as soon as you land on it, you know exactly what it is... easy to click, easy to join", "maybe we can do a small box around the pictures... it clashes just a tiny bit", "a little bit more condensed somehow".
+
+### Member seals (first push, 7701bd7)
+- The bottom of the footer of every page reads "Proud member of" with three logos on white tiles, under the bonded and insured row and above the policy links: the aPaws Proud Member seal, the West Valley Regional Chamber, the Buckeye Valley Chamber of Commerce. Same white tiles as the payment marks. Three across on a phone.
+- The files are the ones Joe sent (the TIF in the aPaws zip and two PNGs), only trimmed and scaled to 210 px tall, saved as WebP in `static/assets/img/brands/`. `README.txt` there says so.
+- The list is `"members"` in `src/site.config.json`. It replaces `"badges"`, which was empty, and the old badge slot is gone. `membersHtml` in `build/build.mjs` builds the row. The look is `.fmem` in `look.py`.
+- **Footer or top: footer.** Three logos in three other color sets right under the hero would fight the first screen. In the footer they sit with the other white tiles and are on all 45 pages.
+- **No tile is a link yet.**
+  - aPaws: the listing Joe gave (`apaws.org/search/adv/details.aspx?id=3038`) is ours and it is real, but it shows the street address. Rule: never link a page that shows one. So the seal shows with no link until the street line is off the listing.
+  - West Valley Regional Chamber: the directory at `westvalleyregional.org/directory` lists Arizona Broadway Theatre, Arizona Complete Health, Arizona Rattlers and other A names on its first page, and not Arizona Pet Waste. `westvalleyregional.org/directory/arizona-pet-waste` does not exist.
+  - Buckeye Valley Chamber of Commerce: `buckeyevalleychamber.org/directory` fills in by script ("Fetching Member Information"), so it could not be read from here. Its old directory host answers with a redirect loop.
+- The business data on every page has `memberOf` for a group only when `"listing"` is filled in: aPaws today. `llms.txt` has one line, "Member of: aPaws...". The two chambers go in when there is a listing to point to.
+- To make a tile a link: put our listing page in `"listing"`, open it and look for a street address, then set `"link": true`.
+
+### The home page, last phone pass (second push)
+- **First screen.** New line between the cities and the button: "About $23 a week for 2 dogs. We bill $99 once a month." It is `CTA_PRICE`, the same line as the last section, in class `hero-pr`. The first screen now says what, where, how much and has one button. Measured at 320 by 568, 360 by 740, 375 by 667, 412 by 915, 430 by 932, 466 by 678, 890 by 626 and 768 by 1024: the price and the button are on the first screen at every one.
+- **Pictures.** Juan's photo and the shirt photo were raw photos on the navy page. Each is a print now: the cream paper frame of the gate photo, with the caption printed on the paper (`pho-pr`). Juan's print is square, cropped from the top so his face and the shirt are in it and the bin is not. Only the gate print is tilted and stamped.
+- **Tighter on phones.** `.sec` and the last section start 56 px down (was 76). The promise block has 46 px above and below (was 54) and a smaller print (340 px wide at most, was 400). The seals strip is a little tighter. At 390 wide the part above the footer went from 8,292 px to 8,099 px with the new price line in it. Nothing changed at 1024 and up but the price line and the two prints.
+- **Left alone on purpose.** The price card, How it works and Meet Juan (Joe: "love" them). The outline button on the header video (his rule of Nov 15). No Book, Call, Text bar on the home page (his rule of Nov 10). The note under the videos, because it says what "first month free" in the videos means.
+- Other pages: every board page gets the tighter phone spacing, because `.sec` is shared. Plain photos on the other pages (`pho pho-r`) were not framed.
+
+### Checked
+- `npm run check` with the sale on and off. `python3 build/sweep.py`: 45 pages at five sizes, no page scrolls sideways, no script error.
+- Looked at every screen of the home page at 390 by 844, 768 by 1024 and 1280 by 900, and a town page at 390 by 844.
+- The server, the crew app and the tables were not touched, so no server tests were run again and the training video did not change.
+- Chrome only, as before.
+
+### For Joe (also in `CLAUDE.md`, Still open 19)
+- Take the street address off the aPaws listing, or say to link it anyway.
+- Send the link to our listing at each chamber when there is one.

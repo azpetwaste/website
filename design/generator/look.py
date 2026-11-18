@@ -79,6 +79,12 @@ SITE_CSS = _min(r"""
 .apw .pho{margin:0}
 .apw .pho img{display:block;width:100%;height:auto;border-radius:6px;background:#141D3D;object-fit:cover}
 .apw .pho figcaption{margin-top:10px;font-size:15px;line-height:1.4;color:var(--mute)}
+/* A photo as a print: the cream paper frame of the gate photo, with its caption printed on the paper (Joe, Nov 18, 2026:
+   "maybe we can do a small box around the pictures... it clashes just a tiny bit"). A raw daylight photo on the navy page
+   was the one thing with no edge. Add pho-pr to a figure.pho. */
+.apw .pho.pho-pr{padding:10px 10px 0;background:#F6F4EF;color:#0E1430;box-shadow:0 24px 44px -20px rgba(0,0,0,.7)}
+.apw .pho.pho-pr img{border-radius:0;background:#D9CDB8}
+.apw .pho.pho-pr figcaption{margin:0;padding:10px 2px 12px;font-family:var(--f-head);font-stretch:82%;font-weight:700;font-size:18px;letter-spacing:.01em;line-height:1.15;color:#0E1430}
 /* links inside running text: cream words on an orange underline */
 .apw .sec p a:not(.btn):not(.tl),.apw .sec li a:not(.btn),.apw .promise p a{color:var(--ink);font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px;text-decoration-color:var(--accent)}
 .apw .sec p a:not(.btn):not(.tl):hover,.apw .sec li a:not(.btn):hover{text-decoration-color:currentColor}
@@ -211,7 +217,8 @@ HV_CSS = _min(r"""
 .apw .hv::after{content:"";position:absolute;left:0;top:0;right:0;bottom:0;background:rgba(10,15,36,.58)}
 .apw .hero-hv .hero-h1,.apw .hero-hv .hero-p,.apw .hero-hv .hero-call,.apw .hero-hv .hero-call a,.apw .hero-hv .hero-call b{color:#F6F4EF}
 .apw .hero-hv .h1-b{color:#F6F4EF}
-.apw .hero-hv .hero-sm{color:#E3E7F6}
+.apw .hero-hv .hero-sm,.apw .hero-hv .hero-pr span{color:#E3E7F6}
+.apw .hero-hv .hero-pr,.apw .hero-hv .hero-pr b{color:#F6F4EF}
 .apw .hero-hv .hero-p{margin-bottom:0}
 .apw .hero-hv .btn-dot{background:transparent;border-color:#FF4A1C;border-width:3px;color:#F6F4EF}
 .apw .hero-hv .btn-dot:not(:disabled):hover{background:#FF4A1C;color:#0E1430}
@@ -227,7 +234,10 @@ html.hv-top .apw .hdr:has(+ .hero-hv) .hbook:hover{background:#FF4A1C;color:#0E1
 @media (min-width:1024px){
 .apw .hv{top:-89px}
 .apw .hero-hv{padding-top:clamp(56px,9vh,104px);padding-bottom:clamp(84px,13vh,140px)}
-.apw .hero-hv .hero-g{grid-template-columns:minmax(0,1fr);grid-template-areas:"t" "p" "c" "s" "r";grid-template-rows:auto}
+.apw .hero-hv .hero-g{grid-template-columns:minmax(0,1fr);grid-template-areas:"t" "p" "q" "c" "s" "r";grid-template-rows:auto}
+.apw .hero-hv .hero-pr{grid-area:q;margin-top:24px;font-size:21px}
+.apw .hero-hv .hero-pr b{font-size:48px}
+.apw .hero-hv .hero-pr span{font-size:17px}
 .apw .hero-hv .hero-p{max-width:30em}
 .apw .hero-hv .h1-a{max-width:6.7em}
 .apw .hero-hv{min-height:min(74vh,740px)}
@@ -306,7 +316,7 @@ DZ_CSS = _min(r"""
 PAGE_CSS = HDR_CSS + _min(r"""
 .apw .pg{position:relative;background:var(--bg);overflow-x:clip}
 .apw .in{width:100%;max-width:600px;margin-left:auto;margin-right:auto}
-.apw .sec{padding:76px 20px 0;background:var(--bg);color:var(--ink)}
+.apw .sec{padding:56px 20px 0;background:var(--bg);color:var(--ink)}
 .apw .shd{max-width:760px}
 .apw .mlink{display:flex;align-items:center;min-height:60px;font-family:var(--f-head);font-stretch:84%;font-size:26px;font-weight:800;color:var(--ink);text-decoration:none;border-bottom:1px solid var(--line)}
 .apw .mdlg{position:fixed;inset:0;z-index:40;display:flex;justify-content:flex-end;background:rgba(7,11,27,.7)}
@@ -323,7 +333,10 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .hero-h1{font-size:clamp(46px,15.8vw,74px);color:var(--ink)}
 .apw .h1-a,.apw .h1-b{display:block}
 .apw .h1-b{margin-top:.44em;font-stretch:86%;font-weight:750;font-size:.36em;letter-spacing:0;line-height:1.1;color:var(--ink2);text-wrap:balance}
-.apw .hero-cta{order:2;display:flex;flex-direction:column;gap:4px;margin-top:24px}
+.apw .hero-pr{order:1;margin:16px 0 0;font-size:18px;line-height:1.3;color:var(--ink)}
+.apw .hero-pr b{font-family:var(--f-head);font-stretch:66%;font-weight:900;font-size:36px;letter-spacing:-.01em;line-height:.9;color:var(--ink)}
+.apw .hero-pr span{display:block;margin-top:3px;font-size:15px;line-height:1.4;color:var(--ink2)}
+.apw .hero-cta{order:2;display:flex;flex-direction:column;gap:4px;margin-top:20px}
 .apw .hero-call{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0 .34em;min-height:48px;margin:0;font-size:17px;color:var(--ink2)}
 .apw .hero-call a{display:inline-flex;align-items:center;min-height:44px;color:var(--ink);font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:5px;text-decoration-color:var(--accent)}
 .apw .hero-call b{font-family:var(--f-head);font-stretch:90%;font-weight:750;font-size:1.2em;letter-spacing:.01em;color:var(--ink);white-space:nowrap}
@@ -345,7 +358,7 @@ PAGE_CSS = HDR_CSS + _min(r"""
 
 /* bonded, insured, background checked, family owned */
 .apw .seals{position:relative;z-index:1;background:#070B1B;color:#F6F4EF}
-.apw .seals-l{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 12px;max-width:600px;margin:0 auto;padding:24px 20px;list-style:none}
+.apw .seals-l{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 12px;max-width:600px;margin:0 auto;padding:20px 20px 14px;list-style:none}
 .apw .seals-l li{display:flex;align-items:center;gap:10px;min-width:0}
 .apw .seal-i{flex:0 0 42px;width:42px;height:42px;display:block}
 .apw .seals-l b{display:block;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:18px;line-height:1.05;color:#F6F4EF}
@@ -354,13 +367,13 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .seals-go .tl{font-size:16px;white-space:nowrap}
 
 /* the promise: one orange field, like a sign */
-.apw .promise{padding:54px 20px 54px;background:var(--accent);color:#0E1430}
+.apw .promise{padding:46px 20px 46px;background:var(--accent);color:#0E1430}
 .apw .promise-h{margin:0;font-family:var(--f-head);font-stretch:66%;font-weight:900;font-size:clamp(62px,20vw,92px);letter-spacing:-.01em;line-height:.86;text-wrap:balance}
-.apw .promise-t{margin-top:26px}
+.apw .promise-t{margin-top:22px}
 .apw .promise-t p{max-width:33em;margin:0 0 12px;font-size:18px;font-weight:500;line-height:1.5}
 .apw .promise .tl{color:#0E1430;text-decoration-color:#0E1430}
 .apw .promise a:focus-visible{outline-color:#0E1430}
-.apw .promise-ph{max-width:400px;margin:34px 0 0;padding-right:14px}
+.apw .promise-ph{max-width:340px;margin:26px 0 0;padding-right:14px}
 .apw .promise-pr{transform:rotate(2deg)}
 .apw .promise-pr img{aspect-ratio:1/1}
 .apw .promise-pr .stamp{right:-14px;bottom:62px}
@@ -526,6 +539,7 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .own-t p:first-child{color:var(--ink)}
 .apw .own-t .tl{margin-top:2px}
 .apw .own-ph{max-width:420px}
+.apw .own-ph.pho-pr img{aspect-ratio:1/1;object-position:50% 0%}
 .apw .own-t .h2{margin-bottom:20px}
 
 /* areas we serve */
@@ -553,10 +567,12 @@ PAGE_CSS = HDR_CSS + _min(r"""
 /* The last call on the home page (Joe, Nov 18, 2026: "The random picture showing Juan at the gate... I like it. There's
    just something missing there."). The photo now has a job and words of its own, and the offer sits right by it: what
    it costs, one button, the phone number. One piece, not a picture and then a poster. */
-.apw .cta2{padding-top:76px;text-align:left}
+.apw .cta2{padding-top:56px;text-align:left}
 .apw .cta2 .cta-ph{max-width:none;margin:0 0 28px}
 .apw .cta2 .cta-ph img{aspect-ratio:4/3;object-position:32% 40%;border-radius:12px}
+.apw .cta2 .cta-ph.pho-pr img{border-radius:0}
 .apw .cta2 .cta-ph figcaption{margin-top:12px;font-size:17px;font-weight:700;line-height:1.4;color:var(--ink)}
+.apw .cta2 .cta-ph.pho-pr figcaption{margin:0;font-size:18px;line-height:1.15;color:#0E1430}
 .apw .cta2 .cta-h{font-size:clamp(50px,15vw,68px)}
 .apw .cta-pr{margin:14px 0 0;font-size:19px;line-height:1.4;color:var(--ink2)}
 .apw .cta-pr b{font-family:var(--f-head);font-stretch:66%;font-weight:900;font-size:46px;letter-spacing:-.01em;line-height:.9;color:var(--ink)}
@@ -732,6 +748,7 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .cta2 .cta-ph{margin:0}
 .apw .cta2 .cta-ph img{aspect-ratio:4/3}
 .apw .cta2 .cta-ph figcaption{font-size:19px}
+.apw .cta2 .cta-ph.pho-pr figcaption{font-size:20px;padding:12px 4px 14px}
 .apw .cta2 .cta-h{font-size:clamp(76px,7.2vw,108px)}
 .apw .cta-pr{margin-top:20px;font-size:22px}
 .apw .cta-pr b{font-size:60px}

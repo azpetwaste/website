@@ -347,6 +347,8 @@ PRICE_CARD = (
 
 # The price line in the last call on the home page.
 CTA_PRICE = 'About <b>%s</b> a week for 2 dogs. <span>We bill %s once a month.</span>' % (usd(week('week', 2)), usd(month('week', 2)))
+# The same line sits on the first screen of the home page, one step down in size (class hero-pr): what it is, where,
+# how much, one button. Joe, Nov 18, 2026: "as soon as you land on it, you know exactly what it is... easy to click, easy to join."
 
 # Under the card: the one time pickup and the way to every price.
 PRICE_MORE = ('<div class="pr-x"><p class="pr-once"><strong>Need one pickup?</strong> A <a href="/one-time-dog-poop-cleanup/">one time pickup</a> starts at %s.</p>'
