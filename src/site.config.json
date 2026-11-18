@@ -6,8 +6,16 @@
   "email": "info@arizonapetwaste.com",
   "firstVisitFrom": "2026-11-20",
   "scheduleDays": 7,
-  "sameAs": [],
-  "social": [],
+  "sameAs": [
+    "https://www.facebook.com/people/Arizona-Pet-Waste/61596094812133/",
+    "https://www.instagram.com/azpetwaste/",
+    "https://www.yelp.com/biz/arizona-pet-waste-buckeye"
+  ],
+  "social": [
+    { "name": "Facebook", "url": "https://www.facebook.com/people/Arizona-Pet-Waste/61596094812133/" },
+    { "name": "Instagram", "url": "https://www.instagram.com/azpetwaste/" },
+    { "name": "Yelp", "url": "https://www.yelp.com/biz/arizona-pet-waste-buckeye" }
+  ],
   "badges": [],
   "googleProfile": "https://www.google.com/maps?cid=11679963758630746486",
   "metaPixel": "1982997959354953",

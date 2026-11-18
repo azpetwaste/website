@@ -517,8 +517,11 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .fmarks img{height:38px;width:auto;display:block;border-radius:6px}
 .apw .fmarks+.fmarks{margin-top:8px}
 .apw .fsoc{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px}
-.apw .fsoc a,.apw .fsoc span{display:block}
-.apw .fsoc img{width:38px;height:38px;display:block}
+.apw .fsoc a{display:grid;place-items:center;width:48px;height:48px;border-radius:12px;overflow:hidden;-webkit-tap-highlight-color:transparent}
+.apw .fsoc img{display:block;width:26px;height:26px}
+.apw .fsoc .fsoc-f img{width:48px;height:48px}
+.apw .fsoc a:hover{filter:brightness(1.12)}
+.apw .fsoc a:focus-visible{outline:3px solid #F6F4EF;outline-offset:3px}
 .apw .fseals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 12px;margin-top:42px;padding-top:30px;border-top:1px solid rgba(255,255,255,.14)}
 .apw .fseal{display:flex;align-items:center;gap:10px;margin:0;min-width:0}
 .apw .fseal b{display:block;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:19px;line-height:1.05;color:#FFFFFF}

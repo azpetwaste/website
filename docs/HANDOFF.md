@@ -602,6 +602,19 @@ Joe asked for five things in a row. All are live.
 - `/texts/`, privacy, `CONSENT`, `GO_LIVE.md` part 10 and three screenshots match (new: `sms-optin-myyard.png`, made by `build/optin-shots.py` from the sample account).
 - Checked: `worker.test.mjs` 212, `desk` 134, `signup10` 40, `signup50` 125, build and check with the sale on and off, the two browser flows (28 and 8).
 
+## Nov 18, 2026, 10 am. Social buttons in the footer and the Google G by the stars (website and AEO chat), Joe's ask
+
+Joe sent a Google G and the links: "please put social media buttons on the bottom too, give them their color: Facebook, Instagram, Yelp", "the footer needs to be legit and clean".
+
+- **Footer, every page:** three buttons under the contact list, 48 px, 12 px corners: Facebook (white mark on Facebook blue), Instagram (its full color mark), Yelp (white mark on Yelp red). Each opens our profile in a new tab. `socialHtml` and `SOCIAL` in `build/build.mjs`, `.fsoc` in `look.py`. A button shows when its logo file is in `static/assets/img/brands/` AND its link is in `"social"` in `src/site.config.json`. TikTok and Nextdoor are wired the same way and wait for a file and a link.
+- **The links:** `https://www.facebook.com/people/Arizona-Pet-Waste/61596094812133/`, `https://www.instagram.com/azpetwaste/`, `https://www.yelp.com/biz/arizona-pet-waste-buckeye`. The same three are in `"sameAs"`, so the business data on every page names them (with the Google profile first).
+- **The G:** `static/assets/img/brands/google.svg` shows in front of the stars in the home page hero.
+- **Where the logo files came from:** Joe's link to the G (a picture site) could not be opened from the build machine, so all four are from open logo libraries on npm, written out by a script with no change to the shapes. `static/assets/img/brands/README.txt` lists each file, its package and its license. Nobody drew a logo. A file from the company's own brand page can replace any of them under the same name.
+- **Footer contact lines:** the two lines that both read 623.309.6104 now read "Call 623.309.6104" and "Text 623.309.6104".
+- **Not checked:** Yelp and Facebook refuse automated readers, so nobody has looked at those two pages from here. The rule is never link a page that shows a street address. **Joe or Atlas: open the Yelp listing and the Facebook page and make sure neither shows the street address.** If one does, hide it there (Yelp for Business, Business information, hide address).
+- **Tests:** `npm run check` passes with the sale on and off, `worker.test.mjs` 505 pass. Footer looked at in a real browser at 320, 390 and 1280 wide on the home page and a town page.
+- Nothing changed in the crew app, the office, My Yard or the truck link.
+
 ## Nov 18, 2026, 9 am. The home page is cut to about half, and a 5 star Google line is in the hero (website and AEO chat), Joe's ask
 
 Joe looked at a ten year old competitor's site (poodini.com: 315 words on the home page, 550 Google reviews) and said: "Condense it: minimalist feel, keep it short, direct, simple. FAQ questions are great, but it needs to be simpler. There's just too much going on." And: "put 5 stars with a little Google sign for reviews."

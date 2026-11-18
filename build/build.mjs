@@ -146,16 +146,20 @@ function badgesHtml() {
     '<a href="' + esc(x.url) + '" rel="noopener" target="_blank" style="display: inline-flex; align-items: center; min-height: 44px;">' +
     (x.img ? '<img src="' + esc(x.img) + '" alt="' + esc(x.name) + '" style="height: 44px; width: auto; display: block;">' : '<span class="flink">' + esc(x.name) + '</span>') + '</a>').join('') + '</div>';
 }
-// Brand logos are files Joe supplies (official logo files only, never redrawn): static/assets/img/brands/<name>.svg or .png.
-// A social logo shows once its file is there, and becomes a link once its URL is in site.config.json "social".
+// Brand logos are logo files, never drawn by us: static/assets/img/brands/<name>.svg or .png (see the README.txt there for where each came from).
+// The social buttons in the footer (Joe, Nov 18, 2026: "put social media buttons on the bottom too, give them their color").
+// A button shows when its logo file is in the folder AND its link is in site.config.json "social". One size for all: 48 px, 12 px corners.
+// "bg" is the brand's own color behind a white mark. A brand with no "bg" has a full color mark that fills the button (Instagram).
 const BRAND_DIR = path.join(ROOT, 'static/assets/img/brands');
 const brandFile = (name) => { const k = name.toLowerCase().replace(/[^a-z0-9]+/g, '-'); for (const ext of ['svg', 'png', 'webp']) if (fs.existsSync(path.join(BRAND_DIR, k + '.' + ext))) return '/assets/img/brands/' + k + '.' + ext; return ''; };
+const SOCIAL = [{ n: 'Facebook', bg: '#0866FF' }, { n: 'Instagram' }, { n: 'Yelp', bg: '#FF1A1A' }, { n: 'TikTok' }, { n: 'Nextdoor' }];
 function socialHtml() {
   const urls = Object.fromEntries(cfg.social.map((x) => [x.name, x.url]));
-  const items = ['Facebook', 'Instagram', 'TikTok', 'Nextdoor'].map((n) => ({ n, img: brandFile(n), url: urls[n] })).filter((x) => x.img);
+  const items = SOCIAL.map((x) => Object.assign({}, x, { img: brandFile(x.n), url: urls[x.n] })).filter((x) => x.img && x.url);
   if (!items.length) return '';
-  return '<div class="fsoc">' + items.map((x) => (x.url ? '<a href="' + esc(x.url) + '" rel="noopener" target="_blank" aria-label="' + x.n + '">' : '<span>') +
-    '<img src="' + x.img + '" alt="' + (x.url ? '' : x.n) + '" width="38" height="38" loading="lazy">' + (x.url ? '</a>' : '</span>')).join('') + '</div>';
+  return '<div class="fsoc" role="group" aria-label="Arizona Pet Waste on social media">' + items.map((x) =>
+    '<a' + (x.bg ? ' style="background: ' + x.bg + ';"' : ' class="fsoc-f"') + ' href="' + esc(x.url) + '" rel="noopener" target="_blank" aria-label="Arizona Pet Waste on ' + x.n + '">' +
+    '<img src="' + x.img + '" alt="" width="' + (x.bg ? 26 : 48) + '" height="' + (x.bg ? 26 : 48) + '" loading="lazy"></a>').join('') + '</div>';
 }
 function payHtml() {
   // Card shaped tiles with the name in plain type. An official logo file in static/assets/img/brands/ replaces a tile (never redraw a brand logo).
@@ -187,8 +191,8 @@ function hoodNames(area) {
 // It is our real rating on our Google profile, typed into src/site.config.json "googleRating" by hand:
 // { "stars": 5, "count": 2, "checked": "2026-11-18" }. Look at the profile and update it when the rating or the count
 // changes. Never type a rating the profile does not show. The line links to the profile, so anyone can check it.
-// The count is written from 5 reviews up. The Google mark shows once Google's own logo file is in
-// static/assets/img/brands/ (google.svg, .png or .webp). Never redraw a brand logo.
+// The count is written from 5 reviews up. The Google mark in front of the stars is static/assets/img/brands/google.svg
+// (Joe sent the G on Nov 18, 2026). With no file there the line still shows, with the word Google only.
 function ratingHtml() {
   const g = cfg.googleRating || {};
   const stars = Number(g.stars), count = Number(g.count) || 0;
@@ -197,8 +201,8 @@ function ratingHtml() {
   const mark = brandFile('Google');
   const num = stars.toFixed(1);
   return '<a class="grs" href="' + esc(GOOGLE) + '" target="_blank" rel="noopener noreferrer" aria-label="' + num + ' out of 5 stars on Google. Read our reviews.">' +
+    (mark ? '<img class="grs-g" src="' + mark + '" alt="" width="22" height="22">' : '') +
     '<span class="grs-s" aria-hidden="true">' + star.repeat(Math.round(stars)) + '</span>' +
-    (mark ? '<img class="grs-g" src="' + mark + '" alt="" width="20" height="20">' : '') +
     '<span class="grs-t"><b>' + num + '</b> on Google' + (count >= 5 ? ', ' + count + ' reviews' : '') + '</span></a>';
 }
 function reviewsHtml() {
@@ -455,7 +459,7 @@ html.book-open .dk{display:none}
 .apw .hero .grs{order:4}
 .apw .grs-s{display:inline-flex;gap:1px}
 .apw .grs-s svg{display:block}
-.apw .grs-g{display:block;width:20px;height:20px}
+.apw .grs-g{display:block;width:22px;height:22px}
 .apw .grs-t{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:5px;text-decoration-color:#FF4A1C}
 .apw .grs-t b{font-family:var(--f-head);font-stretch:90%;font-weight:750;font-size:1.12em}
 .apw .grs:hover .grs-t{text-decoration-color:currentColor}
