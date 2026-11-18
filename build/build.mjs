@@ -181,15 +181,18 @@ function payHtml() {
   return '<ul class="fmarks" aria-label="Cards and wallets we take">' + marks.map((x) =>
     '<li><img src="' + x.img + '" alt="' + x.n + '" style="height: ' + x.h + 'px;" loading="lazy"></li>').join('') + '</ul>';
 }
-// The groups we belong to, as logos on white tiles at the bottom of the footer of every page (Joe, Nov 18, 2026:
-// "put these nicely on the bottom of the footer to show more authority"). One entry for each in src/site.config.json "members".
-// A tile shows when its logo file is in static/assets/img/brands/. The file is the one the group or Joe gave us, only trimmed
-// and scaled: never drawn or recolored by us.
+// The groups we belong to, as trust marks at the bottom of the footer of every page. Joe, Nov 18, 2026: first "put these
+// nicely on the bottom of the footer to show more authority", then "take off proud member of... I just wanted a social
+// proof, like trust proof. Maybe transparent with the website. It looks weird in boxes. I don't like the boxes."
+// So: no heading and no box. Each logo is a one color file, white with a see through background, and sits straight on the
+// dark blue. The shapes are the group's own (the files Joe sent). Only the color was changed, because two of the three
+// are dark and would not show on the page. One entry for each in src/site.config.json "members":
+//   "h"       how tall the mark shows on a phone, in px. They are not all the same height: a wide logo needs less.
 //   "listing" is our own page in that group's member list. It is the proof, so the business data (memberOf) and llms.txt
 //             name a group only when "listing" is filled in.
-//   "link"    true makes the tile a link to the listing. Leave it false for a listing that shows a street address: we are a
+//   "link"    true makes the mark a link to the listing. Leave it false for a listing that shows a street address: we are a
 //             service area business, the address is hidden on purpose, and we never link a page that shows one. The aPaws
-//             listing showed the street on November 18, 2026, so its tile is not a link.
+//             listing showed the street on November 18, 2026, so its mark is not a link.
 const MEMBERS = (cfg.members || []).map((m) => Object.assign({}, m, { img: brandFile(m.file || m.name) })).filter((m) => m.img);
 const MEMBER_OF = MEMBERS.filter((m) => m.listing);
 // Width and height of a logo file, so the page holds its place before the picture loads. WebP and PNG.
@@ -206,13 +209,13 @@ function imgSize(file) {
 }
 function membersHtml() {
   if (!MEMBERS.length) return '';
-  return '<div class="fmem"><p class="fhd">Proud member of</p><ul class="fmem-l">' + MEMBERS.map((m) => {
+  return '<ul class="fmem" aria-label="Groups we are a member of">' + MEMBERS.map((m) => {
     const size = imgSize(path.join(ROOT, 'static', m.img));
     const img = '<img src="' + m.img + '" alt="' + esc(m.alt || m.name) + '"' + (size ? ' width="' + size[0] + '" height="' + size[1] + '"' : '') + ' loading="lazy">';
-    return '<li>' + (m.link && m.listing
+    return '<li style="--h:' + (Number(m.h) || 64) + '">' + (m.link && m.listing
       ? '<a href="' + esc(m.listing) + '" target="_blank" rel="noopener noreferrer" aria-label="See Arizona Pet Waste in the ' + esc(m.name) + ' member list">' + img + '</a>'
       : img) + '</li>';
-  }).join('') + '</ul></div>';
+  }).join('') + '</ul>';
 }
 // Every ZIP code in each town we serve, with the neighborhoods in it. The town copy (design/generator/longform.py) is the one list.
 function townZips(area) {

@@ -993,3 +993,12 @@ Joe, 2:07 to 2:11 pm: put the aPaws member seal and the two chamber logos "nicel
 ### For Joe (also in `CLAUDE.md`, Still open 19)
 - Take the street address off the aPaws listing, or say to link it anyway.
 - Send the link to our listing at each chamber when there is one.
+
+## Nov 18, 2026, 4 pm. The member logos: no heading, no boxes (website chat), Joe's ask
+Joe, 3:52 pm, after seeing the white tiles live: "take off proud member of on the footer... I just wanted a social proof, like trust proof. Maybe transparent with the website. It looks weird in boxes. I don't like the boxes. Figure out a different way."
+- The row is still at the bottom of the footer of every page, under "Family owned and operated" and above the policy links. The "Proud member of" heading is gone and so are the white tiles.
+- The three logos sit straight on the dark blue as trust marks. Two of them are dark (the aPaws seal is black, the West Valley wordmark is navy), so each file is now the same logo in one color: white on a see through background. Shapes untouched. `static/assets/img/brands/README.txt` says how each was made.
+- `"members"` in `src/site.config.json` has a new `"h"`: how tall each mark shows on a phone (70, 58 and 66 px: the wide one needs less). `.fmem` in `look.py` scales the three together on narrow phones with container units, so they stay on one row from 320 wide up. On a computer they show 1.22 times as big.
+- The list has `aria-label="Groups we are a member of"`, since there is no heading to read.
+- Nothing else changed: still no links (Still open 19), and `memberOf` and `llms.txt` still name aPaws only.
+- Checked: one row and no sideways scroll at 320, 360, 375, 390, 412, 430, 466, 768, 890, 1024, 1280 and 1440 wide. `npm run check` with the sale on and off.
