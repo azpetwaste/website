@@ -174,6 +174,10 @@ table.t tr.click:hover td{background:var(--bg2)}
   function money(c) { return '$' + Math.round((c || 0) / 100).toLocaleString(); }
   function time(iso) { return iso ? new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix' }) : ''; }
   function ago(iso) { if (!iso) return ''; var m = Math.round((Date.now() - Date.parse(iso)) / 60000); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : Math.round(m / 60) + ' hr ago'; }
+  // "Nov 17, 6:59 PM", Arizona time. Used for when a lead came in and when something went wrong.
+  function stamp(iso) { return iso ? new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix' }) : ''; }
+  // How long, in plain words: 4 min, 3 hr, 2 days.
+  function span(ms) { var m = Math.max(0, Math.round(ms / 60000)); if (m < 1) return 'under a minute'; if (m < 60) return m + ' min'; var hr = Math.round(m / 60); if (hr < 48) return hr + ' hr'; return Math.round(hr / 24) + ' days'; }
   function dayLabel(d) { var x = new Date(d + 'T19:00:00Z'); return x.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/Phoenix' }); }
   function shift(d, n) { return new Date(Date.parse(d + 'T19:00:00Z') + n * 864e5).toISOString().slice(0, 10); }
   function sms(to, body) { return 'sms:+1' + String(to).replace(/\D/g, '').slice(-10) + '?&body=' + encodeURIComponent(body); }
@@ -226,8 +230,8 @@ table.t tr.click:hover td{background:var(--bg2)}
     var ST = ['Sample St', 'Example Ave', 'Demo Ln', 'Test Ct', 'Mock Rd', 'Placeholder Way', 'Pretend Pl', 'Trial Dr'];
     var DOGS = ['Milo', 'Bean', 'Rosie', 'Ace', 'Duke', 'Pip', 'Luna', 'Moose', 'Otis', 'Kona', 'Taz', 'Bear'];
     var ZIP = [['85326', 'buckeye'], ['85396', 'buckeye'], ['85338', 'goodyear'], ['85395', 'goodyear'], ['85340', 'litchfield'], ['85355', 'waddell']];
-    var team = [{ id: 's1', name: 'Joe', email: 'owner@example.com', phone: '6235550100', role: 'owner', active: true }, { id: 's2', name: 'Sam', email: 'sam@example.com', phone: '6235550101', role: 'scooper', active: true },
-      { id: 's3', name: 'Alex', email: 'alex@example.com', phone: '6235550102', role: 'scooper', active: true }, { id: 's4', name: 'Riley', email: 'riley@example.com', phone: '6235550103', role: 'scooper', active: true }];
+    var team = [{ id: 's1', name: 'Joe', email: 'owner@example.com', phone: '6235550100', role: 'owner', scoops: false, signedIn: true, active: true }, { id: 's2', name: 'Sam', email: 'sam@example.com', phone: '6235550101', role: 'scooper', scoops: true, signedIn: true, active: true },
+      { id: 's3', name: 'Alex', email: 'alex@example.com', phone: '6235550102', role: 'scooper', scoops: true, signedIn: true, active: true }, { id: 's4', name: 'Riley', email: 'riley@example.com', phone: '6235550103', role: 'scooper', scoops: true, signedIn: false, active: true }];
     var cs = [];
     for (var i = 0; i < 500; i++) {
       var z = ZIP[i % ZIP.length], dogs = 1 + (i % 3), first = FN[i % FN.length];
@@ -245,8 +249,8 @@ table.t tr.click:hover td{background:var(--bg2)}
     var perRoute = {}; stops = stops.filter(function (x) { perRoute[x.route_id] = (perRoute[x.route_id] || 0) + 1; return perRoute[x.route_id] <= 30; });
     D = {
       today: today, wd: wd, customers: cs, stops: stops, routes: routes, route: routes[0], ping: null, n: 1, team: team,
-      leads: [{ id: 1, kind: 'waitlist', name: 'Jo Hart', phone: '6235550120', email: 'jo@example.com', address: '707 Sample St', zip: '85379', details: 'Text when we start there', status: 'new', notes: '', created_at: new Date().toISOString() },
-        { id: 2, kind: 'commercial', name: 'Maple HOA', phone: '6235550121', email: '', address: '', zip: '85388', details: 'Two dog parks, weekly', status: 'quoted', notes: 'Sent quote', created_at: new Date(Date.now() - 2 * 864e5).toISOString() }],
+      leads: [{ id: 1, kind: 'waitlist', name: 'Jo Hart', phone: '6235550120', email: 'jo@example.com', address: '707 Sample St', zip: '85379', details: 'Text when we start there', status: 'new', notes: '', created_at: new Date(Date.now() - 4 * 60e3).toISOString() },
+        { id: 2, kind: 'commercial', name: 'Maple HOA', phone: '6235550121', email: '', address: '', zip: '85388', details: 'Two dog parks, weekly', status: 'quoted', notes: 'Sent quote', created_at: new Date(Date.now() - 2 * 864e5).toISOString(), contacted_at: new Date(Date.now() - 2 * 864e5 + 6 * 60e3).toISOString() }],
       texts: [],
       areas: [{ area: 'buckeye', name: 'Buckeye', day: 1 }, { area: 'goodyear', name: 'Goodyear', day: 2 }, { area: 'litchfield', name: 'Litchfield Park', day: 3 }, { area: 'waddell', name: 'Citrus Park', day: null }]
     };
@@ -333,19 +337,20 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (p === '/api/office/photo') return { url: '/assets/img/gate-photo.jpg' };
     if (p === '/api/office/leads') return { leads: D.leads };
     if (p === '/api/office/lead') {
-      if (b.id) D.leads.forEach(function (l) { if (String(l.id) === String(b.id)) { if (b.status) l.status = b.status; if (b.notes != null) l.notes = b.notes; } });
+      if (b.id) D.leads.forEach(function (l) { if (String(l.id) === String(b.id)) { if (b.status) { l.status = b.status; if (b.status !== 'new' && !l.contacted_at) l.contacted_at = new Date().toISOString(); } if (b.notes != null) l.notes = b.notes; } });
       else D.leads.unshift({ id: ++D.n + 100, kind: b.kind, name: b.name, phone: b.phone, email: '', address: '', zip: '', details: b.details, status: 'new', notes: '', created_at: new Date().toISOString() });
       return { leads: D.leads };
     }
     if (p === '/api/office/texts') return { texts: queued() };
     if (p === '/api/office/team') {
-      if (method === 'POST') { if (b.id) D.team.forEach(function (m) { if (m.id === b.id) { if (b.role) m.role = b.role; if ('active' in b) m.active = b.active; } }); else D.team.push({ id: 's' + (++D.n + 5), name: b.name, email: b.email, phone: b.phone, role: b.role, active: true }); }
+      if (method === 'POST') { if (b.id) D.team.forEach(function (m) { if (m.id === b.id) { if (b.role) m.role = b.role; if (b.name) m.name = b.name; if ('phone' in b) m.phone = String(b.phone || '').replace(/\D/g, ''); if ('scoops' in b) m.scoops = !!b.scoops; if ('active' in b) m.active = b.active; } }); else D.team.push({ id: 's' + (++D.n + 5), name: b.name, email: b.email, phone: String(b.phone || '').replace(/\D/g, ''), role: b.role, scoops: b.role === 'scooper' || !!b.scoops, signedIn: false, active: true }); }
       return { team: D.team };
     }
     if (p === '/api/office/areas') return { areas: D.areas };
     if (p === '/api/office/area') { D.areas.forEach(function (a) { if (a.area === b.area) a.day = b.day === '' ? null : +b.day; }); return { areas: D.areas }; }
-    if (p === '/api/office/money') { var act = D.customers.filter(function (c) { return c.status === 'active'; }).length, tri = D.customers.filter(function (c) { return c.status === 'trialing'; }).length; return { paying: { count: act, monthly: act * 8000 }, freeMonth: { count: tri, monthly: tri * 8000 }, pastDue: D.customers.filter(function (c) { return c.status === 'past_due'; }).map(function (c) { return { name: c.name, phone: c.phone, monthly: 8000 }; }), started: 4 }; }
-    if (p === '/api/office/health') return { checks: { desk: true, booking: true, map: true, texts: false, signLock: true, botCheck: true }, liveRoutes: D.route.status === 'live' ? 1 : 0, lastPing: D.ping, queuedTexts: queued().length, errorsLastHour: 0, errors: [] };
+    if (p === '/api/office/money') { var act = D.customers.filter(function (c) { return c.status === 'active'; }).length, tri = D.customers.filter(function (c) { return c.status === 'trialing'; }).length; return { paying: { count: act, monthly: act * 8000 }, freeMonth: { count: tri, monthly: tri * 8000, list: D.customers.filter(function (c) { return c.status === 'trialing'; }).slice(0, 5).map(function (c) { return { name: c.name, monthly: 8000 }; }) }, pastDue: D.customers.filter(function (c) { return c.status === 'past_due'; }).map(function (c) { return { name: c.name, phone: c.phone, monthly: 8000 }; }), paused: 0, started: 2, startedList: [{ name: 'Pat Sample', phone: '6235550140' }, { name: 'Lee Example', phone: '6235550141' }] }; }
+    if (p === '/api/office/health/clear') { D.cleared = new Date().toISOString(); p = '/api/office/health'; }
+    if (p === '/api/office/health') return { cleared: D.cleared || null, checks: { desk: true, booking: true, map: true, texts: false, signLock: true, botCheck: true }, liveRoutes: D.route.status === 'live' ? 1 : 0, lastPing: D.ping, queuedTexts: queued().length, errorsLastHour: 0, errors: [] };
     return {};
   }
 
@@ -737,6 +742,13 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (t === 'health') out += officeHealth(d.health);
     return out + '<div style="height:60px"></div></div>';
   }
+  // An owner or office person who also scoops gets one big button to their own route on the Schedule.
+  function myRouteButton(d) {
+    if (!S.me || d.day !== d.today) return '';
+    var r = d.routes.filter(function (x) { return x.staff && x.staff.id === S.me.id; })[0]; if (!r) return '';
+    var n = d.stops.filter(function (x) { return x.route_id === r.id && x.status !== 'skipped'; }).length;
+    return '<div style="margin-top:10px;max-width:320px"><button class="btn" data-tab="route">My route today: ' + n + (n === 1 ? ' yard' : ' yards') + '</button></div>';
+  }
   function officeToday(d) {
     if (!d) return '<p class="empty">Loading…</p>';
     var all = d.stops;
@@ -748,7 +760,7 @@ table.t tr.click:hover td{background:var(--bg2)}
         var x = shift(mon, i);
         return '<button class="' + (x === d.day ? 'on' : '') + (x === d.today ? ' now' : '') + '" data-goto="' + x + '">' + DAYS[(i + 1) % 7].slice(0, 3) + '<b>' + (+x.slice(8)) + '</b></button>';
       }).join('') + '</div>' +
-      '<div style="margin-top:10px"><button class="btn ghost sm" style="width:100%;max-width:320px" data-plan="1">Plan the week</button></div>' +
+      '<div style="margin-top:10px"><button class="btn ghost sm" style="width:100%;max-width:320px" data-plan="1">Plan the week</button></div>' + myRouteButton(d) +
       '<div class="stats"><div class="stat"><span class="lbl">Yards</span><b>' + all.length + '</b></div><div class="stat"><span class="lbl">Done</span><b>' + all.filter(function (s) { return s.status === 'done'; }).length + '</b></div>' +
       '<div class="stat"><span class="lbl">Problems</span><b' + (issues ? ' style="color:var(--bad)"' : '') + '>' + issues + '</b></div><div class="stat" data-tab="texts" style="cursor:pointer"><span class="lbl">Texts to send</span><b' + (d.queuedTexts ? ' style="color:var(--accent)"' : '') + '>' + d.queuedTexts + '</b></div></div>';
     if (d.needDay.length) {
@@ -865,17 +877,27 @@ table.t tr.click:hover td{background:var(--bg2)}
   }
   function officeLeads(d) {
     var list = d ? d.leads : null;
-    var out = '<div class="daynav"><h2>Leads</h2><span style="flex:1"></span><button class="btn ghost sm" data-o="addlead">Add a lead</button></div>';
+    var fresh = list ? list.filter(function (l) { return l.status === 'new'; }).length : 0;
+    var out = '<div class="daynav"><h2>Leads</h2>' + (fresh ? '<span class="tag bad">' + fresh + ' new</span>' : '') + '<span style="flex:1"></span><button class="btn ghost sm" data-o="addlead">Add a lead</button></div>' +
+      '<p style="color:var(--mute);font-size:15px;line-height:1.5;max-width:640px;margin:10px 0 0">Newest first. Call or text a new lead right away, then tap I reached them. That stops the clock.</p>';
     if (!list) return out + '<p class="empty">Loading…</p>';
     if (!list.length) return out + '<p class="empty">No leads yet. Waitlist sign ups and sign up requests land here.</p>';
     var KIND = { waitlist: 'Waitlist', signup_request: 'Sign up request', commercial: 'Commercial', phone: 'Call' };
-    return out + '<div class="scroll" style="margin-top:14px"><table class="t"><thead><tr><th>When</th><th>Who</th><th class="hide-s">Where</th><th class="hide-s">What</th><th>Status</th></tr></thead><tbody>' +
-      list.map(function (l) {
-        return '<tr><td class="mono" style="font-size:12px;color:var(--mute);white-space:nowrap">' + h(new Date(l.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + '<div>' + h(KIND[l.kind] || l.kind) + '</div></td>' +
-          '<td><b>' + h(l.name || '') + '</b><div style="font-size:13px;color:var(--mute)">' + (l.phone ? '<a href="tel:+1' + h(l.phone) + '">' + h(phone(l.phone)) + '</a>' : '') + (l.email ? ' · ' + h(l.email) : '') + '</div></td>' +
-          '<td class="hide-s">' + h(l.address || '') + ' ' + h(l.zip || '') + '</td><td class="hide-s" style="font-size:13px;color:var(--mute);max-width:260px">' + h(l.details || '') + (l.notes ? '<div style="color:var(--ink)">' + h(l.notes) + '</div>' : '') + '</td>' +
-          '<td><select class="ib" data-lead="' + l.id + '">' + ['new', 'contacted', 'quoted', 'won', 'lost'].map(function (s) { return '<option value="' + s + '"' + (l.status === s ? ' selected' : '') + '>' + STATUS[s === 'new' ? 'new' : s][0] + '</option>'; }).join('') + '</select> <button class="ib" data-leadnote="' + l.id + '">Note</button></td></tr>';
-      }).join('') + '</tbody></table></div>';
+    return out + '<div style="margin-top:14px">' + list.map(function (l) {
+      var isNew = l.status === 'new', came = Date.parse(l.created_at);
+      var clock = isNew ? '<span class="tag bad">Waiting ' + h(span(Date.now() - came)) + '</span>'
+        : l.contacted_at ? '<span class="tag ok">Reached in ' + h(span(Date.parse(l.contacted_at) - came)) + '</span>' : '';
+      var where = ((l.address || '') + ' ' + (l.zip || '')).trim();
+      return '<div class="tcard"><div style="display:flex;gap:10px;align-items:flex-start;justify-content:space-between"><div><b style="font-size:18px">' + h(l.name || 'No name') + '</b>' +
+        '<div class="mono" style="font-size:13px;color:var(--ink);margin-top:4px">' + h(stamp(l.created_at)) + '</div><div class="lbl" style="margin-top:4px">' + h(KIND[l.kind] || l.kind) + '</div></div>' +
+        '<div style="text-align:right">' + tag(l.status) + (clock ? '<div style="margin-top:6px">' + clock + '</div>' : '') + '</div></div>' +
+        '<p style="margin:10px 0 0;font-size:15px;line-height:1.45">' + (l.phone ? '<a href="tel:+1' + h(l.phone) + '">' + h(phone(l.phone)) + '</a>' : '<span style="color:var(--mute)">No phone</span>') + (l.email ? ' · ' + h(l.email) : '') + (where ? '<br>' + h(where) : '') + '</p>' +
+        (l.details ? '<p style="margin:6px 0 0;font-size:14px;line-height:1.45;color:var(--mute)">' + h(l.details) + '</p>' : '') + (l.notes ? '<p style="margin:6px 0 0;font-size:14px;line-height:1.45">Note: ' + h(l.notes) + '</p>' : '') +
+        '<div class="chips" style="margin-top:12px">' + (l.phone ? '<a class="btn sm" href="tel:+1' + h(l.phone) + '">Call</a><a class="btn ghost sm" href="' + h(sms(l.phone, '')) + '">Text</a>' : '') +
+        (isNew ? '<button class="btn ghost sm" data-reached="' + l.id + '">I reached them</button>' : '') +
+        '<select class="ib" style="min-height:44px" aria-label="Status" data-lead="' + l.id + '">' + ['new', 'contacted', 'quoted', 'won', 'lost'].map(function (st) { return '<option value="' + st + '"' + (l.status === st ? ' selected' : '') + '>' + STATUS[st][0] + '</option>'; }).join('') + '</select>' +
+        '<button class="ib" style="min-height:44px" data-leadnote="' + l.id + '">Note</button></div></div>';
+    }).join('') + '</div>';
   }
   function officeTexts(d) {
     var out = '<div class="daynav"><h2>Texts to send</h2></div><p style="color:var(--mute);font-size:15px;line-height:1.5;max-width:640px">Texts do not send on their own yet. Use the business phone, 623.309.6104. Tap Send. The text opens ready to go. Hit send in Messages and it is marked sent here.</p>';
@@ -886,17 +908,27 @@ table.t tr.click:hover td{background:var(--bg2)}
         '<div class="acts"><a class="btn sm" style="width:100%" href="' + h(sms(t.to_addr, t.body)) + '" data-send="' + t.id + '">Send</a><button class="btn ghost sm" style="width:100%" data-text="' + t.id + '" data-st="skipped">Skip</button></div></div>';
     }).join('');
   }
+  var ROLES = { owner: 'Owner', office: 'Office', scooper: 'Scooper' };
   function officeTeam(d, a) {
     var out = '<div class="daynav"><h2>Team</h2></div>';
     if (!d || !a) return out + '<p class="empty">Loading…</p>';
     var owner = S.role === 'owner';
-    out += '<div class="scroll"><table class="t"><thead><tr><th>Name</th><th>Email</th><th class="hide-s">Phone</th><th>Role</th><th></th></tr></thead><tbody>' + d.team.map(function (m) {
-      return '<tr' + (m.active ? '' : ' style="opacity:.45"') + '><td><b>' + h(m.name) + '</b></td><td>' + h(m.email) + '</td><td class="hide-s">' + h(phone(m.phone)) + '</td><td>' +
-        (owner ? '<select class="ib" data-role="' + m.id + '">' + ['scooper', 'office', 'owner'].map(function (r) { return '<option' + (m.role === r ? ' selected' : '') + '>' + r + '</option>'; }).join('') + '</select>' : h(m.role)) + '</td>' +
-        '<td style="text-align:right">' + (owner ? '<button class="ib" data-active="' + m.id + '" data-on="' + (m.active ? '0' : '1') + '">' + (m.active ? 'Turn off' : 'Turn on') + '</button>' : '') + '</td></tr>';
-    }).join('') + '</tbody></table></div>';
-    if (owner) out += '<div class="sec"><h3>Add someone</h3><p style="color:var(--mute);font-size:14px;margin:0 0 4px">They sign in at arizonapetwaste.com/crew with this email. No passwords.</p><div class="grid2" style="max-width:720px"><label class="fl"><span class="lbl">Name</span><input class="f" id="tn"></label><label class="fl"><span class="lbl">Email</span><input class="f" id="te" type="email"></label>' +
-      '<label class="fl"><span class="lbl">Mobile</span><input class="f" id="tp" inputmode="tel"></label><label class="fl"><span class="lbl">Role</span><select class="f" id="tr"><option>scooper</option><option>office</option><option>owner</option></select></label></div><div style="max-width:220px;margin-top:14px"><button class="btn sm" style="width:100%" data-o="addstaff">Add</button></div></div>';
+    out += '<p style="color:var(--mute);font-size:15px;line-height:1.5;max-width:640px;margin:10px 0 0">Owner: sees and changes everything, the team too. Office: everything but the team. Scooper: only their own route.</p><div style="margin-top:14px">' + d.team.map(function (m) {
+      var runs = m.role === 'scooper' || m.scoops;
+      return '<div class="tcard"' + (m.active ? '' : ' style="opacity:.5"') + '><div style="display:flex;gap:10px;align-items:flex-start;justify-content:space-between"><div><b style="font-size:18px">' + h(m.name) + '</b>' +
+        '<div style="font-size:14px;color:var(--mute);margin-top:4px;word-break:break-all">' + h(m.email) + '</div></div>' +
+        '<div style="text-align:right"><span class="tag ' + (m.role === 'owner' ? 'acc' : 'dim') + '">' + ROLES[m.role] + '</span>' + (m.active ? '' : '<div style="margin-top:6px"><span class="tag dim">Turned off</span></div>') + '</div></div>' +
+        '<p style="margin:10px 0 0;font-size:15px;line-height:1.6">Mobile: ' + (m.phone ? '<a href="tel:+1' + h(m.phone) + '">' + h(phone(m.phone)) + '</a>' : '<span style="color:var(--warn)">not added yet</span>') +
+        '<br>Runs a route: ' + (runs ? 'Yes' : 'No') + ('signedIn' in m ? '<br>' + (m.signedIn ? 'Has signed in.' : '<span style="color:var(--warn)">Has not signed in yet.</span>') : '') + '</p>' +
+        (owner ? '<div class="chips" style="margin-top:12px"><button class="ib" style="min-height:44px" data-editstaff="' + m.id + '">Edit name and mobile</button>' +
+          '<select class="ib" style="min-height:44px" aria-label="Role" data-role="' + m.id + '">' + ['owner', 'office', 'scooper'].map(function (r) { return '<option value="' + r + '"' + (m.role === r ? ' selected' : '') + '>' + ROLES[r] + '</option>'; }).join('') + '</select>' +
+          (m.role === 'scooper' ? '' : '<button class="ib" style="min-height:44px" data-scoops="' + m.id + '" data-on="' + (runs ? '0' : '1') + '">' + (runs ? 'Take off routes' : 'Runs a route too') + '</button>') +
+          '<button class="ib" style="min-height:44px" data-active="' + m.id + '" data-on="' + (m.active ? '0' : '1') + '">' + (m.active ? 'Turn off' : 'Turn on') + '</button></div>' : '') + '</div>';
+    }).join('') + '</div>';
+    if (owner) out += '<div class="sec"><h3>Add someone</h3><p style="color:var(--mute);font-size:14px;margin:0 0 4px">They sign in at arizonapetwaste.com/crew with this email and a code we email them. No passwords.</p><div class="grid2" style="max-width:720px"><label class="fl"><span class="lbl">Name</span><input class="f" id="tn" autocomplete="off"></label><label class="fl"><span class="lbl">Email</span><input class="f" id="te" type="email" autocomplete="off"></label>' +
+      '<label class="fl"><span class="lbl">Mobile number</span><input class="f" id="tp" type="tel" inputmode="tel" autocomplete="off"></label><label class="fl"><span class="lbl">Role</span><select class="f" id="tr"><option value="scooper">Scooper</option><option value="office">Office</option><option value="owner">Owner</option></select></label></div>' +
+      '<label style="display:flex;gap:10px;align-items:center;margin-top:14px;font-size:15px;min-height:44px"><input type="checkbox" id="ts" style="width:22px;height:22px"> This person runs a route too (for an owner or office person who scoops)</label>' +
+      '<div style="max-width:220px;margin-top:10px"><button class="btn sm" style="width:100%" data-o="addstaff">Add</button></div></div>';
     out += '<div class="sec"><h3>Service day by area</h3><p style="color:var(--mute);font-size:14px;margin:0 0 4px">New sign ups in an area get this day on their own. You can still change any yard.</p><div class="scroll"><table class="t" style="max-width:560px"><tbody>' + a.areas.map(function (x) {
       return '<tr><td><b>' + h(x.name) + '</b></td><td><select class="ib" data-area="' + h(x.area) + '"><option value="">Not set</option>' + DAYS.map(function (dn, i) { return '<option value="' + i + '"' + (x.day === i ? ' selected' : '') + '>' + dn + '</option>'; }).join('') + '</select></td></tr>';
     }).join('') + '</tbody></table></div></div>';
@@ -1004,20 +1036,45 @@ table.t tr.click:hover td{background:var(--bg2)}
   function officeMoney(m) {
     var out = '<div class="daynav"><h2>Money</h2></div>';
     if (!m) return out + '<p class="empty">Loading…</p>';
-    out += '<div class="stats"><div class="stat"><span class="lbl">Paying</span><b>' + m.paying.count + '</b><div class="mono" style="color:var(--mute);margin-top:6px">' + money(m.paying.monthly) + '/mo</div></div>' +
-      '<div class="stat"><span class="lbl">Free month</span><b>' + m.freeMonth.count + '</b><div class="mono" style="color:var(--mute);margin-top:6px">' + money(m.freeMonth.monthly) + '/mo next</div></div>' +
-      '<div class="stat"><span class="lbl">Past due</span><b' + (m.pastDue.length ? ' style="color:var(--bad)"' : '') + '>' + m.pastDue.length + '</b></div>' +
-      '<div class="stat"><span class="lbl">Started, not finished</span><b>' + m.started + '</b></div></div>' +
-      '<p style="color:var(--mute);font-size:14px">From the customer list, which Stripe keeps in sync. Stripe is the record for every charge.</p>';
-    if (m.pastDue.length) out += '<div class="sec"><h3>Past due</h3><table class="t"><tbody>' + m.pastDue.map(function (p) { return '<tr><td><b>' + h(p.name) + '</b></td><td><a href="tel:+1' + h(p.phone) + '">' + h(phone(p.phone)) + '</a></td><td class="mono">' + money(p.monthly) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+    var names = function (list, cash) { return list && list.length ? '<ul class="list" style="margin-top:8px;border-top:1px solid var(--line);max-width:640px">' + list.map(function (c) {
+      return '<li style="grid-template-columns:1fr auto"><div class="a">' + h(c.name || 'No name') + '</div><div class="r mono" style="font-size:14px">' + (cash ? money(c.monthly) + ' a month' : c.phone ? '<a href="tel:+1' + h(c.phone) + '">' + h(phone(c.phone)) + '</a>' : '') + '</div></li>'; }).join('') + '</ul>' : ''; };
+    var block = function (title, big, line, more, bad) { return '<div class="sec"><span class="lbl">' + title + '</span><div class="mono" style="font-size:40px;line-height:1.1;margin-top:8px' + (bad ? ';color:var(--bad)' : '') + '">' + big + '</div><p style="color:var(--mute);font-size:15px;line-height:1.5;margin:8px 0 0;max-width:640px">' + line + '</p>' + (more || '') + '</div>'; };
+    var p = m.paying.count, f = m.freeMonth.count, pd = m.pastDue.length, ppl = function (n) { return n + (n === 1 ? ' customer' : ' customers'); };
+    out += block('Coming in every month', money(m.paying.monthly), p ? 'From ' + ppl(p) + ' who pay now.' : 'Nobody is paying yet. This number goes up when a free month ends.') +
+      block('Free month now', money(m.freeMonth.monthly), f ? ppl(f) + ' in a free month. This is what they pay each month once it ends.' : 'Nobody is in a free month.', names(m.freeMonth.list, true)) +
+      block('Card did not go through', String(pd), pd ? 'Call them. Stripe keeps trying the card on its own. They are off new routes until it goes through.' : 'No card problems.', names(m.pastDue, false), pd > 0) +
+      block('Started sign up, did not finish', String(m.started), m.started ? 'They typed their name and stopped at the card step. Nothing was charged. A call can save the sale.' : 'Nobody is stuck at the card step.', names(m.startedList, false)) +
+      (m.paused ? block('Paused', String(m.paused), 'No bill goes out while a customer is paused.') : '') +
+      '<p style="color:var(--mute);font-size:14px;margin-top:28px;max-width:640px">These numbers come from the customer list, which Stripe keeps up to date. Stripe is the record for every charge.</p>';
+    return out;
+  }
+  // The Health list in plain words. The server saves what happened. This says where, what it means and who fixes it.
+  var WHERE = { '/api/checkout': 'Sign up, card step', '/api/checkout/done': 'Sign up, last step', '/api/address': 'Sign up, address box', '/api/address/pick': 'Sign up, address box', '/api/stripe-webhook': 'Stripe to the site', '/api/meta/leadgen': 'Facebook and Instagram leads', '/api/card': 'Fix my card link', '/api/crew/photo': 'Gate photo' };
+  function plainErr(e) {
+    var m = e.message || '';
+    if (/No such customer/i.test(m)) return ['fixed', 'The card step did not load for a sign up. Its saved Stripe customer had been deleted in Stripe.', 'Fixed on Nov 17. The site now makes a new one on its own.'];
+    if (/saved Stripe customer was gone/i.test(m)) return ['note', 'A sign up pointed at a Stripe customer that was deleted in Stripe. The site made a new one and the sign up went on.', 'Nothing to do.'];
+    if (/Address suggestions are off/i.test(m)) return ['todo', 'Address suggestions on the sign up form are off. Google refused the call. People can still type their address.', 'Atlas: turn on Places API (New) for the Google server key.'];
+    if (/signature does not match/i.test(m)) return ['todo', 'Stripe sent the site an update and the site could not prove it came from Stripe, so it did nothing with it.', 'If this shows again, the Stripe webhook secret in Cloudflare is wrong. Atlas fixes it.'];
+    if (/META_APP_SECRET is not set/i.test(m)) return ['todo', 'A Facebook or Instagram lead came in before the Facebook setup was finished.', 'If this shows again, Atlas adds the Facebook settings in Cloudflare. Read new leads in Meta Leads Center until then.'];
+    return ['look', m, ''];
+  }
+  function healthGroups(errors) {
+    var out = [], by = {};
+    errors.forEach(function (e) {
+      var k = e.source + '|' + (e.path || '') + '|' + String(e.message || '').replace(/\b(cus|cs|sub|in|pi|seti|evt)_[A-Za-z0-9]+/g, '').replace(/\d+/g, '');
+      if (!by[k]) { by[k] = { e: e, n: 0, last: e.at, first: e.at }; out.push(by[k]); }
+      by[k].n++; by[k].first = e.at;
+    });
     return out;
   }
   function officeHealth(x) {
     var out = '<div class="daynav"><h2>Health</h2><span style="flex:1"></span><a class="btn ghost sm" href="/t/DEMO01" target="_blank" rel="noopener">Open demo truck link</a></div>';
     if (!x) return out + '<p class="empty">Loading…</p>';
     var c = x.checks, row = function (name, on, good, bad) { return '<tr><td><b>' + name + '</b></td><td>' + (on ? '<span class="tag ok">On</span>' : '<span class="tag warn">Off</span>') + '</td><td style="color:var(--mute);font-size:14px">' + (on ? good : bad) + '</td></tr>'; };
+    var groups = healthGroups(x.errors || []), TAGS = { fixed: ['Fixed', 'ok'], note: ['Nothing to do', 'dim'], todo: ['To do', 'warn'], look: ['Look at this', 'bad'] };
     out += '<div class="stats"><div class="stat"><span class="lbl">Trucks live now</span><b>' + x.liveRoutes + '</b></div><div class="stat"><span class="lbl">Last GPS</span><b style="font-size:22px">' + (x.lastPing ? h(ago(x.lastPing)) : 'None yet') + '</b></div>' +
-      '<div class="stat"><span class="lbl">Crashes, last hour</span><b' + (x.errorsLastHour ? ' style="color:var(--bad)"' : '') + '>' + x.errorsLastHour + '</b></div><div class="stat" data-tab="texts" style="cursor:pointer"><span class="lbl">Texts to send</span><b>' + x.queuedTexts + '</b></div></div>' +
+      '<div class="stat"><span class="lbl">Problems, last hour</span><b' + (x.errorsLastHour ? ' style="color:var(--bad)"' : '') + '>' + x.errorsLastHour + '</b></div><div class="stat" data-tab="texts" style="cursor:pointer"><span class="lbl">Texts to send</span><b>' + x.queuedTexts + '</b></div></div>' +
       '<div class="sec"><h3>What is on</h3><div class="scroll"><table class="t"><tbody>' +
       row('Field desk', c.desk, 'Crew app, office and truck links work.', '') +
       row('Online sign up', c.booking, 'New customers can pay on the site and land here.', 'The Stripe keys are not in Cloudflare yet. The site takes requests as leads until then.') +
@@ -1026,9 +1083,13 @@ table.t tr.click:hover td{background:var(--bg2)}
       row('Lock on wrong sign in codes', c.signLock, '5 wrong codes and that email waits 15 minutes.', 'A weaker lock is on in its place. The full one needs one step in the database: run supabase/patch-2026-11-16.sql in the Supabase SQL Editor.') +
       row('Bot check on sign in screens', c.botCheck, 'The check runs on our sign in screens. It only stops robots once Captcha is also on in Supabase (Authentication, Attack Protection). On Nov 16, 2026 that switch was off.', 'Not set up yet. It needs TURNSTILE_SITE_KEY in Cloudflare and the Turnstile secret in Supabase.') +
       '</tbody></table></div></div>' +
-      '<div class="sec"><h3>Crash log</h3>' + (x.errors.length ? '<div class="scroll"><table class="t"><thead><tr><th>When</th><th>Where</th><th>What happened</th></tr></thead><tbody>' + x.errors.map(function (e) {
-        return '<tr><td class="mono" style="font-size:12px;color:var(--mute);white-space:nowrap">' + h(new Date(e.at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix' })) + '</td><td class="lbl" style="white-space:nowrap">' + h(e.source) + '<div style="text-transform:none;letter-spacing:0">' + h(e.path || '') + '</div></td><td style="font-size:14px">' + h(e.message) + '</td></tr>';
-      }).join('') + '</tbody></table></div>' : '<p class="empty">No crashes. Every server error and every crash in the crew app or on a truck link shows up here.</p>') + '</div>';
+      '<div class="sec"><h3>What went wrong' + (groups.length ? ' <span style="flex:1"></span><button class="ib" style="min-height:44px" data-o="clearhealth">Clear the list</button>' : '') + '</h3>' +
+      '<p style="color:var(--mute);font-size:14px;line-height:1.5;margin:0 0 6px;max-width:640px">Every time the site, the crew app or a truck link hits a problem, it lands here in plain words. The same problem shows once, with how many times it happened.' + (x.cleared ? ' Cleared ' + h(stamp(x.cleared)) + '.' : '') + '</p>' +
+      (groups.length ? groups.map(function (g) {
+        var p = plainErr(g.e), t = TAGS[p[0]], wh = g.e.source === 'crew' ? 'Crew app' : g.e.source === 'truck' ? 'Truck link' : WHERE[g.e.path] || g.e.path || 'Server';
+        return '<div class="tcard"><div style="display:flex;gap:10px;align-items:flex-start;justify-content:space-between"><div><span class="lbl">' + h(wh) + '</span><div class="mono" style="font-size:13px;margin-top:4px">' + h(g.n > 1 && stamp(g.first) !== stamp(g.last) ? stamp(g.first) + ' to ' + stamp(g.last) : stamp(g.last)) + (g.n > 1 ? ' · ' + g.n + ' times' : '') + '</div></div><span class="tag ' + t[1] + '">' + t[0] + '</span></div>' +
+          '<p style="margin:10px 0 0;font-size:15px;line-height:1.45">' + h(p[1]) + '</p>' + (p[2] ? '<p style="margin:6px 0 0;font-size:14px;line-height:1.45;color:var(--mute)">' + h(p[2]) + '</p>' : '') + '</div>';
+      }).join('') : '<p class="empty">Nothing went wrong' + (x.cleared ? ' since the list was cleared' : '') + '.</p>') + '</div>';
     return out;
   }
   async function openCustomer(id) {
@@ -1120,11 +1181,20 @@ table.t tr.click:hover td{background:var(--bg2)}
     app.querySelectorAll('[data-move]').forEach(function (s) { s.onchange = async function () { if (!s.value) return; try { S.data.day = await api('POST', '/api/office/stop', { id: s.dataset.move, action: 'move', staffId: s.value }); toast('Moved. The old link stopped working.'); render(); } catch (e) { toast(e.message); } }; });
     app.querySelectorAll('[data-show]').forEach(function (b) { b.onclick = function () { S.show = b.dataset.show; S.data.customers = null; render(); loadTab(); }; });
     var q = document.getElementById('q'); if (q) { var tm; q.oninput = function () { clearTimeout(tm); tm = setTimeout(function () { S.q = q.value; loadTab(); }, 300); }; }
-    app.querySelectorAll('[data-lead]').forEach(function (s) { s.onchange = async function () { try { S.data.leads = await api('POST', '/api/office/lead', { id: s.dataset.lead, status: s.value }); toast('Saved'); } catch (e) { toast(e.message); } }; });
+    app.querySelectorAll('[data-lead]').forEach(function (s) { s.onchange = async function () { try { S.data.leads = await api('POST', '/api/office/lead', { id: s.dataset.lead, status: s.value }); toast('Saved'); render(); } catch (e) { toast(e.message); } }; });
+    app.querySelectorAll('[data-reached]').forEach(function (b) { b.onclick = async function () { b.disabled = true; try { S.data.leads = await api('POST', '/api/office/lead', { id: b.dataset.reached, status: 'contacted' }); toast('Marked contacted'); render(); } catch (e) { b.disabled = false; toast(e.message); } }; });
     app.querySelectorAll('[data-leadnote]').forEach(function (b) { b.onclick = async function () { var l = S.data.leads.leads.filter(function (x) { return String(x.id) === b.dataset.leadnote; })[0]; sheetForm('Note', [{ id: 'n', label: 'Note', value: (l && l.notes) || '', area: true }], 'Save', async function (v) { try { S.data.leads = await api('POST', '/api/office/lead', { id: b.dataset.leadnote, notes: v.n }); render(); } catch (e) { toast(e.message); } }); }; });
     bindSend(app, false, loadTab);
     app.querySelectorAll('[data-text]').forEach(function (b) { b.onclick = async function () { try { await api('POST', '/api/office/text', { id: b.dataset.text, status: b.dataset.st }); loadTab(); } catch (e) { toast(e.message); } }; });
     app.querySelectorAll('[data-role]').forEach(function (s) { s.onchange = async function () { try { S.data.team = await api('POST', '/api/office/team', { id: s.dataset.role, role: s.value }); toast('Saved'); render(); } catch (e) { toast(e.message); loadTab(); } }; });
+    app.querySelectorAll('[data-scoops]').forEach(function (b) { b.onclick = async function () { try { S.data.team = await api('POST', '/api/office/team', { id: b.dataset.scoops, scoops: b.dataset.on === '1' }); toast(b.dataset.on === '1' ? 'They get yards now' : 'Off routes'); render(); } catch (e) { toast(e.message); } }; });
+    app.querySelectorAll('[data-editstaff]').forEach(function (b) { b.onclick = function () {
+      var m = S.data.team.team.filter(function (x) { return String(x.id) === b.dataset.editstaff; })[0]; if (!m) return;
+      sheetForm('Edit ' + m.name, [{ id: 'nm', label: 'Name', value: m.name }, { id: 'ph', label: 'Mobile number', type: 'tel', value: phone(m.phone) }], 'Save', async function (v) {
+        if (v.nm.trim().length < 2) return toast('Type a name.');
+        try { S.data.team = await api('POST', '/api/office/team', { id: m.id, name: v.nm, phone: v.ph }); toast('Saved'); render(); } catch (e) { toast(e.message); }
+      });
+    }; });
     app.querySelectorAll('[data-active]').forEach(function (b) { b.onclick = async function () { try { S.data.team = await api('POST', '/api/office/team', { id: b.dataset.active, active: b.dataset.on === '1' }); render(); } catch (e) { toast(e.message); } }; });
     app.querySelectorAll('[data-area]').forEach(function (s) { s.onchange = async function () { try { S.data.areas = await api('POST', '/api/office/area', { area: s.dataset.area, day: s.value }); toast('Saved'); render(); } catch (e) { toast(e.message); } }; });
     app.querySelectorAll('[data-tab]').forEach(function (b) { if (!b.classList.contains('tab')) b.onclick = function () { go(b.dataset.tab); }; });
@@ -1134,7 +1204,11 @@ table.t tr.click:hover td{background:var(--bg2)}
         try {
           if (o === 'plan') { var r = await api('POST', '/api/office/plan', { date: S.data.day.day }); toast(r.added ? 'Added ' + r.added + ' yards' : 'Routes are up to date'); }
           if (o === 'night') { var n = await api('POST', '/api/office/night-before', {}); toast(n.queued + ' night before texts ready for ' + dayLabel(n.day)); }
-          if (o === 'addstaff') { S.data.team = await api('POST', '/api/office/team', { name: val('tn'), email: val('te'), phone: val('tp'), role: val('tr') }); toast('Added'); }
+          if (o === 'addstaff') { S.data.team = await api('POST', '/api/office/team', { name: val('tn'), email: val('te'), phone: val('tp'), role: val('tr'), scoops: !!(document.getElementById('ts') || {}).checked }); toast('Added'); }
+          if (o === 'clearhealth') {
+            b.disabled = false;
+            return sheetAsk('Clear the list?', 'Nothing is deleted. The list starts fresh from now, so you only see what goes wrong after this.', 'Clear the list', async function () { try { S.data.health = await api('POST', '/api/office/health/clear', {}); toast('Cleared'); render(); } catch (e) { toast(e.message); } }, 'Keep it');
+          }
           if (o === 'addlead') {
             b.disabled = false;
             return sheetForm('New lead', [{ id: 'nm', label: 'Name' }, { id: 'ph', label: 'Mobile number', type: 'tel' }, { id: 'dt', label: 'What do they need? Address, dogs, commercial', area: true }], 'Add lead', async function (v) {
@@ -1260,7 +1334,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (DEMO) { S.role = 'owner'; S.view = 'office'; S.tab = 'today'; S.plan = false; navStart(); S.data.team = await api('GET', '/api/office/team'); toast('Demo. Made up yards. Nothing is saved.'); NAV.center = true; render(); return loadTab(); }
     var s = load();
     if (!s) { S.view = 'signin'; NAV.n = 0; si.step = 'email'; navReplace(); return render(); }
-    try { var me = await api('GET', '/api/staff/me'); s.role = me.staff.role; s.name = me.staff.name; save(s); }
+    try { var me = await api('GET', '/api/staff/me'); s.role = me.staff.role; s.name = me.staff.name; save(s); S.me = { id: me.staff.id }; }
     catch (e) { if (!load()) return; toast(e.message); }
     S.role = s.role;
     if (s.role === 'scooper') { S.view = 'route'; navStart(); render(); return refreshRoute(); }

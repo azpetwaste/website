@@ -832,3 +832,34 @@ Joe's ask at 9:34 pm: take out the billing day on the 1st and all proration. Whe
 - `build/smoke.py` still stops at its first step (known since the redesign). Its pay step line was updated so it is right when someone fixes the rest.
 - The pay step was walked in a real browser in demo mode, on the 4 step form, at 320, 390 and 1280 wide, with and without `?nofree=1`. The price line and the cancel line each sit on one line at every width from 320 up (the cancel line steps down to 13px under 375 wide to do it).
 - `GO_LIVE.md` part 7 and part 8 were brought in line with the 4 step form and the 60 day rule being off (no code for a new email, the My Yard link, nothing charged for canceling).
+
+## Nov 18, 2026, morning. Field desk: lead times, a Health list in plain words, Money, Team, and an owner who scoops (Field App chat), Joe's ask
+Joe at 9:35 am: put the time on every lead "so we know I'm hitting them instantly", explain and clean up the Health errors ("Stripe 400, no such customer"), make Money easier, make Team right for Juan Gonzalez as a second owner, and make everything dummy proof.
+
+### What Joe saw on Health, and what it was
+- 31 lines of "stripe 400 No such customer" on November 17, 8:45 to 9:09 am, all on `/api/checkout`. They were staff test sign ups (emails at arizonapetwaste.com, names "Atlas Diag" and "APW Checkout Test") whose Stripe customers had been deleted in the Stripe dashboard. The fix (`stripeGone`) went live at 9:17 am that day. No row of a real outside customer was involved, and a brand new customer could not hit it: it needs a saved Stripe id that Stripe no longer has.
+- Still open on that list: address suggestions on the sign up form are off, Google refuses the Places call (last seen November 17, 10:54 pm). People can still type their address. Atlas: Places API (New) for the server key (`CLAUDE.md`, Still open, 9).
+- Three Stripe events were refused for a wrong signature on November 16, 11:01 pm to 12:02 am. None since. This chat could not open `/api/health` on the live site to read `hook`, so that is not checked.
+
+### What changed
+- **Leads** (`officeLeads` in the crew page, `officeLead` on the server). Cards in place of a table, so a phone shows what the lead asked for. Each card: name, date and time in (Arizona), kind, phone, address, details, note, then Call, Text, I reached them, the status list and Note. A new lead shows "Waiting 9 hr" in red. The first move off New saves `leads.contacted_at` once, and the card shows "Reached in 6 min". The Text button opens Messages with an empty text to the lead's number. Nothing is sent by code.
+- **Health** (`officeHealth`, `plainErr`, `healthGroups`, `WHERE`). "Crash log" is now "What went wrong". Same problem, one card, with the first and last time and a count. `POST /api/office/health/clear` (owner and office) saves `health_cleared_at` in `settings`. The server then lists errors after that time, up to 200. No row is deleted.
+- **Money** (`officeMoney`). The server also answers `freeMonth.list` and `startedList` (names, 50 at most). The screen is four blocks of one number and one sentence.
+- **Team** (`officeTeam`, `teamList`). Cards. Roles read Owner, Office, Scooper. `staff.scoops` and "Runs a route". "Has signed in" comes from `user_id`, which is never sent to the page. Edit name and mobile. A mobile number that is not 10 digits is refused. The list is in the order people were added.
+- **Who gets the yards** (`runsRoute`). See `CLAUDE.md`. `/api/staff/me` now also answers `id` and `scoops`, and the Schedule shows "My route today: N yards" to a signed in owner or office person who has a route that day.
+- **Database.** `supabase/patch-2026-11-18.sql`, also in `crm.sql`: `staff.scoops boolean not null default false` and `leads.contacted_at timestamptz`. Applied to the live database on November 18 before the push. Juan Gonzalez was set to `scoops = true` there.
+
+### Seen on the live database on November 18, for Joe
+- Three real leads sat at New: one from November 12 and two Instagram leads from the night of November 17.
+- The one live customer has no service day and no scooper, and `settings` is empty (no truck start, no yard limit saved). Nothing is on a route for November 20 until someone opens Plan the week and saves it, or picks a day on the customer.
+- Four rows wait at the card step and all four are staff tests. One test customer is canceled. Two test leads are in Leads. None were deleted.
+
+### Tests
+- `build/desk.test.mjs`: 150 pass (134 before, 16 new: the Team list, an owner who scoops gets the week, taken off routes it falls back, the mobile check, the lead clock, Clear the list, the Money lists).
+- `build/worker.test.mjs` 505, `build/week.test.mjs` 76, `build/signup10.test.mjs` 40, `build/signup50.test.mjs` 131, `build/nav.test.py` 68, `npm run check`. All pass, on a local Postgres 16.
+- The four screens and the Schedule were opened in a real browser at 390 and 1280 wide with made up answers shaped like the live ones (46 error rows, two owners, four leads): no script error, no sideways scroll. I reached them, Edit name and mobile and Clear the list were tapped there. The demo was opened on the same four screens.
+- Not run: the signed in app against the live database, and a real phone.
+
+### Training video
+Not rebuilt. It shows the Schedule, Plan the week, the scooper screens and the truck link. None of its screens changed (the demo has no "My route today" button, because nobody is signed in there), and every line in `docs/video/lines.json` is still true.
+

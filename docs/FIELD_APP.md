@@ -59,6 +59,16 @@ The scooper screen is three steps for every yard: Drive, Scoop, Photo. Buttons r
 ## Nov 16, 2026: Back buttons and a security pass
 Back, top left, on every office screen. The logo is home. The phone's back button works and no longer leaves the app. Sign in is locked after 5 wrong codes, password sign ins are refused, and the crew page only runs its own script. The database patch (`supabase/patch-2026-11-16.sql`) is on the live database, and it added the `skips` column too. The Cloudflare rate limit rule is live and the sign in code now lasts 10 minutes. Still open, for a person: turn on Captcha in Supabase (it needs the Turnstile secret key pasted in). Details, what is left for Atlas and test counts are at the bottom of `docs/HANDOFF.md`.
 
+## Nov 18, 2026: easier office screens, and an owner who scoops
+Joe asked for the time on every lead, a Health list he can read, a plainer Money screen and a Team screen that looks right for a second owner (Juan Gonzalez).
+- **Leads** are cards now, on a phone too: name, date and time in, what they asked for, Call, Text, I reached them. New leads show how long they have waited. Reached leads show how fast we got to them (`leads.contacted_at`).
+- **Health**: "What went wrong" groups the same problem into one card with a count, in plain words, tagged Fixed, To do, Nothing to do or Look at this. Clear the list hides what is there and deletes nothing.
+- **Money**: four plain blocks. Coming in every month, Free month now (with names), Card did not go through, Started sign up and did not finish (with names and phones).
+- **Team**: one card for each person with role, mobile, Runs a route and whether they have signed in. Edit name and mobile. A mobile number must be 10 digits.
+- **An owner who scoops gets the yards.** `staff.scoops` is new. Before this the week plan and new sign ups gave every yard to the first person on the team when nobody had the Scooper role. That was Joe's sign in, not Juan's. Juan is set to run a route on the live database. An owner or office person who runs a route gets a "My route today" button on the Schedule.
+- Database: `supabase/patch-2026-11-18.sql` is on the live database (two new columns, nothing removed).
+- The training video was not rebuilt: it shows none of these four screens and every line in `docs/video/lines.json` is still true. Details and test counts are at the bottom of `docs/HANDOFF.md`.
+
 ## Open items
 1. Staff test: someone signs in at /crew inside the Claude browser pane, then Claude runs a test yard through a route. A test customer "TEST Yard (delete me)" sits in the live database for this. Delete it after.
 2. Test sign up at `/book/?test=1` with card 4242 4242 4242 4242.

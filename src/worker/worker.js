@@ -1695,7 +1695,15 @@ const PAYING = ['trialing', 'active', 'past_due'];
 const LINK_HOURS = 2;
 const CODE_ABC = '23456789ABCDEFGHJKMNPQRSTVWXYZ';
 const REASONS = { gate_locked: 'the gate was locked', dog_out: 'a dog was in the yard', weather: 'the weather', other: 'something came up' };
-const STAFF_FIELDS = 'id,email,name,phone,role,active';
+const STAFF_FIELDS = 'id,email,name,phone,role,active,scoops,user_id';
+// Who runs a route (Joe, Nov 18, 2026: Juan owns the company and scoops). A scooper always does. An owner or an office
+// person does when "Runs a route" is on for them (staff.scoops). The week plan and new sign ups only give yards to these people.
+const runsRoute = (t) => !!t && (t.role === 'scooper' || t.scoops === true);
+// The Team list for the office. It says who has signed in, and never hands out the sign in id itself.
+async function teamList(env) {
+  const rows = await db(env, 'GET', 'staff?select=' + STAFF_FIELDS + '&order=active.desc,created_at');
+  return rows.map((t) => ({ id: t.id, email: t.email, name: t.name, phone: t.phone, role: t.role, active: t.active, scoops: runsRoute(t), signedIn: !!t.user_id }));
+}
 const enc = encodeURIComponent;
 const isDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ''));
 const weekday = (d) => noonAZ(d).getUTCDay();
@@ -1883,7 +1891,7 @@ async function desk(path, request, env, ctx) {
   env = await withSettings(env);
   const b = m === 'POST' ? (await body(request)) || {} : {};
   const q = new URL(request.url).searchParams;
-  if (path === '/api/staff/me' && m === 'GET') return ok({ staff: { name: s.name, role: s.role, email: s.email } });
+  if (path === '/api/staff/me' && m === 'GET') return ok({ staff: { id: s.id, name: s.name, role: s.role, email: s.email, scoops: runsRoute(s) } });
 
   // Crew: any signed in staff member, on their own route for today.
   if (path === '/api/crew/today' && m === 'GET') return crewToday(s, env);
@@ -1918,9 +1926,10 @@ async function desk(path, request, env, ctx) {
   if (path === '/api/office/night-before' && m === 'POST') return nightBefore(env, isDay(b.date) ? b.date : null);
   if (path === '/api/office/money' && m === 'GET') return officeMoney(env);
   if (path === '/api/office/health' && m === 'GET') return officeHealth(env);
+  if (path === '/api/office/health/clear' && m === 'POST') return officeHealthClear(env);
   if (path === '/api/office/areas' && m === 'GET') return officeAreas(env);
   if (path === '/api/office/area' && m === 'POST') return officeArea(env, b);
-  if (path === '/api/office/team' && m === 'GET') return ok({ team: await db(env, 'GET', 'staff?select=' + STAFF_FIELDS + '&order=active.desc,name') });
+  if (path === '/api/office/team' && m === 'GET') return ok({ team: await teamList(env) });
   if (path === '/api/office/team' && m === 'POST') return s.role === 'owner' ? officeTeam(env, s, b) : fail(403, 'Only the owner can change the team.');
   return fail(404, 'Not found.');
 }
@@ -2396,8 +2405,8 @@ async function mailMany(env, list) {
 async function officeWeek(env, b) {
   const cap = dayCap(env, b.cap), days = workDays(env, Array.isArray(b.days) ? b.days.join(',') : b.days);
   const all = await weekRows(env);
-  const team = await db(env, 'GET', 'staff?active=is.true&select=id,name,role&order=created_at');
-  const staff = team.filter((t) => t.role === 'scooper').length ? team.filter((t) => t.role === 'scooper') : team.slice(0, 1);
+  const team = await db(env, 'GET', 'staff?active=is.true&select=id,name,role,scoops&order=created_at');
+  const staff = team.filter(runsRoute).length ? team.filter(runsRoute) : team.slice(0, 1);
   const placed = all.filter((c) => c.service_day != null && pinned(c));
   const mode = b.mode === 'all' || !placed.length ? 'all' : 'new';
   const change = [];
@@ -2471,8 +2480,8 @@ function demoWeek(env, q) {
 }
 
 async function defaultScooper(env) {
-  const team = await db(env, 'GET', 'staff?active=is.true&select=id,role&order=created_at');
-  return (team.find((t) => t.role === 'scooper') || team.find((t) => t.role === 'owner') || team[0] || {}).id || null;
+  const team = await db(env, 'GET', 'staff?active=is.true&select=id,role,scoops&order=created_at');
+  return (team.find(runsRoute) || team.find((t) => t.role === 'owner') || team[0] || {}).id || null;
 }
 // Builds the routes for a day from each yard's service day. Safe to press again: it only adds what is missing.
 // Shortest driving order for a day's stops: start at the yard (ROUTE_START = "lat,lng") or at one end of the group,
@@ -2821,6 +2830,9 @@ async function officeLead(env, b) {
     if (b.status) { if (!['new', 'contacted', 'quoted', 'won', 'lost'].includes(b.status)) return fail(400, 'Bad status.'); p.status = b.status; }
     if ('notes' in b) p.notes = clean(b.notes, 1000);
     await db(env, 'PATCH', 'leads?id=eq.' + parseInt(b.id, 10), p, 'return=minimal');
+    // The first time a lead leaves New, keep the time. The Leads screen shows how fast we reached them (Joe, Nov 18, 2026).
+    // It is written once and never moved, so a later note or status cannot make a slow call look fast.
+    if (b.status && b.status !== 'new') await db(env, 'PATCH', 'leads?id=eq.' + parseInt(b.id, 10) + '&contacted_at=is.null', { contacted_at: now }, 'return=minimal');
   }
   return ok({ leads: await db(env, 'GET', 'leads?select=*&order=created_at.desc&limit=500') });
 }
@@ -2845,9 +2857,10 @@ async function officeMoney(env) {
   const by = (st) => rows.filter((c) => c.status === st);
   return ok({
     paying: { count: by('active').length, monthly: sum(by('active')) },
-    freeMonth: { count: by('trialing').length, monthly: sum(by('trialing')) },
+    freeMonth: { count: by('trialing').length, monthly: sum(by('trialing')), list: by('trialing').slice(0, 50).map((c) => ({ name: c.name, monthly: sum([c]) })) },
     pastDue: by('past_due').map((c) => ({ name: c.name, phone: c.phone, monthly: sum([c]) })),
-    paused: by('paused').length, canceled: by('canceled').length, started: by('checkout').length
+    paused: by('paused').length, canceled: by('canceled').length, started: by('checkout').length,
+    startedList: by('checkout').slice(0, 50).map((c) => ({ name: c.name, phone: c.phone }))
   });
 }
 async function officeAreas(env) {
@@ -2878,14 +2891,18 @@ async function officeTeam(env, s, b) {
     if (name) p.name = name;
     if ('phone' in b) p.phone = digits(b.phone) || null;
     if (b.role) p.role = role;
+    if ('scoops' in b) p.scoops = !!b.scoops;
+    if (b.role === 'scooper') p.scoops = true;
     if ('active' in b) p.active = !!b.active;
     if (b.id === s.id && (p.active === false || (p.role && p.role !== 'owner'))) return fail(400, 'You cannot remove your own owner access.');
-    await db(env, 'PATCH', 'staff?id=eq.' + enc(b.id), p, 'return=minimal');
+    if ('phone' in b && digits(b.phone) && digits(b.phone).length !== 10) return fail(400, 'Type a 10 digit mobile number.');
+    if (Object.keys(p).length) await db(env, 'PATCH', 'staff?id=eq.' + enc(b.id), p, 'return=minimal');
   } else {
     if (!emailOk(email) || name.length < 2) return fail(400, 'Type their name and email.');
-    await db(env, 'POST', 'staff?on_conflict=email', [{ email, name, phone: digits(b.phone) || null, role, active: true }], 'resolution=merge-duplicates,return=minimal');
+    if (digits(b.phone) && digits(b.phone).length !== 10) return fail(400, 'Type a 10 digit mobile number.');
+    await db(env, 'POST', 'staff?on_conflict=email', [{ email, name, phone: digits(b.phone) || null, role, scoops: role === 'scooper' || !!b.scoops, active: true }], 'resolution=merge-duplicates,return=minimal');
   }
-  return ok({ team: await db(env, 'GET', 'staff?select=' + STAFF_FIELDS + '&order=active.desc,name') });
+  return ok({ team: await teamList(env) });
 }
 
 /* ---------- road route and traffic arrival time (Google Routes API) ---------- */
@@ -3475,10 +3492,17 @@ async function clientLog(request, env) {
   if (recent.length < 60) await logError(env, source, b.path, b.message, b.detail);
   return ok({ ok: true });
 }
+// "Clear the list" on the Health tab. Nothing is deleted: the time is saved, and the list shows what came in after it.
+async function officeHealthClear(env) {
+  await db(env, 'POST', 'settings?on_conflict=key', [{ key: 'health_cleared_at', value: new Date().toISOString(), updated_at: new Date().toISOString() }], 'resolution=merge-duplicates,return=minimal');
+  return officeHealth(env);
+}
 async function officeHealth(env) {
   const hour = new Date(Date.now() - 3600e3).toISOString();
+  let cleared = null;
+  try { const c = (await db(env, 'GET', 'settings?key=eq.health_cleared_at&select=value'))[0]; if (c && Date.parse(c.value)) cleared = new Date(Date.parse(c.value)).toISOString(); } catch (e) { cleared = null; }
   const [errors, pings, live1, queued, lock] = await Promise.all([
-    db(env, 'GET', 'errors?select=id,at,source,path,message&order=at.desc&limit=50'),
+    db(env, 'GET', 'errors?select=id,at,source,path,message&order=at.desc&limit=200' + (cleared ? '&at=gt.' + enc(cleared) : '')),
     db(env, 'GET', 'positions?select=at&order=at.desc&limit=1'),
     db(env, 'GET', 'routes?day=eq.' + azToday() + '&status=eq.live&select=id'),
     db(env, 'GET', 'messages?status=eq.queued&select=id'),
@@ -3494,7 +3518,7 @@ async function officeHealth(env) {
       botCheck: !!env.TURNSTILE_SITE_KEY
     },
     liveRoutes: live1.length, lastPing: pings[0] ? pings[0].at : null, queuedTexts: queued.length,
-    errorsLastHour: errors.filter((e) => e.at >= hour).length, errors
+    errorsLastHour: errors.filter((e) => e.at >= hour).length, errors, cleared
   });
 }
 

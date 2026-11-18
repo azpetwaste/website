@@ -585,6 +585,62 @@ console.log('\nThe sign in lock, the size cap and the second lock on the tables 
   ok('the Health tab says the sign in lock is on', hl.d.checks.signLock === true && hl.d.checks.botCheck === false, hl.d.checks);
 }
 
+
+console.log('\nNov 18, 2026: an owner who scoops, how fast a lead was reached, a Health list that clears, Money in plain lists');
+{
+  let t = await call('/api/office/team', 'GET', null, owner);
+  const boss = t.d.team.find((x) => x.email === 'info@arizonapetwaste.com');
+  ok('the Team list says who runs a route and who has signed in, and holds no sign in id', boss && boss.scoops === false && boss.signedIn === true && t.d.team.find((x) => x.email === 'maria@example.com').scoops === true && !('user_id' in boss), boss);
+  t = await call('/api/office/team', 'POST', { name: 'Juan Test', email: 'juan@example.com', phone: '442-555-0190', role: 'owner', scoops: true }, owner);
+  const juan = t.d.team.find((x) => x.email === 'juan@example.com');
+  ok('an owner can be added who also runs a route', t.status === 200 && juan && juan.role === 'owner' && juan.scoops === true && juan.signedIn === false && juan.phone === '4425550190', juan);
+  t = await call('/api/office/team', 'POST', { name: 'Short Phone', email: 'short@example.com', phone: '555-0190', role: 'office' }, owner);
+  ok('a mobile number that is not 10 digits is refused', t.status === 400 && /10 digit/.test(t.d.error), t.d);
+  t = await call('/api/office/team', 'POST', { id: juan.id, name: 'Juan G Test', phone: '(442) 555-0191' }, owner);
+  ok('name and mobile can be changed', t.d.team.find((x) => x.id === juan.id).name === 'Juan G Test' && t.d.team.find((x) => x.id === juan.id).phone === '4425550191');
+  // With no scooper on the team, the yards go to the owner who runs a route, not to the first owner on the list.
+  const off = (await db.query(`update public.staff set active = false where role = 'scooper' and active returning id`)).rows.map((x) => x.id);
+  let w = await call('/api/office/week', 'POST', { mode: 'all', apply: false }, owner);
+  ok('the week plan gives the yards to the owner who scoops', w.status === 200 && w.d.slots.length > 0 && w.d.slots.every((x) => x.staffId === juan.id), w.d.slots && w.d.slots.map((x) => x.name));
+  t = await call('/api/office/team', 'POST', { id: juan.id, scoops: false }, owner);
+  w = await call('/api/office/week', 'POST', { mode: 'all', apply: false }, owner);
+  ok('taken off routes, the plan falls back to the first person on the team', t.d.team.find((x) => x.id === juan.id).scoops === false && w.d.slots.every((x) => x.staffId === boss.id), w.d.slots && w.d.slots.map((x) => x.name));
+  await db.query(`update public.staff set active = true where id = any($1)`, [off]);
+  await db.query(`update public.staff set active = false where id = $1`, [juan.id]);
+
+  // Leads: the time we first reached them is kept once.
+  let l = await call('/api/office/lead', 'POST', { kind: 'phone', name: 'Fast Lead', phone: '6235550177' }, owner);
+  const lead = l.d.leads.find((x) => x.name === 'Fast Lead');
+  ok('a new lead has the time it came in and no reach time yet', lead && lead.created_at && lead.contacted_at == null, lead);
+  l = await call('/api/office/lead', 'POST', { id: lead.id, notes: 'Left a voicemail' }, owner);
+  ok('a note alone does not stop the clock', l.d.leads.find((x) => x.id === lead.id).contacted_at == null);
+  l = await call('/api/office/lead', 'POST', { id: lead.id, status: 'contacted' }, owner);
+  const at1 = l.d.leads.find((x) => x.id === lead.id).contacted_at;
+  ok('moving off New saves the time we reached them', !!at1 && Date.parse(at1) >= Date.parse(lead.created_at), at1);
+  await new Promise((res) => setTimeout(res, 30));
+  l = await call('/api/office/lead', 'POST', { id: lead.id, status: 'won' }, owner);
+  ok('a later status never moves that time', l.d.leads.find((x) => x.id === lead.id).contacted_at === at1 && l.d.leads.find((x) => x.id === lead.id).status === 'won');
+
+  // Health: Clear the list hides what came before and deletes nothing.
+  await db.query(`insert into public.errors (source, path, message) values ('server', '/api/checkout', 'Old trouble')`);
+  let hh = await call('/api/office/health', 'GET', null, owner);
+  const before = (await db.query('select count(*)::int n from public.errors')).rows[0].n;
+  ok('the Health list shows the trouble', hh.d.errors.some((e) => e.message === 'Old trouble'));
+  hh = await call('/api/office/health/clear', 'POST', {}, mt);
+  ok('a scooper cannot clear the list', hh.status === 403);
+  hh = await call('/api/office/health/clear', 'POST', {}, owner);
+  ok('Clear the list empties the screen and deletes nothing', hh.status === 200 && hh.d.errors.length === 0 && !!hh.d.cleared && (await db.query('select count(*)::int n from public.errors')).rows[0].n === before, { shown: hh.d.errors.length, rows: before });
+  await db.query(`insert into public.errors (source, path, message) values ('server', '/api/checkout', 'New trouble')`);
+  hh = await call('/api/office/health', 'GET', null, owner);
+  ok('new trouble after the clear still shows', hh.d.errors.length === 1 && hh.d.errors[0].message === 'New trouble', hh.d.errors);
+  const st2 = await call('/api/office/settings', 'GET', null, owner);
+  ok('the clear time does not disturb the planner settings', st2.status === 200 && st2.d.cap >= 5, st2.d);
+
+  // Money: names behind the numbers.
+  const mm = await call('/api/office/money', 'GET', null, owner);
+  ok('Money lists who is in a free month and who stopped at the card step', Array.isArray(mm.d.freeMonth.list) && mm.d.freeMonth.list.length === mm.d.freeMonth.count && Array.isArray(mm.d.startedList) && mm.d.startedList.length === mm.d.started, mm.d);
+}
+
 console.log('\n' + pass + ' passed, ' + failN + ' failed');
 await db.end();
 globalThis.fetch = realFetch;

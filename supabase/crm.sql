@@ -146,6 +146,14 @@ alter table public.stops add column if not exists route_at timestamptz;
 alter table public.stops add column if not exists route_meters int;
 alter table public.staff add column if not exists location_ok_at timestamptz;
 
+-- Who runs a route (Nov 18, 2026). A scooper always does. An owner or office person does when this is on,
+-- so an owner who also scoops gets the yards. The week plan and new sign ups only give yards to these people.
+alter table public.staff add column if not exists scoops boolean not null default false;
+update public.staff set scoops = true where role = 'scooper' and not scoops;
+
+-- The first time a lead left New (Nov 18, 2026). The Leads screen shows how fast the office reached them.
+alter table public.leads add column if not exists contacted_at timestamptz;
+
 -- Crash log. Server errors and crashes in the crew app or on a truck link. The office reads it on the Health tab.
 create table if not exists public.errors (
   id bigint generated always as identity primary key,
