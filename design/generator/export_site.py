@@ -173,14 +173,14 @@ def prod_faq(items):
 
 
 # ---------- boards ----------
-main = common(main_prod(fill(open('main.tpl.html').read(), 'm', {'MAIN_H': '13200', 'PREVIEW_W': '390'})))
+main = common(main_prod(fill(open('main.tpl.html').read(), 'm', {'MAIN_H': '8200', 'PREVIEW_W': '390'})))
 if '#reviews' in main or 'id="reviews"' in main:
     sys.exit('a reviews link is left on the home page')
 write('main', main)
 write('book', common(fill(open('book.prod.tpl.html').read(), 'b')))
 write('account', common(fill(open('account.prod.tpl.html').read(), 'a')))
 
-content = {'faq': {'main': prod_faq(parts.FAQ_ITEMS), 'common': prod_faq(longform.faq_common('the West Valley'))}, 'cities': {}, 'base_css': parts.BASE_CSS}
+content = {'faq': {'main': prod_faq(parts.FAQ_ITEMS), 'home': prod_faq(parts.FAQ_HOME), 'common': prod_faq(longform.faq_common('the West Valley'))}, 'cities': {}, 'base_css': parts.BASE_CSS}
 shell = None
 for i, cdef in enumerate(cities.CITIES):
     tpl = open('city.tpl.html').read()

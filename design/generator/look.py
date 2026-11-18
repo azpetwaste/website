@@ -414,6 +414,8 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .steps h3{margin:0;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:24px;line-height:1.1;color:var(--ink)}
 .apw .steps p{margin:8px 0 0;font-size:17px;line-height:1.5;color:var(--ink2)}
 .apw .steps .bub-c{margin-top:6px;font-size:14px;color:var(--mute)}
+.apw .how-r .tl{margin-top:14px}
+.apw .pr-sum>.tl{margin-top:10px}
 .apw .print-b{width:min(100%,420px);margin:18px 0 6px 4px;transform:rotate(-1.4deg)}
 .apw .print-b img{aspect-ratio:16/10}
 .apw .print-b .stamp{right:-10px;bottom:56px;font-size:18px}
@@ -443,7 +445,7 @@ PAGE_CSS = HDR_CSS + _min(r"""
 /* questions */
 .apw .qs-h .lead{max-width:30em}
 .apw .qs-l{margin-top:26px}
-.apw .qs-c{margin-top:24px}
+.apw .qs-c{display:flex;flex-wrap:wrap;align-items:center;gap:8px 26px;margin-top:24px}
 .apw .qs-c .btn{display:inline-flex}
 
 /* last call, with the desert at the bottom */

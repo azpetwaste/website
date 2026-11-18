@@ -6,4 +6,7 @@ Social (shown in the footer once the file is here, linked once the URL is in src
 Payment marks (shown under Payment options once the file is here):
   visa.svg  mastercard.svg  american-express.svg  discover.svg  apple-pay.svg  google-pay.svg
 
+Google mark (shown next to the stars in the home page hero once the file is here):
+  google.svg
+
 .svg, .png or .webp all work. File names are lower case with dashes.

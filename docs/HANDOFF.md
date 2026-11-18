@@ -602,6 +602,39 @@ Joe asked for five things in a row. All are live.
 - `/texts/`, privacy, `CONSENT`, `GO_LIVE.md` part 10 and three screenshots match (new: `sms-optin-myyard.png`, made by `build/optin-shots.py` from the sample account).
 - Checked: `worker.test.mjs` 212, `desk` 134, `signup10` 40, `signup50` 125, build and check with the sale on and off, the two browser flows (28 and 8).
 
+## Nov 18, 2026, 9 am. The home page is cut to about half, and a 5 star Google line is in the hero (website and AEO chat), Joe's ask
+
+Joe looked at a ten year old competitor's site (poodini.com: 315 words on the home page, 550 Google reviews) and said: "Condense it: minimalist feel, keep it short, direct, simple. FAQ questions are great, but it needs to be simpler. There's just too much going on." And: "put 5 stars with a little Google sign for reviews."
+
+### What changed on the home page
+- Words a visitor reads on a phone: about 1,270 before, about 725 now. The page is a third shorter on a phone (14,700 px to 9,900 px).
+- Hero: the paragraph is two short lines. Under "Insured and bonded." there is one new line: five stars and "5.0 on Google", a link to our Google profile.
+- The promise sign: one paragraph, not two.
+- Prices: the picker, the big week price, the bill line, the button, the "In every price" line and a link, "See every price", to `/pricing/`. Gone from the home page: the Black Friday coupon with its clock (the orange bar at the top of every page still has the clock), the pounds of poop line, the two small notes and the fold out price table.
+- How it works: three steps, not six, with no step photos (the phone with our videos shows the work). A link, "See every step", opens `/how-it-works/`.
+- Gone from the home page: the three photo row and "What you get with every visit". Town pages keep their photo row.
+- Meet Juan: two lines and the link.
+- Areas: the map, the five town buttons, the links. The ZIP box is gone from the home page (sign up asks for the city). "Coming soon" is one line and the waitlist button.
+- Questions: six, not 23. "See all questions" opens `/faq/`. The six: cost, when the card is charged, how to cancel, picking a day, where the poop goes, bonded and insured.
+- "Black Friday" is on the page 8 times now, not about 12.
+
+### Nothing was lost for Google or AI search
+- `/faq/` and `llms.txt` still carry every question (33). They read `FAQ_ITEMS`, which did not change.
+- The home page FAQPage data lists the six questions the page shows, so the data matches the page (`content.faq.home`).
+- The H1, the title, the description and every H2 that stayed are unchanged. Left alone on purpose: the H1 still names Verrado and three towns (Joe's open call).
+
+### Where it lives
+- `design/generator/main.tpl.html` (the page), `parts.py` (`FAQ_HOME`, picked from `FAQ_ITEMS` by the question, so an answer is written once, and `SOON_NOTE`), `look.py` (two small rules), `export_site.py` (`faq.home`).
+- The star line: `ratingHtml` in `build/build.mjs`, fed by `"googleRating"` in `src/site.config.json` (`stars`, `count`, `checked`). It is typed in by hand from the live Google profile: 5.0 with 2 reviews on November 18, 2026. **Update it when the profile changes, and never type a rating the profile does not show.** The count is written on the page from 5 reviews up. The older quote block (`"reviews"`) still works and takes the slot when a real review is typed in.
+- The "little Google sign": not on the page yet. The repo rule is official logo files only, never redrawn, and there is no Google file in `static/assets/img/brands/`. Drop Google's own "G" file there as `google.svg` (or .png, .webp) and it shows next to the stars on the next build. Until then the line says the word Google.
+
+### Tests
+- `npm run check` passes with the sale on and off. `node build/worker.test.mjs`: 505 pass.
+- Looked at in a real browser at 320, 390 and 1280 wide: no sideways scroll, a question opens, a town button lights the map, the plan picker and the dog buttons change the price, Book now opens the sign up sheet.
+
+### Field desk session
+- Nothing changed in the crew app, the office, My Yard or the truck link, so the training video was not rebuilt.
+
 ## Nov 17, 2026, 10 am. My Yard: no deals box, card and cancel go through the office, a truck button on visit day (website chat), Joe's ask after he signed up himself
 
 Joe signed up as a customer and looked at My Yard. His words: take out "Text me deals too". Skip a visit is fine, keep it. Pause is fine. Bills and card: "Call the office, and we can cancel that for you or change a card out. I don't want to give them the opportunity to do this yet." Then: "It needs to be so easy for the older population. We're treating 70 year olds." And he asked how a customer sees the truck.

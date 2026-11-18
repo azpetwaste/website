@@ -183,9 +183,27 @@ function hoodNames(area) {
 // Real Google reviews only. Each one is typed into src/site.config.json "reviews" from the live Google profile:
 // { "name": "First name L.", "town": "Verrado", "stars": 5, "text": "their words", "url": "link to the review on Google" }.
 // Nothing shows until a real review is in the list. Never write one.
+// The star line in the home page hero (Joe, Nov 18, 2026: "put 5 stars with a little Google sign for reviews").
+// It is our real rating on our Google profile, typed into src/site.config.json "googleRating" by hand:
+// { "stars": 5, "count": 2, "checked": "2026-11-18" }. Look at the profile and update it when the rating or the count
+// changes. Never type a rating the profile does not show. The line links to the profile, so anyone can check it.
+// The count is written from 5 reviews up. The Google mark shows once Google's own logo file is in
+// static/assets/img/brands/ (google.svg, .png or .webp). Never redraw a brand logo.
+function ratingHtml() {
+  const g = cfg.googleRating || {};
+  const stars = Number(g.stars), count = Number(g.count) || 0;
+  if (!GOOGLE || !(stars >= 1 && stars <= 5)) return '';
+  const star = '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path fill="#FBBC04" d="M12 2.6l2.9 6 6.6.9-4.8 4.6 1.2 6.500L12 17.500 6.100 20.600l1.200-6.500L2.500 9.500l6.600-.900z"></path></svg>';
+  const mark = brandFile('Google');
+  const num = stars.toFixed(1);
+  return '<a class="grs" href="' + esc(GOOGLE) + '" target="_blank" rel="noopener noreferrer" aria-label="' + num + ' out of 5 stars on Google. Read our reviews.">' +
+    '<span class="grs-s" aria-hidden="true">' + star.repeat(Math.round(stars)) + '</span>' +
+    (mark ? '<img class="grs-g" src="' + mark + '" alt="" width="20" height="20">' : '') +
+    '<span class="grs-t"><b>' + num + '</b> on Google' + (count >= 5 ? ', ' + count + ' reviews' : '') + '</span></a>';
+}
 function reviewsHtml() {
   const rs = (cfg.reviews || []).filter((r) => r && r.name && r.text && r.url && r.stars);
-  if (!rs.length) return '';
+  if (!rs.length) return ratingHtml();
   const avg = (rs.reduce((n, r) => n + Number(r.stars), 0) / rs.length).toFixed(1);
   const star = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#FBBC04" d="M12 2.6l2.9 6 6.6.9-4.8 4.6 1.2 6.500L12 17.500 6.100 20.600l1.200-6.500L2.500 9.500l6.600-.900z"></path></svg>';
   const r = rs[0];
@@ -432,7 +450,17 @@ html.book-open .dk{display:none}
 .apw .grv-s{display:inline-flex;gap:1px}
 .apw .grv-t{font-size:16px}
 .apw .grv-q{grid-column:1/-1;font-size:16px;line-height:1.45;color:var(--ink2)}
-.apw .grv-n{grid-column:1/-1;font-size:14px;font-weight:700;color:var(--mute)}`;
+.apw .grv-n{grid-column:1/-1;font-size:14px;font-weight:700;color:var(--mute)}
+.apw .grs{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px 10px;min-height:44px;margin:8px 0 0;color:#F6F4EF;font-size:17px;line-height:1.2;text-decoration:none}
+.apw .hero .grs{order:4}
+.apw .grs-s{display:inline-flex;gap:1px}
+.apw .grs-s svg{display:block}
+.apw .grs-g{display:block;width:20px;height:20px}
+.apw .grs-t{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:5px;text-decoration-color:#FF4A1C}
+.apw .grs-t b{font-family:var(--f-head);font-stretch:90%;font-weight:750;font-size:1.12em}
+.apw .grs:hover .grs-t{text-decoration-color:currentColor}
+.apw .grs:focus-visible{outline:3px solid #F6F4EF;outline-offset:2px}
+@media (min-width:1024px){.apw .hero .grs{grid-area:r;justify-content:flex-start;margin-top:10px;font-size:18px}}`;
 // Proof of ownership tags for Google Search Console and Bing Webmaster Tools. Paste the code each one gives you
 // into src/site.config.json "verify". They are public values, not keys.
 const VERIFY = [['google-site-verification', (cfg.verify || {}).google], ['msvalidate.01', (cfg.verify || {}).bing]].filter((v) => v[1]).map((v) => `\n<meta name="${v[0]}" content="${esc(v[1])}">`).join('');
@@ -536,7 +564,7 @@ const videoLd = (pageUrl) => VIDEOS.map((v) => Object.assign({
     description: 'Pooper scooper service in ' + TOWNS_TEXT + ', AZ. Weekly dog poop pickup, about $25 a week. [[bf:First month free||First cleanup free]].',
     fonts: e.b.fonts, css: [e.b.css, bookDock.b.css.replace(content.base_css, '')], boards: [e, bookDock],
     body: ssr(e), dock: dockHtml,
-    ld: [faqLd(url, content.faq.main), {
+    ld: [faqLd(url, content.faq.home || content.faq.main), {
       '@type': 'Service', '@id': url + '#service', name: 'Dog poop pickup', serviceType: 'Pet waste removal', provider: { '@id': BIZ_ID },
       areaServed: SERVED, offers: { '@type': 'AggregateOffer', lowPrice: '75.00', highPrice: '189.00', priceCurrency: 'USD', offerCount: 3 }
     }, ...videoLd(url)]

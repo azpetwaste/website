@@ -186,7 +186,6 @@ MAP_V = truemap.build('mV.pick', 'mC.pick', 'mG.pick', 'mL.pick', 'mB.pick', 'mW
 SOON_NOTE = ('<div class="soon">'
              '<p class="soon-h">Coming soon</p>'
              '<p class="soon-l">Surprise, Peoria, Glendale and Laveen.</p>'
-             '<p class="soon-p"><b>We don’t come to you yet?</b> Let us know. Join the waitlist with your name, phone and address. We will tell you when we start in your area.</p>'
              '<a href="Booking.dc.html" class="btn btn-line soon-b">Join the waitlist</a>'
              '</div>')
 MAP_KEY = truemap.MAP_KEY
@@ -238,6 +237,14 @@ def faq(items):
 
 
 FAQ = faq(FAQ_ITEMS)
+
+# The home page shows six questions and links to the rest (Joe, Nov 18, 2026: "minimalist feel, keep it short, direct, simple").
+# Every question stays on /faq/ and in llms.txt (FAQ_ITEMS). The words are picked from FAQ_ITEMS, so an answer is written once.
+_HOME_Q = ['How much does it cost?', 'When do you charge my card?', 'How do I cancel?',
+           'Can I pick my day?', 'Where does the poop go?', 'Are you bonded and insured?']
+FAQ_HOME = [x for q in _HOME_Q for x in FAQ_ITEMS if x[0] == q]
+assert len(FAQ_HOME) == len(_HOME_Q), 'a home page question is not in FAQ_ITEMS'
+FAQ_HOME_HTML = faq(FAQ_HOME)
 
 TRUCK_STATIC = (
     '<rect x="0" y="176" width="52" height="22" rx="2.5" fill="#FFFFFF" stroke="#0A0F24" stroke-width="1"></rect>'

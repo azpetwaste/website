@@ -26,7 +26,7 @@
   <div class="hv" data-hv data-wide="/assets/video/header-wide-v1.mp4" data-tall="/assets/video/header-tall-v1.mp4"><picture><source media="(max-width: 699px) and (orientation: portrait)" srcset="/assets/video/header-tall.webp" type="image/webp" width="540" height="864"><img class="hv-po" src="/assets/video/header-wide.webp" width="1280" height="720" alt="" fetchpriority="high" decoding="async"></picture></div>
   <div class="in hero-g">
   <h1 class="h1 hero-h1"><span class="h1-a">Dog Poop <span class="nb">Pickup Service</span></span> <span class="h1-b">in Verrado, Buckeye, Goodyear and Litchfield Park, AZ</span></h1>
-  <p class="hero-p">We pick up the dog poop in your yard every week and haul it away. On your day, you can watch us on a map. When we leave, we send you a photo of your shut gate.</p>
+  <p class="hero-p">We pick up the dog poop in your yard every week and haul it away. You get a photo of your shut gate after every visit.</p>
   <div class="hero-cta">
     <a href="Booking.dc.html" class="btn btn-dot">[[bf:Get the Black Friday deal||Book now]]</a>
     <p class="hero-call"><a href="tel:+16233096104">Call</a> or <a href="sms:+16233096104">text</a> <b>623.309.6104</b></p>
@@ -43,7 +43,6 @@
   <h2 class="promise-h">No photo? <span class="nb">That visit</span> <span class="nb">is free.</span></h2>
   <div class="promise-t">
     <p>We send you a photo of your shut gate after every visit. If you do not get a photo, you do not pay for that visit.</p>
-    <p>Each visit on your bill has its photo next to it. If we can’t show the photo, that visit costs $0.</p>
     <a href="/our-promise/" class="tl">Read our promise</a>
   </div>
   <figure class="promise-ph">
@@ -63,7 +62,6 @@
     <h2 class="h2">Dog poop pickup prices</h2>
     <p class="lead">Add your dogs. Then pick how often we come.</p>
   </div>
-  <div class="pr-deal">@@BF_DEAL@@</div>
   <div class="pr-g">
   <div class="pr-pick">
     <div class="dogs">
@@ -76,7 +74,6 @@
       </div>
       <button type="button" class="ibtn" aria-label="One more dog" onClick="{{ dogUp }}">@@ICON_PLUS20@@</button>
     </div>
-    <p class="dogs-p">{{ poopLine }}</p>
     <div role="radiogroup" aria-label="How often we come" class="plans">
       <sc-for list="{{ plans }}" as="p" hint-placeholder-count="3">
         <button type="button" role="radio" aria-checked="{{ p.on }}" aria-label="{{ p.aria }}" onClick="{{ p.pick }}" class="plan">
@@ -94,12 +91,7 @@
     <p class="pr-per">{{ billLine }} [[bf:Black Friday sale: your first month is free.||Your first cleanup is free.]]</p>
     <a href="Booking.dc.html" class="btn btn-dot">[[bf:Start your free month||Book now]]</a>
     <p class="pr-in"><strong>In every price:</strong> we haul the poop away, a 30 minute time window, a live map of our truck and a photo of your shut gate. Deodorizing is included free with every visit, on rock and turf yards alike.</p>
-    <p class="pr-note">Each dog after two adds $13 a month ($9 every other week). Months with five visits cost the same as four.</p>
-    <details class="pr-all">
-      <summary>See every price@@ICON_PLUS@@</summary>
-@@PRICE_TABLE@@
-    </details>
-    <p class="pr-note"><strong>Our promise:</strong> No photo, that visit is free. Miss a pile, we come back free. @@NO_CONTRACT@@ <a href="/our-promise/">Read our promise</a></p>
+    <a href="Pricing.dc.html" class="tl">See every price</a>
   </div>
   </div>
   </div>
@@ -109,64 +101,37 @@
   <div class="in how-g">
   <div class="how-l">
     <h2 class="h2">How our dog poop pickup works</h2>
-    <p class="lead">Here is what we do every time we come. Six easy steps.</p>
+    <p class="lead">Three easy steps.</p>
     <div class="how-v">
     @@REEL@@
     <p class="how-cap">Real video of us at work in a real yard.[[bf: The free month is our Black Friday sale. It ends November 30. No long term contract.||]]</p>
     </div>
   </div>
+  <div class="how-r">
   <ol class="steps">
     <li>
       <div>
         <h3>We text you the night before</h3>
-        <span class="bub">Hi Sam! We will scoop your yard tomorrow between 10:00 and 10:30 AM.</span>
-        <p class="bub-c">A text from us</p>
-      </div>
-    </li>
-    <li>
-      <div>
-        <h3>You can watch us drive to you</h3>
-        <p>Tap the link in your text. You see our truck on a map. No app needed.</p>
+        <p>You get a 30 minute time window. On your day, you can watch our truck on a map.</p>
       </div>
     </li>
     <li>
       <div>
         <h3>We pick up every pile and haul it away</h3>
-        <p>We shut the gate behind us. We walk in rows, front to back, and pick up every pile. Rock yards get raked. We bag the poop and take it with us.</p>
-        <figure class="pho step-ph">@@PH_STEP_SCOOP@@</figure>
+        <p>We rake rock yards. We spray deodorizer for free.</p>
       </div>
     </li>
     <li>
       <div>
-        <h3>We spray for free</h3>
-        <p>We spray deodorizer on the spots your dogs use most. It is free at every visit.</p>
-        <figure class="pho step-ph">@@PH_STEP_SPRAY@@</figure>
-      </div>
-    </li>
-    <li>
-      <div>
-        <h3>We latch your gate and take a photo</h3>
-        <p>We latch the gate and pull on it to be sure. Then we take a photo.</p>
-        <div class="print print-b">
-          <img src="/_blob/1414015c2e51423c09fa3ca2ffa8f0c2" srcset="/assets/img/gate-latched-side-yard-640.webp 640w, /assets/img/gate-latched-side-yard-960.webp 960w" sizes="(min-width: 480px) 400px, 76vw" width="1280" height="800" loading="lazy" decoding="async" alt="A wood and black steel side gate, shut and latched between two block posts">
-          <span class="stamp" aria-hidden="true"><span>Gate latched <i>10:19 AM</i></span></span>
-          <p class="print-c" aria-hidden="true"><b>Tue 10:19 AM</b><span>Arizona Pet Waste</span></p>
-        </div>
-      </div>
-    </li>
-    <li>
-      <div>
-        <h3>You get the photo</h3>
-        <p>We send you the photo of your shut gate. No photo? That visit is free.</p>
+        <h3>You get a photo of your shut gate</h3>
+        <p>We latch the gate and pull on it to be sure. Then we send you the photo.</p>
       </div>
     </li>
   </ol>
+  <a href="HowItWorks.dc.html" class="tl">See every step</a>
+  </div>
   </div>
 </section>
-
-@@PHOTO_BAND@@
-
-@@SPECS@@
 
 <section id="owner" class="sec">
   <div class="in own">
@@ -174,7 +139,6 @@
   <div class="own-t">
     <h2 class="h2">Meet Juan, the owner</h2>
     <p>Juan Gonzalez owns Arizona Pet Waste. He lives in Verrado with his wife and their six kids.</p>
-    <p>He works by three standards. Do what you say you will do. Take pride in the details. Never stop getting better.</p>
     <p>When you sign up, you help a local family.</p>
     <a href="About.dc.html" class="tl">Read Juan’s story</a>
   </div>
@@ -185,7 +149,7 @@
   <div class="in wh">
   <div class="wh-h">
     <h2 class="h2">Areas we serve in the West Valley, AZ</h2>
-    <p class="lead">We pick up dog poop at every home in Buckeye, Goodyear, Litchfield Park, Citrus Park and Waddell. Tap a town to see it on the map. Or type your ZIP code.</p>
+    <p class="lead">We pick up dog poop at every home in Buckeye, Goodyear, Litchfield Park, Citrus Park and Waddell. Tap a town to see it on the map.</p>
   </div>
   <div class="map">
 @@MAP@@
@@ -193,31 +157,6 @@
   <div class="wh-c">
 @@MAP_CHIPS@@
   @@MAP_KEY@@
-  <div class="zipf">
-    <label for="apw-zip">Or type your ZIP code</label>
-    <div class="zipf-r">
-      <input id="apw-zip" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="5" placeholder="Your ZIP" value="{{ zip }}" onChange="{{ onZip }}" onKeyDown="{{ zipKey }}">
-      <button type="button" class="btn btn-ink" onClick="{{ checkZip }}">Check</button>
-    </div>
-    <sc-if value="{{ areaOn }}" hint-placeholder-val="{{ false }}">
-      <div aria-live="polite" class="zipr zipr-ok">
-        <span>@@ICON_CHECK@@</span>
-        <div>
-          <b>Yes! We scoop in {{ areaName }}.</b>
-          <small>{{ areaMeta }}</small>
-          <p>Book now. We reach out to let you know your day and time.</p>
-        </div>
-      </div>
-    </sc-if>
-    <sc-if value="{{ zipNo }}" hint-placeholder-val="{{ false }}">
-      <div aria-live="polite" class="zipr">
-        <p><strong>Not in {{ zip }} yet.</strong> Join the waitlist: tap Book now and type your ZIP. We will tell you when we start in your area.</p>
-      </div>
-    </sc-if>
-    <sc-if value="{{ zipShort }}" hint-placeholder-val="{{ false }}">
-      <p aria-live="polite" class="zipe">Type all 5 numbers of your ZIP code.</p>
-    </sc-if>
-  </div>
   <a href="AreasWeServe.dc.html" class="tl">See every area and ZIP code we serve</a>
   <p class="wh-t">Read about your town: <a href="CityBuckeye.dc.html">Buckeye</a>, <a href="CityGoodyear.dc.html">Goodyear</a>, <a href="CityLitchfieldPark.dc.html">Litchfield Park</a>, <a href="CityCitrusPark.dc.html">Citrus Park</a> and <a href="CityWaddell.dc.html">Waddell</a>.</p>
   </div>
@@ -234,10 +173,11 @@
     <p class="lead">Tap a question to see our answer.</p>
   </div>
   <div class="qs-l">
-    @@FAQ@@
+    @@FAQ_HOME_HTML@@
   </div>
   <div class="qs-c">
-    <a href="sms:+16233096104" class="btn btn-line">@@ICON_CHAT@@Text us your question</a>
+    <a href="Faq.dc.html" class="btn btn-line">See all questions</a>
+    <a href="sms:+16233096104" class="tl">Text us your question</a>
   </div>
   </div>
 </section>

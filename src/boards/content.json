@@ -94,6 +94,32 @@
     "a": "Rock can hide poop. So we rake rock yards with a wide metal rake."
    }
   ],
+  "home": [
+   {
+    "q": "How much does it cost?",
+    "a": "Weekly pickup is about $25 a week for 1 or 2 dogs. We bill it once a month: $108. [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]"
+   },
+   {
+    "q": "When do you charge my card?",
+    "a": "Once a month, on your bill day. [[bf:With the Black Friday sale, your first month is free. We save your card and you pay $0 that day. Your free month runs one month from the day you sign up. The day it ends is your bill day.||Your bill day is the day you sign up.]] We charge the month price that day, and on that day each month. We do not charge for part of a month."
+   },
+   {
+    "q": "How do I cancel?",
+    "a": "[[self:Tap cancel in My Yard. There is no long term contract and no phone call.||Call or text 623.309.6104 and we cancel it for you. There is no long term contract and no fee to cancel.]]"
+   },
+   {
+    "q": "Can I pick my day?",
+    "a": "No. We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window."
+   },
+   {
+    "q": "Where does the poop go?",
+    "a": "We haul it away. We bag it, tie it shut and take it with us. It does not go in your trash can."
+   },
+   {
+    "q": "Are you bonded and insured?",
+    "a": "Yes. We are insured and bonded. We carry a $50,000 business service bond and $1,000,000 in general liability insurance. See the details on our bond and insurance page."
+   }
+  ],
   "common": [
    {
     "q": "How much does a pooper scooper cost in the West Valley?",
