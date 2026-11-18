@@ -309,12 +309,15 @@ def _pbook(plan, label, cls):
     return '<a href="Booking.dc.html?plan=%s" class="btn %s" aria-label="Book %s">Book now</a>' % (plan, cls, label)
 
 
+# The home page shows the three plan rows from its own dog picker (Joe, Nov 18, 2026: "I need the slider for the dogs still.
+# They need to be able to pick how many dogs they have."), so its prices follow the number of dogs. The one time row is the same on both.
+PRICE_ROW_ONCE = _prow('One time pickup', 'One visit. No plan needed.', 'From', '$99', '', 'Same day when we have a spot. A big job gets a quote first.',
+                       '<a href="sms:+16233096104" class="btn btn-line" aria-label="Text us to book a one time pickup">Text us</a>')
 PRICE_LIST = ('<div class="pcl">'
               + _prow('Weekly pickup', 'We come once a week.', 'About', '$25', 'a week', 'We bill $108 once a month.', _pbook('week', 'weekly pickup', 'btn-dot'))
               + _prow('Twice a week pickup', 'We come two times a week.', 'About', '$44', 'a week', 'We bill $189 once a month.', _pbook('twice', 'twice a week pickup', 'btn-line'))
               + _prow('Every other week pickup', 'We come every two weeks.', 'About', '$17', 'a week', 'We bill $75 once a month.', _pbook('eow', 'every other week pickup', 'btn-line'))
-              + _prow('One time pickup', 'One visit. No plan needed.', 'From', '$99', '', 'Same day when we have a spot. A big job gets a quote first.',
-                      '<a href="sms:+16233096104" class="btn btn-line" aria-label="Text us to book a one time pickup">Text us</a>')
+              + PRICE_ROW_ONCE
               + '</div>')
 
 

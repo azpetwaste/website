@@ -602,6 +602,17 @@ Joe asked for five things in a row. All are live.
 - `/texts/`, privacy, `CONSENT`, `GO_LIVE.md` part 10 and three screenshots match (new: `sms-optin-myyard.png`, made by `build/optin-shots.py` from the sample account).
 - Checked: `worker.test.mjs` 212, `desk` 134, `signup10` 40, `signup50` 125, build and check with the sale on and off, the two browser flows (28 and 8).
 
+## Nov 18, 2026, 10:30 am. The dog picker is back on the home page, above the price list (website and AEO chat), Joe's ask
+
+Joe, after the plain price list went live: "I like the update on the poop thing, but I need the slider for the dogs still. They need to be able to pick how many dogs they have. Put that back."
+
+- The minus and plus buttons with the dog faces are back, under a plain question: "How many dogs do you have?" 1 to 6 dogs, 2 to start.
+- The three plan rows on the home page follow the dog count: 3 dogs reads $28 a week and "We bill $121 once a month." for weekly, $47 and $202 for twice a week, $19 and $84 for every other week. Same prices as before, nothing changed.
+- Book now opens sign up with that row's plan and that many dogs (checked: twice a week with 3 dogs).
+- The rows on the home page are drawn by the page (`plans` in `main.tpl.html`). `/pricing/` keeps the fixed list for 1 or 2 dogs (`PRICE_LIST`). The one time row is one piece for both (`PRICE_ROW_ONCE`). If a line of words changes, change it in both places.
+- **Do not take the dog picker off the home page.**
+- `npm run check` passes with the sale on and off, `worker.test.mjs` 505 pass, looked at in a real browser at 320, 390 and 1280 wide.
+
 ## Nov 18, 2026, 10:15 am. A plain price list, four main cities in the H1, payment marks in the footer (website and AEO chat), Joe's asks
 
 Joe looked at a competitor's services page (a name, one line, a price, a Book button for each service) and said: "don't change the pricing. Just look at our prices, and I want to have shit like that", "It's simplicity, simple", "it still seems confusing". Then: "let's take Verado out in the front. Do Citrus Park, Buckeye, Goodyear, and Litchfield Park. Those are the four main cities." Then: payment icons under Payment options, and "We don't do cash, Venmo, Cash App, Zelle".

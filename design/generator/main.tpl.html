@@ -60,9 +60,27 @@
   <div class="in">
   <div class="shd">
     <h2 class="h2">Dog poop pickup prices</h2>
-    <p class="lead">Every price is for 1 or 2 dogs. We haul the poop away. Deodorizing is included free with every visit, on rock and turf yards alike.</p>
+    <p class="lead">We haul the poop away. Deodorizing is included free with every visit, on rock and turf yards alike.</p>
   </div>
-  @@PRICE_LIST@@
+  <div class="pc-dogs">
+    <p class="pc-q" id="pc-q">How many dogs do you have?</p>
+    <div class="dogs" role="group" aria-labelledby="pc-q">
+      <button type="button" class="ibtn" aria-label="One less dog" onClick="{{ dogDown }}">@@ICON_MINUS20@@</button>
+      <div class="dogs-m">
+        <div class="dogrow">
+          <sc-for list="{{ dogList }}" as="d" hint-placeholder-count="2"><span class="dogf" style="color: {{ d.fur }};">@@DOG_SVG@@</span></sc-for>
+        </div>
+        <p class="dogs-n" aria-live="polite">{{ dogLabel }}</p>
+      </div>
+      <button type="button" class="ibtn" aria-label="One more dog" onClick="{{ dogUp }}">@@ICON_PLUS20@@</button>
+    </div>
+  </div>
+  <div class="pcl">
+    <sc-for list="{{ plans }}" as="p" hint-placeholder-count="3">
+      <div class="pc"><h3 class="pc-n">{{ p.name }}</h3><p class="pc-d">{{ p.line }}</p><p class="pc-p"><small>About</small><b>{{ p.week }}</b><small>a week</small></p><p class="pc-m">{{ p.bill }}</p><a href="Booking.dc.html?plan={{ p.id }}" class="{{ p.btn }}" aria-label="{{ p.book }}">Book now</a></div>
+    </sc-for>
+    @@PRICE_ROW_ONCE@@
+  </div>
   <p class="pc-x"><strong>[[bf:Black Friday sale: your first month is free.||Your first cleanup is free.]]</strong> Each dog after two adds $13 a month ($9 every other week). No sign up fee. @@NO_CONTRACT@@</p>
   <a href="Pricing.dc.html" class="tl">See every price</a>
   </div>
@@ -196,7 +214,13 @@ class Component extends DCLogic {
     const furs = ['#D9A066', '#6B4A34', '#F1E3C8', '#3A3434', '#B5652A', '#9A9A9A'];
     const lbs = Math.round(s.dogs * @@LBS_PER_DOG@@ / 10) * 10;
     return Object.assign({}, this._themeVals(), this._areaVals(), {
-      plans: this._plans(true, true),
+      // the price list: one row for each plan. The words match PRICE_LIST in parts.py, which /pricing/ shows for 1 or 2 dogs.
+      plans: this._plans(true, true).map((p) => Object.assign(p, {
+        line: { week: 'We come once a week.', twice: 'We come two times a week.', eow: 'We come every two weeks.' }[p.id],
+        bill: 'We bill ' + p.price + ' once a month.',
+        btn: p.id === 'week' ? 'btn btn-dot' : 'btn btn-line',
+        book: 'Book ' + p.name.toLowerCase() + ' for ' + dogs
+      })),
       dogList: furs.slice(0, s.dogs).map((f) => ({ fur: f })),
       dogLabel: dogs,
       poopLine: (s.dogs === 1 ? '1 dog makes' : s.dogs + ' dogs make') + ' about ' + lbs + ' pounds of poop a year. We pick up all of it.',

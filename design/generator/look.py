@@ -373,6 +373,9 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .pcl .pc-p b{margin:2px 0 3px;font-family:var(--f-head);font-stretch:66%;font-weight:900;font-size:58px;letter-spacing:-.01em;line-height:.84;color:var(--ink)}
 .apw .pcl .pc-m{grid-area:m;margin:12px 0 0;font-size:16px;line-height:1.45;color:var(--mute)}
 .apw .pcl .pc .btn{grid-area:b;margin:16px 0 0;font-weight:750;text-decoration:none}
+.apw .pc-dogs{max-width:380px;margin:28px 0 0}
+.apw .pc-q{margin:0 0 14px;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:22px;line-height:1.15;color:var(--ink)}
+.apw .pc-dogs+.pcl{margin-top:26px}
 .apw .pc-x{margin:18px 0 0;font-size:16px;line-height:1.55;color:var(--ink2)}
 .apw .pc-x strong{color:var(--ink)}
 .apw .sec>.in>.tl{margin-top:8px}
