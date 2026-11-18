@@ -207,9 +207,9 @@ function imgSize(file) {
   }
   return null;
 }
-function membersHtml() {
+function membersHtml(top) {
   if (!MEMBERS.length) return '';
-  return '<ul class="fmem" aria-label="Groups we are a member of">' + MEMBERS.map((m) => {
+  return '<ul class="fmem' + (top ? ' fmem-top' : '') + '" aria-label="Groups we are a member of">' + MEMBERS.map((m) => {
     const size = imgSize(path.join(ROOT, 'static', m.img));
     const img = '<img src="' + m.img + '" alt="' + esc(m.alt || m.name) + '"' + (size ? ' width="' + size[0] + '" height="' + size[1] + '"' : '') + ' loading="lazy">';
     return '<li style="--h:' + (Number(m.h) || 64) + '">' + (m.link && m.listing
@@ -272,7 +272,7 @@ function googleFooter() {
   return GOOGLE ? '<li><a href="' + esc(GOOGLE) + '" target="_blank" rel="noopener noreferrer">' + G_PIN + '<span>Find us on Google</span></a></li>' : '';
 }
 const slots = (m, extra) => {
-  let out = m.replace('<!--REVIEWS-->', reviewsHtml()).replace('<!--MEMBERS-->', membersHtml()).replace('<!--SOCIAL-->', socialHtml()).replace('<!--PAYMARKS-->', payHtml()).replace('<!--GOOGLE-->', googleFooter());
+  let out = m.replace('<!--REVIEWS-->', reviewsHtml()).replace('<!--MEMBERS-->', membersHtml()).replace('<!--MEMBERS_TOP-->', membersHtml(true)).replace('<!--SOCIAL-->', socialHtml()).replace('<!--PAYMARKS-->', payHtml()).replace('<!--GOOGLE-->', googleFooter());
   if (extra) out = extra(out);
   return out;
 };

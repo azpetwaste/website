@@ -365,6 +365,10 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .seals-l small{display:block;margin-top:3px;font-size:15px;line-height:1.25;color:#AEB5D8}
 .apw .seals-l .seals-go{grid-column:1 / -1}
 .apw .seals-go .tl{font-size:16px;white-space:nowrap}
+/* The member marks again, right under the trust strip on the home page (Joe, Nov 18, 2026: "having those logos at the top... shows more proof instantly? Let's see how it looks"). */
+.apw .seals-m{padding:0 20px 22px}
+.apw .seals-m:empty{display:none}
+.apw .seals-m .fmem-top{max-width:560px;margin:0 auto;padding:18px 0 0;justify-content:space-between}
 
 /* the promise: one orange field, like a sign */
 .apw .promise{padding:46px 20px 46px;background:var(--accent);color:#0E1430}
@@ -771,6 +775,8 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .fseals{grid-template-columns:repeat(4,auto);gap:26px 40px;align-items:center}
 .apw .ffam{margin:10px 0 0;font-size:44px}
 .apw .fmem{--k:1.22;gap:26px 54px;margin-top:40px;padding-top:36px}
+.apw .seals-m{padding:0 40px 28px}
+.apw .seals-m .fmem-top{--k:1.05;max-width:1200px;margin:0 auto;padding-top:22px;justify-content:flex-start;gap:26px 64px}
 }
 @media (min-width:1240px){.apw .seals-l{gap:44px}.apw .seals-l b{font-size:20px}}
 @media (prefers-reduced-motion:reduce){.apw .fold>summary::after{transition:none}}

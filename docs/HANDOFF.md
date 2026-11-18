@@ -1003,3 +1003,8 @@ Joe, 3:52 pm, after seeing the white tiles live: "take off proud member of on th
 - The white files have new names (`apaws-white.webp` and so on). Everything under `/assets/` is cached for a year (`_headers`), so the white pictures under the old names would have shown the old dark logos, with no tile behind them, to anyone who had been on the site that afternoon. A file whose picture changes always needs a new name.
 - Nothing else changed: still no links (Still open 19), and `memberOf` and `llms.txt` still name aPaws only.
 - Checked: one row and no sideways scroll at 320, 360, 375, 390, 412, 430, 466, 768, 890, 1024, 1280 and 1440 wide. `npm run check` with the sale on and off.
+
+## Nov 18, 2026, 4:20 pm. The member marks under the trust strip on the home page too (website chat), Joe's ask
+Joe, 4:12 pm: "Do you think having those logos at the top of the website shows more proof instantly? Let's see how it looks."
+- The home page shows the same three white marks under the Bonded and Insured strip, below the hero (`<!--MEMBERS_TOP-->` in `main.tpl.html`, filled by `membersHtml(true)`, look in `.seals-m`). About 110 px on a phone. The footer row stays on every page. Town pages do not have the top row.
+- It is on trial: Joe is looking at it live. If he does not like it, take the one line out of `main.tpl.html`.
