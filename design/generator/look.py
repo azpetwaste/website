@@ -637,6 +637,14 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .fproof a{display:inline-flex;align-items:center;min-height:44px;color:#F6F4EF;font-size:16px;font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:5px;text-decoration-color:#FF4A1C}
 .apw .ffam{grid-column:1 / -1;display:flex;align-items:center;gap:12px;margin:8px 0 0;font-family:var(--f-head);font-stretch:74%;font-weight:850;font-size:34px;line-height:1;color:#FFFFFF}
 .apw .ffam svg{flex:0 0 auto;width:38px;height:38px}
+/* The groups we belong to: their own logos on white tiles, like the payment marks (Joe, Nov 18, 2026). */
+.apw .fmem{margin-top:34px;padding-top:28px;border-top:1px solid rgba(255,255,255,.14)}
+.apw .fmem .fhd{margin-bottom:14px}
+.apw .fmem-l{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;max-width:540px;margin:0;padding:0;list-style:none}
+.apw .fmem-l li{display:grid;place-items:center;height:96px;padding:0 9px;border-radius:12px;background:#FFFFFF}
+.apw .fmem-l a{display:grid;place-items:center;width:100%;height:100%}
+.apw .fmem-l a:focus-visible{outline:3px solid #F6F4EF;outline-offset:14px;border-radius:2px}
+.apw .fmem-l img{display:block;width:auto;height:auto;max-width:100%;max-height:72px;object-fit:contain}
 .apw .flegal{display:flex;flex-wrap:wrap;gap:0 20px;margin-top:26px}
 .apw .fcopy{margin:14px 0 0;font-size:15px;line-height:1.6;color:#AEB5D8}
 
@@ -745,6 +753,9 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .fg3{grid-template-columns:minmax(0,1.1fr) minmax(0,1.2fr) minmax(0,1fr);gap:64px}
 .apw .fseals{grid-template-columns:repeat(4,auto);gap:26px 40px;align-items:center}
 .apw .ffam{margin:10px 0 0;font-size:44px}
+.apw .fmem-l{grid-template-columns:repeat(3,172px);gap:14px;max-width:none}
+.apw .fmem-l li{height:116px;padding:0 18px}
+.apw .fmem-l img{max-height:86px}
 }
 @media (min-width:1240px){.apw .seals-l{gap:44px}.apw .seals-l b{font-size:20px}}
 @media (prefers-reduced-motion:reduce){.apw .fold>summary::after{transition:none}}

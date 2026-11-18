@@ -156,12 +156,6 @@ function ssr(entry, props) {
 }
 
 // ---------- slots the boards leave for the site ----------
-function badgesHtml() {
-  if (!cfg.badges.length) return '';
-  return '<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 22px;">' + cfg.badges.map((x) =>
-    '<a href="' + esc(x.url) + '" rel="noopener" target="_blank" style="display: inline-flex; align-items: center; min-height: 44px;">' +
-    (x.img ? '<img src="' + esc(x.img) + '" alt="' + esc(x.name) + '" style="height: 44px; width: auto; display: block;">' : '<span class="flink">' + esc(x.name) + '</span>') + '</a>').join('') + '</div>';
-}
 // Brand logos are logo files, never drawn by us: static/assets/img/brands/<name>.svg or .png (see the README.txt there for where each came from).
 // The social buttons in the footer (Joe, Nov 18, 2026: "put social media buttons on the bottom too, give them their color").
 // A button shows when its logo file is in the folder AND its link is in site.config.json "social". One size for all: 48 px, 12 px corners.
@@ -186,6 +180,39 @@ function payHtml() {
   if (!marks.length) return '';
   return '<ul class="fmarks" aria-label="Cards and wallets we take">' + marks.map((x) =>
     '<li><img src="' + x.img + '" alt="' + x.n + '" style="height: ' + x.h + 'px;" loading="lazy"></li>').join('') + '</ul>';
+}
+// The groups we belong to, as logos on white tiles at the bottom of the footer of every page (Joe, Nov 18, 2026:
+// "put these nicely on the bottom of the footer to show more authority"). One entry for each in src/site.config.json "members".
+// A tile shows when its logo file is in static/assets/img/brands/. The file is the one the group or Joe gave us, only trimmed
+// and scaled: never drawn or recolored by us.
+//   "listing" is our own page in that group's member list. It is the proof, so the business data (memberOf) and llms.txt
+//             name a group only when "listing" is filled in.
+//   "link"    true makes the tile a link to the listing. Leave it false for a listing that shows a street address: we are a
+//             service area business, the address is hidden on purpose, and we never link a page that shows one. The aPaws
+//             listing showed the street on November 18, 2026, so its tile is not a link.
+const MEMBERS = (cfg.members || []).map((m) => Object.assign({}, m, { img: brandFile(m.file || m.name) })).filter((m) => m.img);
+const MEMBER_OF = MEMBERS.filter((m) => m.listing);
+// Width and height of a logo file, so the page holds its place before the picture loads. WebP and PNG.
+function imgSize(file) {
+  const b = fs.readFileSync(file);
+  if (b.toString('ascii', 1, 4) === 'PNG') return [b.readUInt32BE(16), b.readUInt32BE(20)];
+  if (b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP') {
+    const kind = b.toString('ascii', 12, 16);
+    if (kind === 'VP8L') { const n = b.readUInt32LE(21); return [(n & 0x3FFF) + 1, ((n >> 14) & 0x3FFF) + 1]; }
+    if (kind === 'VP8X') return [b.readUIntLE(24, 3) + 1, b.readUIntLE(27, 3) + 1];
+    if (kind === 'VP8 ') return [b.readUInt16LE(26) & 0x3FFF, b.readUInt16LE(28) & 0x3FFF];
+  }
+  return null;
+}
+function membersHtml() {
+  if (!MEMBERS.length) return '';
+  return '<div class="fmem"><p class="fhd">Proud member of</p><ul class="fmem-l">' + MEMBERS.map((m) => {
+    const size = imgSize(path.join(ROOT, 'static', m.img));
+    const img = '<img src="' + m.img + '" alt="' + esc(m.alt || m.name) + '"' + (size ? ' width="' + size[0] + '" height="' + size[1] + '"' : '') + ' loading="lazy">';
+    return '<li>' + (m.link && m.listing
+      ? '<a href="' + esc(m.listing) + '" target="_blank" rel="noopener noreferrer" aria-label="See Arizona Pet Waste in the ' + esc(m.name) + ' member list">' + img + '</a>'
+      : img) + '</li>';
+  }).join('') + '</ul></div>';
 }
 // Every ZIP code in each town we serve, with the neighborhoods in it. The town copy (design/generator/longform.py) is the one list.
 function townZips(area) {
@@ -242,7 +269,7 @@ function googleFooter() {
   return GOOGLE ? '<li><a href="' + esc(GOOGLE) + '" target="_blank" rel="noopener noreferrer">' + G_PIN + '<span>Find us on Google</span></a></li>' : '';
 }
 const slots = (m, extra) => {
-  let out = m.replace('<!--REVIEWS-->', reviewsHtml()).replace('<!--BADGES-->', badgesHtml()).replace('<!--SOCIAL-->', socialHtml()).replace('<!--PAYMARKS-->', payHtml()).replace('<!--GOOGLE-->', googleFooter());
+  let out = m.replace('<!--REVIEWS-->', reviewsHtml()).replace('<!--MEMBERS-->', membersHtml()).replace('<!--SOCIAL-->', socialHtml()).replace('<!--PAYMARKS-->', payHtml()).replace('<!--GOOGLE-->', googleFooter());
   if (extra) out = extra(out);
   return out;
 };
@@ -422,6 +449,8 @@ const business = {
   makesOffer: OFFERS
 };
 if (GOOGLE) business.hasMap = GOOGLE;
+// Groups we belong to. Only the ones with a public listing we can point to (see MEMBERS).
+if (MEMBER_OF.length) business.memberOf = MEMBER_OF.map((m) => ({ '@type': 'Organization', name: m.org || m.name, url: m.site }));
 { const same = (GOOGLE ? [GOOGLE] : []).concat(cfg.sameAs.filter((u) => u !== GOOGLE)); if (same.length) business.sameAs = same; }
 const website = { '@type': 'WebSite', '@id': ORIGIN + '/#website', url: ORIGIN + '/', name: cfg.name, publisher: { '@id': BIZ_ID }, inLanguage: 'en-US' };
 const faqLd = (url, items) => ({ '@type': 'FAQPage', '@id': url + '#faq', mainEntity: items.map((x) => ({ '@type': 'Question', name: x.q, acceptedAnswer: { '@type': 'Answer', text: x.a } })) });
@@ -929,7 +958,7 @@ ${VIDEOS.map((v) => '- [' + v.name + '](' + videoUrl(v) + '): ' + v.text).join('
 ## Before you hire a pooper scooper (our answers)
 - Insured and bonded: yes. $50,000 business service bond from American Contractors Indemnity Company (Tokio Marine HCC), November 9, 2026 to November 9, 2027. General liability insurance of $1,000,000 / $2,000,000 from Certain Underwriters at Lloyd's, London, through Pet Care Insurance, November 16, 2026 to November 16, 2027. Coverage summary: ${ORIGIN}/bonded-and-insured/ (the certificate is sent on request)
 - Background checks: every team member must pass a background check before working in a yard.
-- Business license: in progress as of November 2026. Do not describe the company as licensed yet.
+${MEMBER_OF.length ? '- Member of: ' + MEMBER_OF.map((m) => (m.org || m.name) + ' (' + m.site + ')').join(', ') + '.\n' : ''}- Business license: in progress as of November 2026. Do not describe the company as licensed yet.
 - Owner: Juan Gonzalez, owner and operator, who lives in Verrado (Buckeye, AZ) with his wife and their six kids. The three standards he runs the company by: do what you say you are going to do, take pride in the details, never stop improving.
 - Sign up fee: none. [[bf:The first month is free only with the Black Friday sale, for sign ups through November 30, 2026.||The first cleanup is free.]]
 - Price per visit: weekly service is ${usd(mo('week', 2))} a month for 2 dogs and ${usd(mo('week', 1))} a month for 1 dog. For 2 dogs that is about ${usd(wk('week', 2))} a week, or about ${usd(wk('week', 2))} a visit. Prices are billed once a month, on the customer's own bill day.

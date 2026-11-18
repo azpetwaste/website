@@ -2,7 +2,7 @@
 
 Same parts and copy as the canvas boards, plus the launch changes:
 real URLs, real image files, no placeholder blocks (owner story, reviews),
-legal links in the footer, and slots the site build fills (badges, social links, neighborhoods)."""
+legal links in the footer, and slots the site build fills (member logos, social links, neighborhoods)."""
 import json
 import os
 import re
@@ -70,8 +70,7 @@ BLOBS = {
 }
 LEGAL = ('<nav aria-label="Policies" class="flegal">'
          '<a href="/privacy/" class="flink">Privacy</a><a href="/terms/" class="flink">Terms</a>'
-         '<a href="/texts/" class="flink">Text terms</a><a href="/accessibility/" class="flink">Accessibility</a></nav>'
-         '<!--BADGES-->\n  ')
+         '<a href="/texts/" class="flink">Text terms</a><a href="/accessibility/" class="flink">Accessibility</a></nav>\n  ')
 COPY_LINE = '<p class="fcopy">© 2026 Arizona Pet Waste. All rights reserved.</p>'
 
 

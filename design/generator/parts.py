@@ -521,6 +521,7 @@ def _footer(pre):
             '    <p class="fproof"><a href="/bonded-and-insured/">See our coverage</a></p>\n'
             '    <p class="ffam">' + SEAL_FAM.replace('class="seal-i"', 'class="seal-i ffam-i"') + '<span>Family owned and operated</span></p>\n'
             '  </div>\n'
+            '  <!--MEMBERS-->\n'
             '  <p class="fcopy">© 2026 Arizona Pet Waste. All rights reserved.</p>\n'
             '  </div>\n'
             '</footer>')
