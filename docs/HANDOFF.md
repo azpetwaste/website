@@ -950,13 +950,13 @@ Joe, 10:16 to 10:22 am, four messages: weekly is $89 for 1 dog, $99 for 2 dogs (
 - `node build/worker.test.mjs`: 533 pass with `STRIPE_SPEC` (110 kinds of field on 30 kinds of request, 823 requests, none refused). 24 are new: the copy in the server matches the file, Joe's five numbers, `/api/config`, the new Stripe price and product, the plan from before reads $108 in My Yard, on the office card, on Money and in a pause email, a third dog on it reads $121 through the old extra line, a new plan moves to `apw_week_3_11500`, and nothing asks for a proration.
 - Local Postgres 16: `desk` 150, `signup10` 40, `signup50` 131. `week.test.mjs` 76. `nav.test.py` 68. `npm run check` with the sale on and off. `node build/prices.mjs --check`.
 - The card was tapped in a real browser on the home page, `/pricing/` and a town page: 1 dog $21 and $89, 2 dogs $23 and $99, 3 dogs $27 and $115 ($47 and $202, $19 and $84), 6 dogs $37 and $160, and Book now opens sign up with that many dogs.
-- Every sign up step at 320, 360, 390, 430, 466 by 678, 466 by 560, 890 by 626, 890 by 520, 768 by 1024, 820 by 1180, 1180 by 820 and 1280 by 900: no words under 15 px, no button under 48 px, nothing cut off.
+- Every sign up step, for each of the four cities, at 17 screen sizes (320 by 568 up to 1280 by 900, with 466 by 678, 466 by 560, 890 by 626, 890 by 520 and a phone on its side at 844 by 390): no words under 15 px, no button or box under 48 px tall, no sideways scroll, the Continue bar always on the screen, the right ZIP code buttons for each city, all six behind "My ZIP code is not here", and no script error.
 - `build/sweep.py` over all 45 pages at 320, 390, 466, 890 and 1280 wide: no page scrolls sideways.
 - Chrome only. No Safari or WebKit on this machine, and no real phone. The folding iPhone sizes are from Apple's pixel counts with a 3x screen assumed (466 by 678 closed, 890 by 626 open): Apple does not publish the scale.
 - `build/smoke.py` still stops at its first step (known since the redesign). Its city tap and its pay step note were kept right for whoever fixes the rest.
 
 ### Not done, and why
-- Nothing outside the repo: the Google profile, Google Ads, the Facebook and Instagram ads and any printed piece still show the old prices.
+- Nothing outside the repo: the Google profile, Google Ads, the Facebook and Instagram ads and any printed piece were not changed. Any of them that shows a price shows the old one.
 - Weekly prices for 4, 5 and 6 dogs did not change, because Joe gave none.
 - No ZIP code was added to the six the server takes.
 - The after sale words ("Your first cleanup is free", from December 1) were left alone. Joe's "No discounts of any kind" points at taking them out. He was asked.

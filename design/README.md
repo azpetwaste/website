@@ -3,7 +3,7 @@
 `generator/` is the source for every page template. Edit the `.tpl.html` files, `parts.py` and `look.py` here, never the JSON in `src/boards/` by hand.
 
 - `look.py` is the look of the public site: the font, colors, buttons, and the layout CSS for the home and town pages. Read the note at the top before you change anything.
-- `parts.py` holds the shared markup pieces (header, footer, seals, questions, price table), the copy lists and the page logic.
+- `parts.py` holds the shared markup pieces (header, footer, seals, questions, the price card), the copy lists and the page logic. It reads every price from `src/prices.json`: never type a price in a template.
 - Run `APW_BOARDS=../../src/boards/ python3 export_site.py` from `design/generator/` to write the page templates to `src/boards/`. Then `npm run build` and `npm run check` from the repo root.
 - `python3 build.py` writes the same pages to the design canvas as artboards. It uses an absolute path from the old build workspace. Change `OUT` at the top if you run it.
 

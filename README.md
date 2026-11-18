@@ -64,7 +64,7 @@ Check the server any time at `/api/health`. It shows if the keys are in (`live`)
 
 How billing works: every customer has their own bill day and no bill is for a part month. With a free month (the Black Friday sale) the card form saves a card and charges $0 (Checkout in setup mode), and the server then starts the plan (`startPlan`): free until the free month ends, the full month price that day, then the same price on that day of each month. With no free month the card form is Stripe's plan checkout: it charges the full month price at sign up, and that day is the bill day (`paidPlan`). A failed payment puts visits on hold until the bill is paid. `GO_LIVE.md` part 5 has the Stripe settings and part 8 has every Cloudflare setting.
 
-Prices are created in Stripe on the first sign up (lookup keys `apw_week_base`, `apw_week_extra`, `apw_twice_base`, `apw_twice_extra`, `apw_eow_base`, `apw_eow_extra`). To change a price later, make a new price in Stripe and move the lookup key to it.
+Prices live in one file, `src/prices.json` (since November 18, 2026). To change a price, change the number there, run `npm run build`, run the checks and push. Never make, edit or archive a price in the Stripe dashboard. The site makes one Stripe price for each plan and dog count the first time a sign up needs it, found by a lookup key with the amount in it (`apw_week_2_9900` is every week, 2 dogs, $99.00). A new number is a new key, so new sign ups get a new price and a plan that is already running keeps the one it has. The older prices (`apw_week_base`, `apw_week_extra`, `apw_twice_base`, `apw_twice_extra`, `apw_eow_base`, `apw_eow_extra`) stay in Stripe for the plans made before that day. `CLAUDE.md` has the full rule.
 
 ## Test cards (test mode)
 
