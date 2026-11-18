@@ -26,12 +26,14 @@ Joe sent the logo files on November 18, 2026. Each one here is that logo in ONE 
 background, trimmed to its edges and scaled to 228 px tall. The shapes are the group's own and were not touched. Only
 the color changed, because two of the three are dark and would not show on the page (Joe: "It looks weird in boxes...
 maybe transparent with the website"):
-  apaws.webp                         the aPaws "Proud Member" seal. From MemberSealProud.tif in the zip aPaws gives its
-                                     members (black ink on white). Ink became white, paper became see through.
-  west-valley-regional-chamber.webp  the chamber's logo, the PNG Joe attached (it is the logo on westvalleyregional.org).
-  buckeye-valley-chamber.webp        the chamber's logo, the PNG Joe attached (it is the logo on buckeyevalleychamber.org).
+  apaws-white.webp                         the aPaws "Proud Member" seal. From MemberSealProud.tif in the zip aPaws gives its
+                                           members (black ink on white). Ink became white, paper became see through.
+  west-valley-regional-chamber-white.webp  the chamber's logo, the PNG Joe attached (it is the logo on westvalleyregional.org).
+  buckeye-valley-chamber-white.webp        the chamber's logo, the PNG Joe attached (it is the logo on buckeyevalleychamber.org).
   A mark shows when its file is here AND it has an entry in src/site.config.json "members". Take a group out of both when
   a membership ends. A mark is a link only when "link" is true there, and never to a page that shows a street address.
   For a white page or a printed piece, ask Joe for the color files again: only the white ones are kept here.
+  Everything under /assets/ is kept by a browser for a year (see _headers). So a file whose picture changes needs a new
+  name, or people who were here before keep seeing the old one. That is why these end in -white.
 
 .svg, .png or .webp all work. File names are lower case with dashes.
