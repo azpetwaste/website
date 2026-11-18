@@ -2,7 +2,8 @@
 We serve every ZIP code in each town: Buckeye 85326 and 85396, Goodyear 85338 and 85395, Litchfield Park 85340,
 Waddell 85355. Verrado has its own page inside Buckeye. Citrus Park is the south part of the Waddell ZIP and has its own page too.
 Each town is written on its own: the Waddell page is not the Citrus Park page with the name swapped."""
-from parts import faq
+from parts import faq, month as _month, usd as _usd
+_usd_twice = _usd(_month('twice', 2))  # src/prices.json
 
 
 def why(items):
@@ -77,7 +78,7 @@ CITIES = [
         faq_h2='Goodyear questions',
         faq=faqs('Goodyear', [
             ('Do you serve all of Goodyear?', 'Yes. We scoop every home in both Goodyear ZIP codes, 85338 and 85395, plus Goodyear homes with Litchfield Park 85340 addresses. That includes Estrella, CantaMia, Canyon Trails, Palm Valley, PebbleCreek and Sedella.'),
-            ('Does Goodyear really require pickup twice a week?', 'Yes. Goodyear city code says droppings must be removed from yards at least twice a week. To match that rule, pick our twice a week plan. It is $189 a month for 1 or 2 dogs.'),
+            ('Does Goodyear really require pickup twice a week?', 'Yes. Goodyear city code says droppings must be removed from yards at least twice a week. To match that rule, pick our twice a week plan. It is %s a month for 1 or 2 dogs.' % _usd_twice),
             ('Do you serve PebbleCreek and CantaMia?', 'Yes. Both are gated, and both are in our service area. Add your gate code in My Yard. Only your scooper sees it, and only on your day.'),
             ('Is it illegal to not pick up dog poop in Goodyear?', 'Yes. Goodyear city code says droppings must be removed from yards at least twice a week, and pets cannot cause flies, smell or piles of droppings. On walks, you must pick up right away on public land and other people’s land.'),
             ('Can I report my neighbor for dog poop in Goodyear?', 'Yes. You can report it to the City of Goodyear. If you have an HOA, you can tell them too. Talking to your neighbor first often works best.'),

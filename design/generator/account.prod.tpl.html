@@ -373,7 +373,9 @@ class Component extends DCLogic {
       busy: s.busy,
       first: first,
       planLine: me.plan ? names[me.plan] + ' · ' + (me.dogs === 1 ? '1 dog' : (me.dogs || 2) + ' dogs') : 'No plan yet',
-      priceLine: me.plan ? '$' + this._price(me.plan, me.dogs || 2) + ' a month' : '[[bf:Free first month||Not set yet]]',
+      // The server says what this customer pays (a plan from before a price change keeps its price). The price table
+      // built into the page only stands in until the server has answered.
+      priceLine: me.plan ? ((pl && pl.month) || '$' + this._price(me.plan, me.dogs || 2)) + ' a month' : '[[bf:Free first month||Not set yet]]',
       firstLine: day ? day.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : 'We reach out to set it',
       statusLine: statuses[me.status] || 'Not finished',
       addrLine: me.address ? me.address + ', ' + (towns[me.zip] || 'AZ') : 'Not added yet',
@@ -413,7 +415,7 @@ class Component extends DCLogic {
       // What a pause does to the bill, said before it happens. Back before the bill day: nothing changes. Still paused
       // on the bill day: that bill is skipped, and the full month is charged the day visits start again (the new bill day).
       pauseBillLine: 'Back before your bill day' + (pl && pl.billDay ? ', ' + pl.billDay : '') + '? Your bill day stays the same. Still paused on that day? We skip that bill. The day we start again, we charge '
-        + (me.plan ? '$' + this._price(me.plan, me.dogs || 2) : 'your month price') + ' for the next month, and that day is your new bill day.',
+        + (me.plan ? ((pl && pl.month) || '$' + this._price(me.plan, me.dogs || 2)) : 'your month price') + ' for the next month, and that day is your new bill day.',
       pausedLine: pl && pl.paused ? 'You are paused.' + (pl.pauseUntil ? ' We start again on ' + nice(pl.pauseUntil, true) + '.' : '') + ' You do not pay while paused.'
         + (pl.backCharge ? ' The day we start again, we charge ' + (pl.backCharge.amount || 'your month price') + ' for the next month, and that day is your new bill day.'
           + (pl.backCharge.keepDay ? ' Start again before ' + pl.backCharge.keepDay + ' and you pay nothing that day. Your bill day stays ' + pl.backCharge.keepDay + '.' : ' If you start again sooner, we charge it that day.')

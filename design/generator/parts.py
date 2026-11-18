@@ -44,10 +44,36 @@ THEME_METHODS = r"""  _themeFromProps() {
     };
   }"""
 
+# ---------- prices ----------
+# One file holds the prices (Joe, Nov 18, 2026): src/prices.json. Dollars a month for 1 to 6 dogs on each plan.
+# Every price on a page comes from it: the page logic below, the price card, and the words in the questions.
+# The server, Stripe and the office read the same file (see build/prices.mjs). Never type a price into a page.
+import json as _json  # noqa: E402
+import math as _math  # noqa: E402
+import os as _os  # noqa: E402
+
+PRICES = _json.load(open(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), '..', '..', 'src', 'prices.json'), encoding='utf8'))
+PLAN_IDS = ('week', 'twice', 'eow')
+
+
+def month(plan, dogs=2):
+    """What a plan costs a month, in dollars."""
+    return PRICES['month'][plan][min(6, max(1, dogs)) - 1]
+
+
+def week(plan, dogs=2):
+    """The month price spread over the year, to the nearest dollar (the same rounding the pages use)."""
+    return int(_math.floor(month(plan, dogs) * 12 / 52.0 + .5))
+
+
+def usd(n):
+    return '$%d' % n if float(n) == int(float(n)) else '$%.2f' % float(n)
+
+
 PRICE_METHODS = r"""  _price(id, dogs) {
-    const base = { week: 108, twice: 189, eow: 75 };
-    const extra = { week: 13, twice: 13, eow: 9 };
-    return base[id] + Math.max(0, dogs - 2) * extra[id];
+    // src/prices.json, written into the page when it is built: dollars a month for 1 to 6 dogs.
+    const t = __PRICE_TABLE__;
+    return t[id][Math.min(6, Math.max(1, dogs)) - 1];
   }
   _per(id, dogs) {
     const visits = { week: 52 / 12, twice: 104 / 12, eow: 26 / 12 };
@@ -89,7 +115,7 @@ PRICE_METHODS = r"""  _price(id, dogs) {
         dot: on ? '#FF4A1C' : 'transparent'
       };
     });
-  }"""
+  }""".replace('__PRICE_TABLE__', _json.dumps({k: PRICES['month'][k] for k in PLAN_IDS}, separators=(', ', ': ')))
 
 ICON_SUN = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"></circle><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"></path></svg>'
 ICON_MOON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"></path></svg>'
@@ -199,9 +225,13 @@ MAP_CHIPS = '''  <div class="mchips" role="group" aria-label="Towns we scoop">
 
 from scene import saguaro, agave, barrel  # noqa: E402
 
+# The price in one breath. Used wherever a page says what weekly pickup costs, so the words and the numbers never drift.
+SAY_PRICE = 'Weekly pickup is about %s a week for 2 dogs. We bill it once a month: %s. One dog is %s a month.' % (
+    usd(week('week', 2)), usd(month('week', 2)), usd(month('week', 1)))
+
 FAQ_ITEMS = [
     ('[[bf:What is the Black Friday sale?||Is my first cleanup free?]]', '[[bf:Sign up by November 30 and your first month is free. The sale ends at midnight on November 30.||Yes. Your first cleanup is free when you sign up.]]'),
-    ('How much does it cost?', 'Weekly pickup is about $25 a week for 1 or 2 dogs. We bill it once a month: $108. [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]'),
+    ('How much does it cost?', SAY_PRICE + ' Three dogs are %s a month. [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]' % usd(month('week', 3))),
     ('Is the spray really free?', 'Yes. Deodorizing is included free with every visit, on rock and turf yards alike. We spray the spots your dogs use most. It costs you nothing.'),
     ('Do you come in the summer heat?', 'Yes. In summer we start early, so your yard is done before the worst heat of the day.'),
     ('What if it storms?', 'Light rain is fine. If there is lightning, we wait until it is safe. We text you if your time changes.'),
@@ -211,14 +241,14 @@ FAQ_ITEMS = [
     ('Are you bonded and insured?', 'Yes. We are insured and bonded. We carry a $50,000 business service bond and $1,000,000 in general liability insurance. See the details on our bond and insurance page.'),
     ('Do you clean your tools?', 'Yes. We clean our boots and tools after every yard. That keeps germs from going from yard to yard.'),
     ('Can I pick my day?', 'No. We set your day for you. We run set routes, and that keeps our prices down. After you sign up, we reach out to let you know your day and time. Then you get a text the night before each visit with a 30 minute window.'),
-    ('Can you come today? We have a party.', 'Yes, when we have a spot. Text us as early as you can. A one time pickup starts at $99. A big job gets a quote first.'),
+    ('Can you come today? We have a party.', 'Yes, when we have a spot. Text us as early as you can. A one time pickup starts at %s. A big job gets a quote first.' % usd(PRICES['once'])),
     ('When do you charge my card?', 'Once a month, on your bill day. [[bf:With the Black Friday sale, your first month is free. We save your card and you pay $0 that day. Your free month runs one month from the day you sign up. The day it ends is your bill day.||Your bill day is the day you sign up.]] We charge the month price that day, and on that day each month. We do not charge for part of a month.'),
     ('Who sees my gate code?', 'Only your scooper, and only on your day. You add it after you sign up. If you cancel, we delete it.'),
     ('What if a dog in the yard is not safe to be near?', 'We don’t go in. We text you to bring the dog inside. We can come back the same day.'),
     ('Can I skip a week?', 'Yes. You get 4 free skips a year. Sign in to My Yard and tap Skip next to the visit, up to 24 hours before. No phone call.'),
     ('Can I pause while we are away?', 'Yes. After your first 60 days, you can pause for up to 120 days in My Yard. You don’t pay while you are paused. Before then, use a free skip.'),
     ('How do I cancel?', '[[self:Tap cancel in My Yard. There is no long term contract and no phone call.||Call or text 623.309.6104 and we cancel it for you. There is no long term contract and no fee to cancel.]]'),
-    ('What if I get another dog?', 'Text us, or we will see on our next visit. We update your plan to match and email you the new price. It starts with your next bill. Each dog after two adds $13 a month, or $9 on the every other week plan.'),
+    ('What if I get another dog?', 'Text us, or we will see on our next visit. We update your plan to match and email you the new price. It starts with your next bill. On the weekly plan, 3 dogs are %s a month. Every price is on our pricing page.' % usd(month('week', 3))),
     ('What is My Yard?', 'My Yard is your account on our site. Sign in with your email and a 6 digit code. No password. [[self:You can see your next visits, skip a visit, pause, see your bills and gate photos, change your card, or cancel.||You can see your next visits and gate photos, skip a visit, or pause. On your visit day, tap See our truck. To change your card or cancel, call or text 623.309.6104.]]'),
     ('Is my card safe?', 'Yes. You pay through Stripe, the same checkout big stores use. Stripe keeps your card. We never see or store your card number.'),
     ('How do I see my bills?', '[[self:Sign in to My Yard. Every bill is there, and you can open or save each one.||Call or text 623.309.6104 and we send you any bill.]]'),
@@ -273,57 +303,75 @@ SKYLINE = ('<svg viewBox="0 0 1170 130" preserveAspectRatio="xMidYMax slice" ari
            '</svg>')
 
 
-def _xrow(a, b):
-    return '<div class="ptab-r"><span>%s</span><b>%s</b></div>' % (a, b)
+# ---------- the price card (Joe, Nov 18, 2026) ----------
+# "There's something off there... less is more of anything." One printed card holds it all: how many dogs, three
+# prices, the free deodorizing line and one Book now button. The home page, every town page and /pricing/ show the same
+# card. It is plain HTML with the prices for 2 dogs. The whole price table rides along in data-rc, and a few lines in
+# src/runtime/apw.js (priceCard) move the prices, the dog pictures and the Book now link when a dog is added or taken off.
+# The week price is the big number and the month price sits right next to it, as always.
+
+# The deodorizing line (Joe, Nov 18, 2026): shown wherever prices show. The crossed out price, the $0, the FREE tag and
+# the words under it are his, and they live in src/prices.json ("deodorizing"). The slash through the old price is red.
+_DZ = PRICES['deodorizing']
+# Before the tag: a thin space, then a normal space. On one line the tag keeps its gap. When the tag drops to the next
+# line, the line breaks at the normal space, so the tag starts flush with the words above it.
+DEODOR = ('<div class="dz"><p class="dz-n">Deodorizing treatment&#8201; <span class="dz-tag">%s</span></p>'
+          '<p class="dz-p"><del class="dz-was"><span class="vh">Crossed out price: </span>%s</del> <ins class="dz-now">%s</ins></p>'
+          '<p class="dz-l">%s</p></div>' % (_DZ['tag'], usd(float(_DZ['was'])), usd(float(_DZ['now'])), _DZ['label']))
+
+RC_NAMES = (('week', 'Weekly pickup'), ('twice', 'Twice a week pickup'), ('eow', 'Every other week pickup'))
+RC_FURS = ('#C98A45', '#5B3F2C', '#D9B98A', '#2A2422', '#B5652A', '#8C8F98')
 
 
-def _pcell(month):
-    return '<td><b>$%d a week</b><small>$%d a month</small></td>' % (round(month * 12 / 52.0), month)
+def _rc_row(plan, name, dogs=2):
+    return ('<li class="rc-r"><div class="rc-l"><h3 class="rc-name">%s</h3><p class="rc-bill" data-rc-mo="%s">We bill %s once a month.</p></div>'
+            '<p class="rc-p"><small>About</small><span><b data-rc-wk="%s">%s</b> <small>a week</small></span></p></li>' % (
+                name, plan, usd(month(plan, dogs)), plan, usd(week(plan, dogs))))
 
 
-PRICE_ROWS = ''.join('<tr><th scope="row">%s</th>%s%s</tr>' % (n, _pcell(a), _pcell(b))
-                     for n, a, b in [('Weekly pickup', 108, 121), ('Twice a week pickup', 189, 202), ('Every other week pickup', 75, 84)])
-WEEK_NOTE = 'We bill the month price once a month. The week price is the month price spread over the year, to the nearest dollar.'
-PRICE_TABLE = (
-    '<table class="ptab">'
-    '<thead><tr><th scope="col">Plan</th><th scope="col">1 or 2 dogs</th><th scope="col">3 dogs</th></tr></thead><tbody>'
-    + PRICE_ROWS +
-    '</tbody></table>'
-    '<p class="ptab-w">' + WEEK_NOTE + '</p>'
-    '<p class="ptab-x">Extras</p>'
-    + _xrow('Deodorizing (free every visit)', 'Included free') + _xrow('One time pickup, same day if we have a spot', 'From $99') +
-    '<p class="ptab-n">Each dog after two adds $13 a month ($9 every other week). [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]</p>'
-)
+PRICE_CARD = (
+    '<div class="rc" data-rc=\'' + _json.dumps({k: PRICES['month'][k] for k in PLAN_IDS}, separators=(',', ':')) + '\' data-rc-n="2">'
+    '<p class="rc-q" id="rc-q">How many dogs?</p>'
+    '<div class="rc-step" role="group" aria-labelledby="rc-q">'
+    '<button type="button" class="rc-b" data-rc-step="-1" aria-label="One less dog">' + ICON_MINUS20 + '</button>'
+    '<div class="rc-m"><div class="rc-dogs" data-rc-dogs data-furs="' + ','.join(RC_FURS) + '" aria-hidden="true">'
+    + ''.join('<span class="dogf" style="color: %s;">%s</span>' % (c, DOG_SVG) for c in RC_FURS[:2]) +
+    '</div><p class="rc-n" data-rc-label aria-live="polite">2 dogs</p></div>'
+    '<button type="button" class="rc-b" data-rc-step="1" aria-label="One more dog">' + ICON_PLUS20 + '</button>'
+    '</div>'
+    '<ul class="rc-rows">' + ''.join(_rc_row(k, n) for k, n in RC_NAMES) + '</ul>'
+    + DEODOR +
+    '<a href="Booking.dc.html?dogs=2" class="btn btn-dot rc-go" data-rc-book>Book now</a>'
+    '<p class="rc-fine"><strong>[[bf:Black Friday sale: your first month is free.||Your first cleanup is free.]]</strong> No sign up fee. [[bf:No long term contract.||No contract.]]</p>'
+    '</div>')
+
+# The price line in the last call on the home page.
+CTA_PRICE = 'About <b>%s</b> a week for 2 dogs. <span>We bill %s once a month.</span>' % (usd(week('week', 2)), usd(month('week', 2)))
+
+# Under the card: the one time pickup and the way to every price.
+PRICE_MORE = ('<div class="pr-x"><p class="pr-once"><strong>Need one pickup?</strong> A <a href="/one-time-dog-poop-cleanup/">one time pickup</a> starts at %s.</p>'
+              '<div class="pr-xl"><a href="sms:+16233096104" class="tl">Text us for one pickup</a><a href="Pricing.dc.html" class="tl">See every price</a></div></div>' % usd(PRICES['once']))
+
+# Every price in plain lines, for /pricing/, Terms and llms.txt. The weekly plan has its own price for each number of dogs.
+def price_lines():
+    w = PRICES['month']['week']
+    out = ['<strong>Weekly pickup:</strong> ' + ' '.join('%d %s %s a month.' % (i + 1, 'dog' if i == 0 else 'dogs', usd(n)) for i, n in enumerate(w))]
+    for plan, name in (('twice', 'Twice a week pickup'), ('eow', 'Every other week pickup')):
+        t = PRICES['month'][plan]
+        step = t[2] - t[1]
+        same = t[0] == t[1] and all(t[i] - t[i - 1] == step for i in range(2, 6))
+        out.append('<strong>%s:</strong> ' % name + ('1 or 2 dogs %s a month. Each dog after two adds %s a month.' % (usd(t[1]), usd(step)) if same
+                                                    else ' '.join('%d %s %s a month.' % (i + 1, 'dog' if i == 0 else 'dogs', usd(n)) for i, n in enumerate(t))))
+    return out
 
 
-# The price list (Joe, Nov 18, 2026: "It's simplicity, simple." He liked a competitor's plain list: a name, one line, a price, a Book button).
-# One row for each plan and one for the one time pickup. No picker, no table, no fine print. No price changed.
-# The week price is the big number and the month price sits right under it, as always. The home page and /pricing/ show this same list.
-def _prow(name, line, small, big, unit, bill, btn):
-    return ('<div class="pc"><h3 class="pc-n">%s</h3><p class="pc-d">%s</p>'
-            '<p class="pc-p"><small>%s</small><b>%s</b>%s</p><p class="pc-m">%s</p>%s</div>' % (
-                name, line, small, big, '<small>%s</small>' % unit if unit else '', bill, btn))
-
-
-def _pbook(plan, label, cls):
-    return '<a href="Booking.dc.html?plan=%s" class="btn %s" aria-label="Book %s">Book now</a>' % (plan, cls, label)
-
-
-# The home page shows the three plan rows from its own dog picker (Joe, Nov 18, 2026: "I need the slider for the dogs still.
-# They need to be able to pick how many dogs they have."), so its prices follow the number of dogs. The one time row is the same on both.
-PRICE_ROW_ONCE = _prow('One time pickup', 'One visit. No plan needed.', 'From', '$99', '', 'Same day when we have a spot. A big job gets a quote first.',
-                       '<a href="sms:+16233096104" class="btn btn-line" aria-label="Text us to book a one time pickup">Text us</a>')
-PRICE_LIST = ('<div class="pcl">'
-              + _prow('Weekly pickup', 'We come once a week.', 'About', '$25', 'a week', 'We bill $108 once a month.', _pbook('week', 'weekly pickup', 'btn-dot'))
-              + _prow('Twice a week pickup', 'We come two times a week.', 'About', '$44', 'a week', 'We bill $189 once a month.', _pbook('twice', 'twice a week pickup', 'btn-line'))
-              + _prow('Every other week pickup', 'We come every two weeks.', 'About', '$17', 'a week', 'We bill $75 once a month.', _pbook('eow', 'every other week pickup', 'btn-line'))
-              + PRICE_ROW_ONCE
-              + '</div>')
+PRICE_LINES = ''.join('<li>%s</li>' % x for x in price_lines())
 
 
 # ---------- page chrome shared by the home page, the town pages and the policy pages ----------
 HDR_CSS = look.HDR_CSS
 PAGE_CSS = look.PAGE_CSS
+DZ_CSS = look.DZ_CSS  # the deodorizing line, for the sign up form (the pages get it inside PAGE_CSS)
 LF_CSS = look.LF_CSS
 
 # interactive yard game (archived Nov 2026, see design/archive). The parts stay here so it can come back.

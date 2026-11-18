@@ -8,7 +8,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
-import { fakeStripe } from './stripe.fake.mjs';
+import { fakeStripe, unitOf } from './stripe.fake.mjs';
+import { loadPrices } from './prices.mjs';
+const MONTH = loadPrices().month; // dollars a month for 1 to 6 dogs (src/prices.json)
+const cents = (plan, dogs) => MONTH[plan][dogs - 1] * 100;
+const priceOf = (plan, dogs) => 'price_' + plan + '_' + dogs + '_' + cents(plan, dogs);
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const require = createRequire(import.meta.url);
@@ -222,7 +226,13 @@ globalThis.fetch = async (u, init = {}) => {
     const hit = p.startsWith('subscriptions/') && m === 'POST' ? null : pay.handle(m, p, query, f, (init.headers || {})['idempotency-key']);
     if (hit) return hit;
     if (p === 'subscription_items' && m === 'POST') { (subItems[f.get('subscription')] ||= []).push({ id: 'si_x', price: { id: f.get('price') }, quantity: Number(f.get('quantity')) }); itemCalls.push('add ' + f.get('quantity') + ' ' + f.get('proration_behavior')); return reply({ id: 'si_x' }); }
-    if (p.startsWith('subscription_items/')) { itemCalls.push((m === 'DELETE' ? 'remove' : 'set ' + f.get('quantity')) + ' ' + f.get('proration_behavior')); return reply({ id: 'si_x' }); }
+    if (p.startsWith('subscription_items/')) {
+      // A price line is moved to another price (a new dog count), or taken off. si_7_0 is the first line of sub_7.
+      const lid = p.slice(19), sub = 'sub_' + lid.split('_')[1];
+      itemCalls.push((m === 'DELETE' ? 'remove' : 'set ' + (f.get('price') || 'no price') + ' ' + f.get('quantity')) + ' ' + f.get('proration_behavior'));
+      if (m !== 'DELETE' && f.get('price')) subItems[sub] = [{ id: lid, price: { id: f.get('price'), unit_amount: unitOf(f.get('price')) }, quantity: 1 }];
+      return reply({ id: lid });
+    }
     if (p.startsWith('subscriptions/') && m === 'POST') { subPosts.push(p.slice(14) + ' ' + String(init.body)); return reply({ id: p.slice(14), status: 'active' }); }
     if (p === 'invoices' && m === 'GET') return reply({ data: invoiceList.concat(madeBills.filter((b) => b.customer === new URLSearchParams(query).get('customer'))) });
     if (/^invoices\/in_open\d*\/pay$/.test(p)) { payCalls.push(p + ' ' + ((init.headers || {})['idempotency-key'] || '')); return reply({ id: 'in', status: 'paid' }); }
@@ -240,10 +250,10 @@ globalThis.fetch = async (u, init = {}) => {
   return deskFetch(u, init);
 };
 const itemCalls = [];
-const PRICE = { week: [10800, 1300], twice: [18900, 1300], eow: [7500, 900] };
-function subObj(i, extra) { const h = HOMES[i], sub = 'sub_' + ids[i].n; const items = [{ price: { unit_amount: PRICE[h[3]][0] }, quantity: 1 }]; if (h[4] > 2) items.push({ price: { unit_amount: PRICE[h[3]][1] }, quantity: h[4] - 2 });
+// A plan has one price line: the price for its plan and its dog count.
+function subObj(i, extra) { const h = HOMES[i], sub = 'sub_' + ids[i].n; const items = [{ price: { id: priceOf(h[3], h[4]), unit_amount: cents(h[3], h[4]) }, quantity: 1 }];
   return Object.assign({ id: sub, customer: 'cus_' + ids[i].n, status: 'active', metadata: metaOf(sub), items: { data: items } }, extra || {}); }
-const monthOf = (i) => PRICE[HOMES[i][3]][0] + Math.max(0, HOMES[i][4] - 2) * PRICE[HOMES[i][3]][1];
+const monthOf = (i) => cents(HOMES[i][3], HOMES[i][4]);
 async function customerToken(email) { codes[email] = '123456'; const r = await fetch(SB + '/auth/v1/verify', { method: 'POST', body: JSON.stringify({ email, token: '123456' }) }); return (await r.json()); }
 async function hook(evt, opts) {
   const payload = JSON.stringify(evt), t = Math.floor(Date.now() / 1000) - ((opts && opts.old) || 0);
@@ -312,7 +322,7 @@ ok('Stripe’s first bill, worked out line by line, is the one full month every 
   && ids.every((x) => pay.firstBill('sub_' + x.n) === Number(pay.made['sub_' + x.n].get('metadata[first_charge]')) && pay.firstBill('sub_' + x.n) === pay.fullMonth('sub_' + x.n)), mails.filter((x) => /^CHECK BILLING/.test(x.subject)).map((x) => x.text).slice(0, 2));
 ok('one plan and one welcome email for each sign up, however many times it is reported', Object.keys(pay.made).length === N && plansMade === N && bookedMails === N && mails.filter((x) => /^You are booked/.test(x.subject)).length === N, [plansMade, bookedMails]);
 { const f = pay.made['sub_' + ids[3].n], h = HOMES[3];
-  ok('the server starts each plan with our prices and a free month, and sends no billing day or part month setting', f.get('items[0][price]') === 'price_' + h[3] + '_base' && f.get('metadata[user_id]') === ids[3].uid && Number(f.get('trial_end')) > Date.now() / 1000 + 27 * 86400 && Number(f.get('trial_end')) < Date.now() / 1000 + 32 * 86400
+  ok('the server starts each plan with our prices and a free month, and sends no billing day or part month setting', f.get('items[0][price]') === priceOf(h[3], h[4]) && f.get('items[0][quantity]') === '1' && !f.has('items[1][price]') && f.get('metadata[user_id]') === ids[3].uid && Number(f.get('trial_end')) > Date.now() / 1000 + 27 * 86400 && Number(f.get('trial_end')) < Date.now() / 1000 + 32 * 86400
     && Object.values(pay.made).every((x) => ![...x.keys()].some((k) => /billing_cycle_anchor|proration|trial_settings/.test(k))), String(f)); }
 r = await call('/api/checkout/done', 'POST', { session: 'cs_sub_' + ids[1].n }, ids[0].token);
 ok('a customer cannot finish someone else’s sign up', r.status === 403, r.status);
@@ -500,7 +510,7 @@ ok('pause inside a month that was already paid: no extra charge', charges.length
 { // A pause that runs past the bill day: that bill is skipped, and the full month is charged the day they come back.
   const Q = 16, sq = 'sub_' + ids[Q].n, nowS = Math.floor(Date.now() / 1000);
   metaOverride[sq] = { pause_from: String(nowS - 86400) }; pay.status[sq] = 'active';
-  subItems[sq] = [{ id: 'si_q', price: { id: 'price_' + HOMES[Q][3] + '_base' }, quantity: 1, current_period_end: nowS + 2 * 86400 }];
+  subItems[sq] = [{ id: 'si_q', price: { id: priceOf(HOMES[Q][3], HOMES[Q][4]), unit_amount: cents(HOMES[Q][3], HOMES[Q][4]) }, quantity: 1, current_period_end: nowS + 2 * 86400 }];
   await hook({ type: 'customer.subscription.updated', data: { object: subObj(Q, { status: 'active' }) } });
   mails.length = 0;
   r = await call('/api/me/pause', 'POST', { until: new Date(Date.parse(today + 'T19:00:00Z') + 5 * 86400e3).toISOString().slice(0, 10) }, ids[Q].token);
@@ -521,11 +531,11 @@ console.log('\nDog count and prepaid cards');
 const Dg = HOMES.findIndex((h, i) => i > 20 && h[4] <= 2);
 mails.length = 0;
 r = await call('/api/office/customer', 'POST', { id: ids[Dg].uid, dogs: 4 }, owner);
-ok('office changes a home from ' + HOMES[Dg][4] + ' dogs to 4: Stripe gets 2 extra dogs with no charge today', r.status === 200 && itemCalls.join() === 'add 2 none', itemCalls);
-ok('the customer gets an email with the new price', mails.some((x) => /updated your plan to 4 dogs/.test(x.subject) && x.text.includes('$' + ((PRICE[HOMES[Dg][3]][0] + 2 * PRICE[HOMES[Dg][3]][1]) / 100))), mails.map((x) => x.subject));
+ok('office changes a home from ' + HOMES[Dg][4] + ' dogs to 4: the plan line moves to the 4 dog price, with no charge today', r.status === 200 && itemCalls.join() === 'set ' + priceOf(HOMES[Dg][3], 4) + ' 1 none', itemCalls);
+ok('the customer gets an email with the new price', mails.some((x) => /updated your plan to 4 dogs/.test(x.subject) && x.text.includes('$' + MONTH[HOMES[Dg][3]][3] + ' a month')), mails.map((x) => x.subject));
 ok('the CRM shows 4 dogs', (await db.query('select dogs from customers where id = $1', [ids[Dg].uid])).rows[0].dogs === 4);
 r = await call('/api/office/customer', 'POST', { id: ids[Dg].uid, dogs: 2 }, owner);
-ok('back to 2 dogs removes the extra dog line', itemCalls[1] === 'remove none', itemCalls);
+ok('back to 2 dogs moves the line to the 2 dog price', itemCalls[1] === 'set ' + priceOf(HOMES[Dg][3], 2) + ' 1 none', itemCalls);
 r = await call('/api/office/customer', 'POST', { id: ids[Dg].uid, dogs: 40 }, owner);
 ok('40 dogs is refused', r.status === 400);
 r = await call('/api/office/customer', 'POST', { id: ids[Dg].uid, dogs: 5 }, maria);

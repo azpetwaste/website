@@ -338,11 +338,57 @@
     try { u = new URL(a.href, location.href); } catch (err) { return; }
     if (u.origin === location.origin && /\/book\/(index\.html)?$/.test(u.pathname)) {
       e.preventDefault();
-      // a Book button in the price list carries its plan (/book/?plan=twice), so sign up opens on that plan
-      var o = intent(), pl = u.searchParams.get('plan');
+      // The Book now button on the price card carries its dog count (/book/?dogs=3), so sign up opens with that many
+      // dogs. A link may carry a plan the same way (/book/?plan=twice).
+      var o = intent(), pl = u.searchParams.get('plan'), dg = parseInt(u.searchParams.get('dogs'), 10);
       if (/^(week|twice|eow)$/.test(pl || '')) o.plan = pl;
+      if (dg >= 1 && dg <= 6) o.dogs = dg;
       APW.openBook(o);
     }
+  });
+
+  /* ---------- the price card: pick how many dogs, and the prices follow ---------- */
+  // The card (PRICE_CARD in design/generator/parts.py) is plain HTML with the prices for 2 dogs. Its whole price
+  // table rides along in data-rc: the numbers from src/prices.json. The two round buttons change the dog count, and
+  // the week prices, the month prices, the dog pictures and the Book now link follow. The count lives on the card
+  // itself (data-rc-n), so a page with two cards, or a page that is drawn again, never gets it wrong.
+  function drawCard(card, n) {
+    var t;
+    try { t = JSON.parse(card.getAttribute('data-rc')); } catch (err) { return; }
+    card.setAttribute('data-rc-n', String(n));
+    ['week', 'twice', 'eow'].forEach(function (k) {
+      var m = t[k] && t[k][n - 1];
+      if (!m) return;
+      var wk = card.querySelector('[data-rc-wk="' + k + '"]'), mo = card.querySelector('[data-rc-mo="' + k + '"]');
+      // the month price spread over the year, to the nearest dollar: the same sum as _week in the sign up form
+      if (wk) wk.textContent = '$' + Math.round(m * 12 / 52);
+      if (mo) mo.textContent = 'We bill $' + m + ' once a month.';
+    });
+    var label = card.querySelector('[data-rc-label]');
+    if (label) label.textContent = n === 1 ? '1 dog' : n + ' dogs';
+    var box = card.querySelector('[data-rc-dogs]');
+    if (box && box.firstElementChild) {
+      var furs = (box.getAttribute('data-furs') || '').split(',');
+      while (box.children.length > n) box.removeChild(box.lastElementChild);
+      while (box.children.length < n) {
+        var dog = box.firstElementChild.cloneNode(true);
+        dog.style.color = furs[box.children.length % furs.length] || '';
+        box.appendChild(dog);
+      }
+    }
+    var less = card.querySelector('[data-rc-step="-1"]'), more = card.querySelector('[data-rc-step="1"]');
+    if (less) less.setAttribute('aria-disabled', n <= 1 ? 'true' : 'false');
+    if (more) more.setAttribute('aria-disabled', n >= 6 ? 'true' : 'false');
+    var book = card.querySelector('[data-rc-book]');
+    if (book) book.setAttribute('href', '/book/?dogs=' + n);
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-rc-step]');
+    var card = b && b.closest('[data-rc]');
+    if (!card) return;
+    var n = parseInt(card.getAttribute('data-rc-n'), 10) || 2;
+    var next = Math.max(1, Math.min(6, n + (parseInt(b.getAttribute('data-rc-step'), 10) || 0)));
+    if (next !== n) drawCard(card, next);
   });
 
   /* ---------- start ---------- */

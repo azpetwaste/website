@@ -3,7 +3,17 @@
 // the server starts the plan itself with POST /v1/subscriptions. (A sign up with no free month, where Stripe's own
 // plan checkout charges the first month, is covered in worker.test.mjs.) Ids are tied together so a test can follow one customer:
 // cus_7 gets session cs_sub_7, card pm_7, setup intent seti_7 and plan sub_7.
-const UNIT = { week: [10800, 1300], twice: [18900, 1300], eow: [7500, 900] };
+// What a price costs. A price id carries its plan, its dog count and its amount in cents: price_week_2_9900 is every
+// week, 2 dogs, $99 (the server finds it by the key apw_week_2_9900, see priceId in worker.js). The older ids
+// (price_week_base, price_week_extra) are what a plan from before November 18, 2026 holds.
+const OLD = { week: [10800, 1300], twice: [18900, 1300], eow: [7500, 900] };
+export function unitOf(priceId) {
+  let m = /^price_(week|twice|eow)_(\d+)_(\d+)$/.exec(priceId);
+  if (m) return Number(m[3]);
+  m = /^price_(week|twice|eow)_(base|extra)$/.exec(priceId);
+  if (m) return OLD[m[1]][m[2] === 'base' ? 0 : 1];
+  throw new Error('pretend Stripe: no such price ' + priceId);
+}
 export function fakeStripe(reply) {
   const st = { cusN: 0, sessions: {}, made: {}, keys: {}, metaOverride: {}, prepaid: new Set(), subItems: {}, status: {}, bills: {}, previews: [] };
   const meta = (f) => (f ? Object.fromEntries([...f.entries()].filter(([k]) => k.startsWith('metadata[')).map(([k, v]) => [k.slice(9, -1), v])) : {});
@@ -11,7 +21,13 @@ export function fakeStripe(reply) {
   // The dates are the ones the server sent when it started the plan. With no billing day sent, Stripe lines the bills
   // up on the day the free month ends.
   const dates = (sub) => { const f = st.made[sub]; return f ? { trial_end: Number(f.get('trial_end')), billing_cycle_anchor: Number(f.get('billing_cycle_anchor') || f.get('trial_end')) } : {}; };
-  const plan = (sub) => Object.assign({ id: sub, object: 'subscription', customer: 'cus_' + sub.slice(4), status: st.status[sub] || 'trialing', pause_collection: null, metadata: st.metaOf(sub), items: { data: st.subItems[sub] || [] } }, dates(sub));
+  // The price lines of a plan as the server made it: si_7_0 is the first line of sub_7. A test can put its own in st.subItems.
+  st.linesOf = (sub) => {
+    const f = st.made[sub], out = [];
+    for (let i = 0; f && f.get('items[' + i + '][price]'); i++) out.push({ id: 'si_' + sub.slice(4) + '_' + i, price: { id: f.get('items[' + i + '][price]'), unit_amount: unitOf(f.get('items[' + i + '][price]')) }, quantity: Number(f.get('items[' + i + '][quantity]')) });
+    return out;
+  };
+  const plan = (sub) => Object.assign({ id: sub, object: 'subscription', customer: 'cus_' + sub.slice(4), status: st.status[sub] || 'trialing', pause_collection: null, metadata: st.metaOf(sub), items: { data: st.subItems[sub] || st.linesOf(sub) } }, dates(sub));
   // What the plan remembers: what the server saved on it when it started the plan (before that, what rode on the card form).
   st.metaOf = (sub) => Object.assign({}, meta(st.made[sub] || st.sessions[sub]), st.metaOverride[sub] || {});
   // One full month of a plan: every line at its price.
@@ -19,8 +35,7 @@ export function fakeStripe(reply) {
     const f = st.made[sub];
     let total = 0;
     for (let i = 0; f && f.get('items[' + i + '][price]'); i++) {
-      const m = /^price_(week|twice|eow)_(base|extra)$/.exec(f.get('items[' + i + '][price]'));
-      total += UNIT[m[1]][m[2] === 'base' ? 0 : 1] * Number(f.get('items[' + i + '][quantity]'));
+      total += unitOf(f.get('items[' + i + '][price]')) * Number(f.get('items[' + i + '][quantity]'));
     }
     return total;
   };
@@ -34,8 +49,7 @@ export function fakeStripe(reply) {
     const end = Number(f.get('trial_end')), day = Number(f.get('billing_cycle_anchor') || 0);
     let total = 0;
     for (let i = 0; f.get('items[' + i + '][price]'); i++) {
-      const m = /^price_(week|twice|eow)_(base|extra)$/.exec(f.get('items[' + i + '][price]'));
-      const amount = UNIT[m[1]][m[2] === 'base' ? 0 : 1] * Number(f.get('items[' + i + '][quantity]'));
+      const amount = unitOf(f.get('items[' + i + '][price]')) * Number(f.get('items[' + i + '][quantity]'));
       if (!(day > end)) { total += amount; continue; }
       const d = new Date(day * 1000);
       const monthStart = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()) / 1000;
@@ -50,7 +64,11 @@ export function fakeStripe(reply) {
   st.handle = (m, p, query, f, key) => {
     if (p === 'customers' && m === 'POST') return reply({ id: 'cus_' + (++st.cusN) });
     if (p.startsWith('customers/')) return reply({ id: p.slice(10), invoice_settings: { default_payment_method: m === 'GET' ? card(p.slice(14)) : f.get('invoice_settings[default_payment_method]') } });
-    if (p.startsWith('prices')) return reply({ data: ['week', 'twice', 'eow'].flatMap((k) => ['base', 'extra'].map((t) => ({ id: 'price_' + k + '_' + t, lookup_key: 'apw_' + k + '_' + t }))) });
+    // Every price the server asks for by key is "already in Stripe" here, so nothing is made (making one is covered in worker.test.mjs).
+    if (p === 'prices' && m === 'GET') {
+      const want = [...new URLSearchParams(query).entries()].filter(([k]) => k.startsWith('lookup_keys')).map(([, v]) => v);
+      return reply({ data: want.filter((k) => /^apw_(week|twice|eow)_(\d+_\d+|base|extra)$/.test(k)).map((k) => ({ id: 'price_' + k.slice(4), lookup_key: k, unit_amount: unitOf('price_' + k.slice(4)) })) });
+    }
     if (p === 'checkout/sessions' && m === 'POST') { const sub = 'sub_' + f.get('customer').slice(4); st.sessions[sub] = f; return reply({ id: 'cs_' + sub, client_secret: 'cs_' + sub }); }
     if (p.startsWith('checkout/sessions/') && m === 'GET') {
       const sub = p.slice(21), f0 = st.sessions[sub];

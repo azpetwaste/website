@@ -386,7 +386,7 @@ r = await call('/api/office/text', 'POST', { id: r.d.texts[0].id, status: 'sent'
 r = await call('/api/office/texts', 'GET', null, owner);
 ok('mark sent', r.d.texts.length === 0);
 r = await call('/api/office/customer?id=' + cid, 'GET', null, owner);
-ok('customer page shows visit and texts', r.d.visits.length === 1 && r.d.texts.length === 2 && r.d.monthly === 10800, { v: r.d.visits.length, t: r.d.texts.length, m: r.d.monthly });
+ok('customer page shows visit and texts', r.d.visits.length === 1 && r.d.texts.length === 2 && r.d.monthly === 9900, { v: r.d.visits.length, t: r.d.texts.length, m: r.d.monthly });
 r = await call('/api/office/customer', 'POST', { id: cid, gate_code: '4471#', pause_from: '2026-12-20', pause_until: '2027-01-03', office_notes: 'Side gate' }, owner);
 ok('office saves gate code and pause', r.d.customer.gate_code === '4471#' && r.d.customer.pause_from === '2026-12-20');
 r = await call('/api/office/customers?show=current&q=rivera', 'GET', null, owner);

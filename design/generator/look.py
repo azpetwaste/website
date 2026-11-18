@@ -133,7 +133,7 @@ MAP_FIX_CSS = _min(r"""
 .apw .zipr-ok{display:flex;gap:12px;align-items:flex-start;border-color:var(--ok)}
 .apw .zipr-ok>span{display:grid;place-items:center;flex:0 0 28px;width:28px;height:28px;border-radius:50%;background:var(--ok);color:#0A0F24}
 .apw .zipr-ok b{display:block;font-size:18px}
-.apw .zipr-ok small{display:block;margin-top:2px;font-size:14px;color:var(--mute)}
+.apw .zipr-ok small{display:block;margin-top:2px;font-size:15px;color:var(--mute)}
 .apw .zipr-ok p{margin-top:6px}
 .apw .zipe{margin:12px 0 0;font-size:15px;color:var(--accent-text)}
 @media (min-width:1024px){.apw .map{margin:0;border-radius:6px}}
@@ -273,15 +273,36 @@ DD_CSS = _min(r"""
 .apw .dnav .ddp a{display:grid;gap:2px;min-height:0;padding:10px 12px;border-radius:8px;white-space:normal;font-size:18px}
 .apw .dnav .ddp a:hover,.apw .dnav .ddp a:focus-visible{background:rgba(255,255,255,.07);color:var(--ink)}
 .apw .ddp b{font-weight:750}
-.apw .ddp span{font-family:var(--f-text);font-size:14px;font-weight:400;color:var(--mute)}
+.apw .ddp span{font-family:var(--f-text);font-size:15px;font-weight:400;color:var(--mute)}
 .apw .dnav .ddp .dda{margin-top:4px;padding-top:12px;border-top:1px solid var(--line);border-radius:0 0 8px 8px;font-size:17px;font-weight:750;color:var(--accent-text)}
 .apw .ddg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;width:620px}
-.apw .ddh{margin:8px 12px 4px;font-size:14px;font-weight:700;color:var(--mute)}
+.apw .ddh{margin:8px 12px 4px;font-size:15px;font-weight:700;color:var(--mute)}
 @media (prefers-reduced-motion:reduce){.apw .ddc,.apw .ddm{transition:none}}
 """)
 HDR_CSS += DD_CSS
 
 # ---------- page layout: home and town pages ----------
+# The deodorizing line (Joe, Nov 18, 2026): "Deodorizing treatment", the old price with a RED slash through it, $0 and a
+# FREE tag, wherever prices show. The markup is DEODOR in parts.py. On its own it is drawn for the navy page (the sign
+# up form). Inside the price card the colors are the card's.
+DZ_CSS = _min(r"""
+.apw .vh{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+.apw .dz{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:14px;align-items:center;margin:0;padding:16px 0 0}
+.apw .dz .dz-n{margin:0;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:21px;letter-spacing:0;line-height:1.2;color:var(--ink)}
+.apw .dz .dz-tag{display:inline-block;margin-left:0;padding:4px 9px 3px;border-radius:6px;background:#FF4A1C;color:#0E1430;font-family:var(--f-head);font-stretch:90%;font-weight:850;font-size:15px;letter-spacing:.05em;line-height:1.15;vertical-align:2px}
+.apw .dz .dz-p{display:flex;align-items:baseline;gap:12px;margin:0;white-space:nowrap}
+.apw .dz .dz-was{position:relative;font-family:var(--f-head);font-stretch:84%;font-weight:700;font-size:21px;line-height:1;color:var(--mute);text-decoration:none}
+.apw .dz .dz-was::after{content:"";position:absolute;left:-6px;right:-6px;top:50%;height:3px;margin-top:-2px;border-radius:2px;background:#F01E2E;transform:rotate(-14deg)}
+.apw .dz .dz-now{font-family:var(--f-head);font-stretch:66%;font-weight:900;font-size:50px;letter-spacing:-.01em;line-height:.9;color:var(--ink);text-decoration:none}
+.apw .dz .dz-l{grid-column:1/-1;margin:8px 0 0;font-size:16px;line-height:1.45;color:var(--ink2)}
+@media (min-width:1024px){
+.apw .rc .dz .dz-n{font-size:26px}
+.apw .rc .dz .dz-was{font-size:24px}
+.apw .rc .dz .dz-now{font-size:60px}
+.apw .rc .dz .dz-l{font-size:17px}
+}
+""")
+
 PAGE_CSS = HDR_CSS + _min(r"""
 .apw .pg{position:relative;background:var(--bg);overflow-x:clip}
 .apw .in{width:100%;max-width:600px;margin-left:auto;margin-right:auto}
@@ -328,7 +349,7 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .seals-l li{display:flex;align-items:center;gap:10px;min-width:0}
 .apw .seal-i{flex:0 0 42px;width:42px;height:42px;display:block}
 .apw .seals-l b{display:block;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:18px;line-height:1.05;color:#F6F4EF}
-.apw .seals-l small{display:block;margin-top:3px;font-size:14px;line-height:1.25;color:#AEB5D8}
+.apw .seals-l small{display:block;margin-top:3px;font-size:15px;line-height:1.25;color:#AEB5D8}
 .apw .seals-l .seals-go{grid-column:1 / -1}
 .apw .seals-go .tl{font-size:16px;white-space:nowrap}
 
@@ -364,30 +385,76 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .plan-s{grid-area:s;align-self:start;font-size:15px;line-height:1.3;color:var(--mute)}
 .apw .plan-p{grid-area:p;display:flex;flex-direction:column;align-items:flex-end;font-family:var(--f-head);font-stretch:68%;font-weight:850;font-size:42px;line-height:1}
 .apw .plan-p small{margin-top:3px;font-family:var(--f-text);font-stretch:104%;font-weight:400;font-size:14px;line-height:1.2;color:var(--mute)}
-/* the price list: a name, one line, a price, a Book button. Rows with thin rules, no boxes */
-.apw .pcl{margin:28px 0 0;border-top:1px solid var(--line)}
-.apw .pcl .pc{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"n p" "d p" "m m" "b b";grid-template-rows:auto 1fr auto auto;column-gap:16px;align-items:start;margin:0;padding:22px 0 24px;border-bottom:1px solid var(--line)}
-.apw .pcl .pc-n{grid-area:n;margin:0;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:25px;letter-spacing:0;line-height:1.1;color:var(--ink)}
-.apw .pcl .pc-d{grid-area:d;margin:8px 0 0;font-size:17px;line-height:1.45;color:var(--ink2)}
-.apw .pcl .pc-p{grid-area:p;display:flex;flex-direction:column;align-items:flex-end;margin:0;font-size:15px;line-height:1.2;color:var(--mute);white-space:nowrap}
-.apw .pcl .pc-p b{margin:2px 0 3px;font-family:var(--f-head);font-stretch:66%;font-weight:900;font-size:58px;letter-spacing:-.01em;line-height:.84;color:var(--ink)}
-.apw .pcl .pc-m{grid-area:m;margin:12px 0 0;font-size:16px;line-height:1.45;color:var(--mute)}
-.apw .pcl .pc .btn{grid-area:b;margin:16px 0 0;font-weight:750;text-decoration:none}
-.apw .pc-dogs{max-width:380px;margin:28px 0 0}
-.apw .pc-q{margin:0 0 14px;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:22px;line-height:1.15;color:var(--ink)}
-.apw .pc-dogs+.pcl{margin-top:26px}
-.apw .pc-x{margin:18px 0 0;font-size:16px;line-height:1.55;color:var(--ink2)}
-.apw .pc-x strong{color:var(--ink)}
-.apw .sec>.in>.tl{margin-top:8px}
+/* The price card (Joe, Nov 18, 2026: "There's something off there... give it a luxury feel... less is more").
+   One printed card on the navy page, like the sale coupon and the gate prints: cream paper, ink type, thin rules.
+   Top to bottom: how many dogs, three prices, the free deodorizing line, one Book now button. Nothing else.
+   The markup is PRICE_CARD in parts.py. src/runtime/apw.js (priceCard) moves the numbers when a dog is added. */
+.apw .prw{display:grid;grid-template-columns:minmax(0,1fr)}
+.apw .prw-c{margin-top:26px}
+.apw .rc{padding:22px 20px 22px;border-radius:12px;background:#F6F4EF;color:#0E1430}
+.apw .rc .rc-q{margin:0;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:23px;line-height:1.15;color:#0E1430}
+.apw .rc .rc-step{display:flex;align-items:center;gap:10px;margin-top:14px}
+.apw .rc .rc-b{width:54px;height:54px;flex:0 0 54px;display:grid;place-items:center;padding:0;border-radius:12px;border:2px solid rgba(14,20,48,.5);background:transparent;color:#0E1430;cursor:pointer}
+.apw .rc .rc-b svg{width:24px;height:24px}
+.apw .rc .rc-b:hover{border-color:#0E1430}
+.apw .rc .rc-b:focus-visible{outline:3px solid #0E1430;outline-offset:2px}
+.apw .rc .rc-b[aria-disabled="true"]{opacity:.32;cursor:default}
+.apw .rc .rc-m{flex:1;min-width:0;text-align:center}
+.apw .rc .rc-dogs{display:flex;flex-wrap:wrap;justify-content:center;gap:1px;min-height:40px}
+.apw .rc .rc-dogs .dogf{width:40px;height:40px}
+.apw .rc .rc-n{margin:4px 0 0;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:23px;line-height:1;color:#0E1430}
+.apw .rc .rc-rows{list-style:none;margin:20px 0 0;padding:0;border-top:2px solid #0E1430}
+.apw .rc .rc-r::marker{content:none}
+.apw .rc .rc-r{display:grid;font-size:inherit;line-height:inherit;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"n p" "b b";column-gap:14px;align-items:end;margin:0;padding:11px 0 16px;border-bottom:1px solid rgba(14,20,48,.18)}
+.apw .rc .rc-l{display:contents}
+.apw .rc .rc-name{grid-area:n;margin:0;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:22px;letter-spacing:0;line-height:1.12;color:#0E1430}
+.apw .rc .rc-bill{grid-area:b;margin:8px 0 0;font-size:16px;line-height:1.35;color:#3E4668}
+.apw .rc .rc-p{grid-area:p;display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin:0;font-size:15px;line-height:1.1;color:#3E4668;white-space:nowrap}
+.apw .rc .rc-p>span{display:flex;align-items:baseline;gap:5px}
+.apw .rc .rc-p small{font-size:15px}
+.apw .rc .rc-p b{font-family:var(--f-head);font-stretch:66%;font-weight:900;font-size:50px;letter-spacing:-.01em;line-height:.9;color:#0E1430}
+.apw .rc .dz{padding:16px 0 2px;align-items:end}
+.apw .rc .dz .dz-n,.apw .rc .dz .dz-now{color:#0E1430}
+.apw .rc .dz .dz-n{font-size:22px}
+.apw .rc .dz .dz-was,.apw .rc .dz .dz-l{color:#3E4668}
+.apw .rc .rc-go{margin-top:18px;text-decoration:none}
+.apw .rc .btn-dot:focus-visible{outline-color:#0E1430}
+.apw .rc .rc-fine{margin:12px 0 0;font-size:15px;line-height:1.5;color:#3E4668;text-align:center}
+.apw .rc .rc-fine strong{color:#0E1430}
+.apw .doc .rc{max-width:600px;margin-top:22px}
+.apw .pr-x{margin-top:22px}
+.apw .pr-once{margin:0;font-size:17px;line-height:1.55;color:var(--ink2)}
+.apw .pr-once strong{color:var(--ink)}
+.apw .pr-xl{display:flex;flex-wrap:wrap;gap:2px 26px;margin-top:8px}
+.apw .prw .pr-deal{margin-top:22px}
+@media (max-width:359px){
+.apw .rc{padding:20px 16px}
+.apw .rc .rc-p b{font-size:44px}
+.apw .rc .rc-name{font-size:20px}
+.apw .rc .rc-dogs .dogf{width:34px;height:34px}
+}
+@media (min-width:700px){
+.apw .rc .rc-r{grid-template-areas:"n p" "b p";align-items:center}
+.apw .rc .rc-bill{margin-top:5px}
+}
+@media (min-width:700px) and (max-width:1023px){
+.apw .rc{padding:28px 30px 28px}
+}
 @media (min-width:1024px){
-.apw .pcl{margin-top:40px}
-.apw .pcl .pc{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) 240px;grid-template-areas:"n p b" "d m b";grid-template-rows:auto auto;column-gap:40px;align-items:center;padding:26px 0 28px}
-.apw .pcl .pc-n{font-size:30px}
-.apw .pcl .pc-d{margin-top:6px;font-size:18px}
-.apw .pcl .pc-p{flex-direction:row;align-items:baseline;gap:8px;font-size:17px}
-.apw .pcl .pc-p b{margin:0;font-size:64px}
-.apw .pcl .pc-m{margin-top:6px}
-.apw .pcl .pc .btn{margin:0}
+.apw .prw{grid-template-columns:minmax(0,1fr) minmax(0,540px);grid-template-areas:"h c" "x c" ". c";column-gap:88px;align-items:start}
+.apw .prw-h{grid-area:h}
+.apw .prw-c{grid-area:c;margin-top:8px}
+.apw .prw .pr-x{grid-area:x;margin-top:30px}
+.apw .rc{padding:32px 34px 30px}
+.apw .rc .rc-q{font-size:26px}
+.apw .rc .rc-n{font-size:26px}
+.apw .rc .rc-dogs .dogf{width:46px;height:46px}
+.apw .rc .rc-r{padding:19px 0 20px}
+.apw .rc .rc-name{font-size:26px}
+.apw .rc .rc-bill{font-size:17px}
+.apw .rc .rc-p b{font-size:60px}
+.apw .rc .rc-go{min-height:64px;margin-top:22px;font-size:22px}
+.apw .pr-once{font-size:19px}
 }
 .apw .pr-line{margin:0;font-size:17px;font-weight:700;color:var(--ink2)}
 .apw .pr-total{display:flex;align-items:baseline;gap:10px;margin:8px 0 0;font-size:21px;color:var(--ink2)}
@@ -438,7 +505,7 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .steps>li::before{content:counter(s);font-family:var(--f-head);font-stretch:66%;font-weight:900;font-size:62px;line-height:.8;color:var(--accent)}
 .apw .steps h3{margin:0;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:24px;line-height:1.1;color:var(--ink)}
 .apw .steps p{margin:8px 0 0;font-size:17px;line-height:1.5;color:var(--ink2)}
-.apw .steps .bub-c{margin-top:6px;font-size:14px;color:var(--mute)}
+.apw .steps .bub-c{margin-top:6px;font-size:15px;color:var(--mute)}
 .apw .how-r .tl{margin-top:14px}
 .apw .pr-sum>.tl{margin-top:10px}
 .apw .print-b{width:min(100%,420px);margin:18px 0 6px 4px;transform:rotate(-1.4deg)}
@@ -483,11 +550,26 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .sky svg{display:block;width:100%;height:clamp(130px,19vw,240px)}
 .apw .cta-ph{max-width:1200px;margin:0 auto 48px}
 .apw .cta-ph img{aspect-ratio:16/10;object-position:30% 42%}
+/* The last call on the home page (Joe, Nov 18, 2026: "The random picture showing Juan at the gate... I like it. There's
+   just something missing there."). The photo now has a job and words of its own, and the offer sits right by it: what
+   it costs, one button, the phone number. One piece, not a picture and then a poster. */
+.apw .cta2{padding-top:76px;text-align:left}
+.apw .cta2 .cta-ph{max-width:none;margin:0 0 28px}
+.apw .cta2 .cta-ph img{aspect-ratio:4/3;object-position:32% 40%;border-radius:12px}
+.apw .cta2 .cta-ph figcaption{margin-top:12px;font-size:17px;font-weight:700;line-height:1.4;color:var(--ink)}
+.apw .cta2 .cta-h{font-size:clamp(50px,15vw,68px)}
+.apw .cta-pr{margin:14px 0 0;font-size:19px;line-height:1.4;color:var(--ink2)}
+.apw .cta-pr b{font-family:var(--f-head);font-stretch:66%;font-weight:900;font-size:46px;letter-spacing:-.01em;line-height:.9;color:var(--ink)}
+.apw .cta-pr span{display:block}
+.apw .cta2 .btn{max-width:none;margin:22px 0 0}
+.apw .cta2 .hero-call{justify-content:flex-start}
+.apw .cta2 .cta-s{margin-top:4px}
 .skm1{fill:#2B3468}.skm2{fill:#1E2650}.skg{fill:#2A2F4A}
 
 /* town pages */
-.apw .crumb{display:flex;flex-wrap:wrap;gap:4px 8px;margin:0 0 18px;font-size:15px;line-height:1.4;color:var(--mute)}
-.apw .crumb a{color:var(--ink2);font-weight:700;text-decoration:none}
+.apw .crumb{display:flex;flex-wrap:wrap;gap:0 8px;margin:0 0 6px;font-size:15px;line-height:1.4;color:var(--mute)}
+.apw .crumb{align-items:center}
+.apw .crumb a{display:inline-flex;align-items:center;min-height:44px;color:var(--ink2);font-weight:700;text-decoration:none}
 .apw .crumb a:hover{text-decoration:underline}
 .apw .h1-city{font-size:clamp(44px,14.4vw,64px)}
 .apw .hero-m{order:6;margin:34px -20px 0}
@@ -550,13 +632,13 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .fseals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 12px;margin-top:42px;padding-top:30px;border-top:1px solid rgba(255,255,255,.14)}
 .apw .fseal{display:flex;align-items:center;gap:10px;margin:0;min-width:0}
 .apw .fseal b{display:block;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:19px;line-height:1.05;color:#FFFFFF}
-.apw .fseal small{display:block;margin-top:3px;font-size:14px;line-height:1.25;color:#AEB5D8}
+.apw .fseal small{display:block;margin-top:3px;font-size:15px;line-height:1.25;color:#AEB5D8}
 .apw .fproof{display:flex;align-items:center;margin:0}
 .apw .fproof a{display:inline-flex;align-items:center;min-height:44px;color:#F6F4EF;font-size:16px;font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:5px;text-decoration-color:#FF4A1C}
 .apw .ffam{grid-column:1 / -1;display:flex;align-items:center;gap:12px;margin:8px 0 0;font-family:var(--f-head);font-stretch:74%;font-weight:850;font-size:34px;line-height:1;color:#FFFFFF}
 .apw .ffam svg{flex:0 0 auto;width:38px;height:38px}
 .apw .flegal{display:flex;flex-wrap:wrap;gap:0 20px;margin-top:26px}
-.apw .fcopy{margin:14px 0 0;font-size:14px;line-height:1.6;color:#AEB5D8}
+.apw .fcopy{margin:14px 0 0;font-size:15px;line-height:1.6;color:#AEB5D8}
 
 @media (max-height:600px) and (max-width:1023px){.apw .hero-h1{font-size:44px}.apw .hero{padding-top:16px}}
 @media (min-width:760px){
@@ -637,6 +719,16 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .cta-h{font-size:clamp(104px,10.4vw,160px)}
 .apw .cta .btn{display:inline-flex;min-width:340px;min-height:66px;margin-top:36px;font-size:23px}
 .apw .cta .hero-call{justify-content:center;margin-top:12px;font-size:19px}
+.apw .cta2{padding-top:140px}
+.apw .cta2 .cta-g{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);column-gap:88px;align-items:center}
+.apw .cta2 .cta-ph{margin:0}
+.apw .cta2 .cta-ph img{aspect-ratio:4/3}
+.apw .cta2 .cta-ph figcaption{font-size:19px}
+.apw .cta2 .cta-h{font-size:clamp(76px,7.2vw,108px)}
+.apw .cta-pr{margin-top:20px;font-size:22px}
+.apw .cta-pr b{font-size:60px}
+.apw .cta2 .btn{display:inline-flex;min-width:340px;margin-top:30px}
+.apw .cta2 .hero-call{justify-content:flex-start}
 .apw .sky{margin:64px -40px 0}
 .apw .h1-city{font-size:clamp(76px,7.3vw,106px)}
 .apw .hero-town{padding-bottom:84px}
@@ -656,7 +748,7 @@ PAGE_CSS = HDR_CSS + _min(r"""
 }
 @media (min-width:1240px){.apw .seals-l{gap:44px}.apw .seals-l b{font-size:20px}}
 @media (prefers-reduced-motion:reduce){.apw .fold>summary::after{transition:none}}
-""")
+""") + DZ_CSS
 
 # long form town pages: neighborhood cards, guide sections, sources
 LF_CSS = _min(r"""
@@ -675,7 +767,7 @@ LF_CSS = _min(r"""
 .apw .lfb li::marker{color:var(--accent)}
 .apw .lfb strong{color:var(--ink)}
 .apw .lfb ul.src{font-size:15px;line-height:1.5}
-.apw .lfb .upd{margin-top:18px;font-size:14px;color:var(--mute)}
+.apw .lfb .upd{margin-top:18px;font-size:15px;color:var(--mute)}
 @media (min-width:1024px){.apw .lfb{margin-top:0}.apw .lfb p,.apw .lfb ul{font-size:18px}.apw .lfb ul.src{font-size:15px}}
 """)
 

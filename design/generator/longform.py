@@ -7,14 +7,22 @@ Each town gives:
   sections: [(id, h2, [(h3, text)])] text is paragraphs split by a blank line; lines that start with "- " are a list
 Links to our own pages use the canvas file names (CityVerrado.dc.html and so on); the site export maps them."""
 import html as _html
+import json as _json
+import math as _math
+import os as _os
 import re
+
+# Prices come from the one price file, src/prices.json (see parts.py). Never type a price into this copy.
+_ALL = _json.load(open(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), '..', '..', 'src', 'prices.json'), encoding='utf8'))
+_P = _ALL['month']
+_wk = lambda plan, dogs=2: int(_math.floor(_P[plan][dogs - 1] * 12 / 52.0 + .5))  # noqa: E731
 
 UPDATED = 'November 7, 2026'
 
 # ---------- shared copy ----------
 
-PRICES = ('Every week is about $25 a week for 1 or 2 dogs. We bill it once a month: $108. Every other week is $75 a month, '
-          'and twice a week is $189 a month. Each dog after two adds $13 a month ($9 every other week).')
+PRICES = ('Every week is about $%d a week for 2 dogs. We bill it once a month: $%d. One dog is $%d a month. Every other week is $%d a month, '
+          'and twice a week is $%d a month, for 1 or 2 dogs.' % (_wk('week'), _P['week'][1], _P['week'][0], _P['eow'][1], _P['twice'][1]))
 
 
 def ask(town, zips):
@@ -54,7 +62,7 @@ def faq_common(town):
     """Questions every town page answers. Town pages add their own on top."""
     return [
         ('How much does a pooper scooper cost in %s?' % town,
-         'With us, weekly pickup is about $25 a week for 1 or 2 dogs. We bill it once a month: $108. Every other week is $75 a month. '
+         'With us, weekly pickup is about $%d a week for 2 dogs. We bill it once a month: $%d. One dog is $%d a month. Every other week is $%d a month. ' % (_wk('week'), _P['week'][1], _P['week'][0], _P['eow'][1]) +
          'There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, '
          'if there is a first cleanup fee, and if spray costs extra.'),
         ('Where should I throw away dog poop?',
@@ -65,7 +73,7 @@ def faq_common(town):
         ('Can you get rid of turf smell?',
          'Every visit includes deodorizing free, on rock and turf yards alike. We spray the spots your dogs use most. It costs you nothing.'),
         ('Do you do one time pickups?',
-         'Yes. A one time pickup starts at $99. A big job, like a yard that has not been cleaned in a long time, gets a quote first. Text us a photo and we send you the price.'),
+         'Yes. A one time pickup starts at $%d. ' % _ALL['once'] + 'A big job, like a yard that has not been cleaned in a long time, gets a quote first. Text us a photo and we send you the price.'),
         ('Can you come the same day?',
          'Yes, when we have a spot. If you have a party or guests coming, text us as early as you can. Same day costs the same as a one time pickup.'),
         ('Do I need to be home?',

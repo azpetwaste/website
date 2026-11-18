@@ -47,8 +47,9 @@ def save(page, name):
 with sync_playwright() as p:
     browser = p.chromium.launch(executable_path='/usr/bin/google-chrome', args=['--no-sandbox'])
 
-    # Step 3 of 4: tap a city with two ZIP codes, then Continue. Tall screen so the whole step shows.
-    ctx = phone(browser, 1210)
+    # Step 3 of 4: tap a city with more than one ZIP code, then Continue. Tall screen so the whole step shows.
+    # (1210 until November 18, 2026, when the words and buttons of the form got bigger for older customers.)
+    ctx = phone(browser, 1350)
     page = ctx.new_page()
     page.goto(BASE + '/book/', wait_until='networkidle')
     page.get_by_role('radio', name='Goodyear').click()
@@ -62,7 +63,7 @@ with sync_playwright() as p:
     ctx.close()
 
     # Waitlist form: step 1, "My city is not here".
-    ctx = phone(browser, 1040)
+    ctx = phone(browser, 1220)
     page = ctx.new_page()
     page.goto(BASE + '/book/', wait_until='networkidle')
     page.get_by_role('button', name='My city is not here').click()

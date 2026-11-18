@@ -1,0 +1,25 @@
+{
+  "about": "The one place prices live (Joe, Nov 18, 2026). Every number is dollars a month for 1, 2, 3, 4, 5 and 6 dogs, in that order. The site, the sign up form, My Yard, the emails, Stripe and the office all read these numbers. To change a price: change it here, run npm run build, then run the checks. A new sign up pays the new price. A plan that is already running is never changed.",
+  "month": {
+    "week": [89, 99, 115, 134, 147, 160],
+    "twice": [189, 189, 202, 215, 228, 241],
+    "eow": [75, 75, 84, 93, 102, 111]
+  },
+  "once": 99,
+  "deodorizing": {
+    "about": "The deodorizing line shown next to prices: the crossed out price, what the customer pays, and the words under it.",
+    "was": "39.99",
+    "now": "0",
+    "tag": "FREE",
+    "label": "$0 when you sign up for service. Limited time only."
+  },
+  "kept": {
+    "about": "Plans that were running before the prices changed on November 18, 2026 keep the prices they signed up at. They are named here by their Stripe plan id. The office and the emails use this table for them. Never add a plan here to give a discount.",
+    "plans": ["sub_1UcpCgLoVhhubhCaah7WLt8o"],
+    "month": {
+      "week": [108, 108, 121, 134, 147, 160],
+      "twice": [189, 189, 202, 215, 228, 241],
+      "eow": [75, 75, 84, 93, 102, 111]
+    }
+  }
+}

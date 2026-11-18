@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 import * as BIZ from './biz.mjs';
+import { loadPrices, syncPrices, monthOf, weekOf, usd } from './prices.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = path.join(ROOT, 'src');
@@ -18,6 +19,21 @@ const ORIGIN = (process.env.SITE_ORIGIN || cfg.origin).replace(/\/$/, '');
 const TODAY = new Date().toISOString().slice(0, 10);
 const board = (id) => JSON.parse(fs.readFileSync(path.join(SRC, 'boards', id + '.json'), 'utf8'));
 const content = JSON.parse(fs.readFileSync(path.join(SRC, 'boards/content.json'), 'utf8'));
+// Prices (Joe, Nov 18, 2026): one file, src/prices.json. The server carries a copy, written here on every build.
+// Never type a price into this file or a content file. In words, write a tag and the build fills it in:
+//   [[price:week:2]] is the month price ("$99"), [[week:week:2]] is that price by the week ("$23"), [[price:once]] is
+//   the one time pickup. The plans are week, twice and eow, and the number is how many dogs (1 to 6).
+const PRICES = loadPrices();
+if (syncPrices()) console.log('prices: wrote src/prices.json into src/worker/worker.js');
+const mo = (plan, dogs) => monthOf(PRICES, plan, dogs === undefined ? 2 : dogs), wk = (plan, dogs) => weekOf(PRICES, plan, dogs === undefined ? 2 : dogs);
+const pricex = (t) => t.replace(/\[\[(price|week):(week|twice|eow|once)(?::([1-6]))?\]\]/g, (m, kind, plan, dogs) => {
+  if (plan === 'once') return usd(PRICES.once);
+  return usd(kind === 'week' ? wk(plan, Number(dogs || 2)) : mo(plan, Number(dogs || 2)));
+});
+// "$75 to $189 a month": the lowest and the highest month price for a home with 1 or 2 dogs.
+// The same range for the schema of a page: the three plans, from the lowest month price to the highest for 1 or 2 dogs.
+const PLAN_RANGE = { '@type': 'AggregateOffer', lowPrice: Math.min(...['week', 'twice', 'eow'].map((k) => mo(k, 1))).toFixed(2), highPrice: Math.max(...['week', 'twice', 'eow'].map((k) => mo(k, 2))).toFixed(2), priceCurrency: 'USD', offerCount: 3 };
+const PRICE_RANGE = usd(Math.min(...['week', 'twice', 'eow'].map((k) => mo(k, 1)))) + ' to ' + usd(Math.max(...['week', 'twice', 'eow'].map((k) => mo(k, 2)))) + ' a month';
 // Black Friday sale switch. Copy is written as [[bf:during the sale||after the sale]] in boards, content files and this file.
 // Every file the build writes goes through bfx(), so one date flips the whole site. DEAL_ON=1 or DEAL_ON=0 forces a side for testing.
 const DEAL_END = '2026-12-01T06:59:59Z'; // midnight in Phoenix as November 30 ends
@@ -37,7 +53,7 @@ const bfx = (t) => selfx(t).replace(/\[\[bf:([\s\S]*?)\|\|([\s\S]*?)\]\]/g, (m, 
 const META_PIXEL = /^\d{6,20}$/.test(String(cfg.metaPixel || '')) ? String(cfg.metaPixel) : '';
 const metax = (t) => t.replace(/\[\[meta:([\s\S]*?)\|\|([\s\S]*?)\]\]/g, (m, on, off) => (META_PIXEL ? on : off));
 const _write = fs.writeFileSync.bind(fs);
-fs.writeFileSync = (p, data, ...rest) => _write(p, typeof data === 'string' ? metax(bfx(data)) : data, ...rest);
+fs.writeFileSync = (p, data, ...rest) => _write(p, typeof data === 'string' ? metax(bfx(pricex(data))) : data, ...rest);
 // Tags (Joe, Nov 16, 2026): ONE Google Tag Manager container, GTM-KPDVN8FQ, the one his Google Analytics made (it
 // carries the GA4 tag G-E2N3R204ZH). Google Ads and every Google tag go inside that container, never as another
 // container or a second Google tag on the page. The old container GTM-T8GX2H6D (Nov 10) is off the site for good.
@@ -242,14 +258,18 @@ html.dark .apw{${darkVars}}
 html.book-open{overflow:hidden}
 html.book-open #book-dock{display:block;position:fixed;inset:0;z-index:60;background:#070B1B}
 #book-dock>.apw{height:100%}
-@media (min-width:1024px){
-[id]{scroll-margin-top:104px}
+@media (min-width:1024px){[id]{scroll-margin-top:104px}}
+/* Sign up fills the screen on a phone. On a computer, a tablet held upright or any wide and tall screen it is a window
+   in the middle, so the form is never stretched edge to edge. A wide but short screen (a phone on its side, an open
+   folding phone with its bars showing) keeps the full screen, and the form sits in a column in the middle (.bk-body
+   and its neighbors are 560px wide at most, see book.prod.tpl.html). */
+.bookpage #app{height:100vh;height:100dvh}
+@media (min-width:1024px),(min-width:700px) and (min-height:700px){
 html.book-open #book-dock{display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(7,11,27,.72);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
-#book-dock>.apw{width:440px!important;max-width:100%;height:min(860px,calc(100vh - 48px))!important;border-radius:26px;box-shadow:0 30px 80px rgba(0,0,0,.5);animation:dockIn .22s ease-out}
+#book-dock>.apw{width:460px!important;max-width:100%;height:min(880px,calc(100vh - 48px))!important;height:min(880px,calc(100dvh - 48px))!important;border-radius:26px;box-shadow:0 30px 80px rgba(0,0,0,.5);animation:dockIn .22s ease-out}
+.bookpage #app{width:460px;height:min(900px,calc(100dvh - 48px));margin:24px auto;border-radius:26px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5)}
 }
 @keyframes dockIn{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
-.bookpage #app{height:100vh;height:100dvh}
-@media (min-width:600px){.bookpage #app{width:430px;height:min(900px,calc(100dvh - 48px));margin:24px auto;border-radius:26px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5)}}
 .apw .zipgs{margin-top:22px}
 .apw .zipg{margin-top:20px}
 .apw .zipg h3{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin:0;font-family:var(--f-head);font-stretch:88%;font-weight:750;font-size:21px;line-height:1.2;color:var(--ink)}
@@ -272,7 +292,7 @@ html.book-open #book-dock{display:flex;align-items:center;justify-content:center
 .apw .doc a{color:var(--ink);font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px;text-decoration-color:var(--accent)}
 .apw .doc a:hover{text-decoration-color:currentColor}
 .apw .doc strong{color:var(--ink)}
-.apw .doc .crumb{margin:0 0 18px}
+.apw .doc .crumb{margin:0 0 6px}
 .apw .doc .crumb a{font-weight:700;text-decoration:none}
 .apw .doc .updated,.apw .doc .meta{margin-top:14px;font-size:15px;color:var(--mute)}
 .apw .doc .lead{margin-top:20px;font-size:21px;line-height:1.5;color:var(--ink)}
@@ -291,7 +311,9 @@ html.book-open #book-dock{display:flex;align-items:center;justify-content:center
 .apw .doc .tocd summary{display:flex;align-items:center;min-height:52px;font-weight:700;font-size:17px;color:var(--ink);cursor:pointer}
 .apw .doc .toc{display:grid;gap:2px;margin:0 0 14px;padding:0;list-style:none}
 .apw .doc .toc li{margin:0}
-.apw .doc .toc a{display:inline-flex;align-items:center;min-height:40px;font-size:16px;font-weight:400}
+.apw .doc .toc a{display:inline-flex;align-items:center;min-height:44px;font-size:16px;font-weight:400}
+/* A link in a line of words is easy to tap: its tap area is 44px tall, and the line itself does not move. */
+.apw .doc p a:not(.btn):not(.tl),.apw .doc li a:not(.btn):not(.tl){padding:14px 0;margin:-14px 0}
 .apw .doc [tabindex="-1"]:focus{outline:none}
 .apw .doc .facts{margin:20px 0 0;border-top:1px solid var(--line)}
 .apw .doc .facts>div{padding:12px 0 14px;border-bottom:1px solid var(--line)}
@@ -308,17 +330,17 @@ html.book-open #book-dock{display:flex;align-items:center;justify-content:center
 .apw .towns{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0 56px;margin-top:30px;border-top:1px solid var(--line)}
 .apw .town{display:flex;flex-direction:column;padding:24px 0 22px;border-bottom:1px solid var(--line)}
 .apw .doc .town h2{margin:0;font-size:30px}
-.apw .doc .town h2 a{text-decoration:none}
+.apw .doc .town h2 a{display:block;padding:7px 0;margin:-7px 0;text-decoration:none}
 .apw .doc .town h2 a:hover{text-decoration:underline;text-decoration-color:var(--accent)}
 .apw .doc .town p{font-size:16px}
 .apw .doc .town .tgo{display:inline-flex;align-items:center;min-height:44px;margin-top:auto;padding-top:8px;font-size:16px}
 .apw .doc table.ziplist{width:100%;margin-top:18px;border-collapse:collapse;font-size:17px}
 .apw .doc table.ziplist th,.apw .doc table.ziplist td{padding:13px 14px 13px 0;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;line-height:1.45;color:var(--ink2)}
-.apw .doc table.ziplist th{font-size:14px;font-weight:700;color:var(--mute)}
+.apw .doc table.ziplist th{font-size:15px;font-weight:700;color:var(--mute)}
 .apw .doc table.ziplist td:first-child{font-weight:700;color:var(--ink)}
 .apw .doc .hubcta{display:inline-flex;margin-top:26px;min-width:260px}
 .apw .doc a.btn{text-decoration:none}.apw .doc a.btn-dot{color:var(--accent-ink)}
-.skip{position:absolute;left:12px;top:-60px;z-index:100;padding:12px 16px;border-radius:10px;background:#FF4A1C;color:#0E1430;font:700 16px var(--f-text);text-decoration:none}
+.skip{position:absolute;left:12px;top:-60px;z-index:100;padding:14px 16px;border-radius:10px;background:#FF4A1C;color:#0E1430;font:700 16px var(--f-text);text-decoration:none}
 .skip:focus{top:12px}
 @media (min-width:1024px){.apw .doc{padding:56px 40px 120px}.apw .doc .dh1{font-size:clamp(72px,6.8vw,96px)}.apw .doc h2{font-size:42px}}
 @media (prefers-reduced-motion:reduce){#book-dock>.apw{animation:none}}`;
@@ -370,13 +392,16 @@ const monthly = (name, item, price, desc) => ({
   priceSpecification: { '@type': 'UnitPriceSpecification', price: price.toFixed(2), priceCurrency: 'USD', unitText: 'MONTH', referenceQuantity: { '@type': 'QuantitativeValue', value: 1, unitCode: 'MON' } },
   itemOffered: serviceOf(item)
 });
+// The prices come from src/prices.json. On the weekly plan one dog costs less than two, so each has its own offer.
+const addDog = (plan) => mo(plan, 3) - mo(plan, 2);
 const OFFERS = [
-  monthly('Weekly pickup, 1 or 2 dogs', 'Weekly dog poop pickup', 108, 'About $25 a week, billed $108 once a month. Includes haul away, deodorizing free every visit, a 30 minute window, a live truck map, and a photo of your latched gate. Each dog after two adds $13 a month. Months with five visits cost the same as four. ' + SALE),
-  monthly('Twice a week pickup, 1 or 2 dogs', 'Twice a week dog poop pickup', 189, 'About $44 a week, billed $189 once a month. Deodorizing free every visit, haul away, gate photo. Each dog after two adds $13 a month. ' + SALE),
-  monthly('Every other week pickup, 1 or 2 dogs', 'Every other week dog poop pickup', 75, 'About $17 a week, billed $75 once a month. Deodorizing free every visit, haul away, gate photo. Each dog after two adds $9 a month. ' + SALE),
-  { '@type': 'Offer', name: 'One time pickup', description: 'One visit to pick up every pile, rake rock yards, deodorize for free, haul the waste away, and send a gate photo. From $99. A big job gets a quote first. Same day when we have a spot. No plan required.',
-    price: '99.00', priceCurrency: 'USD', url: ORIGIN + '/one-time-dog-poop-cleanup/',
-    priceSpecification: { '@type': 'PriceSpecification', minPrice: '99.00', priceCurrency: 'USD' }, itemOffered: serviceOf('One time dog poop pickup') },
+  monthly('Weekly pickup, 1 dog', 'Weekly dog poop pickup', mo('week', 1), 'About ' + usd(wk('week', 1)) + ' a week, billed ' + usd(mo('week', 1)) + ' once a month. Includes haul away, deodorizing free every visit, a 30 minute window, a live truck map, and a photo of your latched gate. Months with five visits cost the same as four. ' + SALE),
+  monthly('Weekly pickup, 2 dogs', 'Weekly dog poop pickup', mo('week', 2), 'About ' + usd(wk('week', 2)) + ' a week, billed ' + usd(mo('week', 2)) + ' once a month. Three dogs are ' + usd(mo('week', 3)) + ' a month. Includes haul away, deodorizing free every visit, a 30 minute window, a live truck map, and a photo of your latched gate. Months with five visits cost the same as four. ' + SALE),
+  monthly('Twice a week pickup, 1 or 2 dogs', 'Twice a week dog poop pickup', mo('twice', 2), 'About ' + usd(wk('twice', 2)) + ' a week, billed ' + usd(mo('twice', 2)) + ' once a month. Deodorizing free every visit, haul away, gate photo. Each dog after two adds ' + usd(addDog('twice')) + ' a month. ' + SALE),
+  monthly('Every other week pickup, 1 or 2 dogs', 'Every other week dog poop pickup', mo('eow', 2), 'About ' + usd(wk('eow', 2)) + ' a week, billed ' + usd(mo('eow', 2)) + ' once a month. Deodorizing free every visit, haul away, gate photo. Each dog after two adds ' + usd(addDog('eow')) + ' a month. ' + SALE),
+  { '@type': 'Offer', name: 'One time pickup', description: 'One visit to pick up every pile, rake rock yards, deodorize for free, haul the waste away, and send a gate photo. From ' + usd(PRICES.once) + '. A big job gets a quote first. Same day when we have a spot. No plan required.',
+    price: PRICES.once.toFixed(2), priceCurrency: 'USD', url: ORIGIN + '/one-time-dog-poop-cleanup/',
+    priceSpecification: { '@type': 'PriceSpecification', minPrice: PRICES.once.toFixed(2), priceCurrency: 'USD' }, itemOffered: serviceOf('One time dog poop pickup') },
   { '@type': 'Offer', name: 'Deodorizing (free every visit)', description: SPRAY + ' We spray the spots your dogs use most. It costs you nothing, on every plan and every cleanup.',
     price: '0.00', priceCurrency: 'USD', itemOffered: serviceOf('Deodorizing (free every visit)', 'Yard deodorizing') }
 ];
@@ -390,7 +415,7 @@ const business = {
   openingHoursSpecification: [{ '@type': 'OpeningHoursSpecification', dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], opens: '08:00', closes: '17:00' }],
   logo: ORIGIN + '/assets/img/icon-512.png', image: [ORIGIN + '/assets/img/og.jpg'].concat(['team-portrait', 'scoop-rock', 'spray-turf', 'latch-gate', 'shirt-qr'].map((n) => ORIGIN + '/assets/img/photos/' + n + '.jpg')),
   // The footer says credit cards, Apple Pay and Google Pay. This line says the same.
-  priceRange: '$75 to $189 a month', currenciesAccepted: 'USD', paymentAccepted: 'Credit card, Apple Pay, Google Pay',
+  priceRange: PRICE_RANGE, currenciesAccepted: 'USD', paymentAccepted: 'Credit card, Apple Pay, Google Pay',
   areaServed: SERVED,
   knowsAbout: ['Dog poop pickup', 'Pet waste removal', 'Pooper scooper service', 'Yard deodorizing'],
   slogan: 'No photo? That visit is free.',
@@ -406,14 +431,14 @@ const crumbs = (url, trail) => ({ '@type': 'BreadcrumbList', '@id': url + '#brea
 const FONTS_PRE = ''; // fonts are our own files in /assets/fonts/ (preloaded by each board), nothing comes from Google Fonts
 const BF_BAR = `<a class="bf" href="/book/" data-deal-end="${DEAL_END}"><span class="bf-tag">Black Friday sale</span><span class="bf-t">First month free</span><span class="bf-d">Ends Mon, Nov 30</span><span class="bf-c" aria-hidden="true"><b data-u="d">00</b>d <b data-u="h">00</b>h <b data-u="m">00</b>m <b data-u="s">00</b>s</span><span class="bf-go">Get it</span></a>`;
 const BF_SKIP = new Set(['/book/', '/account/']);
-const BF_CSS = `.bf{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:2px 12px;padding:9px 14px;background:#FF4A1C;color:#0E1430;text-decoration:none;font-family:var(--f-text);font-stretch:104%;font-size:15px;line-height:1.3;text-align:center}
+const BF_CSS = `.bf{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:2px 12px;min-height:44px;padding:9px 14px;background:#FF4A1C;color:#0E1430;text-decoration:none;font-family:var(--f-text);font-stretch:104%;font-size:15px;line-height:1.3;text-align:center}
 .bf-tag{font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:17px;letter-spacing:.005em}
 .bf-t{font-weight:700}
 .bf-c{display:none;font-weight:700;font-variant-numeric:tabular-nums}
 html.bf-live .bf-c{display:inline}
 .bf-go{font-weight:700;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
 .bf:focus-visible{outline:3px solid #0E1430;outline-offset:-3px}
-@media (max-width:560px){.bf{gap:2px 10px;padding:8px 10px;font-size:14px}.bf-tag{font-size:16px}.bf-d,.bf-go{display:none}}
+@media (max-width:560px){.bf{gap:2px 10px;padding:8px 10px;font-size:15px}.bf-tag{font-size:16px}.bf-d,.bf-go{display:none}}
 .bfd{margin:0 0 30px;padding:20px 20px 18px;border-radius:6px;background:#F6F4EF;color:#0E1430;font-family:var(--f-text);container-type:inline-size}
 .bfd p{margin:0}
 .bfd .bfd-tag{font-size:16px;font-weight:700;color:#B02A08}
@@ -425,7 +450,7 @@ html.bf-live .bf-c{display:inline}
 .bfd-clock span{display:inline-flex;align-items:baseline;gap:4px}
 .bfd-clock b{font-family:var(--f-head);font-stretch:84%;font-weight:800;font-size:22px;line-height:1}
 .bfd-clock i{font-style:normal}
-.bfd .bfd-fine{margin-top:14px;font-size:14px;line-height:1.5;color:#3E4668}
+.bfd .bfd-fine{margin-top:14px;font-size:15px;line-height:1.5;color:#3E4668}
 @container (min-width:860px){.bfd-in{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:56px;align-items:end}.bfd-when{margin-top:0}.bfd .bfd-h{font-size:64px}.bfd .bfd-fine{margin-top:12px}}
 .bf-chip{display:flex;align-items:center;flex-wrap:wrap;gap:4px 10px;margin:14px 0 0;padding:10px 14px;border-radius:8px;background:#F6F4EF;color:#0E1430;font-size:15px;font-weight:700;line-height:1.3}
 .bf-chip span{flex:0 0 auto;color:#B02A08;white-space:nowrap}
@@ -456,7 +481,7 @@ html.book-open .dk{display:none}
 .apw .grv-s{display:inline-flex;gap:1px}
 .apw .grv-t{font-size:16px}
 .apw .grv-q{grid-column:1/-1;font-size:16px;line-height:1.45;color:var(--ink2)}
-.apw .grv-n{grid-column:1/-1;font-size:14px;font-weight:700;color:var(--mute)}
+.apw .grv-n{grid-column:1/-1;font-size:15px;font-weight:700;color:var(--mute)}
 .apw .grs{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px 10px;min-height:44px;margin:8px 0 0;color:#F6F4EF;font-size:17px;line-height:1.2;text-decoration:none}
 .apw .hero .grs{order:4}
 .apw .grs-s{display:inline-flex;gap:1px}
@@ -567,12 +592,12 @@ const videoLd = (pageUrl) => VIDEOS.map((v) => Object.assign({
     route: '/', board: 'main', index: true,
     title: 'Pooper Scooper in the West Valley, AZ | Arizona Pet Waste',
     ogTitle: 'Dog poop pickup you can watch | Arizona Pet Waste',
-    description: 'Pooper scooper service in ' + TOWNS_TEXT + ', AZ. Weekly dog poop pickup, about $25 a week. [[bf:First month free||First cleanup free]].',
+    description: 'Pooper scooper service in ' + TOWNS_TEXT + ', AZ. Weekly dog poop pickup, about [[week:week:2]] a week. [[bf:First month free||First cleanup free]].',
     fonts: e.b.fonts, css: [e.b.css, bookDock.b.css.replace(content.base_css, '')], boards: [e, bookDock],
     body: ssr(e), dock: dockHtml,
     ld: [faqLd(url, content.faq.home || content.faq.main), {
       '@type': 'Service', '@id': url + '#service', name: 'Dog poop pickup', serviceType: 'Pet waste removal', provider: { '@id': BIZ_ID },
-      areaServed: SERVED, offers: { '@type': 'AggregateOffer', lowPrice: '75.00', highPrice: '189.00', priceCurrency: 'USD', offerCount: 3 }
+      areaServed: SERVED, offers: PLAN_RANGE
     }, ...videoLd(url)]
   }));
 }
@@ -602,7 +627,7 @@ for (const t of TOWNS) {
     body: ssr(e), dock: dockHtml,
     ld: [faqLd(url, c.faq), crumbs(url, [['Home', '/'], ['Areas we serve', '/pooper-scooper/']].concat(t.area === 'verrado' ? [['Buckeye', '/pooper-scooper/buckeye-az/']] : []).concat([[c.name, t.route]])), {
       '@type': 'Service', '@id': url + '#service', name: 'Pooper scooper service in ' + c.name, serviceType: 'Pet waste removal', provider: { '@id': BIZ_ID },
-      areaServed: place(PLACES[t.area]).concat(hoodNames(t.area).map((n) => ({ '@type': 'Place', name: n + ', AZ' }))), description: c.intro, offers: { '@type': 'AggregateOffer', lowPrice: '75.00', highPrice: '189.00', priceCurrency: 'USD', offerCount: 3 }
+      areaServed: place(PLACES[t.area]).concat(hoodNames(t.area).map((n) => ({ '@type': 'Place', name: n + ', AZ' }))), description: c.intro, offers: PLAN_RANGE
     }]
   }));
 }
@@ -663,7 +688,7 @@ for (const t of TOWNS) {
     ld: [crumbs(url, [['Home', '/'], ['Areas we serve', route]]),
       { '@type': 'ItemList', '@id': url + '#towns', name: 'Towns Arizona Pet Waste serves', itemListElement: order.map((a, i) => ({ '@type': 'ListItem', position: i + 1, name: placeOf(a).name, url: ORIGIN + placeOf(a).url })) },
       { '@type': 'Service', '@id': url + '#service', name: 'Dog poop pickup in the West Valley', serviceType: 'Pet waste removal', provider: { '@id': BIZ_ID }, areaServed: SERVED,
-        offers: { '@type': 'AggregateOffer', lowPrice: '75.00', highPrice: '189.00', priceCurrency: 'USD', offerCount: 3 } }]
+        offers: PLAN_RANGE }]
   }));
 }
 
@@ -673,13 +698,13 @@ for (const t of TOWNS) {
     { slug: 'how-it-works', h1: 'How our pooper scooper service works', title: 'How Our Pooper Scooper Service Works | Arizona Pet Waste',
       description: 'See every step of our pooper scooper visits: a text the night before, a live truck map, free deodorizer spray and a photo of your latched gate.' },
     { slug: 'pricing', h1: 'Pooper scooper prices', title: 'Pooper Scooper Prices, West Valley AZ | Arizona Pet Waste',
-      description: 'Pooper scooper prices: about $25 a week ($108 a month) for weekly visits with 1 or 2 dogs. No sign up fee, free spray, we haul it away, [[bf:first month free||first cleanup free]].' }
+      description: 'Pooper scooper prices: about [[week:week:2]] a week ([[price:week:2]] a month) for weekly visits with 2 dogs, [[price:week:1]] a month for 1 dog. No sign up fee, free spray, [[bf:first month free||first cleanup free]].' }
   ];
   for (const pg of pages) {
     const route = '/' + pg.slug + '/';
     const url = ORIGIN + route;
     const inner = docHead(pg.h1, [['Home', '/'], [pg.crumb || pg.h1, route]]) +
-      fs.readFileSync(path.join(ROOT, 'content/pages', pg.slug + '.html'), 'utf8').replace('<!--PRICE_LIST-->', content.pricelist || '');
+      fs.readFileSync(path.join(ROOT, 'content/pages', pg.slug + '.html'), 'utf8').replace('<!--PRICE_CARD-->', content.pricecard || '').replace('<!--PRICE_LINES-->', content.pricelines || '');
     const e = useBoard('doc', (mk) => slots(mk).replace('class="doc"', 'class="doc docw"').replace('@@DOC@@', inner));
     const ld = [crumbs(url, [['Home', '/'], [pg.h1, route]])];
     if (pg.slug === 'pricing') ld.push({ '@type': 'Service', '@id': url + '#service', name: 'Pooper scooper service', serviceType: 'Pet waste removal', provider: { '@id': BIZ_ID }, areaServed: SERVED,
@@ -802,7 +827,7 @@ for (const [slug, fallbackH1] of POLICIES) {
     // and a small note of what it is and whose it is. No street here either.
     canonical: true,
     ld: [{ '@type': 'WebPage', '@id': ORIGIN + '/book/#webpage', url: ORIGIN + '/book/', name: 'Sign up for dog poop pickup', isPartOf: { '@id': ORIGIN + '/#website' }, about: { '@id': BIZ_ID }, inLanguage: 'en-US' },
-      { '@type': 'LocalBusiness', '@id': BIZ_ID, name: cfg.name, url: ORIGIN + '/', telephone: '+1-623-309-6104', priceRange: '$75 to $189 a month',
+      { '@type': 'LocalBusiness', '@id': BIZ_ID, name: cfg.name, url: ORIGIN + '/', telephone: '+1-623-309-6104', priceRange: PRICE_RANGE,
         address: { '@type': 'PostalAddress', addressLocality: 'Buckeye', addressRegion: 'AZ', postalCode: '85396', addressCountry: 'US' } }]
   }));
   const a = useBoard('account');
@@ -854,10 +879,11 @@ fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 > Dog poop pickup (pet waste removal) for homes in ${TOWNS_TEXT}, Arizona, from a local, family owned company that is insured and bonded. We scoop every home in six ZIP codes: 85326, 85396, 85338, 85395, 85340 and 85355. Weekly, twice a week or every other week. [[bf:First month free through November 30||First cleanup free]]. ${SPRAY} A photo of your latched gate after every visit, and a live map of our truck on visit day. We haul the waste away. [[bf:No long term contract.||No contract.]]
 
 ## Prices (per month)
-- Weekly pickup, 1 or 2 dogs: $108 a month. That is about $25 a week, or about $25 a visit. Each dog after two adds $13.
-- Twice a week pickup, 1 or 2 dogs: $189 a month. That is about $44 a week. Each dog after two adds $13.
-- Every other week pickup, 1 or 2 dogs: $75 a month. That is about $17 a week. Each dog after two adds $9.
-- One time pickup: from $99. A big job, like a yard that has not been cleaned in a long time, gets a quote first, and the price is given before the visit. Same day when we have a spot, at the same price. For a customer on a plan it is added to the next bill.
+- Weekly pickup: ${[1, 2, 3, 4, 5, 6].map((n) => n + (n === 1 ? ' dog ' : ' dogs ') + usd(mo('week', n)) + ' a month').join(', ')}. For 2 dogs that is about ${usd(wk('week', 2))} a week, or about ${usd(wk('week', 2))} a visit. For 1 dog it is about ${usd(wk('week', 1))} a week.
+- Twice a week pickup, 1 or 2 dogs: ${usd(mo('twice', 2))} a month. That is about ${usd(wk('twice', 2))} a week. Each dog after two adds ${usd(addDog('twice'))}.
+- Every other week pickup, 1 or 2 dogs: ${usd(mo('eow', 2))} a month. That is about ${usd(wk('eow', 2))} a week. Each dog after two adds ${usd(addDog('eow'))}.
+- These prices were set on November 18, 2026. A customer who signed up before that day keeps the price they signed up at.
+- One time pickup: from ${usd(PRICES.once)}. A big job, like a yard that has not been cleaned in a long time, gets a quote first, and the price is given before the visit. Same day when we have a spot, at the same price. For a customer on a plan it is added to the next bill.
 - Deodorizing (free every visit): included free with every visit, on rock and turf yards alike. It costs nothing on any plan or cleanup.
 - Billing: each customer is billed the full month price once a month, on their own bill day. There are no part month or prorated charges. [[bf:During the Black Friday sale (sign up by November 30, 2026) the first month is free. A card is saved at sign up and nothing is charged that day. The free month runs one month from the sign up day. The first charge is the full month price on the day the free month ends, and that day of the month is the bill day from then on.||The first charge is the full month price on the day of sign up, and that day of the month is the bill day from then on.]] If a payment fails, the customer is emailed that day and visits are on hold until the bill is paid.
 [[bf:- Black Friday sale: sign up by Monday, November 30, 2026 and the first month is free. The sale ends at midnight on November 30. There is no charge for canceling. [[self:Canceling is done online in My Yard, with no phone call.||To cancel, a customer calls or texts 623.309.6104.]]||- Offer: the first cleanup is free. The Black Friday free month sale ended on November 30, 2026.]]
@@ -906,7 +932,7 @@ ${VIDEOS.map((v) => '- [' + v.name + '](' + videoUrl(v) + '): ' + v.text).join('
 - Business license: in progress as of November 2026. Do not describe the company as licensed yet.
 - Owner: Juan Gonzalez, owner and operator, who lives in Verrado (Buckeye, AZ) with his wife and their six kids. The three standards he runs the company by: do what you say you are going to do, take pride in the details, never stop improving.
 - Sign up fee: none. [[bf:The first month is free only with the Black Friday sale, for sign ups through November 30, 2026.||The first cleanup is free.]]
-- Price per visit: weekly service is $108 a month for 1 or 2 dogs. That is about $25 a week, or about $25 a visit. Prices are billed once a month, on the customer's own bill day.
+- Price per visit: weekly service is ${usd(mo('week', 2))} a month for 2 dogs and ${usd(mo('week', 1))} a month for 1 dog. For 2 dogs that is about ${usd(wk('week', 2))} a week, or about ${usd(wk('week', 2))} a visit. Prices are billed once a month, on the customer's own bill day.
 - Deodorizing: included free with every visit, on rock and turf yards alike. We spray the spots dogs use most. It is not an extra.
 - Proof: a text the night before, a live truck map on visit day, and a photo of the latched gate after every visit. A visit with no gate photo costs $0.
 - Missed pile: free return within 24 hours.

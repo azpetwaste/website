@@ -15,10 +15,18 @@
 
 const STRIPE_VERSION = '2026-10-28.endive';
 const PLANS = {
-  week: { name: 'Every week', base: 10800, extra: 1300 },
-  twice: { name: 'Twice a week', base: 18900, extra: 1300 },
-  eow: { name: 'Every other week', base: 7500, extra: 900 }
+  week: { name: 'Every week' },
+  twice: { name: 'Twice a week' },
+  eow: { name: 'Every other week' }
 };
+// Prices (Joe, Nov 18, 2026). One file holds them for the site, the sign up form, My Yard, the emails, Stripe and the
+// office: src/prices.json. This file ships with nothing to load, so it carries a copy between the two marks below.
+// `npm run build` writes the copy (build/prices.mjs) and worker.test.mjs fails if it differs from the file.
+// Dollars a month for 1 to 6 dogs. `month` is what a new sign up pays. `kept` is for plans that were running before
+// the prices changed: they keep the price they signed up at (see rowMonthly).
+/* PRICES:START (a copy of src/prices.json, written by build/prices.mjs. Change that file, never this block.) */
+const PRICES = {"month":{"week":[89,99,115,134,147,160],"twice":[189,189,202,215,228,241],"eow":[75,75,84,93,102,111]},"kept":{"plans":["sub_1UcpCgLoVhhubhCaah7WLt8o"],"month":{"week":[108,108,121,134,147,160],"twice":[189,189,202,215,228,241],"eow":[75,75,84,93,102,111]}}};
+/* PRICES:END */
 // Every ZIP code in the towns we serve: Buckeye, Goodyear, Litchfield Park and Waddell (Citrus Park).
 const ZIPS = {
   '85326': { area: 'buckeye', name: 'Buckeye', city: 'Buckeye' },
@@ -413,7 +421,25 @@ function stripeGone(e, param) {
   return x.param === param || (!x.param && new RegExp('^No such ' + param + '\\b', 'i').test(String(x.message || '')));
 }
 function money(cents) { return '$' + (cents / 100).toFixed(cents % 100 ? 2 : 0); }
-function monthly(plan, dogs) { const p = PLANS[plan]; return p.base + Math.max(0, dogs - 2) * p.extra; }
+// A month price in cents from a price table. Past six dogs (the office can count more) each dog adds the last step.
+function tableCents(table, plan, dogs) {
+  const row = (table && table[plan]) || [];
+  const n = Math.max(1, Math.round(Number(dogs)) || 1);
+  const dollars = n <= row.length ? row[n - 1] : row[row.length - 1] + (n - row.length) * (row[row.length - 1] - row[row.length - 2]);
+  return Math.round((dollars || 0) * 100);
+}
+// What a NEW sign up pays each month, in cents. Use this for the card step, a new plan and a sign up request only.
+function monthly(plan, dogs) { return tableCents(PRICES.month, plan, dogs); }
+// What a customer who HAS a plan pays each month, in cents. A plan that was running before the prices changed keeps
+// its price (Joe, Nov 18, 2026: "Don't change any existing customer's price"), so the office, My Yard and every email
+// about a plan that is already running use this, never monthly(). `dogs` is for a dog count that is about to change.
+const keptPlan = (c) => !!(c && c.stripe_subscription_id && PRICES.kept.plans.includes(c.stripe_subscription_id));
+function rowMonthly(c, dogs) { return tableCents(keptPlan(c) ? PRICES.kept.month : PRICES.month, c.plan, dogs || c.dogs); }
+// What a Stripe plan bills each month, in cents: every price line on it. 0 when the lines carry no amounts.
+function planCents(sub) {
+  const lines = (sub && sub.items && sub.items.data) || [];
+  return lines.reduce((n, i) => n + ((i.price && i.price.unit_amount) || 0) * (i.quantity || 1), 0);
+}
 
 // Arizona does not use daylight saving time, so Arizona noon is always 19:00 UTC.
 function azToday() { return new Date(Date.now() - 7 * 3600e3).toISOString().slice(0, 10); }
@@ -469,7 +495,7 @@ const MIN_DAYS = 60;
 const earlyOn = (env) => env.EARLY_CANCEL === 'on';
 function dateLabel(d) { return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'America/Phoenix' }); }
 function dayShort(d) { return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/Phoenix' }); }
-// One plain line, the same words the pay step shows: "$0 today. Then $108 a month starting Dec 16."
+// One plain line, the same words the pay step shows: "$0 today. Then $99 a month starting Dec 16."
 function billText(b) {
   if (b.free) return '$0 today. Then ' + money(b.total) + ' a month starting ' + b.freeShort + '.';
   return money(b.total) + ' today. Then ' + money(b.total) + ' a month' + (b.nextShort ? ' starting ' + b.nextShort : '') + '.';
@@ -532,43 +558,47 @@ function brandMail(env, heading, before, btn, after) {
   return { text, html };
 }
 
-/* ---------- prices live in Stripe; created on first use and found by lookup key ---------- */
-const LOOKUP = {
-  apw_week_base: ['week', 'base'], apw_week_extra: ['week', 'extra'],
-  apw_twice_base: ['twice', 'base'], apw_twice_extra: ['twice', 'extra'],
-  apw_eow_base: ['eow', 'base'], apw_eow_extra: ['eow', 'extra']
-};
+/* ---------- prices live in Stripe; made on first use and found by lookup key ---------- */
+// One Stripe price for each plan and dog count (Joe, Nov 18, 2026: one dog costs less than two on the weekly plan, so
+// "a base price plus extra dogs" no longer fits). The key names the plan, the dogs and the amount in cents:
+// apw_week_2_9900 is every week, 2 dogs, $99 a month. Because the amount is in the key, a new number in
+// src/prices.json makes a NEW Stripe price for new sign ups. A plan that is already running holds on to the price it
+// was made with, so changing a number never changes what a current customer is charged. Only the price that a sign up
+// needs is asked for or made, one at a time. Never make these by hand in the Stripe dashboard.
+const priceKey = (plan, dogs) => 'apw_' + plan + '_' + dogs + '_' + monthly(plan, dogs);
 let priceCache = null;
 async function product(env, id, name) {
   try { return (await stripe(env, 'GET', 'products/' + id)).id; } catch (e) { if (!stripeGone(e)) throw e; }
   try { return (await stripe(env, 'POST', 'products', { id, name })).id; } catch (e) { return (await stripe(env, 'GET', 'products/' + id)).id; }
 }
-async function prices(env) {
-  if (priceCache && priceCache.key === env.STRIPE_SECRET_KEY.slice(-6)) return priceCache.ids;
-  const keys = Object.keys(LOOKUP);
-  const found = {};
-  const res = await stripe(env, 'GET', 'prices', { lookup_keys: keys, active: true, limit: 20 });
-  for (const p of res.data) found[p.lookup_key] = p.id;
-  for (const k of keys) {
-    if (found[k]) continue;
-    const [plan, kind] = LOOKUP[k];
-    const pid = kind === 'base'
-      ? await product(env, 'apw_' + plan, 'Dog poop pickup, ' + PLANS[plan].name.toLowerCase() + ' (1 or 2 dogs)')
-      : await product(env, 'apw_extra_dog', 'Extra dog');
+async function priceId(env, plan, dogs) {
+  const mode = env.STRIPE_SECRET_KEY.slice(-6);
+  if (!priceCache || priceCache.key !== mode) priceCache = { key: mode, ids: {} };
+  const k = priceKey(plan, dogs);
+  if (priceCache.ids[k]) return priceCache.ids[k];
+  const res = await stripe(env, 'GET', 'prices', { lookup_keys: [k], active: true, limit: 1 });
+  let id = res.data && res.data[0] && res.data[0].id;
+  if (!id) {
+    const label = PLANS[plan].name + ', ' + dogs + (dogs === 1 ? ' dog' : ' dogs');
+    const pid = await product(env, 'apw_' + plan + '_' + dogs, 'Dog poop pickup, ' + label.toLowerCase());
     try {
-      const p = await stripe(env, 'POST', 'prices', {
-        currency: 'usd', unit_amount: PLANS[plan][kind], recurring: { interval: 'month' }, product: pid, lookup_key: k,
-        nickname: kind === 'base' ? PLANS[plan].name + ', 1 or 2 dogs' : 'Extra dog, ' + PLANS[plan].name.toLowerCase()
-      });
-      found[k] = p.id;
+      id = (await stripe(env, 'POST', 'prices', { currency: 'usd', unit_amount: monthly(plan, dogs), recurring: { interval: 'month' }, product: pid, lookup_key: k, nickname: label })).id;
     } catch (e) {
       const again = await stripe(env, 'GET', 'prices', { lookup_keys: [k], limit: 1 });
-      if (!again.data[0]) throw e;
-      found[k] = again.data[0].id;
+      if (!again.data || !again.data[0]) throw e;
+      id = again.data[0].id;
     }
   }
-  priceCache = { key: env.STRIPE_SECRET_KEY.slice(-6), ids: found };
-  return found;
+  priceCache.ids[k] = id;
+  return id;
+}
+// Plans made before November 18, 2026 have two kinds of lines: a base price for 1 or 2 dogs and an "extra dog" price.
+// Those prices are still in Stripe under their old keys. This only finds the extra dog one, for a dog count the
+// office changes on such a plan. It never makes a price: nothing new is ever sold at the old numbers.
+async function oldExtraPrice(env, plan) {
+  const res = await stripe(env, 'GET', 'prices', { lookup_keys: ['apw_' + plan + '_extra'], limit: 1 });
+  if (!res.data || !res.data[0]) throw new Error('the older extra dog price for ' + plan + ' is not in Stripe');
+  return res.data[0].id;
 }
 
 /* ---------- routes ---------- */
@@ -580,8 +610,11 @@ function config(env) {
     stripeKey: live(env) ? env.STRIPE_PUBLISHABLE_KEY : null,
     firstVisitFrom: env.FIRST_VISIT_FROM || '2026-11-20',
     scheduleDays: scheduleDays(env),
-    // The sign up page shows "$0 today" or "$108 today" from this, so it always says what checkout will do.
+    // The sign up page shows "$0 today" or "$99 today" from this, so it always says what checkout will do.
     freeMonth: freeMonth(env),
+    // What a new sign up pays: dollars a month for 1 to 6 dogs on each plan (src/prices.json). The pages are built
+    // with the same numbers. This is here for any screen that wants them live, the office included.
+    prices: PRICES.month,
     mail: !!env.RESEND_API_KEY,
     turnstileKey: env.TURNSTILE_SITE_KEY || null,
     // true when the card step asks for a bot pass (both Turnstile keys are set). The page only runs the check then.
@@ -682,8 +715,8 @@ async function checkout(request, env, ctx) {
     { user_id: u.id, email: u.email, phone, kind: 'texts_deals', granted: false, text_shown: 'Not asked at sign up.', page, ip, user_agent: ua }
   ], 'return=minimal');
 
-  // Make sure the prices exist in Stripe before the card form shows (first sign up in a new Stripe mode creates them).
-  const ids = await prices(env);
+  // Make sure this sign up's price is in Stripe before the card form shows (the first sign up at a price makes it).
+  const price = await priceId(env, b.plan, dogs);
   const bill = firstCharge(env, b.plan, dogs, free);
   // The line under the button in Stripe's form: the same plain words as the pay step.
   const note = billText(bill) + ' ' + cancelText(bill, env);
@@ -732,8 +765,8 @@ async function checkout(request, env, ctx) {
     } catch (e) {
       ctx.waitUntil(logError(env, 'server', '/api/checkout', 'An older card form of this customer could not be closed (the new one still opened)', clean(e && e.message, 300)));
     }
-    const items = [{ price: ids['apw_' + b.plan + '_base'], quantity: 1 }];
-    if (dogs > 2) items.push({ price: ids['apw_' + b.plan + '_extra'], quantity: dogs - 2 });
+    // One line: the price for this plan and this many dogs.
+    const items = [{ price, quantity: 1 }];
     const md = Object.assign({}, meta, { no_free: '1' });
     form = {
       mode: 'subscription',
@@ -816,8 +849,9 @@ const PLAN_WAIT = 700;
 // keyed request for a day, a failed answer too, and it refuses the same key with other fields. So if the fields of
 // the plan request in startPlan ever change, change this prefix in the same commit. If not, a sign up that failed
 // under the old fields stays stuck until Stripe forgets its key. (apw-plan- was the key while bills were lined up on
-// the 1st. apw-plan2- is from November 16, 2026: no billing day is sent any more.)
-const PLAN_KEY = 'apw-plan2-';
+// the 1st. apw-plan2- is from November 16, 2026: no billing day is sent any more. apw-plan3- is from November 18,
+// 2026: a plan has one price line for its plan and dog count, not a base line and an extra dog line.)
+const PLAN_KEY = 'apw-plan3-';
 // The card is saved. Start the plan: free until `free_end`, and that is all Stripe is told. With no other day given,
 // Stripe charges the full month price the day the free month ends and bills on that day of the month from then on
 // (its trial rule: "A new billing period also begins for the customer when the trial ends"). Never send a billing
@@ -852,10 +886,9 @@ async function startPlan(env, ctx, s) {
   if (!sub) {
     const freeEnd = parseInt(md.free_end, 10);
     if (!(freeEnd > Date.now() / 1000)) throw new Error('sign up ' + s.id + ' has bad dates');
-    const ids = await prices(env);
     const dogs = Math.min(6, Math.max(1, parseInt(md.dogs, 10) || 1));
-    const items = [{ price: ids['apw_' + md.plan + '_base'], quantity: 1 }];
-    if (dogs > 2) items.push({ price: ids['apw_' + md.plan + '_extra'], quantity: dogs - 2 });
+    // One line: the price for this plan and this many dogs, at today's numbers (src/prices.json).
+    const items = [{ price: await priceId(env, md.plan, dogs), quantity: 1 }];
     // The saved card pays every bill. It is set on the Stripe customer, not on the plan, so a card changed later on
     // Stripe's billing page (My Yard, Change card) is the card every later bill and retry uses.
     await stripe(env, 'POST', 'customers/' + customer, { invoice_settings: { default_payment_method: card.id } });
@@ -948,7 +981,8 @@ async function booked(env, ctx, uid, sub, customer, card, s) {
     try { card = await stripe(env, 'GET', 'payment_methods/' + encodeURIComponent(sub.default_payment_method)); } catch (e) { card = null; }
   }
   const prepaid = !!(card && card.card && card.card.funding === 'prepaid');
-  const total = monthly(c.plan, c.dogs);
+  // What this plan costs a month: the lines Stripe has on it. If they cannot be read, today's price for the plan.
+  const total = planCents(sub) || rowMonthly(Object.assign({}, c, { stripe_subscription_id: sub.id }));
   const paidToday = !!meta.no_free;
   const billLine = billFrom(meta, total, sub);
   ctx.waitUntil(placeCustomer(env, c));
@@ -1443,7 +1477,7 @@ const nth = (n) => n + (n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 
 // month today and today is the new bill day. If not, they came back inside a month they had paid for: nothing is
 // charged and their bill day stays.
 function backMails(env, ctx, c, charged) {
-  const total = PLANS[c.plan] ? money(monthly(c.plan, c.dogs)) : '';
+  const total = PLANS[c.plan] ? money(rowMonthly(c)) : '';
   const day = nth(Number(azToday().slice(8)));
   const m = brandMail(env, 'Welcome back', ['Hi ' + (first(c.name) || 'there') + ',',
     'Your pause is over, and your visits are back on.', dayLine(c),
@@ -1522,10 +1556,8 @@ async function freeMonthCharge(env, ctx, sub, row) {
   const cutoff = parseInt(md.min_end || '0', 10);
   const askedAt = sub.canceled_at || sub.ended_at || Math.floor(Date.now() / 1000);
   if (!cutoff || askedAt >= cutoff) return;
-  const item = (sub.items && sub.items.data && sub.items.data[0]) || {};
-  // every line on the plan: the base price plus any extra dogs
-  const price = item.price && item.price.unit_amount ? sub.items.data.reduce((n, i) => n + ((i.price && i.price.unit_amount) || 0) * (i.quantity || 1), 0) : 0;
-  const month = price || (row && PLANS[row.plan] ? monthly(row.plan, row.dogs) : 0);
+  // every line on the plan (an older plan has a base price plus any extra dogs)
+  const month = planCents(sub) || (row && PLANS[row.plan] ? rowMonthly(Object.assign({ stripe_subscription_id: sub.id }, row)) : 0);
   if (!month) return;
   const who = row ? row.name + ', ' + row.address + ', ' + row.zip : sub.customer;
   let amount = month;
@@ -2747,25 +2779,37 @@ async function officeCustomer(env, id) {
   if (!c) return fail(404, 'Customer not found.');
   const visits = await db(env, 'GET', 'stops?customer_id=eq.' + id + '&select=id,day,status,reason,note,photo_path,no_photo,done_at&order=day.desc&limit=30');
   const texts = await db(env, 'GET', 'messages?customer_id=eq.' + id + '&select=id,kind,body,status,sent_at,created_at&order=created_at.desc&limit=30');
-  return ok({ customer: c, visits, texts, monthly: c.plan && c.dogs ? monthly(c.plan, c.dogs) : null });
+  return ok({ customer: c, visits, texts, monthly: c.plan && c.dogs ? rowMonthly(c) : null });
 }
 // The office fixes the dog count when the yard has more or fewer dogs than the plan says. The Stripe plan changes
-// to match (extra dogs are their own line), with no charge today: the new price starts on the next bill. The customer gets an email.
+// to match, with no charge today: the new price starts on the next bill. The customer gets an email.
+// A plan has one price line, for its plan and its dog count, so the line moves to the price for the new count.
+// A plan made before November 18, 2026 has a base line (1 or 2 dogs) and an "extra dog" line at the prices it signed
+// up with. There the extra dog line is what changes, as it always did, so that plan keeps its prices.
 async function setDogs(env, c, n) {
   if (!PLANS[c.plan]) return;
   if (live(env) && c.stripe_subscription_id && ['trialing', 'active', 'past_due', 'paused'].includes(c.status)) {
     const sub = await stripe(env, 'GET', 'subscriptions/' + c.stripe_subscription_id);
-    const extra = (await prices(env))['apw_' + c.plan + '_extra'];
-    const item = ((sub.items && sub.items.data) || []).find((i) => i.price && i.price.id === extra);
-    const want = Math.max(0, n - 2);
-    if (want && item) await stripe(env, 'POST', 'subscription_items/' + item.id, { quantity: want, proration_behavior: 'none' });
-    else if (want) await stripe(env, 'POST', 'subscription_items', { subscription: sub.id, price: extra, quantity: want, proration_behavior: 'none' });
-    else if (item) await stripe(env, 'DELETE', 'subscription_items/' + item.id, { proration_behavior: 'none' });
+    const lines = (sub.items && sub.items.data) || [];
+    const older = keptPlan(c) || lines.some((i) => /^apw_(week|twice|eow)_(base|extra)$/.test((i.price && i.price.lookup_key) || ''));
+    if (older) {
+      const extra = await oldExtraPrice(env, c.plan);
+      const item = lines.find((i) => i.price && i.price.id === extra);
+      const want = Math.max(0, n - 2);
+      if (want && item) await stripe(env, 'POST', 'subscription_items/' + item.id, { quantity: want, proration_behavior: 'none' });
+      else if (want) await stripe(env, 'POST', 'subscription_items', { subscription: sub.id, price: extra, quantity: want, proration_behavior: 'none' });
+      else if (item) await stripe(env, 'DELETE', 'subscription_items/' + item.id, { proration_behavior: 'none' });
+    } else {
+      const price = await priceId(env, c.plan, n);
+      const item = lines[0];
+      if (!item) throw new Error('plan ' + sub.id + ' has no price line');
+      if (!(item.price && item.price.id === price)) await stripe(env, 'POST', 'subscription_items/' + item.id, { price, quantity: 1, proration_behavior: 'none' });
+    }
   }
   await mail(env, c.email, 'We updated your plan to ' + n + (n === 1 ? ' dog' : ' dogs'), [
     'Hi ' + first(c.name) + ',', '',
     'We counted ' + n + (n === 1 ? ' dog' : ' dogs') + ' at your home, so we updated your plan to match.',
-    'Your price is now ' + money(monthly(c.plan, n)) + ' a month, starting with your next bill. There is no charge today.', '',
+    'Your price is now ' + money(rowMonthly(c, n)) + ' a month, starting with your next bill. There is no charge today.', '',
     'Questions? Call or text 623.309.6104.', '', 'Arizona Pet Waste'
   ].join('\n'));
 }
@@ -2852,8 +2896,9 @@ async function nightBefore(env, date) {
   return ok({ ok: true, day, stops: stops.length, queued, added: plan.added });
 }
 async function officeMoney(env) {
-  const rows = await db(env, 'GET', 'customers?select=status,plan,dogs,name,phone&status=in.(trialing,active,past_due,paused,canceled,checkout)');
-  const sum = (list) => list.reduce((t, c) => t + (c.plan && c.dogs ? monthly(c.plan, c.dogs) : 0), 0);
+  // stripe_subscription_id is read so a plan that keeps an older price is added up at that price (rowMonthly).
+  const rows = await db(env, 'GET', 'customers?select=status,plan,dogs,name,phone,stripe_subscription_id&status=in.(trialing,active,past_due,paused,canceled,checkout)');
+  const sum = (list) => list.reduce((t, c) => t + (c.plan && c.dogs ? rowMonthly(c) : 0), 0);
   const by = (st) => rows.filter((c) => c.status === st);
   return ok({
     paying: { count: by('active').length, monthly: sum(by('active')) },
@@ -3597,12 +3642,14 @@ function planView(c, info) {
   const hold = c.status === 'past_due' || c.status === 'unpaid';
   const days = PAYING.includes(c.status) && !hold ? nextVisits(c, addDays(today, 1), 3) : [];
   const used = c.skips.filter((d) => d.slice(0, 4) === today.slice(0, 4)).length;
-  const total = PLANS[c.plan] ? money(monthly(c.plan, c.dogs)) : '';
+  const total = PLANS[c.plan] ? money(rowMonthly(c)) : '';
   return {
     dayName: c.service_day != null ? DAYS[c.service_day] + (c.service_day2 != null ? ' and ' + DAYS[c.service_day2] : '') : null,
     next: days.map((d) => ({ day: d, skipped: c.skips.includes(d), canSkip: d >= addDays(today, 2) })),
     skipReady: c.skipReady, skipsLeft: Math.max(0, SKIPS_A_YEAR - used),
     hold, paused, pauseUntil: paused && c.pause_until ? addDays(c.pause_until, 1) : null,
+    // What this customer pays a month ("$108"). My Yard shows this, so a plan that keeps an older price reads right.
+    month: total || null,
     canPause: !early && ['trialing', 'active'].includes(c.status) && !!c.stripe_subscription_id, pauseMax: addDays(today, PAUSE_MAX_DAYS),
     pauseAfter: early ? dateLabel(new Date(info.minEnd * 1000)) : null,
     // What My Yard says about money next to the pause button. Plain facts only: the page writes the sentences.
@@ -3693,7 +3740,7 @@ async function mePause(request, env, ctx) {
   const patch = { status: 'paused', pause_from: today, pause_until: addDays(until, -1), updated_at: new Date().toISOString() };
   await db(env, 'PATCH', 'customers?id=eq.' + x.u.id, patch, 'return=minimal');
   await db(env, 'DELETE', 'stops?customer_id=eq.' + x.u.id + '&status=eq.scheduled&day=gte.' + today + '&day=lt.' + until, null, 'return=minimal').catch((e) => console.error('pause cleanup', e));
-  const total = PLANS[c.plan] ? money(monthly(c.plan, c.dogs)) : 'the full month';
+  const total = PLANS[c.plan] ? money(rowMonthly(c)) : 'the full month';
   const backDay = dateLabel(noonAZ(until)), billDay = paidTo ? dateLabel(new Date(paidTo * 1000)) : '';
   ctx.waitUntil(mail(env, owner(env), 'Paused: ' + c.name, [
     c.name + ' paused until ' + until + '. No bills go out while paused.',

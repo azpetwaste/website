@@ -11,64 +11,139 @@
 @@FONTS@@
 <style>
 @@BASE_CSS@@
+/* Sign up. Joe, Nov 17 and 18, 2026: "We're treating 70 year olds", "so simple for the older community and for the younger
+   community". Nothing here is under 15px, form words are 17 to 18px, every button is 48px tall or more, one job a screen. */
 .apw .bh1{margin:0;font-family:var(--f-head);font-stretch:70%;font-weight:850;font-size:44px;letter-spacing:-.004em;line-height:.96;text-wrap:balance;outline:none}
-.apw .flab{display:block;margin-top:16px;font-size:15px;font-weight:700}
-.apw .fin{display:block;width:100%;height:54px;margin-top:6px;padding:0 16px;border-radius:12px;border:2px solid var(--field);background:var(--card);color:var(--ink);font:inherit;font-size:17px}
-.apw .ferr{margin:6px 0 0;font-size:14px;font-weight:700;color:var(--accent-text)}
-.apw .cbx{display:flex;gap:12px;align-items:flex-start;margin-top:10px;padding:14px;border-radius:12px;border:2px solid var(--field);background:var(--card);cursor:pointer}
-.apw .cbx input{width:24px;height:24px;flex:0 0 24px;margin:1px 0 0;accent-color:#FF4A1C}
-.apw .cbx b{display:block;font-size:16px;line-height:1.3}
-.apw .cbx small{display:block;margin-top:3px;font-size:14px;line-height:1.45;color:var(--mute)}
+.apw.bk{align-items:center}
+.apw .bk-top,.apw .bk-prog,.apw .bk-body,.apw .bk-bar{width:100%;max-width:560px}
+.apw .bk-top{display:flex;align-items:center;gap:8px;height:60px;flex:0 0 60px;padding:0 8px}
+.apw .bk-tt{flex:1;margin:0;text-align:center;font-size:18px;font-weight:700}
+.apw .bk-prog{flex:0 0 auto;padding:0 20px}
+.apw .bk-segs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.apw .bk-segs span{display:block;height:5px;border-radius:4px}
+.apw .bk-step{margin:8px 0 0;font-size:15px;color:var(--mute)}
+.apw .bk-body{flex:1;min-height:0;overflow-y:auto;padding:18px 20px 28px}
+.apw .bk-lead{margin:12px 0 0;font-size:17px;line-height:1.5;color:var(--ink2)}
+.apw .bk-opts{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+.apw .bk-city{display:flex;align-items:center;gap:10px;width:100%;min-height:64px;padding:0 20px;border-radius:12px;border:2px solid var(--line);background:var(--bg2);color:var(--ink);font:inherit;font-size:21px;font-weight:800;text-align:left;cursor:pointer}
+.apw .bk-city[aria-checked="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.apw .bk-city i{margin-left:auto;font-style:normal;font-size:24px;line-height:1;color:var(--accent-text)}
+.apw .bk-other{display:flex;align-items:center;width:100%;min-height:56px;padding:0 20px;border-radius:12px;border:2px solid var(--line);background:transparent;color:var(--ink2);font:inherit;font-size:17px;font-weight:700;text-align:left;cursor:pointer}
+.apw .bk-help{margin:22px 0 0;font-size:17px;line-height:1.5;color:var(--ink2)}
+.apw .bk-help a{display:inline-flex;align-items:center;min-height:44px;font-weight:800;color:var(--ink);text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px;text-decoration-color:var(--accent)}
+.apw .bk-box{margin-top:12px;padding:16px;border-radius:12px;background:var(--bg2);border:1px solid var(--line)}
+.apw .bk-box>p:first-child{margin:0;font-size:17px;line-height:1.5}
+.apw .bk-dogs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-top:16px}
+/* the smallest phones (320 wide): a thinner gap keeps each of the six buttons 44 px wide */
+@media (max-width:339px){.apw .bk-dogs{gap:3px}}
+.apw .bk-dog{min-height:62px;border-radius:12px;border:2px solid var(--field);background:var(--card);color:var(--ink);font:inherit;font-size:24px;font-weight:800;cursor:pointer}
+.apw .bk-dog[aria-checked="true"]{border-color:var(--ink);background:var(--ink);color:var(--bg)}
+.apw .bk-more{margin:8px 0 0;font-size:16px;line-height:1.5;color:var(--mute)}
+.apw .bk-more a{display:inline-flex;align-items:center;min-height:44px;font-weight:700;color:var(--ink)}
+.apw .bk-h2{margin:16px 0 0;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:25px;line-height:1.1}
+.apw .bk-plans{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.apw .bk-plan{display:flex;align-items:center;gap:14px;width:100%;min-height:72px;padding:10px 16px;border-radius:12px;border:2px solid var(--field);background:transparent;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.apw .bk-plan[aria-checked="true"]{border-color:#FF4A1C;background:rgba(255,74,28,.12)}
+.apw .bk-plan .rd{width:26px;height:26px;flex:0 0 26px;border-radius:50%;border:2px solid var(--mute);display:grid;place-items:center}
+.apw .bk-plan .rd i{width:12px;height:12px;border-radius:50%;background:transparent}
+.apw .bk-plan[aria-checked="true"] .rd{border-color:#FF4A1C}
+.apw .bk-plan[aria-checked="true"] .rd i{background:#FF4A1C}
+.apw .bk-plan .nm{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0}
+.apw .bk-plan .nm b{font-size:19px;font-weight:700;line-height:1.2}
+.apw .bk-plan .nm span{font-size:16px;color:var(--mute)}
+.apw .bk-plan .wk{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:27px;line-height:1}
+.apw .bk-plan .wk small{font-family:var(--f-text);font-stretch:104%;font-size:15px;font-weight:400;color:var(--mute)}
+.apw .bk-note{margin:14px 0 0;font-size:16px;line-height:1.5;color:var(--mute)}
+.apw .flab{display:block;margin-top:18px;font-size:17px;font-weight:700}
+.apw .flab .opt{font-weight:500;color:var(--mute)}
+.apw .fin{display:block;width:100%;height:56px;margin-top:6px;padding:0 16px;border-radius:12px;border:2px solid var(--field);background:var(--card);color:var(--ink);font:inherit;font-size:18px}
+.apw .ferr{margin:6px 0 0;font-size:16px;font-weight:700;line-height:1.4;color:var(--accent-text)}
+.apw .cbx{display:flex;gap:14px;align-items:flex-start;margin-top:10px;padding:16px;border-radius:12px;border:2px solid var(--field);background:var(--card);cursor:pointer}
+.apw .cbx input{width:28px;height:28px;flex:0 0 28px;margin:0;accent-color:#FF4A1C}
+.apw .cbx b{display:block;font-size:18px;line-height:1.3}
+.apw .cbx small{display:block;margin-top:4px;font-size:16px;line-height:1.45;color:var(--mute)}
 .apw .sugs{display:flex;flex-direction:column;margin-top:6px;border-radius:12px;border:2px solid var(--field);background:var(--card);overflow:hidden}
-.apw .sug{display:flex;flex-direction:column;gap:2px;width:100%;min-height:52px;padding:10px 14px;border:0;border-top:1px solid var(--line);background:none;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.apw .sug{display:flex;flex-direction:column;gap:2px;width:100%;min-height:56px;padding:10px 14px;border:0;border-top:1px solid var(--line);background:none;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
 .apw .sug:first-child{border-top:0}
-.apw .sug b{font-size:16px;line-height:1.3}
-.apw .sug small{font-size:14px;color:var(--mute)}
+.apw .sug b{font-size:17px;line-height:1.3}
+.apw .sug small{font-size:15px;color:var(--mute)}
+.apw .bk-cityl{margin:8px 0 0;font-size:16px;color:var(--mute)}
+.apw .bk-zips{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:8px;margin-top:8px}
+.apw .bk-zip{min-height:58px;border-radius:12px;border:2px solid var(--line);background:var(--bg2);color:var(--ink);font:inherit;font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;cursor:pointer}
+.apw .bk-zip[aria-checked="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.apw .bk-zipx{display:flex;align-items:center;justify-content:center;width:100%;min-height:52px;margin-top:8px;border-radius:12px;border:2px solid var(--line);background:transparent;color:var(--ink2);font:inherit;font-size:17px;font-weight:700;cursor:pointer}
+.apw .bk-zipn{margin:10px 0 0;font-size:16px;line-height:1.5;color:var(--ink2)}
 .apw .rec{color:#FF3B3B;font-weight:800;white-space:nowrap}
-.apw .rec-note{margin:8px 0 0;font-size:14px;line-height:1.5;color:var(--ink);font-weight:600}
-.apw .fine{margin:12px 0 0;font-size:13px;line-height:1.55;color:var(--mute)}
+.apw .rec-note{margin:10px 0 0;font-size:16px;line-height:1.5;color:var(--ink);font-weight:600}
+.apw .fine{margin:12px 0 0;font-size:15px;line-height:1.55;color:var(--mute)}
 .apw .fine a,.apw .tlink{color:var(--ink);font-weight:700}
-.apw .tlink{display:inline-flex;align-items:center;min-height:44px;padding:0;border:0;background:none;font:inherit;font-size:16px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
-.apw .note{display:flex;gap:12px;align-items:flex-start;margin-top:14px;padding:14px 16px;border-radius:12px;background:var(--bg2);font-size:15px;line-height:1.5;color:var(--ink2)}
-.apw .demo{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:6px 12px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);font-size:13px;font-weight:700;color:var(--mute)}
+.apw .tlink{display:inline-flex;align-items:center;min-height:48px;padding:0;border:0;background:none;font:inherit;font-size:17px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.apw .note{display:flex;gap:12px;align-items:flex-start;margin-top:14px;padding:14px 16px;border-radius:12px;background:var(--bg2);font-size:16px;line-height:1.5;color:var(--ink2)}
+.apw .demo{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:7px 12px;border-radius:8px;background:var(--bg2);border:1px solid var(--line);font-size:15px;font-weight:700;color:var(--mute)}
 .apw .paybox{margin-top:16px;min-height:120px;border-radius:12px;overflow:hidden}
-.apw .payline{margin:16px 0 0;font-family:var(--f-head);font-stretch:70%;font-weight:800;font-size:clamp(16px,5.1vw,20px);line-height:1.25;color:var(--ink);text-wrap:balance}
-.apw .paynote{margin:8px 0 0;font-size:clamp(13px,4vw,15px);line-height:1.5;color:var(--mute);text-wrap:pretty}
+.apw .payline{margin:16px 0 0;font-family:var(--f-head);font-stretch:70%;font-weight:800;font-size:clamp(19px,5.6vw,23px);line-height:1.25;color:var(--ink);text-wrap:balance}
+.apw .paynote{margin:8px 0 0;font-size:16px;line-height:1.5;color:var(--mute);text-wrap:pretty}
+/* what you get, as two lines of a bill: the plan, and the free deodorizing */
+.apw .sum{margin:16px 0 0;border-top:1px solid var(--line)}
+.apw .sum-r{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid var(--line);font-size:17px;line-height:1.3}
+.apw .sum-r b{font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:20px;white-space:nowrap}
+.apw .sum .dz{padding:14px 0;border-bottom:1px solid var(--line)}
+/* in sign up the deodorizing line is one size down, so the plan price stays the loudest number on the screen */
+.apw.bk .dz .dz-n{font-size:20px}
+.apw.bk .dz .dz-was{font-size:19px}
+.apw.bk .dz .dz-now{font-size:38px}
+.apw.bk .dz .dz-tag{font-size:15px}
+.apw .bk-safe{margin:14px 0 0;display:flex;align-items:flex-start;gap:8px;font-size:15px;line-height:1.5;color:var(--mute)}
+.apw .bk-safe svg{flex:none;margin-top:2px}
+.apw .bk-done-n{width:30px;height:30px;flex:0 0 30px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-size:16px;font-weight:700}
+.apw .bk-bar{flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:12px 16px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--bg)}
+.apw .bk-sum{display:flex;flex-direction:column;gap:3px;min-width:0}
+.apw .bk-sum b{font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:21px;line-height:1;white-space:nowrap}
+.apw .bk-sum span{font-size:15px;line-height:1.2;color:var(--mute);white-space:nowrap}
+/* a short screen (a phone on its side, a folding phone with its bars showing): the top and bottom take less room */
+@media (max-height:560px){
+.apw .bk-top{height:50px;flex-basis:50px}
+.apw .bh1{font-size:36px}
+.apw .bk-body{padding-top:12px}
+.apw .bk-bar{padding-top:8px;padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+.apw .bk-bar .btn{min-height:50px}
+}
+@@DZ_CSS@@
 </style>
 </helmet>
 <div class="apw bk {{ themeClass }}" style="width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); color: var(--ink);">
 
-<div style="display: flex; align-items: center; gap: 8px; height: 60px; flex: 0 0 60px; padding: 0 8px;">
+<div class="bk-top">
   <sc-if value="{{ canBack }}" hint-placeholder-val="{{ false }}"><button type="button" class="ibtn" style="border-color: transparent;" aria-label="Go back" onClick="{{ back }}">@@ICON_BACK@@</button></sc-if>
   <sc-if value="{{ noBack }}" hint-placeholder-val="{{ true }}"><span style="width: 48px; height: 48px; flex: 0 0 48px;"></span></sc-if>
-  <p style="flex: 1; margin: 0; text-align: center; font-size: 17px; font-weight: 700;">{{ topTitle }}</p>
+  <p class="bk-tt">{{ topTitle }}</p>
   <a href="/" class="ibtn bk-x" style="border-color: transparent;" aria-label="{{ closeLabel }}" onClick="{{ close }}">@@ICON_CLOSE@@</a>
 </div>
 
 <sc-if value="{{ showProgress }}" hint-placeholder-val="{{ true }}">
-  <div style="flex: 0 0 auto; padding: 0 20px;">
-    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px;" aria-hidden="true">
-      <sc-for list="{{ segs }}" as="g" hint-placeholder-count="4"><span style="display: block; height: 4px; border-radius: 4px; background: {{ g.bg }};"></span></sc-for>
+  <div class="bk-prog">
+    <div class="bk-segs" aria-hidden="true">
+      <sc-for list="{{ segs }}" as="g" hint-placeholder-count="4"><span style="background: {{ g.bg }};"></span></sc-for>
     </div>
-    <p class="mono" style="margin: 8px 0 0; font-size: 13px; color: var(--mute);">{{ stepLabel }}</p>
+    <p class="bk-step">{{ stepLabel }}</p>
   </div>
 </sc-if>
 
-<div class="bk-body" style="flex: 1; min-height: 0; overflow-y: auto; padding: 18px 20px 24px;">
+<div class="bk-body">
 
   <sc-if value="{{ s0 }}" hint-placeholder-val="{{ true }}">
     <h1 class="bh1" tabindex="-1">Where is your yard?</h1>
     [[bf:<p class="bf-chip" data-deal-end="2026-12-01T06:59:59Z"><span>Black Friday sale</span>First month free. Ends Mon, Nov 30.</p>||]]
-    <p class="lead" style="font-size: 16px;">Tap your city.</p>
-    <div role="radiogroup" aria-label="Your city" style="display: flex; flex-direction: column; gap: 8px; margin-top: 18px;">
-      <sc-for list="{{ cityOpts }}" as="c" hint-placeholder-count="5">
-        <button type="button" role="radio" aria-checked="{{ c.on }}" onClick="{{ c.pick }}" style="display: flex; align-items: center; gap: 10px; width: 100%; min-height: 60px; padding: 0 18px; border-radius: 12px; border: 2px solid {{ c.border }}; background: {{ c.bg }}; color: var(--ink); font: inherit; text-align: left; cursor: pointer;"><span style="font-size: 18px; font-weight: 800;">{{ c.label }}</span><span style="font-size: 14px; color: var(--mute);">{{ c.note }}</span><span aria-hidden="true" style="margin-left: auto; font-size: 20px; color: var(--accent-text);">›</span></button>
+    <p class="bk-lead">Tap your city.</p>
+    <div class="bk-opts" role="radiogroup" aria-label="Your city">
+      <sc-for list="{{ cityOpts }}" as="c" hint-placeholder-count="4">
+        <button type="button" class="bk-city" role="radio" aria-checked="{{ c.on }}" onClick="{{ c.pick }}">{{ c.label }}<i aria-hidden="true">›</i></button>
       </sc-for>
-      <button type="button" onClick="{{ pickOther }}" style="display: flex; align-items: center; width: 100%; min-height: 52px; padding: 0 18px; border-radius: 12px; border: 2px solid var(--line); background: transparent; color: var(--ink2); font: inherit; font-size: 16px; font-weight: 700; text-align: left; cursor: pointer;">My city is not here</button>
+      <button type="button" class="bk-other" onClick="{{ pickOther }}">My city is not here</button>
     </div>
     <sc-if value="{{ zipNo }}" hint-placeholder-val="{{ false }}">
-      <div aria-live="polite" style="margin-top: 12px; padding: 16px; border-radius: 12px; background: var(--bg2); border: 1px solid var(--line);">
-        <p style="margin: 0; font-size: 16px; line-height: 1.5;"><strong>We are not in your city yet.</strong> Join the waitlist and we will tell you when we are.</p>
+      <div class="bk-box" aria-live="polite">
+        <p><strong>We are not in your city yet.</strong> Join the waitlist and we will tell you when we are.</p>
         <sc-if value="{{ waitOpen }}" hint-placeholder-val="{{ true }}">
           <label for="w-city" class="flab">Your city</label>
           <input id="w-city" class="fin" type="text" autocomplete="address-level2" value="{{ wCity }}" onChange="{{ onWCity }}">
@@ -78,7 +153,7 @@
           <input id="w-phone" class="fin" type="tel" inputmode="tel" autocomplete="tel" value="{{ wPhone }}" onChange="{{ onWPhone }}">
           <label for="w-addr" class="flab">Street address</label>
           <input id="w-addr" class="fin" type="text" autocomplete="address-line1" value="{{ wAddr }}" onChange="{{ onWAddr }}">
-          <label for="b-wait" class="flab">Email <span style="font-weight: 500; color: var(--mute);">(if you want)</span></label>
+          <label for="b-wait" class="flab">Email <span class="opt">(if you want)</span></label>
           <input id="b-wait" class="fin" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" value="{{ wait }}" onChange="{{ onWait }}">
           <label class="cbx" for="w-tx"><input id="w-tx" type="checkbox" checked="{{ wTexts }}" onChange="{{ onWTexts }}"><span><b>Text me when you start in my area.</b><small>One text when we start. You can skip this one.</small></span></label>
           <p class="fine">By checking this box, you agree to get one text from Arizona Pet Waste at the number above. Message and data rates may apply. Reply STOP to stop or HELP for help. You do not have to agree to texts to join. See our <a href="/texts/">Text Terms</a> and <a href="/privacy/">Privacy Policy</a>.</p>
@@ -86,36 +161,38 @@
           <sc-if value="{{ waitErr }}" hint-placeholder-val="{{ false }}"><p class="ferr" role="alert">{{ waitErr }}</p></sc-if>
         </sc-if>
         <sc-if value="{{ waitDone }}" hint-placeholder-val="{{ false }}">
-          <p style="margin: 12px 0 0; display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 700; color: var(--ok);"><span style="width: 24px; height: 24px; flex: 0 0 24px; border-radius: 50%; background: var(--ok); color: #FFFFFF; display: grid; place-items: center;">@@ICON_CHECK@@</span>You are on the list!</p>
+          <p style="margin: 12px 0 0; display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; color: var(--ok);"><span style="width: 26px; height: 26px; flex: 0 0 26px; border-radius: 50%; background: var(--ok); color: #FFFFFF; display: grid; place-items: center;">@@ICON_CHECK@@</span>You are on the list!</p>
         </sc-if>
       </div>
     </sc-if>
+    <p class="bk-help">Not sure? We can sign you up by phone. <a href="tel:+16233096104">Call 623.309.6104</a></p>
   </sc-if>
 
   <sc-if value="{{ s1 }}" hint-placeholder-val="{{ false }}">
     <h1 class="bh1" tabindex="-1">How many dogs?</h1>
-    <div role="radiogroup" aria-label="How many dogs" style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-top: 16px;">
+    <div class="bk-dogs" role="radiogroup" aria-label="How many dogs">
       <sc-for list="{{ dogOpts }}" as="d" hint-placeholder-count="6">
-        <button type="button" role="radio" aria-checked="{{ d.on }}" aria-label="{{ d.aria }}" onClick="{{ d.pick }}" style="min-height: 60px; border-radius: 12px; border: 2px solid {{ d.border }}; background: {{ d.bg }}; color: {{ d.fg }}; font: inherit; font-size: 22px; font-weight: 800; cursor: pointer;">{{ d.label }}</button>
+        <button type="button" class="bk-dog" role="radio" aria-checked="{{ d.on }}" aria-label="{{ d.aria }}" onClick="{{ d.pick }}">{{ d.label }}</button>
       </sc-for>
     </div>
-    <p style="margin: 10px 0 0; font-size: 15px; line-height: 1.5; color: var(--mute);">More than 6 dogs? <a href="sms:+16233096104" style="font-weight: 700; color: var(--ink);">Text us.</a></p>
-    <h2 style="margin: 28px 0 0; font-size: 24px; font-family: var(--f-head); font-stretch: 86%; font-weight: 800; line-height: 1.1;">How often should we come?</h2>
-    <div role="radiogroup" aria-label="How often we come" style="display: flex; flex-direction: column; gap: 10px; margin-top: 14px;">
+    <p class="bk-more">More than 6 dogs? <a href="sms:+16233096104">Text us.</a></p>
+    <h2 class="bk-h2">How often should we come?</h2>
+    <div class="bk-plans" role="radiogroup" aria-label="How often we come">
       <sc-for list="{{ plans }}" as="p" hint-placeholder-count="3">
-        <button type="button" role="radio" aria-checked="{{ p.on }}" onClick="{{ p.pick }}" style="display: flex; align-items: center; gap: 14px; width: 100%; min-height: 70px; padding: 12px 16px; border-radius: 12px; border: 2px solid {{ p.border }}; background: {{ p.bg }}; color: var(--ink); font: inherit; text-align: left; cursor: pointer;">
-          <span style="width: 24px; height: 24px; flex: 0 0 24px; border-radius: 50%; border: 2px solid {{ p.ring }}; display: grid; place-items: center;"><span style="width: 12px; height: 12px; border-radius: 50%; background: {{ p.dot }};"></span></span>
-          <span style="flex: 1; display: flex; flex-direction: column; gap: 3px;"><span style="font-size: 17px; font-weight: 700;">{{ p.name }}</span><span style="font-size: 14px; color: var(--mute);">{{ p.month }}</span></span>
-          <span style="display: flex; flex-direction: column; align-items: flex-end; gap: 1px; font-size: 24px; font-family: var(--f-head); font-stretch: 86%; font-weight: 800; line-height: 1;">{{ p.week }}<small style="font-family: var(--f-text); font-stretch: 104%; font-size: 13px; font-weight: 400; color: var(--mute);">a week</small></span>
+        <button type="button" class="bk-plan" role="radio" aria-checked="{{ p.on }}" onClick="{{ p.pick }}">
+          <span class="rd"><i></i></span>
+          <span class="nm"><b>{{ p.name }}</b><span>{{ p.month }}</span></span>
+          <span class="wk">{{ p.week }}<small>a week</small></span>
         </button>
       </sc-for>
     </div>
-    <p style="margin: 14px 0 0; font-size: 15px; line-height: 1.5; color: var(--mute);">We bill the month price once a month. Each dog after two adds $13 a month ($9 every other week). [[bf:Your first month is free. No long term contract.||No contract.]] Deodorizing is included free with every visit. Insured and bonded.</p>
+    @@DEODOR@@
+    <p class="bk-note">We bill once a month. [[bf:Your first month is free. No long term contract.||No contract.]]</p>
   </sc-if>
 
   <sc-if value="{{ s2 }}" hint-placeholder-val="{{ false }}">
     <h1 class="bh1" tabindex="-1">Tell us about you.</h1>
-    <p class="lead" style="font-size: 16px;">We use this to reach you and set your day and time.</p>
+    <p class="bk-lead">We use this to reach you and set your day and time.</p>
     <label for="b-name" class="flab">Full name</label>
     <input id="b-name" class="fin" type="text" autocomplete="name" value="{{ name }}" onChange="{{ onName }}">
     <sc-if value="{{ eName }}" hint-placeholder-val="{{ false }}"><p class="ferr">{{ eName }}</p></sc-if>
@@ -134,18 +211,18 @@
         </sc-for>
       </div>
     </sc-if>
-    <p class="mono" style="margin: 8px 0 0; font-size: 13px; color: var(--mute);">{{ cityLine }}</p>
-    <sc-if value="{{ zipAsk }}" hint-placeholder-val="{{ false }}">
-      <p class="flab" id="b-zip-l">Which ZIP code is your home in?</p>
-      <div role="radiogroup" aria-labelledby="b-zip-l" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px;">
-        <sc-for list="{{ zipOpts }}" as="z" hint-placeholder-count="2">
-          <button type="button" role="radio" aria-checked="{{ z.on }}" onClick="{{ z.pick }}" class="mono" style="min-height: 56px; border-radius: 12px; border: 2px solid {{ z.border }}; background: {{ z.bg }}; color: var(--ink); font-size: 18px; font-weight: 700; cursor: pointer;">{{ z.label }}</button>
-        </sc-for>
-      </div>
-      <sc-if value="{{ eZip }}" hint-placeholder-val="{{ false }}"><p class="ferr">{{ eZip }}</p></sc-if>
-    </sc-if>
+    <p class="bk-cityl">{{ cityLine }}</p>
     <sc-if value="{{ eAddr }}" hint-placeholder-val="{{ false }}"><p class="ferr">{{ eAddr }}</p></sc-if>
-    <p class="flab" style="margin-top: 24px;">Texts from us</p>
+    <p class="flab" id="b-zip-l">Which ZIP code is your home in?</p>
+    <div class="bk-zips" role="radiogroup" aria-labelledby="b-zip-l">
+      <sc-for list="{{ zipOpts }}" as="z" hint-placeholder-count="2">
+        <button type="button" class="bk-zip" role="radio" aria-checked="{{ z.on }}" onClick="{{ z.pick }}">{{ z.label }}</button>
+      </sc-for>
+    </div>
+    <sc-if value="{{ zipMore }}" hint-placeholder-val="{{ true }}"><button type="button" class="bk-zipx" onClick="{{ zipAll }}">My ZIP code is not here</button></sc-if>
+    <sc-if value="{{ zipHelp }}" hint-placeholder-val="{{ false }}"><p class="bk-zipn">Still do not see your ZIP code? <a href="tel:+16233096104" style="font-weight: 700; color: var(--ink);">Call</a> or <a href="sms:+16233096104" style="font-weight: 700; color: var(--ink);">text</a> 623.309.6104. We will check your address and sign you up.</p></sc-if>
+    <sc-if value="{{ eZip }}" hint-placeholder-val="{{ false }}"><p class="ferr">{{ eZip }}</p></sc-if>
+    <p class="flab" style="margin-top: 26px;">Texts from us</p>
     <label class="cbx" for="b-tv"><input id="b-tv" type="checkbox" checked="{{ txtVisit }}" onChange="{{ onTxtVisit }}"><span><b>Text me about my visits. <span class="rec">* Recommended</span></b><small>Setting your day, night before reminders, on the way, and your gate photo. About 2 to 4 texts a visit.</small></span></label>
     <p class="rec-note">Skip this and your gate photo comes by email and in My Yard.</p>
     <p class="fine">By checking the box, you agree to get texts from Arizona Pet Waste at the number above. Message and data rates may apply. Reply STOP to stop or HELP for help. You do not have to agree to texts to book. See our <a href="/texts/">Text Terms</a> and <a href="/privacy/">Privacy Policy</a>.</p>
@@ -154,7 +231,7 @@
 
   <sc-if value="{{ s3 }}" hint-placeholder-val="{{ false }}">
     <h1 class="bh1" tabindex="-1">Check your email.</h1>
-    <p class="lead" style="font-size: 16px;">You already have an account with us. We sent a 6 digit code to <strong>{{ email }}</strong>. Type it here to sign in. No password needed.</p>
+    <p class="bk-lead">You already have an account with us. We sent a 6 digit code to <strong>{{ email }}</strong>. Type it here to sign in. No password needed.</p>
     <label for="b-code" class="flab" style="margin-top: 22px;">6 digit code</label>
     <input id="b-code" class="mono" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" value="{{ code }}" onChange="{{ onCode }}" onKeyDown="{{ enter }}" style="display: block; width: 100%; height: 64px; margin-top: 8px; padding: 0 18px; border-radius: 12px; border: 2px solid var(--field); background: var(--card); color: var(--ink); font-size: 30px; letter-spacing: .3em;">
     <sc-if value="{{ codeErr }}" hint-placeholder-val="{{ false }}"><p class="ferr" role="alert">{{ codeErr }}</p></sc-if>
@@ -170,13 +247,17 @@
     <h1 class="bh1" tabindex="-1">{{ payTitle }}</h1>
     <sc-if value="{{ payFree }}" hint-placeholder-val="{{ true }}">[[bf:<p class="bf-chip" data-deal-end="2026-12-01T06:59:59Z"><span>Black Friday sale</span>First month free. Ends Mon, Nov 30.</p>||]]</sc-if>
     <p class="payline">{{ payLine }}</p>
+    <div class="sum">
+      <div class="sum-r"><span>{{ sumPlan }}</span><b>{{ sumPrice }}</b></div>
+      @@DEODOR@@
+    </div>
     <p class="paynote">[[self:Cancel anytime in My Yard, with no phone call.||Cancel anytime. Call or text 623.309.6104.]]</p>
-    <p class="paynote" style="margin-top: 4px;">{{ planLine }} We reach out to set your first visit.</p>
+    <p class="paynote" style="margin-top: 4px;">We reach out to set your first visit.</p>
     <p class="fine">{{ payAgree }} <a href="/terms/">Terms</a> and <a href="/privacy/">Privacy Policy</a>.</p>
     <sc-if value="{{ payDemo }}" hint-placeholder-val="{{ false }}">
       <p class="demo">Demo mode: no card is charged</p>
       <div style="margin-top: 14px; padding: 14px; border-radius: 12px; border: 2px solid var(--line);">
-        <p class="mono" style="margin: 0 0 10px; font-size: 13px; color: var(--mute);">STRIPE CARD FORM LOADS HERE</p>
+        <p style="margin: 0 0 10px; font-size: 15px; color: var(--mute);">The Stripe card form loads here</p>
         <div style="display: flex; align-items: center; height: 50px; padding: 0 14px; border-radius: 12px; border: 2px solid var(--line); background: var(--card); font-size: 16px; color: var(--mute);">Card number</div>
         <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px;">
           <div style="display: flex; align-items: center; height: 50px; padding: 0 14px; border-radius: 12px; border: 2px solid var(--line); background: var(--card); font-size: 16px; color: var(--mute);">MM / YY</div>
@@ -198,37 +279,34 @@
       </div>
     </sc-if>
     <sc-if value="{{ payLive }}" hint-placeholder-val="{{ false }}"><div class="paybox" data-pay-mount></div></sc-if>
-    <p style="margin: 14px 0 0; display: flex; align-items: center; gap: 8px; font-size: 14px; line-height: 1.5; color: var(--mute);">@@ICON_LOCK@@Secure checkout with Stripe. We never see or store your card number. Apple Pay and Google Pay show up if your phone has them.</p>
+    <p class="bk-safe">@@ICON_LOCK@@Secure checkout with Stripe. We never see or store your card number. Apple Pay and Google Pay show up if your phone has them.</p>
   </sc-if>
 
   <sc-if value="{{ s5 }}" hint-placeholder-val="{{ false }}">
     <div style="display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: 12px;">
       <span style="width: 88px; height: 88px; border-radius: 50%; background: var(--ok); color: #FFFFFF; display: grid; place-items: center;">@@ICON_CHECK44@@</span>
       <h1 class="bh1" tabindex="-1" style="margin-top: 22px;">{{ doneTitle }}</h1>
-      <p class="lead" style="font-size: 17px;">{{ doneLead }}</p>
+      <p class="bk-lead">{{ doneLead }}</p>
       <sc-if value="{{ isDemo }}" hint-placeholder-val="{{ false }}"><p class="demo">Demo mode: nothing was booked</p></sc-if>
     </div>
     <sc-if value="{{ showYard }}" hint-placeholder-val="{{ true }}">
     <div style="margin-top: 22px; padding: 6px 16px; border-radius: 12px; background: var(--bg2);">
-      <div style="display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--line);"><span class="mono" style="width: 28px; height: 28px; flex: 0 0 28px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 14px; font-weight: 600;">1</span><p style="margin: 0; font-size: 16px; line-height: 1.45;"><strong>{{ yardHead }}</strong> {{ yardText }}</p></div>
-      <div style="display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--line);"><span class="mono" style="width: 28px; height: 28px; flex: 0 0 28px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 14px; font-weight: 600;">2</span><p style="margin: 0; font-size: 16px; line-height: 1.45;"><strong>Look for our message</strong> with your day and time.</p></div>
-      <div style="display: flex; gap: 14px; align-items: flex-start; padding: 12px 0;"><span class="mono" style="width: 28px; height: 28px; flex: 0 0 28px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 14px; font-weight: 600;">3</span><p style="margin: 0; font-size: 16px; line-height: 1.45;"><strong>Get your photo</strong> of the shut gate after each visit.</p></div>
+      <div style="display: flex; gap: 14px; align-items: flex-start; padding: 13px 0; border-bottom: 1px solid var(--line);"><span class="bk-done-n">1</span><p style="margin: 0; font-size: 17px; line-height: 1.45;"><strong>{{ yardHead }}</strong> {{ yardText }}</p></div>
+      <div style="display: flex; gap: 14px; align-items: flex-start; padding: 13px 0; border-bottom: 1px solid var(--line);"><span class="bk-done-n">2</span><p style="margin: 0; font-size: 17px; line-height: 1.45;"><strong>Look for our message</strong> with your day and time.</p></div>
+      <div style="display: flex; gap: 14px; align-items: flex-start; padding: 13px 0;"><span class="bk-done-n">3</span><p style="margin: 0; font-size: 17px; line-height: 1.45;"><strong>Get your photo</strong> of the shut gate after each visit.</p></div>
     </div>
     <sc-if value="{{ yardBtn }}" hint-placeholder-val="{{ false }}"><a href="/account/" class="btn btn-dot" style="margin-top: 18px;">Set up my yard</a></sc-if>
     </sc-if>
     <sc-if value="{{ req }}" hint-placeholder-val="{{ false }}"><a href="tel:+16233096104" class="btn btn-dot" style="margin-top: 22px;">Call 623.309.6104</a></sc-if>
-    <a href="/" onClick="{{ close }}" style="display: flex; align-items: center; justify-content: center; min-height: 48px; margin-top: 6px; font-size: 16px; font-weight: 700; color: var(--accent-text); text-decoration: none;">Back to home</a>
+    <a href="/" onClick="{{ close }}" style="display: flex; align-items: center; justify-content: center; min-height: 48px; margin-top: 6px; font-size: 17px; font-weight: 700; color: var(--accent-text); text-decoration: none;">Back to home</a>
   </sc-if>
 
 </div>
 
-<sc-if value="{{ showBar }}" hint-placeholder-val="{{ true }}">
-  <div style="flex: 0 0 auto; display: flex; align-items: center; gap: 14px; padding: 12px 16px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--bg);">
+<sc-if value="{{ showBar }}" hint-placeholder-val="{{ false }}">
+  <div class="bk-bar">
     <sc-if value="{{ showSum }}" hint-placeholder-val="{{ false }}">
-      <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
-        <p style="margin: 0; font-size: 20px; font-family: var(--f-head); font-stretch: 86%; font-weight: 800; white-space: nowrap;">{{ priceShort }}</p>
-        <p class="mono" style="margin: 0; font-size: 13px; color: var(--mute); white-space: nowrap;">{{ planShort }}</p>
-      </div>
+      <div class="bk-sum"><b>{{ priceShort }}</b><span>{{ planShort }}</span></div>
     </sc-if>
     <button type="button" class="btn btn-dot" style="flex: 1; min-width: 0;" onClick="{{ next }}" disabled="{{ nextOff }}">{{ nextLabel }}</button>
   </div>
@@ -241,7 +319,7 @@ class Component extends DCLogic {
   constructor(props) {
     super(props);
     this.state = Object.assign({
-      dark: this._themeFromProps(), step: 0, zip: '', city: '', zipSet: true, other: false, dogs: 2, plan: 'week',
+      dark: this._themeFromProps(), step: 0, zip: '', city: '', zipSet: true, zipAll: false, other: false, dogs: 2, plan: 'week',
       name: '', phone: '', email: '', addr: '', txtVisit: false, tried: false, sugs: [], addrNote: '',
       wait: '', waitDone: false, waitBusy: false, waitErr: '',
       code: '', codeErr: '', resent: false, busy: false, err: '',
@@ -271,17 +349,23 @@ class Component extends DCLogic {
   _cfg() { const a = this._apw(); return (a && a.cfg) || {}; }
   _demo() { const a = this._apw(); return !a || !a.live; }
   _closed() { const a = this._apw(); return !!(a && a.closed); }
+  // Every ZIP code we scoop (the same six as ZIPS in the server), and the city button each one belongs to first.
   _zips() { return { '85326': 'Buckeye', '85396': 'Buckeye', '85338': 'Goodyear', '85395': 'Goodyear', '85340': 'Litchfield Park', '85355': 'Citrus Park' }; }
-  // Step 1 asks for the city, never the ZIP. Towns with two ZIP codes ask which one on the address step.
+  _zipCity(zip) { return { '85326': 'buckeye', '85396': 'buckeye', '85338': 'goodyear', '85395': 'goodyear', '85340': 'litchfield', '85355': 'citrus' }[zip] || ''; }
+  // Step 1 asks for the city, never the ZIP (Joe, Nov 18, 2026: Buckeye, Goodyear, Litchfield Park and Citrus Park, the
+  // four main cities. Verrado is in Buckeye, so it has no button of its own). The address step asks which ZIP code the
+  // home is in. `zips` are the ZIP codes homes in that city have: part of Verrado (the Village District), part of north
+  // Goodyear (some of PebbleCreek and Palm Valley) and the south end of Citrus Park have a Litchfield Park 85340 address.
+  // "My ZIP code is not here" on that step shows all six, so every ZIP code we scoop can be picked from every city, and a
+  // ZIP code that is none of the six gets the phone number.
   _cities() { return [
-    { id: 'buckeye', label: 'Buckeye', note: '', zips: ['85326', '85396'] },
-    { id: 'verrado', label: 'Verrado', note: 'Buckeye', zips: ['85396'] },
-    { id: 'goodyear', label: 'Goodyear', note: '', zips: ['85338', '85395'] },
-    { id: 'litchfield', label: 'Litchfield Park', note: '', zips: ['85340'] },
-    { id: 'citrus', label: 'Citrus Park', note: 'and Waddell', zips: ['85355'] }
+    { id: 'buckeye', label: 'Buckeye', zips: ['85326', '85396', '85340'] },
+    { id: 'goodyear', label: 'Goodyear', zips: ['85338', '85395', '85340'] },
+    { id: 'litchfield', label: 'Litchfield Park', zips: ['85340'] },
+    { id: 'citrus', label: 'Citrus Park', zips: ['85355', '85340'] }
   ]; }
   _city(id) { return this._cities().filter((c) => c.id === id)[0] || null; }
-  _pickCity(c) { this.setState({ city: c.id, zip: c.zips[0], zipSet: c.zips.length === 1, other: false, waitDone: false, waitErr: '', step: 1, err: '', busy: false }); }
+  _pickCity(c) { this.setState({ city: c.id, zip: c.zips[0], zipSet: c.zips.length === 1, zipAll: false, other: false, waitDone: false, waitErr: '', step: 1, err: '', busy: false }); }
   _initial() {
     if (typeof window === 'undefined') return {};
     const out = {};
@@ -294,6 +378,9 @@ class Component extends DCLogic {
       if (n >= 1 && n <= 6) out.dogs = n;
     }
     delete out.dayIso;
+    // A sign up saved before November 18, 2026 may hold the Verrado button, which is part of Buckeye now.
+    if (out.city === 'verrado') out.city = 'buckeye';
+    if (out.city && !this._city(out.city)) out.city = '';
     if (out.step > 2 || out.step < 0 || typeof out.step !== 'number') out.step = 0;
     if (out.step > 0 && !this._zips()[out.zip]) out.step = 0;
     return out;
@@ -301,7 +388,7 @@ class Component extends DCLogic {
   _save() {
     if (typeof window === 'undefined') return;
     const s = this.state;
-    const keep = { step: Math.min(s.step, 2), zip: s.zip, city: s.city, zipSet: s.zipSet, dogs: s.dogs, plan: s.plan, name: s.name, phone: s.phone, email: s.email, addr: s.addr, txtVisit: s.txtVisit, txtDeals: s.txtDeals };
+    const keep = { step: Math.min(s.step, 2), zip: s.zip, city: s.city, zipSet: s.zipSet, zipAll: s.zipAll, dogs: s.dogs, plan: s.plan, name: s.name, phone: s.phone, email: s.email, addr: s.addr, txtVisit: s.txtVisit, txtDeals: s.txtDeals };
     try { sessionStorage.setItem('apw.book', JSON.stringify(keep)); } catch (e) { }
   }
   _clearDraft() { try { sessionStorage.removeItem('apw.book'); } catch (e) { } }
@@ -367,10 +454,11 @@ class Component extends DCLogic {
     this.setState({ sugs: [] });
     try {
       const r = await a.get('/api/address/pick?id=' + encodeURIComponent(g.id) + '&s=' + (tok || ''));
-      if (!r.served) { this.setState({ addr: r.street, addrNote: 'That home is in ' + (r.city || 'ZIP ' + r.zip) + ', ' + r.zip + '. We do not scoop there yet. Tap the back arrow and pick My city is not here to join the waitlist.' }); return; }
+      if (!r.served) { this.setState({ addr: r.street, addrNote: 'That home is in ' + (r.city || 'ZIP ' + r.zip) + ', ' + r.zip + '. We do not scoop in that ZIP code yet. If your home is in Buckeye, Goodyear, Litchfield Park or Citrus Park, call or text 623.309.6104 and we will check your address.' }); return; }
       const city = this._city(this.state.city);
       const next = { addr: r.street, zip: r.zip, zipSet: true, addrNote: '' };
-      if (!city || city.zips.indexOf(r.zip) < 0) next.city = (this._cities().filter((c) => c.id !== 'verrado' && c.zips.indexOf(r.zip) >= 0)[0] || {}).id || '';
+      // The address is in another city than the button that was tapped: follow the address.
+      if (!city || city.zips.indexOf(r.zip) < 0) next.city = this._zipCity(r.zip);
       this.setState(next);
     } catch (e) { this.setState({ addr: g.main }); }
   }
@@ -552,8 +640,11 @@ class Component extends DCLogic {
     const demo = this._demo();
     const errs = s.tried ? this._errs() : { name: '', phone: '', email: '', addr: '', zip: '' };
     const cityNow = this._city(s.city);
-    const pickStyle = (on) => ({ on: on ? 'true' : 'false', border: on ? 'var(--accent)' : 'var(--line)', bg: on ? 'var(--accent-soft)' : 'var(--bg2)' });
-    const tone = (on) => ({ border: on ? 'var(--ink)' : 'var(--field)', bg: on ? 'var(--ink)' : 'var(--card)', fg: on ? 'var(--bg)' : 'var(--ink)' });
+    const yes = (on) => (on ? 'true' : 'false');
+    // The ZIP codes to tap: the ones for the city that was picked, or all six once "My ZIP code is not here" is tapped
+    // (and when sign up was opened from a ZIP code, with no city).
+    const zipAll = !!s.zipAll || !cityNow;
+    const zipList = zipAll ? Object.keys(zips) : cityNow.zips;
     const field = (k) => (e) => { const o = {}; o[k] = e.target.value; this.setState(o); };
     const dock = this.props.mode === 'dock';
     const labels = ['Continue', 'Continue', 'Continue', 'Check code', 'Finish demo booking', ''];
@@ -570,10 +661,14 @@ class Component extends DCLogic {
       // and it counts as part of the card step.
       segs: [0, 1, 2, 3].map((i) => ({ bg: i <= Math.min(s.step, 3) ? 'var(--accent)' : 'var(--line)' })),
       stepLabel: 'Step ' + (Math.min(s.step, 3) + 1) + ' of 4',
-      showBar: s.step < 4 || (s.step === 4 && demo),
+      // Step 1 has no Continue button: tapping a city moves on. (A button that does nothing until a city is picked
+      // looked broken.) The waitlist has its own button.
+      showBar: (s.step > 0 && s.step < 4) || (s.step === 4 && demo),
       showSum: s.step >= 1 && s.step <= 2,
-      priceShort: '$' + price + '/mo',
-      planShort: names[s.plan] + ' · ' + dogsLabel,
+      priceShort: '$' + price + ' a month',
+      planShort: names[s.plan] + ', ' + dogsLabel,
+      sumPlan: names[s.plan] + ', ' + dogsLabel,
+      sumPrice: '$' + price + ' a month',
       nextOff: (s.step === 0 && !zipOk) || s.busy,
       nextLabel: s.busy ? 'One moment…' : labels[s.step],
       next: () => this._next(),
@@ -582,10 +677,12 @@ class Component extends DCLogic {
       onZip: (e) => this.setState({ zip: this._digits(e.target.value, 5), waitDone: false, waitErr: '' }),
       zipOk: zipOk,
       zipNo: !!s.other,
-      cityOpts: this._cities().map((c) => Object.assign({ label: c.label, note: c.note, pick: () => this._pickCity(c) }, pickStyle(s.city === c.id))),
+      cityOpts: this._cities().map((c) => ({ label: c.label, on: yes(s.city === c.id), pick: () => this._pickCity(c) })),
       pickOther: () => this.setState({ other: true, city: '', zip: '', waitDone: false, waitErr: '' }),
-      zipAsk: !!(cityNow && cityNow.zips.length > 1),
-      zipOpts: (cityNow ? cityNow.zips : []).map((z) => Object.assign({ label: z, pick: () => this.setState({ zip: z, zipSet: true }) }, pickStyle(s.zipSet !== false && s.zip === z))),
+      zipOpts: zipList.map((z) => ({ label: z, on: yes(s.zipSet !== false && s.zip === z), pick: () => this.setState({ zip: z, zipSet: true }) })),
+      zipMore: !zipAll,
+      zipAll: () => this.setState({ zipAll: true }),
+      zipHelp: zipAll,
       eZip: errs.zip,
       wCity: s.wCity, onWCity: field('wCity'),
       zipPlace: zips[s.zip] || '',
@@ -606,13 +703,13 @@ class Component extends DCLogic {
       yardBtn: !s.req && (!!s.signedIn || demo),
       yardHead: s.signedIn || demo ? 'Set up your yard.' : 'Check your email.',
       yardText: s.signedIn || demo ? 'Add your dogs’ names, your gate code and any problem spots. It takes 2 minutes.' : 'We sent a link to ' + (s.email.trim() || 'your email') + '. Tap it to set up My Yard: your dogs’ names, your gate code and any problem spots.',
-      dogOpts: [1, 2, 3, 4, 5, 6].map((n) => Object.assign({
+      dogOpts: [1, 2, 3, 4, 5, 6].map((n) => ({
         label: String(n),
         aria: n === 1 ? '1 dog' : n + ' dogs',
-        on: s.dogs === n,
+        on: yes(s.dogs === n),
         pick: () => this.setState({ dogs: n })
-      }, tone(s.dogs === n))),
-      plans: this._plans(false),
+      })),
+      plans: this._plans(false).map((p) => Object.assign(p, { on: yes(p.on) })),
       name: s.name, onName: field('name'),
       phone: s.phone, onPhone: field('phone'),
       email: s.email, onEmail: field('email'),

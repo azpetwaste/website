@@ -6,6 +6,9 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import worker from '../src/worker/worker.js';
+import { loadPrices, workerBlock, workerHas } from './prices.mjs';
+// The one file that holds the prices (src/prices.json). The server carries a copy, and a test below holds the two together.
+const PRICE_FILE = loadPrices();
 
 // A clock the tests can set. The free month ends on the same day of the next month, counted from the sign up day, so
 // a test has to say which day it is. `clock('2027-03-10T17:00:00Z')` makes it that moment for the server and the
@@ -62,6 +65,7 @@ function match(row, k, expr) {
   if (op === 'in') return v.replace(/^\(|\)$/g, '').split(',').includes(String(x));
   if (op === 'not' && v === 'is.null') return x != null;
   if (op === 'is' && v === 'null') return x == null;
+  if (op === 'is' && (v === 'true' || v === 'false')) return x === (v === 'true');
   if (op === 'gt') return String(x) > v;
   if (op === 'gte') return String(x) >= v;
   if (op === 'lt') return String(x) < v;
@@ -101,7 +105,13 @@ function rest(method, rel, body, prefer) {
 }
 
 /* ---------- pretend Stripe ---------- */
-const S = { n: 0, customers: {}, prices: [{ id: 'price_wb', lookup_key: 'apw_week_base' }], sessions: {}, intents: {}, cards: {}, subs: {}, keys: {}, invoices: {}, calls: [], posts: [],
+// What the pretend Stripe holds when a run starts: the price for every week with 3 dogs (so "found by its key and not
+// made again" is covered), and the older base and extra dog prices that a plan from before November 18, 2026 holds.
+function seedPrices() {
+  return [{ id: 'price_w3', lookup_key: 'apw_week_3_11500', unit_amount: 11500 },
+    { id: 'price_old_wb', lookup_key: 'apw_week_base', unit_amount: 10800 }, { id: 'price_old_wx', lookup_key: 'apw_week_extra', unit_amount: 1300 }];
+}
+const S = { n: 0, customers: {}, prices: seedPrices(), sessions: {}, intents: {}, cards: {}, subs: {}, keys: {}, invoices: {}, calls: [], posts: [],
   funding: 'credit', failPlan: null, paidSoFar: [], subMeta: null, subPosts: [], items: [], payCalls: [],
   busy: 0, preview: null, keepDay: false, made: [], lines: [], failBill: false, all: [], refuse: [], expired: [], notes: [], blind: false, failNote: false,
   // Things Stripe no longer has.
@@ -115,9 +125,17 @@ const S = { n: 0, customers: {}, prices: [{ id: 'price_wb', lookup_key: 'apw_wee
   lost: {}, lostSubs: {}, sessionGone: false, custErr: null };
 // Stripe's own words for an id it does not have.
 const noSuch = (what, id, param) => ({ error: { code: 'resource_missing', doc_url: 'https://stripe.com/docs/error-codes/resource-missing', message: 'No such ' + what + ": '" + id + "'", param, type: 'invalid_request_error' } });
-// What one unit of a price costs, by its lookup key (the same numbers as PLANS in the server).
-const UNIT = { apw_week_base: 10800, apw_week_extra: 1300, apw_twice_base: 18900, apw_twice_extra: 1300, apw_eow_base: 7500, apw_eow_extra: 900 };
-const unitOf = (priceId) => UNIT[(S.prices.find((x) => x.id === priceId) || {}).lookup_key] || UNIT[String(priceId).replace(/^price_/, '')] || 0;
+// What one unit of a price costs: the amount it was made with.
+const unitOf = (priceId) => (S.prices.find((x) => x.id === priceId) || {}).unit_amount || 0;
+// The price lines of a plan the way Stripe sends them back: each with its price, the price's amount and its key.
+const linesOf = (f, prefix) => {
+  const out = [];
+  for (let i = 0; f.get(prefix + '[' + i + '][price]'); i++) {
+    const pr = S.prices.find((x) => x.id === f.get(prefix + '[' + i + '][price]')) || { id: f.get(prefix + '[' + i + '][price]') };
+    out.push({ id: 'si_' + (++S.n), price: Object.assign({}, pr), quantity: Number(f.get(prefix + '[' + i + '][quantity]') || 1) });
+  }
+  return out;
+};
 // The first bill of a plan, worked out the way Stripe does and not the way the server does: every line at full price
 // when only the day the free month ends was sent. If a billing day were ever sent again, it would be a part month.
 const firstBill = (f) => {
@@ -192,7 +210,7 @@ function stripeApi(m, url, init) {
     // With no billing day sent, Stripe lines the bills up on the day the free month ends ("now", its default).
     const sub = { id: id('sub'), object: 'subscription', status: 'trialing', customer: f.get('customer'), trial_end: Number(f.get('trial_end')), billing_cycle_anchor: Number(f.get('billing_cycle_anchor') || f.get('trial_end')),
       trial_settings: { end_behavior: { billing_cycle_anchor: S.keepDay ? 'unchanged' : 'now', missing_payment_method: 'create_invoice' } },
-      default_payment_method: null, pause_collection: null, latest_invoice: null, metadata: metaOf(f, 'metadata'), form: f };
+      default_payment_method: null, pause_collection: null, latest_invoice: null, metadata: metaOf(f, 'metadata'), items: { data: linesOf(f, 'items') }, form: f };
     S.subs[sub.id] = sub; if (key) S.keys[key] = sub;
     return reply(sub);
   }
@@ -218,7 +236,7 @@ function stripeApi(m, url, init) {
       if (f.has('pause_collection') && f.get('pause_collection') === '') sub.pause_collection = null;
       if (f.get('trial_end') === 'now') {
         sub.status = 'active'; sub.trial_end = nowS; sub.billing_cycle_anchor = nowS;
-        const bill = { id: id('in_back'), object: 'invoice', customer: sub.customer, status: 'draft', billing_reason: 'subscription_cycle', amount_due: 10800, amount_remaining: 10800, metadata: {} };
+        const bill = { id: id('in_back'), object: 'invoice', customer: sub.customer, status: 'draft', billing_reason: 'subscription_cycle', amount_due: 9900, amount_remaining: 9900, metadata: {} };
         S.invoices[bill.id] = bill; sub.latest_invoice = bill.id;
       } else if (f.get('trial_end')) { sub.status = 'trialing'; sub.trial_end = Number(f.get('trial_end')); sub.billing_cycle_anchor = sub.trial_end; }
     }
@@ -262,6 +280,24 @@ function stripeApi(m, url, init) {
     // S.lateNext: Stripe fills in the next try a moment after the event, the way it does for accounts on automations.
     if (i && S.lateNext && S.lateNext.id === i.id && --S.lateNext.reads <= 0) { i.next_payment_attempt = S.lateNext.at; S.lateNext = null; }
     return reply(i ? Object.assign({}, i, S.blind ? { metadata: {} } : {}) : { error: { message: 'No such invoice' } }, i ? 200 : 404);
+  }
+  if (p === 'subscription_items' && m === 'POST') {
+    const sub = S.subs[f.get('subscription')]; if (!sub) return reply(noSuch('subscription', f.get('subscription'), 'subscription'), 400);
+    const line = { id: 'si_' + (++S.n), price: Object.assign({}, S.prices.find((x) => x.id === f.get('price')) || { id: f.get('price') }), quantity: Number(f.get('quantity') || 1) };
+    (sub.items = sub.items || { data: [] }).data.push(line);
+    return reply(line);
+  }
+  if (p.startsWith('subscription_items/')) {
+    const lid = p.slice(19);
+    for (const sub of Object.values(S.subs)) {
+      const list = (sub.items && sub.items.data) || [], i = list.findIndex((x) => x.id === lid);
+      if (i < 0) continue;
+      if (m === 'DELETE') { list.splice(i, 1); return reply({ id: lid, object: 'subscription_item', deleted: true }); }
+      if (f.get('price')) list[i].price = Object.assign({}, S.prices.find((x) => x.id === f.get('price')) || { id: f.get('price') });
+      if (f.get('quantity')) list[i].quantity = Number(f.get('quantity'));
+      return reply(list[i]);
+    }
+    return reply(noSuch('subscription_item', lid, 'id'), 404);
   }
   if (p === 'billing_portal/sessions') return S.portalErr ? reply({ error: S.portalErr }, 400) : reply({ url: 'https://billing.stripe.com/p/session/test' });
   return reply({ error: { message: 'unmocked stripe ' + m + ' ' + p } }, 500);
@@ -480,11 +516,11 @@ async function quote(today, plan, dogs, token, extraEnv, at) {
 }
 { // Joe's own case: sign up November 16, 2026 at 11:25 pm. The first bill is December 16, not December 27.
   const j = await quote('2026-11-16', 'week', 2, 'good', null, '23:25');
-  ok('sign up November 16 late at night: the free month ends December 16, and the first charge is the full $108',
-    day(Number(j.md.free_end)) === '2026-12-16T19:00' && j.md.free_label === 'December 16' && j.md.first_charge === '10800', j.md);
-  ok('the note by the button says December 16', j.note === '$0 today. Then $108 a month starting Dec 16. Cancel anytime. Call or text 623.309.6104.', j.note);
+  ok('sign up November 16 late at night: the free month ends December 16, and the first charge is the full $99',
+    day(Number(j.md.free_end)) === '2026-12-16T19:00' && j.md.free_label === 'December 16' && j.md.first_charge === '9900', j.md);
+  ok('the note by the button says December 16', j.note === '$0 today. Then $99 a month starting Dec 16. Cancel anytime. Call or text 623.309.6104.', j.note);
   const k = await quote('2026-11-17', 'week', 2, 'good', null, '00:05');
-  ok('five minutes after midnight is the next day: December 17', day(Number(k.md.free_end)) === '2026-12-17T19:00' && k.note.startsWith('$0 today. Then $108 a month starting Dec 17. '), [k.md, k.note]);
+  ok('five minutes after midnight is the next day: December 17', day(Number(k.md.free_end)) === '2026-12-17T19:00' && k.note.startsWith('$0 today. Then $99 a month starting Dec 17. '), [k.md, k.note]);
   const l = await quote('2026-11-30', 'week', 2, 'good', null, '23:50');
   ok('the last night of the sale: November 30 runs to December 30', day(Number(l.md.free_end)) === '2026-12-30T19:00', l.md);
   const m = await quote('2026-11-16', 'week', 2, 'good', { SCHEDULE_DAYS: '7', FIRST_VISIT_FROM: '2026-11-20' });
@@ -493,12 +529,12 @@ async function quote(today, plan, dogs, token, extraEnv, at) {
 { // Sign up 2027-03-10: one month is April 10. That day is the bill day.
   const q = await quote('2027-03-10', 'week', 3);
   ok('free month ends April 10 at noon Arizona time', day(Number(q.md.free_end)) === '2027-04-10T19:00', q.md);
-  ok('the first charge is one full month, the extra dog too: $121', q.md.first_charge === '12100', q.md.first_charge);
+  ok('the first charge is one full month at the 3 dog price: $115', q.md.first_charge === '11500', q.md.first_charge);
   ok('no billing day and no part month ride on the card form', !('anchor' in q.md) && !('next_label' in q.md), q.md);
   ok('the 60 day rule is off: the sign up carries no early cancel date, only the day pausing opens (60 days after the soonest first visit, May 10)', q.md.min_label === undefined && q.md.min_end === undefined && day(Number(q.md.pause_from)) === '2027-05-10T19:00', q.md);
   ok('the note by the button is one plain price line and one cancel line, with no 60 day rule',
-    q.note === '$0 today. Then $121 a month starting Apr 10. Cancel anytime. Call or text 623.309.6104.', q.note);
-  ok('the page gets the same price line back, word for word, to show over the card form', q.r.d.line === '$0 today. Then $121 a month starting Apr 10.', q.r.d);
+    q.note === '$0 today. Then $115 a month starting Apr 10. Cancel anytime. Call or text 623.309.6104.', q.note);
+  ok('the page gets the same price line back, word for word, to show over the card form', q.r.d.line === '$0 today. Then $115 a month starting Apr 10.', q.r.d);
   ok('the note fits Stripe’s 1200 letter limit', q.note.length < 1200);
   const f = q.s.form;
   ok('the card form only saves a card: setup mode, embedded, never leaves the page', f.get('mode') === 'setup' && f.get('ui_mode') === 'embedded_page' && f.get('redirect_on_completion') === 'never' && f.get('currency') === 'usd');
@@ -510,14 +546,14 @@ async function quote(today, plan, dogs, token, extraEnv, at) {
   ok('the row waits at "checkout" with the text choices saved', row(U1).status === 'checkout' && row(U1).texts_visit === true && row(U1).texts_deals === false && T.consent_log.length === 2);
   const e = await quote('2027-03-10', 'week', 3, 'good', { EARLY_CANCEL: 'on' });
   ok('if the 60 day rule is ever switched back on, the note says it in one line and the date rides on the sign up',
-    e.note === '$0 today. Then $121 a month starting Apr 10. Cancel anytime. Call or text 623.309.6104. Cancel before May 10 and you pay for one month.' && e.md.min_label === 'May 10' && e.md.min_end === e.md.pause_from, [e.note, e.md]);
+    e.note === '$0 today. Then $115 a month starting Apr 10. Cancel anytime. Call or text 623.309.6104. Cancel before May 10 and you pay for one month.' && e.md.min_label === 'May 10' && e.md.min_end === e.md.pause_from, [e.note, e.md]);
 }
 { // Joe's own examples (Nov 16, 2026): sign up Nov 25, first charge Dec 25. Sign up Nov 30, first charge Dec 30.
   const a = await quote('2026-11-25', 'week', 2);
-  ok('sign up November 25: the full $108 on December 25, and the 25th is the bill day', day(Number(a.md.free_end)) === '2026-12-25T19:00' && a.md.first_charge === '10800'
-    && a.note === '$0 today. Then $108 a month starting Dec 25. Cancel anytime. Call or text 623.309.6104.', [a.md, a.note]);
+  ok('sign up November 25: the full $99 on December 25, and the 25th is the bill day', day(Number(a.md.free_end)) === '2026-12-25T19:00' && a.md.first_charge === '9900'
+    && a.note === '$0 today. Then $99 a month starting Dec 25. Cancel anytime. Call or text 623.309.6104.', [a.md, a.note]);
   const b = await quote('2026-11-30', 'week', 2);
-  ok('sign up November 30: the full $108 on December 30, and the page is sent that same line', day(Number(b.md.free_end)) === '2026-12-30T19:00' && b.md.first_charge === '10800' && b.r.d.line === '$0 today. Then $108 a month starting Dec 30.', [b.md, b.r.d]);
+  ok('sign up November 30: the full $99 on December 30, and the page is sent that same line', day(Number(b.md.free_end)) === '2026-12-30T19:00' && b.md.first_charge === '9900' && b.r.d.line === '$0 today. Then $99 a month starting Dec 30.', [b.md, b.r.d]);
 }
 { // The 1st is a day like any other now. Sign up 2027-04-01: the free month ends May 1.
   const q = await quote('2027-04-01', 'eow', 2);
@@ -526,22 +562,23 @@ async function quote(today, plan, dogs, token, extraEnv, at) {
 }
 { // A free month that ends two days before a month does: still one full month, not two days.
   const q = await quote('2027-06-30', 'twice', 6);
-  ok('free month ends July 30: the first charge is the full $241, not 2 days of July', day(Number(q.md.free_end)) === '2027-07-30T19:00' && Number(q.md.first_charge) === 18900 + 4 * 1300, q.md);
+  ok('free month ends July 30: the first charge is the full $241, not 2 days of July', day(Number(q.md.free_end)) === '2027-07-30T19:00' && Number(q.md.first_charge) === 24100, q.md);
   // Month ends: January 31 plus a month is the last day of February.
   const w = await quote('2027-01-31', 'week', 1);
-  ok('a sign up on January 31 runs to the last day of February, the 28th, and the first charge is the full $108', day(Number(w.md.free_end)) === '2027-02-28T19:00' && w.md.first_charge === '10800', w.md);
+  ok('a sign up on January 31 runs to the last day of February, the 28th, and the first charge is the full $89 (one dog)', day(Number(w.md.free_end)) === '2027-02-28T19:00' && w.md.first_charge === '8900', w.md);
   // December into January.
   const x = await quote('2027-12-04', 'week', 2);
-  ok('a free month can end in the new year: January 4, 2028', day(Number(x.md.free_end)) === '2028-01-04T19:00' && x.md.first_charge === '10800' && x.note.startsWith('$0 today. Then $108 a month starting Jan 4. '), [x.md, x.note]);
+  ok('a free month can end in the new year: January 4, 2028', day(Number(x.md.free_end)) === '2028-01-04T19:00' && x.md.first_charge === '9900' && x.note.startsWith('$0 today. Then $99 a month starting Jan 4. '), [x.md, x.note]);
   const y = await quote('2027-03-10', 'week', 3, 'good', { SCHEDULE_DAYS: '3' });
   ok('SCHEDULE_DAYS in Cloudflare no longer moves the bill day: still April 10', day(Number(y.md.free_end)) === '2027-04-10T19:00', y.md);
   let allFull = true;
   for (const plan of ['week', 'twice', 'eow']) for (let dogs = 1; dogs <= 6; dogs++) {
     const z = await quote('2027-03-10', plan, dogs);
-    const base = { week: 10800, twice: 18900, eow: 7500 }[plan], extra = Math.max(0, dogs - 2) * { week: 1300, twice: 1300, eow: 900 }[plan];
-    if (Number(z.md.first_charge) !== base + extra || !z.note.startsWith('$0 today. Then $' + (base + extra) / 100 + ' a month starting Apr 10. ')) { allFull = false; ok('first charge for ' + plan + ' ' + dogs, false, [z.md, z.note]); }
+    // The price is the one in src/prices.json for this plan and this many dogs, and nothing else.
+    const full = PRICE_FILE.month[plan][dogs - 1] * 100;
+    if (Number(z.md.first_charge) !== full || !z.note.startsWith('$0 today. Then $' + full / 100 + ' a month starting Apr 10. ')) { allFull = false; ok('first charge for ' + plan + ' ' + dogs, false, [z.md, z.note]); }
   }
-  ok('every plan and dog count is told one full month as the first charge', allFull);
+  ok('every plan and dog count is told one full month as the first charge, at the price in src/prices.json', allFull);
 }
 
 /* ---------- a sign up, start to finish ---------- */
@@ -555,15 +592,15 @@ ok('webhook with a good signature is taken', (await hook(sessionEvt(q.s.id))) ==
   ok('one plan is made in Stripe', posts.length === 1 && Object.keys(S.subs).length === 1);
   ok('free until April 10 and nothing else: no billing day and no part month setting, so April 10 is the bill day and the first bill is a full month',
     f.get('trial_end') === q.md.free_end && ![...f.keys()].some((k) => /billing_cycle_anchor|proration|trial_settings|trial_period_days/.test(k)), String(f));
-  ok('the plan has the base price and one extra dog', f.get('items[0][price]') === 'price_wb' && f.get('items[0][quantity]') === '1' && f.get('items[1][price]') === 'price_apw_week_extra' && f.get('items[1][quantity]') === '1');
+  ok('the plan has one price line: every week with 3 dogs, found in Stripe by its key and not made again', f.get('items[0][price]') === 'price_w3' && f.get('items[0][quantity]') === '1' && !f.has('items[1][price]') && !S.calls.some((c) => c.m === 'POST' && c.p === 'prices'), String(f));
   ok('the plan remembers the dates the customer saw', f.get('metadata[user_id]') === U1 && f.get('metadata[pause_from]') === q.md.pause_from && !f.get('metadata[min_end]') && f.get('metadata[free_label]') === 'April 10'
-    && f.get('metadata[free_end]') === q.md.free_end && f.get('metadata[first_charge]') === '12100' && f.get('metadata[session]') === q.s.id && !f.has('metadata[anchor]') && !f.has('metadata[next_label]'), String(f));
-  ok('Stripe is told to make this plan only once for this sign up', posts[0].key === 'apw-plan2-' + q.s.id, posts[0].key);
+    && f.get('metadata[free_end]') === q.md.free_end && f.get('metadata[first_charge]') === '11500' && f.get('metadata[session]') === q.s.id && !f.has('metadata[anchor]') && !f.has('metadata[next_label]'), String(f));
+  ok('Stripe is told to make this plan only once for this sign up', posts[0].key === 'apw-plan3-' + q.s.id, posts[0].key);
   const cust = S.customers[row(U1).stripe_customer_id];
   ok('the saved card is the card on file for every bill (set on the customer, not on the plan)', cust.invoice_settings.default_payment_method === S.intents[q.s.setup_intent].payment_method && !f.get('default_payment_method'));
   ok('the card is set before the plan is made', S.calls.findIndex((c) => c.m === 'POST' && c.p.startsWith('customers/')) < S.calls.findIndex((c) => c.m === 'POST' && c.p === 'subscriptions'));
   ok('the row is on its free month with the plan id', row(U1).status === 'trialing' && row(U1).stripe_subscription_id === Object.keys(S.subs)[0]);
-  ok('the office gets one new booking email', sent(/^New booking: Test Person/).length === 1 && /Billing: \$0 today\. Then \$121 a month starting Apr 10\.\n/.test(sent(/^New booking/)[0].text), sent(/^New booking/).map((m) => m.text));
+  ok('the office gets one new booking email', sent(/^New booking: Test Person/).length === 1 && /Billing: \$0 today\. Then \$115 a month starting Apr 10\.\n/.test(sent(/^New booking/)[0].text), sent(/^New booking/).map((m) => m.text));
   const hi = sent(/^You are booked/)[0];
   { // The welcome email signs them in to My Yard with one tap, no code, for 7 days.
     const k = (/\/account\/\?k=([^\s]+)/.exec(hi.text) || [])[1];
@@ -587,7 +624,7 @@ ok('webhook with a good signature is taken', (await hook(sessionEvt(q.s.id))) ==
     delete AUTH.wrongUser; T.errors.length = 0;
   }
   ok('the customer gets one welcome email with the price line and cancel anytime, and no 60 day rule', sent(/^You are booked/).length === 1 && hi.to[0] === 'test@example.com'
-    && /Your card is saved\. \$0 today\. Then \$121 a month starting Apr 10\.\n/.test(hi.text) && /You can cancel anytime\. Call or text 623\.309\.6104\.\n/.test(hi.text) && !/deals/i.test(hi.text) && !/Keep your plan|60 days|charge one month|you pay for one month/.test(hi.text), hi && hi.text);
+    && /Your card is saved\. \$0 today\. Then \$115 a month starting Apr 10\.\n/.test(hi.text) && /You can cancel anytime\. Call or text 623\.309\.6104\.\n/.test(hi.text) && !/deals/i.test(hi.text) && !/Keep your plan|60 days|charge one month|you pay for one month/.test(hi.text), hi && hi.text);
   ok('no email says the 1st, a part month or days left', !mails.some((m) => /\b1st\b|part month|days left|part of a month/.test(m.text)), mails.filter((m) => /\b1st\b|part month|days left/.test(m.text)).map((m) => m.subject));
   ok('every Stripe request names the API version', S.calls.every((c) => c.version === '2026-10-28.endive'));
 }
@@ -618,7 +655,7 @@ head('Sign up: nothing doubles up');
 { // Stripe's "plan created" event can beat startPlan to the row.
   for (const k of Object.keys(S.subs)) delete S.subs[k];
   q = await quote('2027-03-10', 'week', 2); reset();
-  const fake = { id: 'sub_early', status: 'trialing', customer: row(U1).stripe_customer_id, pause_collection: null, metadata: { user_id: U1, free_end: q.md.free_end, free_label: 'April 10', first_charge: '10800', min_label: 'May 9' } };
+  const fake = { id: 'sub_early', status: 'trialing', customer: row(U1).stripe_customer_id, pause_collection: null, metadata: { user_id: U1, free_end: q.md.free_end, free_label: 'April 10', first_charge: '9900', min_label: 'May 9' } };
   S.subs.sub_early = Object.assign({ form: new URLSearchParams() }, fake);
   ok('the plan event books the sign up and sends the welcome', (await hook(subEvt('created', fake))) === 200 && row(U1).status === 'trialing' && row(U1).stripe_subscription_id === 'sub_early' && sent(/^You are booked/).length === 1);
   ok('then the session event finds the plan and adds nothing', (await hook(sessionEvt(q.s.id))) === 200 && Object.keys(S.subs).length === 1 && sent(/^You are booked/).length === 1 && !S.calls.some((c) => c.m === 'POST' && c.p === 'subscriptions'));
@@ -629,7 +666,7 @@ head('Sign up: nothing doubles up');
   await hook(sessionEvt(q.s.id));
   const f = S.calls.filter((c) => c.m === 'POST' && c.p === 'subscriptions')[0].f;
   ok('free month ends on a 1st: Stripe gets the free month end and no second date', f.get('trial_end') === q.md.free_end && !f.has('billing_cycle_anchor') && !f.has('proration_behavior'), String(f));
-  ok('the welcome says the full price from that day', /Your card is saved\. \$0 today\. Then \$108 a month starting May 1\./.test(sent(/^You are booked/)[0].text), sent(/^You are booked/)[0].text);
+  ok('the welcome says the full price from that day', /Your card is saved\. \$0 today\. Then \$99 a month starting May 1\./.test(sent(/^You are booked/)[0].text), sent(/^You are booked/)[0].text);
 }
 { // A prepaid card is flagged for the office.
   for (const k of Object.keys(S.subs)) delete S.subs[k];
@@ -653,7 +690,7 @@ head('Meta: the booking and the leads reach Meta once, scrambled, with no phone 
   const bk = META.filter((x) => x.body.data[0].event_name === 'StartTrial');
   const e = bk[0] && bk[0].body.data[0];
   ok('one booking sends Meta one StartTrial, with the event id the page uses', bk.length === 1 && e.event_id === 'bk_' + s.id && /\/v\d+\.0\/1982997959354953\/events\?access_token=meta_test_token$/.test(bk[0].url), META);
-  ok('Meta gets the month price, a scrambled email, city and ZIP and the ad ids, never the phone, name or street', !!e && e.custom_data.value === 108 && e.custom_data.currency === 'USD'
+  ok('Meta gets the month price, a scrambled email, city and ZIP and the ad ids, never the phone, name or street', !!e && e.custom_data.value === 99 && e.custom_data.currency === 'USD'
     && e.user_data.em[0] === sha('test@example.com') && e.user_data.zp[0] === sha('85396') && e.user_data.ct[0] === sha('buckeye') && e.user_data.fbc === fbc && e.user_data.fbp === fbp
     && !/623|555|Test Person|Test St/.test(JSON.stringify(e)), e);
   META.length = 0;
@@ -714,7 +751,7 @@ head('Sign up: Stripe is busy with the same request');
   const st = await hook(sessionEvt(q.s.id));
   const posts = S.calls.filter((c) => c.m === 'POST' && c.p === 'subscriptions');
   ok('Stripe says twice that the other caller is still at it: the server asks again with the same key and books them', st === 200 && row(U1).status === 'trialing' && Object.keys(S.subs).length === 1
-    && posts.length === 3 && posts.every((c) => c.key === 'apw-plan2-' + q.s.id && String(c.f) === String(posts[0].f)) && sent(/^ACTION NEEDED/).length === 0 && sent(/^You are booked/).length === 1, [st, posts.length]);
+    && posts.length === 3 && posts.every((c) => c.key === 'apw-plan3-' + q.s.id && String(c.f) === String(posts[0].f)) && sent(/^ACTION NEEDED/).length === 0 && sent(/^You are booked/).length === 1, [st, posts.length]);
   for (const k of Object.keys(S.subs)) delete S.subs[k];
   q = await quote('2027-03-10', 'week', 3); reset(); S.busy = 9;
   ok('if Stripe stays busy the webhook gives up with a 500 so Stripe sends the event again', (await hook(sessionEvt(q.s.id))) === 500 && S.calls.filter((c) => c.m === 'POST' && c.p === 'subscriptions').length === 4 && row(U1).status === 'checkout');
@@ -735,9 +772,9 @@ head('Sign up: the first bill is checked against Stripe');
   S.preview = 5647; // Stripe would charge a part month. The customer was told one full month.
   await hook(sessionEvt(q.s.id)); S.preview = null;
   const a = sent(/^CHECK BILLING: Stripe does not match what Test Person was told$/);
-  ok('if Stripe would charge a part month, the office hears about it that day', a.length === 1 && /1\. The first charge\. They were told \$121\. Stripe plans to charge \$56\.47\./.test(a[0].text) && /Nothing has been charged/.test(a[0].text)
+  ok('if Stripe would charge a part month, the office hears about it that day', a.length === 1 && /1\. The first charge\. They were told \$115\. Stripe plans to charge \$56\.47\./.test(a[0].text) && /Nothing has been charged/.test(a[0].text)
     && /Do not change the plan in Stripe by hand/.test(a[0].text) && a[0].text.includes('Stripe plan: ' + row(U1).stripe_subscription_id), a[0] && a[0].text);
-  ok('and it is on the Health tab', T.errors.length === 1 && /does not match what a new customer was told/.test(T.errors[0].message) && /They were told \$121/.test(T.errors[0].detail), T.errors);
+  ok('and it is on the Health tab', T.errors.length === 1 && /does not match what a new customer was told/.test(T.errors[0].message) && /They were told \$115/.test(T.errors[0].detail), T.errors);
   ok('the sign up itself still went through', row(U1).status === 'trialing' && sent(/^You are booked/).length === 1 && sent(/^New booking/).length === 1);
 
   for (const k of Object.keys(S.subs)) delete S.subs[k];
@@ -763,8 +800,8 @@ head('Sign up: the first bill is checked against Stripe');
   Object.assign(S.sessions[q.s.id].metadata, { first_charge: '5647', anchor: String(Math.floor(Date.UTC(2027, 4, 1, 19) / 1000)), next_label: 'May 1' });
   await hook(sessionEvt(q.s.id));
   { const f = S.calls.filter((c) => c.m === 'POST' && c.p === 'subscriptions')[0].f, c = sent(/^CHECK BILLING/);
-    ok('a card form from before the change: its plan gets no billing day and a full month as the first charge', f.get('trial_end') === q.md.free_end && !f.has('billing_cycle_anchor') && !f.has('proration_behavior') && f.get('metadata[first_charge]') === '12100' && !f.has('metadata[anchor]'), String(f));
-    ok('and the office is told what that customer saw', c.length === 1 && /The first charge\. They were told \$56\.47\. Stripe plans to charge \$121\./.test(c[0].text), c[0] && c[0].text); }
+    ok('a card form from before the change: its plan gets no billing day and a full month as the first charge', f.get('trial_end') === q.md.free_end && !f.has('billing_cycle_anchor') && !f.has('proration_behavior') && f.get('metadata[first_charge]') === '11500' && !f.has('metadata[anchor]'), String(f));
+    ok('and the office is told what that customer saw', c.length === 1 && /The first charge\. They were told \$56\.47\. Stripe plans to charge \$115\./.test(c[0].text), c[0] && c[0].text); }
 
   for (const k of Object.keys(S.subs)) delete S.subs[k];
   q = await quote('2027-03-10', 'week', 3); reset(); T.errors.length = 0;
@@ -810,7 +847,7 @@ head('Sign up: an old sign up reported again starts nothing');
   reset();
   ok('two card forms open: the row holds the last choice', row(U1).plan === 'eow' && row(U1).dogs === 1 && second.d.session !== first.s.id);
   await hook(sessionEvt(first.s.id));
-  ok('the row follows the plan that was finished, since that is the plan Stripe bills', row(U1).plan === 'week' && row(U1).dogs === 3 && /Plan: Every week, 3 dogs, \$121 a month/.test(sent(/^New booking/)[0].text), [row(U1).plan, row(U1).dogs]);
+  ok('the row follows the plan that was finished, since that is the plan Stripe bills', row(U1).plan === 'week' && row(U1).dogs === 3 && /Plan: Every week, 3 dogs, \$115 a month/.test(sent(/^New booking/)[0].text), [row(U1).plan, row(U1).dogs]);
   ok('the other card form is finished too: still one plan, one welcome', (await hook(sessionEvt(second.d.session))) === 200 && Object.keys(S.subs).length === 1 && sent(/^You are booked/).length === 1 && row(U1).plan === 'week');
 }
 head('The webhook secret');
@@ -843,7 +880,7 @@ const liveSub = S.subs[subId];
 const DAY = 86400;
 const nowS = () => Math.floor(Date.now() / 1000);
 const later = (days) => new Date((RealDate.now() / 1000 + days * DAY) * 1000).toISOString();
-const inv = { id: 'in_fail', object: 'invoice', customer: cus, status: 'open', amount_due: 12100, amount_remaining: 12100, amount_paid: 0, attempted: true, attempt_count: 1, collection_method: 'charge_automatically',
+const inv = { id: 'in_fail', object: 'invoice', customer: cus, status: 'open', amount_due: 11500, amount_remaining: 11500, amount_paid: 0, attempted: true, attempt_count: 1, collection_method: 'charge_automatically',
   next_payment_attempt: nowS() + 3 * DAY, metadata: {}, hosted_invoice_url: 'https://invoice.stripe.com/i/acct_1/test_abc' };
 S.invoices.in_fail = inv;
 row(U1).service_day = 2;
@@ -851,7 +888,7 @@ const cardTexts = () => T.messages.filter((x) => x.kind === 'card_failed');
 const failedEvt = (over) => ({ type: 'invoice.payment_failed', data: { object: Object.assign({}, inv, over || {}) } });
 // A brand new failed bill: try 1, with Stripe's next try three days out, and nothing told yet.
 const fresh = (over) => {
-  Object.assign(inv, { status: 'open', amount_remaining: 12100, attempt_count: 1, next_payment_attempt: nowS() + 3 * DAY, metadata: {} }, over || {});
+  Object.assign(inv, { status: 'open', amount_remaining: 11500, attempt_count: 1, next_payment_attempt: nowS() + 3 * DAY, metadata: {} }, over || {});
   for (const k of Object.keys(S.keys)) if (k.startsWith('apw-try-')) delete S.keys[k];
 };
 reset();
@@ -862,17 +899,17 @@ let cardUrl = '';
   const m = sent(/^Your card did not go through$/)[0];
   cardUrl = (m && (/Update my card: (https:\/\/arizonapetwaste\.com\/api\/card\?k=[^\s]+)/.exec(m.text) || [])[1]) || '';
   ok('the customer is emailed the same day in plain, friendly words: what failed, one link to fix the card, when we try again, and the hold', !!m && m.to[0] === 'test@example.com' && /^Hi Test,/.test(m.text)
-    && /We tried to charge your card \$121 for your dog poop pickup\. It did not go through\./.test(m.text) && /This is easy to fix\./.test(m.text) && !!cardUrl && /We will try it again on \w+day, \w+ \d+\./.test(m.text)
+    && /We tried to charge your card \$115 for your dog poop pickup\. It did not go through\./.test(m.text) && /This is easy to fix\./.test(m.text) && !!cardUrl && /We will try it again on \w+day, \w+ \d+\./.test(m.text)
     && /Your visits are on hold until the payment goes through\. They start again as soon as it does\./.test(m.text) && /623\.309\.6104/.test(m.text) && !/[–—]| - /.test(m.text), m && m.text);
   ok('the email has our look: the logo on navy, one orange button to the card page, and the same words', !!m && /<img src="https:\/\/arizonapetwaste\.com\/assets\/img\/email-logo\.png"[^>]*alt="Arizona Pet Waste"/.test(m.html)
-    && m.html.includes('<a href="' + cardUrl + '"') && />Update my card<\/a>/.test(m.html) && /background:#FF4A1C/.test(m.html) && /background:#0A0F24/.test(m.html) && /We tried to charge your card \$121/.test(m.html)
+    && m.html.includes('<a href="' + cardUrl + '"') && />Update my card<\/a>/.test(m.html) && /background:#FF4A1C/.test(m.html) && /background:#0A0F24/.test(m.html) && /We tried to charge your card \$115/.test(m.html)
     && (m.html.match(/>Update my card</g) || []).length === 1 && !/<script|javascript:/i.test(m.html), m && m.html.slice(0, 400));
   const t = cardTexts();
   ok('a text waits for staff to send (they said yes to visit texts)', t.length === 1 && t[0].status === 'queued' && t[0].channel === 'sms' && t[0].to_addr === '6235550100' && t[0].stop_id === null && t[0].customer_id === U1, t);
   ok('the text is one text long, names us, and says how to stop', t[0].body.length <= 160 && /^Arizona Pet Waste: /.test(t[0].body) && /Reply STOP to opt out\.$/.test(t[0].body) && t[0].body.includes('arizonapetwaste.com/account') && t[0].body.includes('623.309.6104'), t[0].body + ' (' + t[0].body.length + ')');
   const o = sent(/^Card failed: /)[0];
-  ok('the office gets an alert with the name, address, amount and try number', !!o && o.subject === 'Card failed: Test Person, 123 W Test St ($121, try 1)' && o.to[0] === 'info@arizonapetwaste.com' && !o.html
-    && /A payment of \$121 failed\. This was try 1\./.test(o.text) && /Stripe will try the card again on \w+day, \w+ \d+\./.test(o.text) && o.text.includes('Name: Test Person\nAddress: 123 W Test St, 85396\nAmount: $121\nTry: 1\nMobile: 6235550100\nEmail: test@example.com')
+  ok('the office gets an alert with the name, address, amount and try number', !!o && o.subject === 'Card failed: Test Person, 123 W Test St ($115, try 1)' && o.to[0] === 'info@arizonapetwaste.com' && !o.html
+    && /A payment of \$115 failed\. This was try 1\./.test(o.text) && /Stripe will try the card again on \w+day, \w+ \d+\./.test(o.text) && o.text.includes('Name: Test Person\nAddress: 123 W Test St, 85396\nAmount: $115\nTry: 1\nMobile: 6235550100\nEmail: test@example.com')
     && /Their visits are on hold\. They stay off new routes until the bill is paid\./.test(o.text) && /We emailed them how to fix it/.test(o.text) && /A text to them is waiting in the Texts tab\. Send it today\./.test(o.text) && /PAUSE SERVICE/.test(o.text), o && [o.subject, o.text]);
   ok('the bill itself remembers that try 1 was told, and Stripe is asked to keep that note to one writer', inv.metadata.apw_try === '1' && Number(inv.metadata.apw_mail) > 0 && !inv.metadata.apw_final && S.notes.slice(-1)[0].key === 'apw-try-in_fail-1', [inv.metadata, S.notes.slice(-1)[0] && S.notes.slice(-1)[0].key]);
   ok('this server cancels nothing in Stripe over a failed card', !S.calls.some((c) => c.m === 'DELETE') && !S.calls.some((c) => c.m === 'POST' && /^subscriptions/.test(c.p)));
@@ -906,12 +943,12 @@ let cardUrl = '';
   inv.attempt_count = 2;
   await at(later(1), () => hook(failedEvt()));
   const o2 = sent(/^Card failed again: /)[0];
-  ok('try 2 fails a day later: the office gets a new alert with the try number, and the customer is not emailed again so soon', mails.length === before + 1 && !!o2 && o2.subject === 'Card failed again: Test Person, 123 W Test St ($121, try 2)'
+  ok('try 2 fails a day later: the office gets a new alert with the try number, and the customer is not emailed again so soon', mails.length === before + 1 && !!o2 && o2.subject === 'Card failed again: Test Person, 123 W Test St ($115, try 2)'
     && /This was try 2\./.test(o2.text) && /\nTry: 2\n/.test(o2.text) && /No new email went to them today\./.test(o2.text) && inv.metadata.apw_try === '2' && cardTexts().length === 1, mails.slice(before).map((x) => [x.subject, x.text]));
   inv.attempt_count = 3;
   await at(later(6), () => hook(failedEvt()));
   const again = sent(/^Reminder: your card still did not go through$/)[0], o3 = sent(/^Card failed again: .*try 3\)$/)[0];
-  ok('try 3 fails six days after their last email: the customer gets one reminder with the same button', !!again && again.to[0] === 'test@example.com' && /We tried your card again for \$121\. It still did not go through\./.test(again.text)
+  ok('try 3 fails six days after their last email: the customer gets one reminder with the same button', !!again && again.to[0] === 'test@example.com' && /We tried your card again for \$115\. It still did not go through\./.test(again.text)
     && /Update my card: https:\/\/arizonapetwaste\.com\/api\/card\?k=/.test(again.text) && />Update my card<\/a>/.test(again.html) && /Your visits are still on hold/.test(again.text), again && again.text);
   ok('and the office alert for try 3 says a reminder went out', !!o3 && /This was try 3\./.test(o3.text) && /We emailed them a reminder with the same button\./.test(o3.text) && cardTexts().length === 1, o3 && o3.text);
   const p = await call('/api/me/plan', 'GET', null, 'good');
@@ -928,14 +965,14 @@ head('The bill gets paid: visits come back');
   await hook({ type: 'invoice.paid', data: { object: { id: 'in_zero', customer: cus, status: 'paid', amount_paid: 0 } } });
   ok('a $0 bill changes nothing', row(U1).status === 'past_due' && mails.length === 0);
   liveSub.status = 'active'; inv.status = 'paid';
-  ok('paid event is taken', (await hook({ type: 'invoice.paid', data: { object: Object.assign({}, inv, { status: 'paid', amount_paid: 12100, amount_remaining: 0 }) } })) === 200);
+  ok('paid event is taken', (await hook({ type: 'invoice.paid', data: { object: Object.assign({}, inv, { status: 'paid', amount_paid: 11500, amount_remaining: 0 }) } })) === 200);
   ok('the customer is off hold', row(U1).status === 'active');
   ok('the text nobody sent leaves the list', cardTexts()[0].status === 'skipped');
   const m = sent(/^Your payment went through$/)[0];
   ok('the customer is thanked and told their day, in an email with our look', !!m && /your visits are back on/.test(m.text) && /We come on your next Tuesday\./.test(m.text) && /email-logo\.png/.test(m.html) && /your visits are back on/.test(m.html) && !/Update my card/.test(m.html), m && m.text);
   ok('the office is told they are back on the schedule', sent(/^Paid: Test Person$/).length === 1);
   const before = mails.length;
-  await hook({ type: 'invoice.paid', data: { object: Object.assign({}, inv, { status: 'paid', amount_paid: 12100 }) } });
+  await hook({ type: 'invoice.paid', data: { object: Object.assign({}, inv, { status: 'paid', amount_paid: 11500 }) } });
   await hook(subEvt('updated', liveSub, { status: 'active' }, { status: 'past_due' }));
   ok('the same news twice sends nothing more', mails.length === before && row(U1).status === 'active');
   const p = await call('/api/me/plan', 'GET', null, 'good');
@@ -946,7 +983,7 @@ head('The other order, and a customer with no texts');
   row(U1).texts_visit = false; liveSub.status = 'past_due'; liveSub.latest_invoice = 'in_fail';
   await hook(subEvt('updated', liveSub, {}, { status: 'active' }));
   ok('Stripe’s plan event lands first: on hold, emailed with the card link, no text queued', row(U1).status === 'past_due' && sent(/^Your card did not go through$/).length === 1
-    && /Update my card: https:\/\/arizonapetwaste\.com\/api\/card\?k=/.test(sent(/^Your card did not go through$/)[0].text) && /charge your card \$121/.test(sent(/^Your card did not go through$/)[0].text) && T.messages.length === 0);
+    && /Update my card: https:\/\/arizonapetwaste\.com\/api\/card\?k=/.test(sent(/^Your card did not go through$/)[0].text) && /charge your card \$115/.test(sent(/^Your card did not go through$/)[0].text) && T.messages.length === 0);
   ok('the office is told to call (no text consent)', /They did not agree to texts, so no text is waiting\. Call them today\./.test(sent(/^Card failed: /)[0].text));
   await hook(failedEvt());
   ok('then the bill event lands: nothing more', sent(/^Your card did not go through$/).length === 1 && sent(/^Card failed/).length === 1);
@@ -973,7 +1010,7 @@ head('The other order, and a customer with no texts');
   ok('if the note on the bill cannot be saved, everyone is still told, and the Health tab says an alert may come twice', sent(/^Card failed: /).length === 1 && sent(/^Your card did not go through$/).length === 1
     && T.errors.some((e) => /note on the bill could not be saved/.test(e.message)), [mails.map((x) => x.subject), T.errors]);
   T.errors.length = 0; liveSub.status = 'active'; inv.status = 'paid';
-  await hook({ type: 'invoice.paid', data: { object: Object.assign({}, inv, { status: 'paid', amount_paid: 12100 }) } });
+  await hook({ type: 'invoice.paid', data: { object: Object.assign({}, inv, { status: 'paid', amount_paid: 11500 }) } });
 }
 head('A new card while on hold is tried right away');
 { reset(); fresh(); liveSub.status = 'past_due';
@@ -988,7 +1025,7 @@ head('A new card while on hold is tried right away');
   ok('a bill left open for three months is not charged to the new card on its own', S.payCalls.length === 1 && S.payCalls[0].id === 'in_fail', S.payCalls);
   delete S.invoices.in_old;
   liveSub.status = 'active';
-  await hook({ type: 'invoice.paid', data: { object: Object.assign({}, inv, { status: 'paid', amount_paid: 12100 }) } });
+  await hook({ type: 'invoice.paid', data: { object: Object.assign({}, inv, { status: 'paid', amount_paid: 11500 }) } });
   ok('and when it goes through they are off hold', row(U1).status === 'active');
   S.payCalls.length = 0;
   await hook({ type: 'customer.updated', data: { object: cu, previous_attributes: { invoice_settings: { default_payment_method: 'pm_new' } } } });
@@ -1009,11 +1046,11 @@ head('The last try fails: PAUSE SERVICE for the office, a last notice for the cu
   row(U1).status = 'past_due'; liveSub.status = 'past_due'; liveSub.latest_invoice = 'in_fail';
   await hook(failedEvt());
   const ps = sent(/^PAUSE SERVICE: /);
-  ok('the office gets one alert that starts with PAUSE SERVICE, with the name, address, amount and how many tries', ps.length === 1 && ps[0].subject === 'PAUSE SERVICE: Test Person, 123 W Test St ($121 unpaid after 4 tries)' && ps[0].to[0] === 'info@arizonapetwaste.com'
-    && /^PAUSE SERVICE\. Stripe tried their card 4 times and has stopped trying\. \$121 is unpaid\./.test(ps[0].text) && ps[0].text.includes('Name: Test Person\nAddress: 123 W Test St, 85396\nAmount: $121\nTries: 4\n'), ps.map((x) => [x.subject, x.text]));
+  ok('the office gets one alert that starts with PAUSE SERVICE, with the name, address, amount and how many tries', ps.length === 1 && ps[0].subject === 'PAUSE SERVICE: Test Person, 123 W Test St ($115 unpaid after 4 tries)' && ps[0].to[0] === 'info@arizonapetwaste.com'
+    && /^PAUSE SERVICE\. Stripe tried their card 4 times and has stopped trying\. \$115 is unpaid\./.test(ps[0].text) && ps[0].text.includes('Name: Test Person\nAddress: 123 W Test St, 85396\nAmount: $115\nTries: 4\n'), ps.map((x) => [x.subject, x.text]));
   ok('it says what to do, and that the plan is not canceled', /1\. Keep them off the route\./.test(ps[0].text) && /2\. Call them\./.test(ps[0].text) && /3\. Their plan is not canceled\. Canceling is your call\./.test(ps[0].text) && /We emailed them a last notice/.test(ps[0].text), ps[0].text);
   const l = sent(/^Last notice: your visits are on hold$/)[0];
-  ok('the customer gets a last notice with the button to change their card', !!l && /We tried your card 4 times for \$121\. It did not go through, so we have stopped trying\./.test(l.text) && /Your visits stay on hold until the bill is paid\. To start again, tap the button/.test(l.text)
+  ok('the customer gets a last notice with the button to change their card', !!l && /We tried your card 4 times for \$115\. It did not go through, so we have stopped trying\./.test(l.text) && /Your visits stay on hold until the bill is paid\. To start again, tap the button/.test(l.text)
     && /Update my card: https:\/\/arizonapetwaste\.com\/api\/card\?k=/.test(l.text) && />Update my card<\/a>/.test(l.html), l && l.text);
   ok('that is all: no second alert for the same try', mails.length === 2 && sent(/^Card failed/).length === 0, mails.map((x) => x.subject));
   ok('the server looked at the bill three times before calling it the last try, and asked Stripe if the plan was canceled', S.calls.filter((c) => c.m === 'GET' && c.p === 'invoices/in_fail').length === 3 && S.calls.some((c) => c.m === 'GET' && c.p === 'subscriptions/' + liveSub.id));
@@ -1053,7 +1090,7 @@ head('The last try fails: PAUSE SERVICE for the office, a last notice for the cu
   row(U1).status = 'past_due'; liveSub.status = 'canceled'; liveSub.cancellation_details = { reason: 'payment_failed' }; liveSub.latest_invoice = 'in_fail';
   await hook(failedEvt());
   const ps = sent(/^PAUSE SERVICE: /)[0], end = sent(/^Your plan has ended$/)[0];
-  ok('Stripe canceled the plan after the last try: PAUSE SERVICE says so and names the Stripe setting to change', !!ps && /and then Stripe canceled their plan\. \$121 is unpaid\./.test(ps.text) && /"If all retries for a payment fail", pick "Mark the subscription as unpaid"/.test(ps.text)
+  ok('Stripe canceled the plan after the last try: PAUSE SERVICE says so and names the Stripe setting to change', !!ps && /and then Stripe canceled their plan\. \$115 is unpaid\./.test(ps.text) && /"If all retries for a payment fail", pick "Mark the subscription as unpaid"/.test(ps.text)
     && /To come back they sign up again/.test(ps.text) && !/Their plan is not canceled/.test(ps.text), ps && ps.text);
   ok('the customer is told their plan has ended, with no card button that would do nothing', !!end && /your plan has ended and your visits have stopped/.test(end.text) && !/Update my card/.test(end.text) && !/Update my card/.test(end.html) && sent(/^Last notice/).length === 0, end && end.text);
   const n = mails.length;
@@ -1074,7 +1111,7 @@ head('The last try fails: PAUSE SERVICE for the office, a last notice for the cu
 head('Old news from Stripe changes nothing');
 { // Stripe does not promise the order of its events, and it sends one again for up to three days when it got no answer.
   reset(); T.messages.length = 0; fresh();
-  const failed = () => failedEvt({ status: 'open', amount_remaining: 12100 });
+  const failed = () => failedEvt({ status: 'open', amount_remaining: 11500 });
   // The customer is paid up: the plan is active and the bill is paid.
   row(U1).status = 'active'; liveSub.status = 'active'; liveSub.latest_invoice = 'in_fail'; inv.status = 'paid'; inv.amount_remaining = 0;
   ok('a late "payment failed" is answered', (await hook(failed())) === 200);
@@ -1085,7 +1122,7 @@ head('Old news from Stripe changes nothing');
   await hook(failed());
   ok('a bill the office voided does not put anyone on hold', row(U1).status === 'active' && mails.length === 0);
   // Now a real failure, then an old "paid" shows up late.
-  inv.status = 'open'; inv.amount_remaining = 12100; liveSub.status = 'past_due';
+  inv.status = 'open'; inv.amount_remaining = 11500; liveSub.status = 'past_due';
   await hook(failed());
   ok('a bill that is still unpaid in Stripe does put them on hold', row(U1).status === 'past_due' && sent(/^Your card did not go through$/).length === 1);
   const before = mails.length;
@@ -1125,7 +1162,7 @@ env = Object.assign({}, baseEnv, { FIRST_VISIT_FROM: '2027-03-10' });
   let r;
   try { r = await call('/api/request', 'POST', Object.assign({}, good, { email: 'req@example.com', textsDeals: true })); } finally { Date.now = realNow; }
   const m = sent(/^New sign up request: Test Person/)[0];
-  ok('a sign up request (checkout closed) emails the office the same billing words', r.status === 200 && !!m && /Billing they saw: \$0 today\. Then \$121 a month starting Apr 10\.\n/.test(m.text), m && m.text);
+  ok('a sign up request (checkout closed) emails the office the same billing words', r.status === 200 && !!m && /Billing they saw: \$0 today\. Then \$115 a month starting Apr 10\.\n/.test(m.text), m && m.text);
   const noMail = Object.assign({}, env); delete noMail.RESEND_API_KEY; delete noMail.SUPABASE_URL;
   const x = await worker.fetch(new Request('https://arizonapetwaste.com/api/waitlist', { method: 'POST', body: JSON.stringify({ name: 'No Mail', phone: '6235550199', address: '2 W Main St', zip: '85301' }), headers: { 'content-type': 'application/json' } }), noMail, ctx);
   ok('with no email set up the waitlist says to text us, so no lead is lost quietly', x.status === 503);
@@ -1240,12 +1277,12 @@ head('My Yard: bills, skips, pause');
 
   // Joe, Nov 16, 2026 (late): when a paused customer comes back, the full month is charged on the day they come back,
   // and that day is their new bill day. No part month.
-  // This customer pays $108 a month (every week, 2 dogs). The month they paid for runs out in 10 days: that is their bill day.
+  // This customer pays $99 a month (every week, 2 dogs). The month they paid for runs out in 10 days: that is their bill day.
   const noon = (d) => Math.floor(new Date(d + 'T19:00:00Z').getTime() / 1000);
   const label = (unixS) => new Date(unixS * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'America/Phoenix' });
   const billDay = noon(az(10));
   const plan1 = () => { S.subs.sub_1 = { id: 'sub_1', object: 'subscription', status: 'active', customer: cus, pause_collection: null, trial_end: null, billing_cycle_anchor: billDay - 30 * 86400, latest_invoice: 'in_paid_1',
-    metadata: { user_id: U1, pause_from: String(Math.floor(Date.now() / 1000) - 86400) }, items: { data: [{ current_period_end: billDay, price: { unit_amount: 10800 }, quantity: 1 }] }, form: new URLSearchParams() }; };
+    metadata: { user_id: U1, pause_from: String(Math.floor(Date.now() / 1000) - 86400) }, items: { data: [{ current_period_end: billDay, price: { unit_amount: 9900 }, quantity: 1 }] }, form: new URLSearchParams() }; };
   const start = () => { plan1(); Object.assign(row(U1), { status: 'active', dogs: 2, pause_from: null, pause_until: null }); reset(); S.subPosts.length = 0; S.items.length = 0; S.made.length = 0; S.notes.length = 0; };
   const noBillByHand = () => S.items.length === 0 && S.made.length === 0 && !S.calls.some((c) => c.m === 'POST' && /^invoice(item)?s$/.test(c.p)) && !S.subPosts.some((x) => /billing_cycle_anchor|create_prorations|always_invoice/.test(x));
   start();
@@ -1258,7 +1295,7 @@ head('My Yard: bills, skips, pause');
     && row(U1).status === 'paused' && row(U1).pause_until === az(4) && r.d.plan.paused === true && r.d.plan.backCharge === null, [S.subPosts, r.d.plan]);
   { const o = sent(/^Paused: Test Person$/)[0], m = sent(/^Your visits are paused until /)[0];
     ok('the office is told their bills do not change', !!o && /Their pause ends before their next bill day \(.+\), so their bills do not change\./.test(o.text) && !/Trialing/.test(o.text), o && o.text);
-    ok('the customer is told the same, with their next bill', !!m && m.to[0] === 'test@example.com' && m.subject === 'Your visits are paused until ' + label(noon(az(5))) && /Your bill day stays the same\. Your next bill is \$108 on /.test(m.text)
+    ok('the customer is told the same, with their next bill', !!m && m.to[0] === 'test@example.com' && m.subject === 'Your visits are paused until ' + label(noon(az(5))) && /Your bill day stays the same\. Your next bill is \$99 on /.test(m.text)
       && m.text.includes(label(billDay)) && /email-logo\.png/.test(m.html), m && m.text); }
   // Stripe lets go of the plan on the day. That is what tells us they are back.
   reset(); S.subs.sub_1.pause_collection = null;
@@ -1282,37 +1319,37 @@ head('My Yard: bills, skips, pause');
   ok('pause 30 days: Stripe is told one thing, free time until the day they come back, with no part month', r.status === 200 && S.subPosts.length === 1
     && S.subPosts[0] === 'trial_end=' + back + '&proration_behavior=none&metadata%5Bpause_until%5D=' + back + '&metadata%5Bpaid_until%5D=' + billDay && row(U1).status === 'paused' && row(U1).pause_until === az(29), S.subPosts);
   ok('Stripe now bills the full month on that day by itself, and it is the bill day from then on', S.subs.sub_1.status === 'trialing' && S.subs.sub_1.trial_end === back && S.subs.sub_1.billing_cycle_anchor === back && noBillByHand());
-  ok('My Yard can say what happens when they come back', r.d.plan.paused === true && r.d.plan.backCharge.amount === '$108' && r.d.plan.backCharge.keepDay === label(billDay), r.d.plan);
+  ok('My Yard can say what happens when they come back', r.d.plan.paused === true && r.d.plan.backCharge.amount === '$99' && r.d.plan.backCharge.keepDay === label(billDay), r.d.plan);
   { const o = sent(/^Paused: Test Person$/)[0], m = sent(/^Your visits are paused until /)[0];
-    ok('the office is told the bill is skipped, what is charged when, and why Stripe reads "Trialing"', !!o && o.text.includes('Their bill day (' + label(billDay) + ') falls inside the pause, so that bill is skipped. Stripe charges $108 on ' + label(back) + ', the day they come back. That day is their new bill day.')
+    ok('the office is told the bill is skipped, what is charged when, and why Stripe reads "Trialing"', !!o && o.text.includes('Their bill day (' + label(billDay) + ') falls inside the pause, so that bill is skipped. Stripe charges $99 on ' + label(back) + ', the day they come back. That day is their new bill day.')
       && o.text.includes('In Stripe this plan reads "Trialing" until ' + label(back) + '. That is the pause, not a free month.'), o && o.text);
-    ok('the customer is told before it happens: nothing while paused, the full month on the day they come back, and the new bill day', !!m && m.text.includes('You pay nothing while you are paused. On ' + label(back) + ' we charge your card $108 for the month ahead. From then on, that day of the month is your bill day.')
+    ok('the customer is told before it happens: nothing while paused, the full month on the day they come back, and the new bill day', !!m && m.text.includes('You pay nothing while you are paused. On ' + label(back) + ' we charge your card $99 for the month ahead. From then on, that day of the month is your bill day.')
       && /We start again on \w+day, /.test(m.text) && !/[–—]/.test(m.text), m && m.text); }
   reset();
   await hook(subEvt('updated', S.subs.sub_1, {}, { status: 'active', trial_end: null }));
   ok('Stripe’s news of that pause does not turn them into a free month customer: the row stays paused', row(U1).status === 'paused' && mails.length === 0, row(U1).status);
   r = await call('/api/me/plan', 'GET', null, 'good');
-  ok('My Yard still shows the pause and what coming back costs', r.d.plan.paused === true && r.d.plan.canPause === false && r.d.plan.backCharge.amount === '$108', r.d.plan);
+  ok('My Yard still shows the pause and what coming back costs', r.d.plan.paused === true && r.d.plan.canPause === false && r.d.plan.backCharge.amount === '$99', r.d.plan);
   ok('a paused plan cannot be paused again', (await call('/api/me/pause', 'POST', { until: az(40) }, 'good')).status === 400);
   // The day comes. Stripe ends the free time, makes one bill for the full month, and says the plan is active.
   reset(); S.subPosts.length = 0;
-  S.invoices.in_back_day = { id: 'in_back_day', object: 'invoice', customer: cus, status: 'draft', billing_reason: 'subscription_cycle', amount_due: 10800, amount_remaining: 10800, metadata: {} };
+  S.invoices.in_back_day = { id: 'in_back_day', object: 'invoice', customer: cus, status: 'draft', billing_reason: 'subscription_cycle', amount_due: 9900, amount_remaining: 9900, metadata: {} };
   Object.assign(S.subs.sub_1, { status: 'active', latest_invoice: 'in_back_day' });
   const dayCame = () => subEvt('updated', S.subs.sub_1, {}, { status: 'trialing', latest_invoice: 'in_paid_1' });
   await at(az(30) + 'T19:00:05Z', () => hook(dayCame()));
   const nthDay = Number(az(30).slice(8)), nthWord = nthDay + (nthDay % 10 === 1 && nthDay !== 11 ? 'st' : nthDay % 10 === 2 && nthDay !== 12 ? 'nd' : nthDay % 10 === 3 && nthDay !== 13 ? 'rd' : 'th');
   ok('the day they come back: the row is active again', row(U1).status === 'active' && row(U1).pause_from === null && row(U1).pause_until === null);
-  ok('the customer is told the full month is charged today and which day is their bill day now', /We charge your card \$108 today for the month ahead\. From now on, the \d+(st|nd|rd|th) is your bill day\./.test((sent(/^Welcome back/)[0] || {}).text || '')
+  ok('the customer is told the full month is charged today and which day is their bill day now', /We charge your card \$99 today for the month ahead\. From now on, the \d+(st|nd|rd|th) is your bill day\./.test((sent(/^Welcome back/)[0] || {}).text || '')
     && sent(/^Welcome back/)[0].text.includes('the ' + nthWord + ' is your bill day') && /email-logo\.png/.test(sent(/^Welcome back/)[0].html), sent(/^Welcome back/).map((x) => x.text));
-  ok('the office is told the same', (sent(/^Back from pause: Test Person$/)[0] || {}).text.includes('Stripe charges $108 today. The ' + nthWord + ' is their new bill day.'), sent(/^Back from pause/).map((x) => x.text));
+  ok('the office is told the same', (sent(/^Back from pause: Test Person$/)[0] || {}).text.includes('Stripe charges $99 today. The ' + nthWord + ' is their new bill day.'), sent(/^Back from pause/).map((x) => x.text));
   ok('this server charges nothing itself and never resets a bill day: Stripe made the one full month bill', noBillByHand() && !S.subPosts.some((x) => /trial_end|pause_collection/.test(x)), S.subPosts);
   ok('the first bill back is named plainly on the card statement, and the pause notes come off the plan', S.invoices.in_back_day.statement_descriptor === 'ARIZONA PET WASTE' && !S.subs.sub_1.metadata.pause_until && !S.subs.sub_1.metadata.paid_until, [S.invoices.in_back_day, S.subs.sub_1.metadata]);
   { const n = mails.length; S.subs.sub_1.metadata.pause_until = String(back); await hook(dayCame()); delete S.subs.sub_1.metadata.pause_until; ok('Stripe says it twice: nobody is told twice', mails.length === n); }
   // If that first bill back fails, it is a failed bill like any other.
   start(); await call('/api/me/pause', 'POST', { until: az(30) }, 'good'); await settle(); reset(); T.messages.length = 0;
-  S.invoices.in_back_fail = { id: 'in_back_fail', object: 'invoice', customer: cus, status: 'open', amount_due: 10800, amount_remaining: 10800, attempt_count: 1, collection_method: 'charge_automatically', next_payment_attempt: Math.floor(Date.now() / 1000) + 3 * 86400, metadata: {} };
+  S.invoices.in_back_fail = { id: 'in_back_fail', object: 'invoice', customer: cus, status: 'open', amount_due: 9900, amount_remaining: 9900, attempt_count: 1, collection_method: 'charge_automatically', next_payment_attempt: Math.floor(Date.now() / 1000) + 3 * 86400, metadata: {} };
   await hook({ type: 'invoice.payment_failed', data: { object: S.invoices.in_back_fail } });
-  ok('the first charge back fails: on hold, with the card email and the office alert', row(U1).status === 'past_due' && row(U1).pause_until === null && sent(/^Your card did not go through$/).length === 1 && sent(/^Card failed: Test Person, 123 W Test St \(\$108, try 1\)$/).length === 1, [row(U1).status, mails.map((x) => x.subject)]);
+  ok('the first charge back fails: on hold, with the card email and the office alert', row(U1).status === 'past_due' && row(U1).pause_until === null && sent(/^Your card did not go through$/).length === 1 && sent(/^Card failed: Test Person, 123 W Test St \(\$99, try 1\)$/).length === 1, [row(U1).status, mails.map((x) => x.subject)]);
   delete S.invoices.in_back_fail;
 
   head('Back early from a pause that was set to run past the bill day');
@@ -1326,7 +1363,7 @@ head('My Yard: bills, skips, pause');
   r = await at(az(12) + 'T17:00:00Z', () => call('/api/me/resume', 'POST', {}, 'good')); await settle();
   ok('back after the old bill day: Stripe is told to end the free time now, so the full month is charged today and today is the bill day', r.status === 200 && r.d.charged === true
     && S.subPosts[1] === 'trial_end=now&proration_behavior=none&metadata%5Bpause_until%5D=&metadata%5Bpaid_until%5D=' && S.subs.sub_1.status === 'active' && row(U1).status === 'active' && noBillByHand(), [S.subPosts, r.d]);
-  ok('and both are told', /We charge your card \$108 today for the month ahead\./.test(sent(/^Welcome back/)[0].text) && /Stripe charges \$108 today\./.test(sent(/^Back from pause/)[0].text), mails.map((x) => x.text));
+  ok('and both are told', /We charge your card \$99 today for the month ahead\./.test(sent(/^Welcome back/)[0].text) && /Stripe charges \$99 today\./.test(sent(/^Back from pause/)[0].text), mails.map((x) => x.text));
 
   head('Pause: the locks');
   start(); S.subs.sub_1.status = 'trialing'; S.subs.sub_1.trial_end = noon(az(20));
@@ -1352,11 +1389,13 @@ head('Live keys work the same');
   ok('config hands the live publishable key to the page', c.d.live === true && c.d.stripeKey === 'pk_live_1');
   const r = await call('/api/checkout', 'POST', Object.assign({}, good, { plan: 'twice', dogs: 4 }), 'good');
   const made = S.calls.filter((x) => x.m === 'POST' && x.p === 'prices').map((x) => x.f.get('lookup_key') + ' ' + x.f.get('unit_amount') + ' ' + x.f.get('recurring[interval]') + ' ' + x.f.get('product'));
-  ok('a new Stripe mode has no prices: the first sign up makes all six, by lookup key', r.status === 200 && made.length === 6 && made.includes('apw_twice_base 18900 month apw_twice') && made.includes('apw_eow_extra 900 month apw_extra_dog') && made.includes('apw_week_base 10800 month apw_week'), made);
-  ok('and the four products', S.calls.filter((x) => x.m === 'POST' && x.p === 'products').map((x) => x.f.get('id')).sort().join(',') === 'apw_eow,apw_extra_dog,apw_extra_dog,apw_extra_dog,apw_twice,apw_week', S.calls.filter((x) => x.m === 'POST' && x.p === 'products').map((x) => x.f.get('id')));
+  ok('a new Stripe mode has no prices: the first sign up makes the one price it needs, named by plan, dogs and amount', r.status === 200 && made.length === 1 && made[0] === 'apw_twice_4_21500 21500 month apw_twice_4', made);
+  ok('and its one product, named so the bill says what it is for', S.calls.filter((x) => x.m === 'POST' && x.p === 'products').map((x) => x.f.get('id') + '|' + x.f.get('name')).join(',') === 'apw_twice_4|Dog poop pickup, twice a week, 4 dogs', S.calls.filter((x) => x.m === 'POST' && x.p === 'products').map((x) => String(x.f)));
+  ok('none of the older base or extra dog prices is ever made again', !made.some((x) => /_(base|extra) /.test(x)), made);
   await hook(sessionEvt(r.d.session));
   const f = S.calls.filter((x) => x.m === 'POST' && x.p === 'subscriptions')[0].f;
-  ok('the plan uses the prices that were just made', f.get('items[0][price]') === 'price_apw_twice_base' && f.get('items[1][price]') === 'price_apw_twice_extra' && f.get('items[1][quantity]') === '2' && row(U1).status === 'trialing');
+  ok('the plan uses the price that was just made, as its one line', f.get('items[0][price]') === 'price_apw_twice_4_21500' && f.get('items[0][quantity]') === '1' && !f.has('items[1][price]') && row(U1).status === 'trialing', String(f));
+  ok('and the price is not asked for or made a second time', S.calls.filter((x) => x.m === 'POST' && x.p === 'prices').length === 1);
   // If Stripe ever refuses the way we ask for the card form, it still loads, and the office can see why and what was used.
   const tryForm = async (refuse) => { T.customers.length = 0; T.errors.length = 0; S.refuse = refuse; const r = await call('/api/checkout', 'POST', good, 'good'); await settle(); S.refuse = []; return { r, f: r.d && S.sessions[r.d.session] && S.sessions[r.d.session].form }; };
   let x = await tryForm(['currency+list']);
@@ -1399,16 +1438,16 @@ head('No free month: the first month is paid in the card form, and that day is t
   let r = await call('/api/checkout', 'POST', Object.assign({}, good, { plan: 'week', dogs: 3 }), 'good');
   let s = S.sessions[r.d.session], f = s.form;
   ok('the card form is Stripe’s own plan checkout, so the first month is charged in the form', r.status === 200 && r.d.free === false && f.get('mode') === 'subscription' && f.get('ui_mode') === 'embedded_page' && f.get('redirect_on_completion') === 'never', r);
-  ok('the plan and one extra dog are on it at full price', f.get('line_items[0][price]') === 'price_apw_week_base' && f.get('line_items[0][quantity]') === '1' && f.get('line_items[1][price]') === 'price_apw_week_extra' && f.get('line_items[1][quantity]') === '1', String(f));
+  ok('the plan is on it as one line at the full price for 3 dogs', f.get('line_items[0][price]') === 'price_apw_week_3_11500' && f.get('line_items[0][quantity]') === '1' && !f.has('line_items[1][price]'), String(f));
   ok('no free month, no billing day and no part month setting: Stripe charges the full month today and bills on this day each month', ![...f.keys()].some((k) => /trial|billing_cycle_anchor|proration/.test(k)), [...f.keys()]);
   ok('no field that Stripe refuses in plan checkout', ![...f.keys()].some((k) => /^(setup_intent_data|currency|payment_method_types|success_url|return_url)/.test(k)), [...f.keys()]);
   ok('cards only and Link off here too', f.get('allowed_payment_method_types[0]') === 'card' && !f.has('allowed_payment_method_types[1]') && f.get('wallet_options[link][display]') === 'never');
   ok('the plan will carry who it is for, the full first charge and the day pausing opens, and it is marked as no free month',
-    f.get('subscription_data[metadata][user_id]') === U1 && f.get('subscription_data[metadata][no_free]') === '1' && f.get('subscription_data[metadata][first_charge]') === '12100' && f.get('subscription_data[metadata][plan]') === 'week'
+    f.get('subscription_data[metadata][user_id]') === U1 && f.get('subscription_data[metadata][no_free]') === '1' && f.get('subscription_data[metadata][first_charge]') === '11500' && f.get('subscription_data[metadata][plan]') === 'week'
     && f.get('subscription_data[metadata][dogs]') === '3' && day(Number(f.get('subscription_data[metadata][pause_from]'))) === '2027-05-09T19:00' && f.get('subscription_data[metadata][pause_from]') === s.metadata.pause_from
     && !f.has('subscription_data[metadata][free_end]') && !f.has('subscription_data[metadata][min_end]') && /Every week, 3 dogs, Buckeye/.test(f.get('subscription_data[description]')), String(f));
   const note = f.get('custom_text[submit][message]');
-  ok('the note by the button says the price today, the price each month, and cancel anytime', [before, nextDay()].some((d) => note === '$121 today. Then $121 a month starting ' + d + '. Cancel anytime. Call or text 623.309.6104.'), note);
+  ok('the note by the button says the price today, the price each month, and cancel anytime', [before, nextDay()].some((d) => note === '$115 today. Then $115 a month starting ' + d + '. Cancel anytime. Call or text 623.309.6104.'), note);
   ok('the session is tied to the signed in person and the row waits at the card step', f.get('client_reference_id') === U1 && f.get('customer') === row(U1).stripe_customer_id && row(U1).status === 'checkout');
 
   // The card is refused: Stripe has a plan, but its first payment has not gone through.
@@ -1429,8 +1468,8 @@ head('No free month: the first month is paid in the card form, and that day is t
     const offPlan = S.calls.findIndex((c) => c.m === 'POST' && c.p === 'subscriptions/' + sub.id && c.f.has('default_payment_method') && c.f.get('default_payment_method') === '');
     ok('the card moves onto the customer and off the plan, the customer first (so a card changed in My Yard later is the card that pays)', cust.invoice_settings.default_payment_method === s.card && sub.default_payment_method === null && toCust >= 0 && offPlan > toCust, [toCust, offPlan]); }
   { const o = sent(/^New booking: Test Person/), hi = sent(/^You are booked/)[0];
-    ok('the office gets one new booking email that says they paid today', o.length === 1 && [before, nextDay()].some((d) => o[0].text.includes('Billing: $121 today. Then $121 a month starting ' + d + '.\n')), o.map((m) => m.text));
-    ok('the welcome says the card was charged, when the next bill comes, and cancel anytime', sent(/^You are booked/).length === 1 && [before, nextDay()].some((d) => hi.text.includes('Your card was charged. $121 today. Then $121 a month starting ' + d + '.\n'))
+    ok('the office gets one new booking email that says they paid today', o.length === 1 && [before, nextDay()].some((d) => o[0].text.includes('Billing: $115 today. Then $115 a month starting ' + d + '.\n')), o.map((m) => m.text));
+    ok('the welcome says the card was charged, when the next bill comes, and cancel anytime', sent(/^You are booked/).length === 1 && [before, nextDay()].some((d) => hi.text.includes('Your card was charged. $115 today. Then $115 a month starting ' + d + '.\n'))
       && hi.text.includes('You can cancel anytime. Call or text 623.309.6104.\n') && !/you pay for one month|free month|\$0 today|did not charge/.test(hi.text), hi && hi.text); }
   ok('the first bill is already paid, so there is no first bill to look at', !S.calls.some((c) => c.p === 'invoices/create_preview') && sent(/^CHECK BILLING/).length === 0);
   { const n = mails.length; S.calls.length = 0;
@@ -1445,7 +1484,7 @@ head('No free month: the first month is paid in the card form, and that day is t
   r = await call('/api/checkout', 'POST', Object.assign({}, good, { plan: 'eow', dogs: 1 }), 'two'); s = S.sessions[r.d.session]; sub = payNow(s.id); reset();
   { const d = await call('/api/checkout/done', 'POST', { session: s.id }, 'two'); await settle();
     ok('the sign up page books them when the webhook is late', d.status === 200 && d.d.booked === true && row(U2).status === 'active' && row(U2).stripe_subscription_id === sub.id && sent(/^You are booked/).length === 1 && sub.default_payment_method === null, d);
-    ok('one or two dogs: one line, the full $75', s.form.get('line_items[0][price]') === 'price_apw_eow_base' && !s.form.has('line_items[1][price]') && s.form.get('subscription_data[metadata][first_charge]') === '7500');
+    ok('one dog, every other week: one line, the full $75', s.form.get('line_items[0][price]') === 'price_apw_eow_1_7500' && !s.form.has('line_items[1][price]') && s.form.get('subscription_data[metadata][first_charge]') === '7500');
     ok('then the webhook lands: still one welcome', (await hook(paidEvt(s.id))) === 200 && sent(/^You are booked/).length === 1 && sent(/^New booking/).length === 1); }
   wipe();
   r = await call('/api/checkout', 'POST', good, 'good'); s = S.sessions[r.d.session]; sub = payNow(s.id); reset();
@@ -1465,7 +1504,7 @@ head('No free month: the first month is paid in the card form, and that day is t
   { const nid = AUTH['paid@example.com'] && AUTH['paid@example.com'].id;
     s = S.sessions[r.d.session];
     ok('a new email with no sign in gets the pay today card form, and no session', r.status === 200 && r.d.free === false && !r.d.auth && !!nid && s.form.get('mode') === 'subscription' && s.form.get('client_reference_id') === nid
-      && s.form.get('line_items[0][price]') === 'price_apw_twice_base' && authCalls.includes('create paid@example.com'), r.d);
+      && s.form.get('line_items[0][price]') === 'price_apw_twice_2_18900' && authCalls.includes('create paid@example.com'), r.d);
     sub = payNow(s.id); reset();
     const d = await call('/api/checkout/done', 'POST', { session: s.id }); await settle();
     const c = T.customers.find((x) => x.id === nid), hi = sent(/^You are booked/)[0];
@@ -1531,7 +1570,7 @@ head('No free month: the first month is paid in the card form, and that day is t
   // A sign up request while checkout is closed says what they would pay.
   env = Object.assign({}, baseEnv, SALE_OVER, { FIRST_VISIT_FROM: '2027-03-10' }); reset();
   { const b4 = nextDay(); await call('/api/request', 'POST', Object.assign({}, good, { email: 'req2@example.com' })); const m = sent(/^New sign up request: Test Person/)[0];
-    ok('a sign up request after the sale tells the office the pay today words', !!m && [b4, nextDay()].some((d) => m.text.includes('Billing they saw: $121 today. Then $121 a month starting ' + d + '.\n')), m && m.text); }
+    ok('a sign up request after the sale tells the office the pay today words', !!m && [b4, nextDay()].some((d) => m.text.includes('Billing they saw: $115 today. Then $115 a month starting ' + d + '.\n')), m && m.text); }
   env = Object.assign({}, baseEnv); wipe();
 }
 
@@ -1780,7 +1819,7 @@ head('A saved Stripe customer that Stripe no longer has (live, Nov 17, 2026: "Ch
   r = await call('/api/checkout', 'POST', good, 'good'); await settle();
   const second = row(U1).stripe_customer_id;
   ok('a deleted customer answers 400 resource_missing, and checkout still returns 200 with a clientSecret',
-    r.status === 200 && typeof r.d.clientSecret === 'string' && r.d.clientSecret.length > 10 && /^cs_test/.test(r.d.session) && r.d.free === true && /^\$0 today\. Then \$121 a month starting /.test(r.d.line), r);
+    r.status === 200 && typeof r.d.clientSecret === 'string' && r.d.clientSecret.length > 10 && /^cs_test/.test(r.d.session) && r.d.free === true && /^\$0 today\. Then \$115 a month starting /.test(r.d.line), r);
   ok('one new Stripe customer is made, with the same name, email and phone, and the row takes its id', newCust() === 1 && /^cus_/.test(second) && second !== first
     && (() => { const f = S.calls.filter((c) => c.m === 'POST' && c.p === 'customers')[0].f; return f.get('email') === 'test@example.com' && f.get('name') === 'Test Person' && f.get('phone') === '+16235550100' && f.get('address[postal_code]') === '85396' && f.get('metadata[user_id]') === U1; })(), [first, second, newCust()]);
   ok('the card form is made for the new customer, and the old id is asked for once and never again', forms().length === 1 && forms()[0].f.get('customer') === second && S.sessions[r.d.session].customer === second && named(first).length === 1, S.calls.map((c) => c.m + ' ' + c.p));
@@ -1915,8 +1954,8 @@ head('Abandoned checkout: the same email comes back later with no sign in. One c
     ok(tag + 'one row and one account for that email', rows().length === 1 && rows()[0].status === 'checkout' && authCalls.slice(accounts).filter((a) => a === 'create ' + email).length === 1, [rows().length, authCalls.slice(accounts)]);
     ok(tag + (kase === 'b' ? 'the deleted customer is replaced by one new customer, and the new card form is on it' : 'the same Stripe customer is used again, and no second one is made'),
       kase === 'b' ? (count('POST', 'customers') === 2 && c2 !== c1 && /^cus_/.test(c2)) : (count('POST', 'customers') === 1 && c2 === c1), [c1, c2, count('POST', 'customers')]);
-    if (!paid) ok(tag + 'the price line follows the day they came back', v2.d.line === '$0 today. Then $108 a month starting Dec 17.', v2.d.line);
-    else ok(tag + 'the price line says what is charged today', /^\$108 today\./.test(v2.d.line), v2.d.line);
+    if (!paid) ok(tag + 'the price line follows the day they came back', v2.d.line === '$0 today. Then $99 a month starting Dec 17.', v2.d.line);
+    else ok(tag + 'the price line says what is charged today', /^\$99 today\./.test(v2.d.line), v2.d.line);
     if (paid && kase === 'a') ok(tag + 'the card form left open the night before is closed, so it cannot be paid as well', S.sessions[s1].status === 'expired' && S.expired.includes(s1), S.expired);
 
     // They put in their card on the new form. The page reports it, and Stripe's webhook reports the same thing.
@@ -1964,6 +2003,100 @@ head('Abandoned checkout: the same email comes back later with no sign in. One c
   T.customers.length = 0; T.consent_log.length = 0; T.errors.length = 0; mails.length = 0; for (const k of Object.keys(S.subs)) delete S.subs[k]; reset(); }
 
 /* ---------- every Stripe request against Stripe's own field list (optional) ---------- */
+/* ---------- prices ---------- */
+head('Prices (Joe, Nov 18, 2026): one file, the numbers he set, new Stripe prices for new sign ups, and a plan from before keeps its price');
+{ const wsrc = fs.readFileSync(new URL('../src/worker/worker.js', import.meta.url), 'utf8');
+  ok('the server carries the prices in src/prices.json, to the letter (after a change to that file, run npm run build)', workerHas(wsrc) === workerBlock(PRICE_FILE), workerHas(wsrc));
+  const m = PRICE_FILE.month, kept = PRICE_FILE.kept;
+  ok('the prices Joe set: every week is $89 for 1 dog, $99 for 2 dogs and $115 for 3 dogs', m.week[0] === 89 && m.week[1] === 99 && m.week[2] === 115, m.week);
+  ok('twice a week is $189 and every other week is $75, for 1 or 2 dogs', m.twice[0] === 189 && m.twice[1] === 189 && m.eow[0] === 75 && m.eow[1] === 75, [m.twice, m.eow]);
+  ok('no price goes down when a dog is added', ['week', 'twice', 'eow'].every((k) => m[k].every((n, i) => !i || n >= m[k][i - 1])), m);
+  ok('the plans that keep an older price are named by their Stripe plan id, and their table is the one from before', kept.plans.length >= 1 && kept.plans.every((x) => /^sub_/.test(x)) && kept.month.week[1] === 108 && kept.month.week[2] === 121, kept);
+
+  // A Stripe mode with nothing in it but the older prices. New sign ups make their own prices and never touch those.
+  const KEPT = kept.plans[0], U3 = '33333333-3333-4333-8333-333333333333';
+  env = Object.assign({}, baseEnv, { STRIPE_SECRET_KEY: 'sk_test_prices1', FIRST_VISIT_FROM: '2027-03-10' });
+  S.prices.length = 0; S.prices.push(...seedPrices().filter((x) => /_(base|extra)$/.test(x.lookup_key)));
+  T.customers.length = 0; T.consent_log.length = 0; T.errors.length = 0; for (const k of Object.keys(S.subs)) delete S.subs[k]; reset();
+  const c = await call('/api/config');
+  ok('config hands any screen the same price table', JSON.stringify(c.d.prices) === JSON.stringify({ week: m.week, twice: m.twice, eow: m.eow }), c.d.prices);
+
+  let r = await call('/api/checkout', 'POST', Object.assign({}, good, { plan: 'week', dogs: 1 }), 'good');
+  let made = S.calls.filter((x) => x.m === 'POST' && x.p === 'prices').map((x) => x.f.get('lookup_key') + ' ' + x.f.get('unit_amount') + ' ' + x.f.get('recurring[interval]') + ' ' + x.f.get('product') + ' ' + x.f.get('nickname'));
+  ok('one dog, every week: a new Stripe price of $89 is made, and its key names the plan, the dogs and the amount', r.status === 200 && r.d.line.startsWith('$0 today. Then $89 a month starting ') && made.length === 1 && made[0] === 'apw_week_1_8900 8900 month apw_week_1 Every week, 1 dog', [r.d, made]);
+  await hook(sessionEvt(r.d.session)); await settle();
+  { const f = S.calls.filter((x) => x.m === 'POST' && x.p === 'subscriptions')[0].f, hi = sent(/^You are booked/)[0], o = sent(/^New booking/)[0];
+    ok('the plan has that one price line, and the emails say $89', f.get('items[0][price]') === 'price_apw_week_1_8900' && !f.has('items[1][price]') && /Then \$89 a month starting /.test(hi.text) && /Plan: Every week, 1 dogs?, \$89 a month/.test(o.text), [String(f), o && o.text]);
+    ok('the older prices in Stripe were not used and not changed', !/price_old_/.test(String(f)) && S.prices.filter((x) => /_(base|extra)$/.test(x.lookup_key)).length === 2 && S.prices.find((x) => x.lookup_key === 'apw_week_base').unit_amount === 10800); }
+  T.customers.length = 0; reset();
+  r = await call('/api/checkout', 'POST', Object.assign({}, good, { plan: 'week', dogs: 1 }), 'good');
+  ok('the next sign up at that price uses the same Stripe price: nothing new is made', r.status === 200 && !S.calls.some((x) => x.m === 'POST' && (x.p === 'prices' || x.p === 'products')), S.calls.map((x) => x.m + ' ' + x.p));
+  T.customers.length = 0; reset();
+  r = await call('/api/checkout', 'POST', Object.assign({}, good, { plan: 'week', dogs: 2 }), 'good');
+  made = S.calls.filter((x) => x.m === 'POST' && x.p === 'prices').map((x) => x.f.get('lookup_key') + ' ' + x.f.get('unit_amount'));
+  ok('two dogs, every week: $99, and its own Stripe price', r.d.line.startsWith('$0 today. Then $99 a month starting ') && made.join() === 'apw_week_2_9900 9900', [r.d.line, made]);
+
+  // The one plan that was running before the prices changed: every week, 2 dogs, $108. And a new customer next to it.
+  for (const k of Object.keys(S.subs)) delete S.subs[k];
+  const cusK = 'cus_kept', cusN = 'cus_new1';
+  S.customers[cusK] = { id: cusK, invoice_settings: { default_payment_method: null } }; S.customers[cusN] = { id: cusN, invoice_settings: { default_payment_method: null } };
+  const az = (n) => new Date(Date.now() - 7 * 3600e3 + n * 86400e3).toISOString().slice(0, 10);
+  const noon = (d) => Math.floor(new Date(d + 'T19:00:00Z').getTime() / 1000);
+  const billDay = noon(az(10));
+  const lines = (...x) => ({ data: x.map(([lid, pid, n]) => ({ id: lid, current_period_end: billDay, price: Object.assign({}, S.prices.find((y) => y.id === pid)), quantity: n })) });
+  const plan = (pid, customer, items) => { S.subs[pid] = { id: pid, object: 'subscription', status: 'active', customer, pause_collection: null, trial_end: null, billing_cycle_anchor: billDay - 30 * 86400, latest_invoice: null,
+    metadata: { pause_from: String(Math.floor(Date.now() / 1000) - 86400) }, items, form: new URLSearchParams() }; };
+  const person = (uid, email, sub, customer) => ({ id: uid, email, name: uid === U1 ? 'Kept Person' : 'New Person', phone: '6235550100', address: '123 W Test St', zip: '85340', area: 'litchfield', plan: 'week', dogs: 2, status: 'active',
+    stripe_subscription_id: sub, stripe_customer_id: customer, service_day: new Date(az(3) + 'T19:00:00Z').getUTCDay(), service_day2: null, skips: [], first_visit: null, pause_from: null, pause_until: null, texts_visit: false });
+  T.customers.length = 0;
+  T.customers.push(person(U1, 'test@example.com', KEPT, cusK), person(U2, 'two@example.com', 'sub_new1', cusN));
+  plan(KEPT, cusK, lines(['si_kb', 'price_old_wb', 1]));
+  plan('sub_new1', cusN, lines(['si_n1', 'price_apw_week_2_9900', 1]));
+  T.staff.push({ id: 's_boss', email: 'boss@arizonapetwaste.com', name: 'Boss', role: 'owner', active: true, user_id: U3 });
+  tokens.boss = { id: U3, email: 'boss@arizonapetwaste.com' };
+  reset();
+
+  r = await call('/api/me/plan', 'GET', null, 'good');
+  ok('My Yard tells the customer from before the change their own price: $108', r.status === 200 && r.d.plan.month === '$108', r.d.plan);
+  r = await call('/api/me/plan', 'GET', null, 'two');
+  ok('and the new customer theirs: $99', r.status === 200 && r.d.plan.month === '$99', r.d.plan);
+  r = await call('/api/office/customer?id=' + U1, 'GET', null, 'boss');
+  const r2 = await call('/api/office/customer?id=' + U2, 'GET', null, 'boss');
+  ok('the office sees $108 a month on the plan from before and $99 on the new one', r.status === 200 && r.d.monthly === 10800 && r2.d.monthly === 9900, [r.d.monthly, r2.d.monthly]);
+  r = await call('/api/office/money', 'GET', null, 'boss');
+  ok('the Money screen adds them up at what each one pays: $207 a month', r.status === 200 && r.d.paying.count === 2 && r.d.paying.monthly === 20700, r.d.paying);
+
+  // A pause tells the customer their next bill. For the plan from before, that is still $108.
+  r = await call('/api/me/pause', 'POST', { until: az(5) }, 'good'); await settle();
+  { const mm = sent(/^Your visits are paused until /)[0];
+    ok('a pause email to the customer from before says their next bill is $108', r.status === 200 && !!mm && /Your next bill is \$108 on /.test(mm.text), mm && mm.text); }
+  Object.assign(row(U1), { status: 'active', pause_from: null, pause_until: null }); S.subs[KEPT].pause_collection = null; reset();
+
+  // The office counts a third dog. The plan from before gets one "extra dog" line at its own $13, so it reads $121.
+  r = await call('/api/office/customer', 'POST', { id: U1, dogs: 3 }, 'boss'); await settle();
+  { const posts = S.calls.filter((x) => x.m !== 'GET' && /^subscription_items/.test(x.p)), mm = sent(/^We updated your plan to 3 dogs$/)[0];
+    ok('a third dog on the plan from before: one extra dog line at the older price, no charge today, and nothing new is made in Stripe', r.status === 200 && posts.length === 1 && posts[0].p === 'subscription_items' && posts[0].f.get('subscription') === KEPT
+      && posts[0].f.get('price') === 'price_old_wx' && posts[0].f.get('quantity') === '1' && posts[0].f.get('proration_behavior') === 'none' && !S.calls.some((x) => x.m === 'POST' && (x.p === 'prices' || x.p === 'products')), posts.map((x) => x.p + ' ' + String(x.f)));
+    ok('they are told $121 a month, their price and not the new one', !!mm && mm.to[0] === 'test@example.com' && /Your price is now \$121 a month, starting with your next bill\. There is no charge today\./.test(mm.text), mm && mm.text);
+    ok('the office card and My Yard read $121 now', (await call('/api/office/customer?id=' + U1, 'GET', null, 'boss')).d.monthly === 12100 && (await call('/api/me/plan', 'GET', null, 'good')).d.plan.month === '$121'); }
+  reset();
+  r = await call('/api/office/customer', 'POST', { id: U1, dogs: 2 }, 'boss'); await settle();
+  ok('back to two dogs: the extra dog line comes off and the plan is $108 again', r.status === 200 && S.calls.some((x) => x.m === 'DELETE' && /^subscription_items\/si_/.test(x.p)) && S.subs[KEPT].items.data.length === 1 && r.d.monthly === 10800, [S.calls.map((x) => x.m + ' ' + x.p), r.d.monthly]);
+
+  // The same for a new customer: their one price line moves to the price for the new dog count.
+  reset();
+  r = await call('/api/office/customer', 'POST', { id: U2, dogs: 3 }, 'boss'); await settle();
+  { const posts = S.calls.filter((x) => x.m !== 'GET' && /^subscription_items/.test(x.p)), mm = sent(/^We updated your plan to 3 dogs$/)[0];
+    ok('a third dog for a new customer: their one line moves to the 3 dog price, with no charge today', r.status === 200 && posts.length === 1 && posts[0].p === 'subscription_items/si_n1' && posts[0].f.get('price') === 'price_apw_week_3_11500'
+      && posts[0].f.get('quantity') === '1' && posts[0].f.get('proration_behavior') === 'none' && S.subs.sub_new1.items.data.length === 1, posts.map((x) => x.p + ' ' + String(x.f)));
+    ok('they are told $115 a month', !!mm && mm.to[0] === 'two@example.com' && /Your price is now \$115 a month, starting with your next bill\./.test(mm.text) && r.d.monthly === 11500, [mm && mm.text, r.d.monthly]); }
+  reset();
+  r = await call('/api/office/customer', 'POST', { id: U2, dogs: 1 }, 'boss'); await settle();
+  ok('one dog for a new customer: $89', r.status === 200 && r.d.monthly === 8900 && S.subs.sub_new1.items.data[0].price.id === 'price_apw_week_1_8900' && /Your price is now \$89 a month/.test((sent(/^We updated your plan to 1 dog$/)[0] || {}).text || ''), r.d.monthly);
+  ok('no request in all of this asked Stripe for a part month or a billing day', !S.all.some((x) => x.m !== 'GET' && ((x.f.has('proration_behavior') && x.f.get('proration_behavior') !== 'none') || x.f.has('billing_cycle_anchor') || x.f.has('proration_date'))));
+  T.staff.length = 0; delete tokens.boss; T.customers.length = 0; for (const k of Object.keys(S.subs)) delete S.subs[k]; env = Object.assign({}, baseEnv); reset();
+}
+
 if (process.env.STRIPE_SPEC) {
   head('Stripe requests checked against ' + process.env.STRIPE_SPEC);
   const spec = JSON.parse(fs.readFileSync(process.env.STRIPE_SPEC, 'utf8'));

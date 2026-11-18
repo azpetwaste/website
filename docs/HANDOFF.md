@@ -904,3 +904,60 @@ Joe at 9:35 am: put the time on every lead "so we know I'm hitting them instantl
 ### Training video
 Not rebuilt. It shows the Schedule, Plan the week, the scooper screens and the truck link. None of its screens changed (the demo has no "My route today" button, because nobody is signed in there), and every line in `docs/video/lines.json` is still true.
 
+## Nov 18, 2026, midday. One price file, new weekly prices, the price card, the deodorizing line, four city buttons, a bigger sign up form (website chat), Joe's ask
+Joe, 10:16 to 10:22 am, four messages: weekly is $89 for 1 dog, $99 for 2 dogs (was $108) and $115 for 3 dogs (was $121). Twice a week $189 and every other week $75 did not change. "Set it in the single pricing config, and these stay fixed going forward." "No discounts of any kind." The Black Friday free month through November 30 stays. "Don't change any existing customer's price; the current weekly subscriber stays at $108." Show deodorizing as a line wherever prices show: "Deodorizing treatment", $39.99 with a red slash, $0, a FREE tag, and "$0 when you sign up for service. Limited time only." Before that he asked for four city buttons on sign up ("we cover all ZIP codes, every single one of them"), a new look for the prices and the last section of the home page ("less is more of anything"), and a site that is easy on every phone, tablet and folding phone, for older people too.
+
+### Prices: one file
+- `src/prices.json` is the only place a price is typed. `month` is dollars a month for 1 to 6 dogs on each plan: weekly 89, 99, 115, 134, 147, 160. Twice a week 189, 189, 202, 215, 228, 241. Every other week 75, 75, 84, 93, 102, 111. `once` is 99. `deodorizing` holds Joe's words and numbers for that line. `kept` holds the plans that keep an older price and the table from before.
+- `build/prices.mjs` reads the file, refuses numbers that cannot be prices (not a number, under $20, over $2,000, a price that goes down as dogs go up) and writes a copy into `src/worker/worker.js` between the `PRICES:START` and `PRICES:END` marks. `npm run build` runs it first. `node build/prices.mjs --check` only looks. `worker.test.mjs` fails if the copy and the file differ.
+- The pages: `design/generator/parts.py` loads the file (`PRICES`, `month()`, `week()`, `usd()`), and `longform.py` and `cities.py` use those. `build/build.mjs` reads the same file for the schema offers, the page descriptions and `llms.txt`. Words in `content/` use tags the build fills in: `[[price:week:2]]`, `[[week:week:2]]`, `[[price:once]]`. Copy made in Python cannot carry a tag (the export stops on one), so it uses the numbers from `parts.py`.
+- The week price is the month price times 12, over 52, to the nearest dollar: $21, $23 and $27 for 1, 2 and 3 dogs on weekly.
+- `/api/config` answers `prices` (the `month` table), so any screen can show a price without typing one.
+
+### Prices: Stripe
+- Before: a base price for 1 or 2 dogs plus an "extra dog" price times the dogs over two. One dog now costs less than two, so that shape no longer fits.
+- Now: one Stripe price for each plan and dog count. The key is `apw_<plan>_<dogs>_<cents>`, for example `apw_week_2_9900`. The product is `apw_<plan>_<dogs>`, named like "Dog poop pickup, every week, 2 dogs". `priceId(env, plan, dogs)` finds the price by its key and makes it the first time a sign up needs it, the same way the old prices were made. A plan has one line with quantity 1.
+- A new number in the file is a new key, so it is a new Stripe price for new sign ups only. Nothing ever edits a price a running plan sits on.
+- `PLAN_KEY` is `apw-plan3-` now, because the fields of the plan request changed.
+- The old prices (`apw_week_base`, `apw_week_extra` and the four others) stay in Stripe and are never made again. The one live plan bills on them. Do not archive them.
+- No Stripe price was made by hand or by this chat. The first real sign up after the push makes `apw_week_2_9900` or whichever it needs. That call has only run against the pretend Stripe and Stripe's own field list (`STRIPE_SPEC`), like every other Stripe path before its first real use.
+
+### The customer from before keeps $108
+- The live database on November 18 had one plan: `sub_1UcpCgLoVhhubhCaah7WLt8o`, weekly, 2 dogs, in its free month. It was made at $108. Stripe will bill $108, because its price line was not touched.
+- That plan id is in `kept.plans` in the price file, and `kept.month` is the table from before. In the server `rowMonthly(customer)` reads the kept table for a kept plan and the new table for everyone else. `monthly(plan, dogs)` is what a new sign up pays.
+- `rowMonthly` is used by the office customer card (`officeCustomer`, the `monthly` field), the Money screen (`officeMoney`), My Yard (`planView`, which now also answers `month`), and every email about a running plan (pause, back from a pause, a new dog count). `booked` reads the real total off the Stripe plan (`planCents`) and falls back to `rowMonthly`.
+- `setDogs` on a kept plan still adds or removes the old "extra dog" line (`oldExtraPrice`), so a third dog on that plan is $121. On a new plan it moves the one line to the price for the new dog count. Neither asks Stripe to prorate.
+- `customers` has no price column and none was added. No table changed.
+
+### Field desk session, for you
+- Changed in the office routes: only the price lookups named above, and `officeMoney` now also reads `stripe_subscription_id`. No route, field name or answer shape changed.
+- `static/crew/index.html`, `static/t/index.html` and `supabase/crm.sql` were not touched, so the training video was not rebuilt.
+- The made up money in `/crew/?demo` ($80 a month for each yard) is not from the price file. `/api/config` has `prices` if you want the demo to use real numbers.
+- Use `rowMonthly(c)` for anything the office or a customer sees about a plan that is running. `monthly(plan, dogs)` is for a new sign up. Mixing them up shows the one customer from before the wrong price.
+- `build/stripe.fake.mjs`, `build/desk.test.mjs`, `build/signup10.test.mjs` and `build/signup50.test.mjs` moved to the one line plan and read `src/prices.json`.
+
+### The site
+- **Price card** (`PRICE_CARD` in `parts.py`, CSS under `.rc` in `look.py`, `drawCard` in `src/runtime/apw.js`). One cream card on the home page, every town page and `/pricing/`: "How many dogs?" with minus and plus and the dog pictures, the three plans with the week price big and "We bill $X once a month." under the name, the deodorizing line, one Book now button, the sale line. It is plain HTML for 2 dogs with the price table in `data-rc`, so it reads right with no script. Book now carries the dog count into sign up (`/book/?dogs=3`). The old price list, the table on the town pages and the plan picker are gone. `/pricing/` also lists every price in lines (`PRICE_LINES`).
+- **Deodorizing line** (`DEODOR` in `parts.py`, `DZ_CSS` in `look.py`). On the card, on the plan step and on the pay step of sign up. Not in the schema, the descriptions or `llms.txt`: those still say deodorizing is included free with every visit. See Still open 14 in `CLAUDE.md` before adding to it.
+- **Last section of the home page** (`.cta2`). The shirt photo with "Look for this shirt at your gate.", the headline, "About $23 a week for 2 dogs. We bill $99 once a month." from the price file, one Book now, the phone number, the sale line.
+- **Sign up** (`book.prod.tpl.html`). Step 1: Buckeye, Goodyear, Litchfield Park, Citrus Park, then "My city is not here". A tap moves on, so there is no Continue button on step 1, and the step ends with the phone number. Step 3 always asks "Which ZIP code is your home in?" with that city's ZIP codes as buttons (Buckeye 85326, 85396, 85340. Goodyear 85338, 85395, 85340. Litchfield Park 85340. Citrus Park 85355, 85340) and "My ZIP code is not here", which shows all six and the phone number. Step 4 has a small summary: the plan and its price, then the deodorizing line. The server list of ZIP codes (`ZIPS`) did not change.
+- **Sizes.** Sign up styles are classes at the top of the template now, not inline. Nothing under 15 px, labels 17 px, typed words 18 px, buttons 48 px or more. A 460 px window in the middle on a tablet held upright and on a computer. Full screen with a 560 px column on a wide, short screen (a phone on its side, an open folding phone, 890 by 626). Public pages: no words under 15 px but the footer staff link, the stamp on a photo print and the labels inside the sample report picture, and links that stand alone are 44 px tall.
+- **`build/sweep.py`** is new: every page in the sitemap at five screen sizes (fifteen with `SIZES=all`). It fails on a page that scrolls sideways or a script error and lists small words and small tap targets.
+- **Text opt in proof.** The opt in words and the one unchecked box did not change. The form around them did, so `build/optin-shots.py` was run and the form and waitlist pictures on `/texts/` are new (the My Yard one came out the same, pixel for pixel). `content/policies/texts.html` has the new sizes, `?v=3` and "Captured November 18, 2026".
+- **One more leftover found and fixed:** the one time pickup page still said weekly was $108 in a question and in its schema. It reads from the price file now.
+
+### Checked
+- `node build/worker.test.mjs`: 533 pass with `STRIPE_SPEC` (110 kinds of field on 30 kinds of request, 823 requests, none refused). 24 are new: the copy in the server matches the file, Joe's five numbers, `/api/config`, the new Stripe price and product, the plan from before reads $108 in My Yard, on the office card, on Money and in a pause email, a third dog on it reads $121 through the old extra line, a new plan moves to `apw_week_3_11500`, and nothing asks for a proration.
+- Local Postgres 16: `desk` 150, `signup10` 40, `signup50` 131. `week.test.mjs` 76. `nav.test.py` 68. `npm run check` with the sale on and off. `node build/prices.mjs --check`.
+- The card was tapped in a real browser on the home page, `/pricing/` and a town page: 1 dog $21 and $89, 2 dogs $23 and $99, 3 dogs $27 and $115 ($47 and $202, $19 and $84), 6 dogs $37 and $160, and Book now opens sign up with that many dogs.
+- Every sign up step at 320, 360, 390, 430, 466 by 678, 466 by 560, 890 by 626, 890 by 520, 768 by 1024, 820 by 1180, 1180 by 820 and 1280 by 900: no words under 15 px, no button under 48 px, nothing cut off.
+- `build/sweep.py` over all 45 pages at 320, 390, 466, 890 and 1280 wide: no page scrolls sideways.
+- Chrome only. No Safari or WebKit on this machine, and no real phone. The folding iPhone sizes are from Apple's pixel counts with a 3x screen assumed (466 by 678 closed, 890 by 626 open): Apple does not publish the scale.
+- `build/smoke.py` still stops at its first step (known since the redesign). Its city tap and its pay step note were kept right for whoever fixes the rest.
+
+### Not done, and why
+- Nothing outside the repo: the Google profile, Google Ads, the Facebook and Instagram ads and any printed piece still show the old prices.
+- Weekly prices for 4, 5 and 6 dogs did not change, because Joe gave none.
+- No ZIP code was added to the six the server takes.
+- The after sale words ("Your first cleanup is free", from December 1) were left alone. Joe's "No discounts of any kind" points at taking them out. He was asked.
+- The open questions are 14 to 18 in `CLAUDE.md`, Still open.

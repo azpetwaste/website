@@ -236,7 +236,7 @@ const RAW_CSS = `.apw .doc.bxdoc{max-width:none;margin:0;padding:0;background:va
 .apw .bxdoc .bxbadges li{display:flex;align-items:center;gap:10px;margin:0}
 .apw .bxseal{flex:0 0 40px;width:40px;height:40px;display:block}
 .apw .bxdoc .bxbadges b{display:block;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:18px;line-height:1.05;color:var(--ink)}
-.apw .bxdoc .bxbadges small{display:block;margin-top:3px;font-size:14px;line-height:1.25;color:var(--mute)}
+.apw .bxdoc .bxbadges small{display:block;margin-top:3px;font-size:15px;line-height:1.25;color:var(--mute)}
 .apw .bxdoc .bxh-stats{display:grid;gap:10px;margin:24px 0 0;padding:0;list-style:none}
 .apw .bxdoc .bxh-stats li{margin:0;font-size:16px;line-height:1.45;color:var(--ink2)}
 .apw .bxh-stats b{margin-right:8px;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:19px;color:var(--ink)}
@@ -245,7 +245,7 @@ const RAW_CSS = `.apw .doc.bxdoc{max-width:none;margin:0;padding:0;background:va
 .apw .bxr-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding-bottom:12px;border-bottom:2px solid #0E1430}
 .apw .bxr-live{font-family:var(--f-head);font-stretch:74%;font-weight:850;font-size:30px;line-height:1;color:#0E1430}
 .apw .bxr-live i{display:none}
-.apw .bxr-tag{font-size:14px;font-weight:700;color:#B02A08}
+.apw .bxr-tag{font-size:15px;font-weight:700;color:#B02A08}
 .apw .bxdoc .bxr-site{margin:14px 0 0;font-family:var(--f-head);font-stretch:88%;font-weight:750;font-size:20px;line-height:1.2;color:#0E1430}
 .apw .bxdoc .bxr-time{margin:4px 0 0;font-size:15px;color:#3E4668}
 .apw .bxr-photos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}
@@ -257,7 +257,7 @@ const RAW_CSS = `.apw .doc.bxdoc{max-width:none;margin:0;padding:0;background:va
 .apw .bxr-list b{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 .apw .bxr-ok,.apw .bxr-warn{display:grid;place-items:center;flex:0 0 22px;width:22px;height:22px;border-radius:50%;font-size:13px;font-weight:800;color:#F6F4EF}
 .apw .bxr-ok{background:#1E7A52}.apw .bxr-warn{background:#B02A08}
-.apw .bxr-foot{margin:8px 0 0;padding-top:10px;border-top:2px solid #0E1430;font-size:14px;line-height:1.4;color:#3E4668}
+.apw .bxr-foot{margin:8px 0 0;padding-top:10px;border-top:2px solid #0E1430;font-size:15px;line-height:1.4;color:#3E4668}
 .apw .bxq{margin-top:20px;padding:0}
 .apw .bxdoc .bxq-h{max-width:none;font-family:var(--f-head);font-stretch:74%;font-weight:850;font-size:30px;line-height:1;color:var(--ink)}
 .apw .bxq-dl{display:grid;gap:0 40px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin:18px 0 0;border-top:1px solid var(--line)}
@@ -293,8 +293,9 @@ const RAW_CSS = `.apw .doc.bxdoc{max-width:none;margin:0;padding:0;background:va
 .apw .bxtable-wrap{margin-top:28px;border-top:1px solid var(--line)}
 .apw .bxdoc .bxtable{width:100%;border-collapse:collapse;font-size:17px}
 .apw .bxdoc .bxtable th,.apw .bxdoc .bxtable td{padding:14px 18px 14px 0;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;line-height:1.45;color:var(--ink2)}
-.apw .bxdoc .bxtable thead th{font-size:14px;font-weight:700;color:var(--mute)}
+.apw .bxdoc .bxtable thead th{font-size:15px;font-weight:700;color:var(--mute)}
 .apw .bxdoc .bxtable tbody th{font-weight:700;color:var(--ink)}
+.apw .bxdoc .bxtable td a{display:inline-flex;align-items:center;min-height:44px}
 .apw .bxtable .num{font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:19px;color:var(--ink);white-space:nowrap}
 .apw .bxfactors{display:grid;gap:0 40px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));margin-top:28px;border-top:1px solid var(--line)}
 .apw .bxfactor{padding:20px 0 22px;border-bottom:1px solid var(--line)}
@@ -306,7 +307,7 @@ const RAW_CSS = `.apw .doc.bxdoc{max-width:none;margin:0;padding:0;background:va
 .apw .bxdoc .bxchips li{margin:0}
 .apw .bxdoc .bxchips a{display:inline-flex;align-items:center;gap:8px;min-height:46px;padding:0 16px;border-radius:12px;border:2px solid var(--line2);color:var(--ink);font-family:var(--f-head);font-stretch:88%;font-size:18px;font-weight:750;text-decoration:none}
 .apw .bxdoc .bxchips a:hover,.apw .bxdoc .bxchips a[aria-current]{border-color:var(--accent)}
-.apw .bxchips span{font-family:var(--f-text);font-size:14px;font-weight:400;color:var(--mute)}
+.apw .bxchips span{font-family:var(--f-text);font-size:15px;font-weight:400;color:var(--mute)}
 .apw .bxrel{display:grid;gap:26px;margin-top:28px}.apw .bxdoc .bxrel-t{margin:0;font-size:15px;font-weight:700;color:var(--mute)}
 .apw .bxfaq{margin-top:28px;border-top:1px solid var(--line)}
 .apw .bxfaq details{border-bottom:1px solid var(--line)}
