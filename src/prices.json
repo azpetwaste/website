@@ -6,6 +6,11 @@
     "eow": [75, 75, 84, 93, 102, 111]
   },
   "once": 99,
+  "first": {
+    "about": "The first cleanup on a new plan (Joe, Nov 18, 2026: \"normally it starts at $99\", \"depending on job size as well\"). A one time fee for the first visit of a plan. It is not charged in the card form: we tell the customer the price before we start and charge the card they signed up with. 'from' is the lowest price.",
+    "from": 99,
+    "words": "depending on job size"
+  },
   "deodorizing": {
     "about": "The deodorizing line shown next to prices: the crossed out price, what the customer pays, and the words under it.",
     "was": "39.99",

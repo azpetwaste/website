@@ -31,6 +31,7 @@ export function loadPrices() {
   table(p.month, 'month');
   table(p.kept && p.kept.month, 'kept.month');
   if (!(p.once >= 20 && p.once <= 2000)) throw new Error('src/prices.json: once is not a price');
+  if (!(p.first && p.first.from >= 20 && p.first.from <= 2000 && typeof p.first.words === 'string')) throw new Error('src/prices.json: first needs a price (from) and its words');
   if (!Array.isArray(p.kept.plans) || p.kept.plans.some((x) => !/^sub_[A-Za-z0-9]{8,}$/.test(x))) throw new Error('src/prices.json: kept.plans must be Stripe plan ids (sub_...)');
   return p;
 }

@@ -1,5 +1,5 @@
 # The Black Friday sale ends at midnight in Phoenix as November 30 ends (07:00 UTC on December 1).
-# The site build reads the date, so a fresh build after midnight flips every page to "Your first cleanup is free."
+# The site build reads the date, so a fresh build after midnight flips every page off the Black Friday free month.
 # This pushes an empty commit so Cloudflare Pages builds again. Safe to delete after December 2026.
 name: Sale switch
 on:

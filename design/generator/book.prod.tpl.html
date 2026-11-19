@@ -108,6 +108,12 @@
 .apw .bk-bar{padding-top:8px;padding-bottom:calc(8px + env(safe-area-inset-bottom))}
 .apw .bk-bar .btn{min-height:50px}
 }
+/* the first cleanup, a line of the bill under the deodorizing line */
+.apw .fc{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:14px;align-items:center;margin:0;padding:14px 0;border-bottom:1px solid var(--line)}
+.apw .fc .fc-n{margin:0;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:20px;line-height:1.2;color:var(--ink)}
+.apw .fc .fc-p{margin:0;font-family:var(--f-head);font-stretch:70%;font-weight:900;font-size:30px;line-height:1;color:var(--ink);white-space:nowrap}
+.apw .fc .fc-p small{font-stretch:86%;font-weight:700;font-size:16px;color:var(--mute);margin-right:4px}
+.apw .fc .fc-l{grid-column:1/-1;margin:8px 0 0;font-size:16px;line-height:1.45;color:var(--ink2)}
 @@DZ_CSS@@
 </style>
 </helmet>
@@ -187,6 +193,7 @@
       </sc-for>
     </div>
     @@DEODOR@@
+    @@BK_FIRST@@
     <p class="bk-note">We bill once a month. [[bf:Your first month is free. No long term contract.||No contract.]]</p>
   </sc-if>
 
@@ -250,6 +257,7 @@
     <div class="sum">
       <div class="sum-r"><span>{{ sumPlan }}</span><b>{{ sumPrice }}</b></div>
       @@DEODOR@@
+      @@BK_FIRST@@
     </div>
     <p class="paynote">[[self:Cancel anytime in My Yard, with no phone call.||Cancel anytime. Call or text 623.309.6104.]]</p>
     <p class="paynote" style="margin-top: 4px;">We reach out to set your first visit.</p>

@@ -22,12 +22,13 @@ const content = JSON.parse(fs.readFileSync(path.join(SRC, 'boards/content.json')
 // Prices (Joe, Nov 18, 2026): one file, src/prices.json. The server carries a copy, written here on every build.
 // Never type a price into this file or a content file. In words, write a tag and the build fills it in:
 //   [[price:week:2]] is the month price ("$99"), [[week:week:2]] is that price by the week ("$23"), [[price:once]] is
-//   the one time pickup. The plans are week, twice and eow, and the number is how many dogs (1 to 6).
+//   the one time pickup, [[price:first]] is the first cleanup on a new plan (from). The plans are week, twice and eow, and the number is how many dogs (1 to 6).
 const PRICES = loadPrices();
 if (syncPrices()) console.log('prices: wrote src/prices.json into src/worker/worker.js');
 const mo = (plan, dogs) => monthOf(PRICES, plan, dogs === undefined ? 2 : dogs), wk = (plan, dogs) => weekOf(PRICES, plan, dogs === undefined ? 2 : dogs);
-const pricex = (t) => t.replace(/\[\[(price|week):(week|twice|eow|once)(?::([1-6]))?\]\]/g, (m, kind, plan, dogs) => {
+const pricex = (t) => t.replace(/\[\[(price|week):(week|twice|eow|once|first)(?::([1-6]))?\]\]/g, (m, kind, plan, dogs) => {
   if (plan === 'once') return usd(PRICES.once);
+  if (plan === 'first') return usd(PRICES.first.from);
   return usd(kind === 'week' ? wk(plan, Number(dogs || 2)) : mo(plan, Number(dogs || 2)));
 });
 // "$75 to $189 a month": the lowest and the highest month price for a home with 1 or 2 dogs.
@@ -415,7 +416,7 @@ const googleLink = (text) => (GOOGLE ? '<a href="' + esc(GOOGLE) + '" target="_b
 // Joe, Nov 16, 2026, night: same day ($49) and one time cleanup ($95) are one service now, the one time pickup, from $99.
 // A big job gets a quote first. Same day is the same service when we have a spot. A plan is booked at /book/. A one time pickup is booked by text.
 const SPRAY = 'Deodorizing is included free with every visit, on rock and turf yards alike.';
-const SALE = '[[bf:First month free through November 30||First cleanup free]].';
+const SALE = '[[bf:First month free through November 30||No contract]].';
 const serviceOf = (name, type) => ({ '@type': 'Service', name, serviceType: type || 'Pet waste removal' });
 const monthly = (name, item, price, desc) => ({
   '@type': 'Offer', name, description: desc, price: price.toFixed(2), priceCurrency: 'USD', url: ORIGIN + '/book/', availability: 'https://schema.org/InStock',
@@ -624,7 +625,7 @@ const videoLd = (pageUrl) => VIDEOS.map((v) => Object.assign({
     route: '/', board: 'main', index: true,
     title: 'Pooper Scooper in the West Valley, AZ | Arizona Pet Waste',
     ogTitle: 'Dog poop pickup you can watch | Arizona Pet Waste',
-    description: 'Pooper scooper service in ' + TOWNS_TEXT + ', AZ. Weekly dog poop pickup, about [[week:week:2]] a week. [[bf:First month free||First cleanup free]].',
+    description: 'Pooper scooper service in ' + TOWNS_TEXT + ', AZ. Weekly dog poop pickup, about [[week:week:2]] a week. [[bf:First month free||No contract]].',
     fonts: e.b.fonts, css: [e.b.css, bookDock.b.css.replace(content.base_css, '')], boards: [e, bookDock],
     body: ssr(e), dock: dockHtml,
     ld: [faqLd(url, content.faq.home || content.faq.main), {
@@ -637,17 +638,17 @@ const videoLd = (pageUrl) => VIDEOS.map((v) => Object.assign({
 // towns
 const TOWNS = [
   { area: 'buckeye', board: 'city-buckeye', route: '/pooper-scooper/buckeye-az/', title: 'Pooper Scooper in Buckeye, AZ | Arizona Pet Waste',
-    description: 'Pooper scooper and dog poop removal for every home in Buckeye, AZ 85326 and 85396, Verrado to Sundance. [[bf:First month free||First cleanup free]], free spray and a gate photo.' },
+    description: 'Pooper scooper and dog poop removal for every home in Buckeye, AZ 85326 and 85396, Verrado to Sundance. [[bf:First month free||No contract]], free spray and a gate photo.' },
   { area: 'goodyear', board: 'city-goodyear', route: '/pooper-scooper/goodyear-az/', title: 'Pooper Scooper in Goodyear, AZ | Arizona Pet Waste',
-    description: 'Pooper scooper and dog poop removal for every home in Goodyear, AZ 85338 and 85395, Estrella to PebbleCreek. [[bf:First month free||First cleanup free]] and free deodorizer spray.' },
+    description: 'Pooper scooper and dog poop removal for every home in Goodyear, AZ 85338 and 85395, Estrella to PebbleCreek. [[bf:First month free||No contract]] and free deodorizer spray.' },
   { area: 'litchfield', board: 'city-litchfield', route: '/pooper-scooper/litchfield-park-az/', title: 'Pooper Scooper in Litchfield Park, AZ | Arizona Pet Waste',
-    description: 'Pooper scooper and dog poop removal for every home in Litchfield Park, AZ 85340. [[bf:First month free||First cleanup free]], free deodorizer spray and a photo of your latched gate.' },
+    description: 'Pooper scooper and dog poop removal for every home in Litchfield Park, AZ 85340. [[bf:First month free||No contract]], free deodorizer spray and a photo of your latched gate.' },
   { area: 'citrus', board: 'city-citrus', route: '/pooper-scooper/citrus-park-az/', title: 'Pooper Scooper in Citrus Park, AZ | Arizona Pet Waste',
-    description: 'Pooper scooper and dog poop removal for every home in Citrus Park, AZ, in Waddell ZIP 85355. [[bf:First month free||First cleanup free]], free spray and a photo of your latched gate.' },
+    description: 'Pooper scooper and dog poop removal for every home in Citrus Park, AZ, in Waddell ZIP 85355. [[bf:First month free||No contract]], free spray and a photo of your latched gate.' },
   { area: 'waddell', board: 'city-waddell', route: '/pooper-scooper/waddell-az/', title: 'Pooper Scooper in Waddell, AZ | Arizona Pet Waste',
-    description: 'Pooper scooper and dog poop removal for every home in Waddell, AZ 85355, White Tank Foothills to Cortessa. [[bf:First month free||First cleanup free]], free spray and a gate photo.' },
+    description: 'Pooper scooper and dog poop removal for every home in Waddell, AZ 85355, White Tank Foothills to Cortessa. [[bf:First month free||No contract]], free spray and a gate photo.' },
   { area: 'verrado', board: 'city-verrado', route: '/pooper-scooper/buckeye-az/verrado/', title: 'Pooper Scooper in Verrado, Buckeye AZ | Arizona Pet Waste',
-    description: 'Pooper scooper and dog poop removal for Verrado homes in Buckeye, AZ 85396. [[bf:First month free||First cleanup free]], free deodorizer spray and a photo of your latched gate.' }
+    description: 'Pooper scooper and dog poop removal for Verrado homes in Buckeye, AZ 85396. [[bf:First month free||No contract]], free deodorizer spray and a photo of your latched gate.' }
 ];
 for (const t of TOWNS) {
   const c = content.cities[t.area];
@@ -695,8 +696,8 @@ for (const t of TOWNS) {
     eyebrow: 'Every home in 6 ZIP codes', h1: 'Pooper scooper service areas',
     hero: {
       lead: 'Arizona Pet Waste is a service area dog poop pickup company for homes in ' + TOWNS_TEXT + '. If your yard is in one of our ZIP codes (85326, 85396, 85338, 85395, 85340 or 85355), we come to you. You do not need to visit an office.' + (GOOGLE ? ' ' + googleLink() + '.' : ''),
-      ctaHtml: book, side: BIZ.mapBox(content.svcmap.res), trust: 'No sign up fee. [[bf:No long term contract.||No contract.]]',
-      stats: [['6', 'ZIP codes', 'We scoop every home in all six'], ['5', 'towns', 'From Buckeye to Waddell'], ['$0', '[[bf:today||first visit]]', '[[bf:Black Friday sale. First month free||Your first cleanup is free]]']]
+      ctaHtml: book, side: BIZ.mapBox(content.svcmap.res), trust: 'First cleanup from ' + usd(PRICES.first.from) + '. [[bf:No long term contract.||No contract.]]',
+      stats: [['6', 'ZIP codes', 'We scoop every home in all six'], ['5', 'towns', 'From Buckeye to Waddell'], ['$0', '[[bf:today||spray]]', '[[bf:Black Friday sale. First month free||Deodorizing is free every visit]]']]
     }
   };
   const inner = BIZ.hero(pg, [['Home', '/'], ['Areas we serve', route]]) +
@@ -730,7 +731,7 @@ for (const t of TOWNS) {
     { slug: 'how-it-works', h1: 'How our pooper scooper service works', title: 'How Our Pooper Scooper Service Works | Arizona Pet Waste',
       description: 'See every step of our pooper scooper visits: a text the night before, a live truck map, free deodorizer spray and a photo of your latched gate.' },
     { slug: 'pricing', h1: 'Pooper scooper prices', title: 'Pooper Scooper Prices, West Valley AZ | Arizona Pet Waste',
-      description: 'Pooper scooper prices: about [[week:week:2]] a week ([[price:week:2]] a month) for weekly visits with 2 dogs, [[price:week:1]] a month for 1 dog. No sign up fee, free spray, [[bf:first month free||first cleanup free]].' }
+      description: 'Pooper scooper prices: about [[week:week:2]] a week ([[price:week:2]] a month) for weekly visits with 2 dogs, [[price:week:1]] a month for 1 dog. First cleanup from [[price:first]], free spray[[bf:, first month free||]].' }
   ];
   for (const pg of pages) {
     const route = '/' + pg.slug + '/';
@@ -853,7 +854,7 @@ for (const [slug, fallbackH1] of POLICIES) {
   const e = useBoard('book');
   built.push(page({
     route: '/book/', board: 'book', index: false, bodyClass: 'bookpage', title: '[[bf:Start Your Free Month||Book Now]] | Arizona Pet Waste',
-    description: 'Sign up for dog poop pickup in ' + TOWNS_TEXT + ', AZ. [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]',
+    description: 'Sign up for dog poop pickup in ' + TOWNS_TEXT + ', AZ. [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Pick your plan and add your card in about 2 minutes.]]',
     fonts: e.b.fonts, css: [e.b.css], boards: [e], body: ssr(e, { mode: 'page' }),
     // Our Google profile's Book button opens this page. It stays out of search (Joe's call), with its own address as the canonical
     // and a small note of what it is and whose it is. No street here either.
@@ -908,17 +909,18 @@ if (cfg.indexNowKey) fs.writeFileSync(path.join(DIST, cfg.indexNowKey + '.txt'),
 const faqText = content.faq.main.map((x) => `- ${x.q} ${x.a}`).join('\n');
 fs.writeFileSync(path.join(DIST, 'llms.txt'), `# Arizona Pet Waste
 
-> Dog poop pickup (pet waste removal) for homes in ${TOWNS_TEXT}, Arizona, from a local, family owned company that is insured and bonded. We scoop every home in six ZIP codes: 85326, 85396, 85338, 85395, 85340 and 85355. Weekly, twice a week or every other week. [[bf:First month free through November 30||First cleanup free]]. ${SPRAY} A photo of your latched gate after every visit, and a live map of our truck on visit day. We haul the waste away. [[bf:No long term contract.||No contract.]]
+> Dog poop pickup (pet waste removal) for homes in ${TOWNS_TEXT}, Arizona, from a local, family owned company that is insured and bonded. We scoop every home in six ZIP codes: 85326, 85396, 85338, 85395, 85340 and 85355. Weekly, twice a week or every other week. [[bf:First month free through November 30||No contract]]. ${SPRAY} A photo of your latched gate after every visit, and a live map of our truck on visit day. We haul the waste away. [[bf:No long term contract.||No contract.]]
 
 ## Prices (per month)
 - Weekly pickup: ${[1, 2, 3, 4, 5, 6].map((n) => n + (n === 1 ? ' dog ' : ' dogs ') + usd(mo('week', n)) + ' a month').join(', ')}. For 2 dogs that is about ${usd(wk('week', 2))} a week, or about ${usd(wk('week', 2))} a visit. For 1 dog it is about ${usd(wk('week', 1))} a week.
 - Twice a week pickup, 1 or 2 dogs: ${usd(mo('twice', 2))} a month. That is about ${usd(wk('twice', 2))} a week. Each dog after two adds ${usd(addDog('twice'))}.
 - Every other week pickup, 1 or 2 dogs: ${usd(mo('eow', 2))} a month. That is about ${usd(wk('eow', 2))} a week. Each dog after two adds ${usd(addDog('eow'))}.
 - These prices were set on November 18, 2026. A customer who signed up before that day keeps the price they signed up at.
+- First cleanup on a new plan: from ${usd(PRICES.first.from)}, depending on job size. One time fee, quoted before the work starts.
 - One time pickup: from ${usd(PRICES.once)}. A big job, like a yard that has not been cleaned in a long time, gets a quote first, and the price is given before the visit. Same day when we have a spot, at the same price. For a customer on a plan it is added to the next bill.
 - Deodorizing (free every visit): included free with every visit, on rock and turf yards alike. It costs nothing on any plan or cleanup.
 - Billing: each customer is billed the full month price once a month, on their own bill day. There are no part month or prorated charges. [[bf:During the Black Friday sale (sign up by November 30, 2026) the first month is free. A card is saved at sign up and nothing is charged that day. The free month runs one month from the sign up day. The first charge is the full month price on the day the free month ends, and that day of the month is the bill day from then on.||The first charge is the full month price on the day of sign up, and that day of the month is the bill day from then on.]] If a payment fails, the customer is emailed that day and visits are on hold until the bill is paid.
-[[bf:- Black Friday sale: sign up by Monday, November 30, 2026 and the first month is free. The sale ends at midnight on November 30. There is no charge for canceling. [[self:Canceling is done online in My Yard, with no phone call.||To cancel, a customer calls or texts 623.309.6104.]]||- Offer: the first cleanup is free. The Black Friday free month sale ended on November 30, 2026.]]
+[[bf:- Black Friday sale: sign up by Monday, November 30, 2026 and the first month is free. The sale ends at midnight on November 30. There is no charge for canceling. [[self:Canceling is done online in My Yard, with no phone call.||To cancel, a customer calls or texts 623.309.6104.]]||- The Black Friday free month sale ended on November 30, 2026.]]
 
 ## Service area (every home in these ZIP codes)
 - [Buckeye, AZ 85326 and 85396](${ORIGIN}/pooper-scooper/buckeye-az/). Neighborhoods: ${hoodNames('buckeye').join(', ')}.
@@ -963,7 +965,7 @@ ${VIDEOS.map((v) => '- [' + v.name + '](' + videoUrl(v) + '): ' + v.text).join('
 - Background checks: every team member must pass a background check before working in a yard.
 ${MEMBER_OF.length ? '- Member of: ' + MEMBER_OF.map((m) => (m.org || m.name) + ' (' + m.site + ')').join(', ') + '.\n' : ''}- Business license: in progress as of November 2026. Do not describe the company as licensed yet.
 - Owner: Juan Gonzalez, owner and operator, who lives in Verrado (Buckeye, AZ) with his wife and their six kids. The three standards he runs the company by: do what you say you are going to do, take pride in the details, never stop improving.
-- Sign up fee: none. [[bf:The first month is free only with the Black Friday sale, for sign ups through November 30, 2026.||The first cleanup is free.]]
+- First cleanup fee: yes. The first cleanup on a new plan is a one time fee, from ${usd(PRICES.first.from)}, depending on job size. The price is given before the work starts and charged to the card used at sign up. It is not part of the month price. There is no other sign up fee. [[bf:The first month of visits is free only with the Black Friday sale, for sign ups through November 30, 2026.||]]
 - Price per visit: weekly service is ${usd(mo('week', 2))} a month for 2 dogs and ${usd(mo('week', 1))} a month for 1 dog. For 2 dogs that is about ${usd(wk('week', 2))} a week, or about ${usd(wk('week', 2))} a visit. Prices are billed once a month, on the customer's own bill day.
 - Deodorizing: included free with every visit, on rock and turf yards alike. We spray the spots dogs use most. It is not an extra.
 - Proof: a text the night before, a live truck map on visit day, and a photo of the latched gate after every visit. A visit with no gate photo costs $0.

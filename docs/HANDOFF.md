@@ -1008,3 +1008,7 @@ Joe, 3:52 pm, after seeing the white tiles live: "take off proud member of on th
 Joe, 4:12 pm: "Do you think having those logos at the top of the website shows more proof instantly? Let's see how it looks."
 - The home page shows the same three white marks under the Bonded and Insured strip, below the hero (`<!--MEMBERS_TOP-->` in `main.tpl.html`, filled by `membersHtml(true)`, look in `.seals-m`). About 110 px on a phone. The footer row stays on every page. Town pages do not have the top row.
 - It is on trial: Joe is looking at it live. If he does not like it, take the one line out of `main.tpl.html`.
+
+## Nov 18, 2026, evening (website session): first cleanup fee
+
+Joe: there is a first cleanup fee at sign up, "normally it starts at $99", "depending on job size as well". It is `first` in `src/prices.json` and shows on the price card, the plan and pay steps of sign up, the FAQ, `/pricing/`, Terms and `llms.txt`. Nothing in the server or Stripe changed: the card form does not charge it. The office gives the price and charges it in Stripe (an invoice item on the customer, charged to the saved card). If the field desk ever gets a "First cleanup" charge button, read the price from `/api/config` once it carries `first`, and never charge without telling the customer the amount first.

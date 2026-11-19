@@ -15,6 +15,8 @@ import re
 # Prices come from the one price file, src/prices.json (see parts.py). Never type a price into this copy.
 _ALL = _json.load(open(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), '..', '..', 'src', 'prices.json'), encoding='utf8'))
 _P = _ALL['month']
+# The first cleanup on a new plan (Joe, Nov 18, 2026): from this price, depending on job size.
+_FIRST = 'Your first cleanup starts at $%d, %s. We tell you the price before we start.' % (_ALL['first']['from'], _ALL['first']['words'])
 _wk = lambda plan, dogs=2: int(_math.floor(_P[plan][dogs - 1] * 12 / 52.0 + .5))  # noqa: E731
 
 UPDATED = 'November 7, 2026'
@@ -30,7 +32,7 @@ def ask(town, zips):
     return [
         ('Do you come to my street?', 'We scoop every home in %s. Type your ZIP when you book, and we tell you right away.' % zips),
         ('Are you bonded and insured?', 'Yes. We are insured and bonded. We carry a $50,000 business service bond and $1,000,000 in general liability insurance. See the details on our bond and insurance page.'),
-        ('Is there a sign up fee?', 'Not with us. [[bf:You pay $0 today. Black Friday sale: sign up by November 30 and your first month is free.||There is no sign up fee, and your first cleanup is free.]]'),
+        ('Is there a first cleanup fee?', 'Yes. ' + _FIRST + ' [[bf:Black Friday sale: sign up by November 30 and your first month of visits is free.||]]'),
         ('How much is each visit?', PRICES),
         ('Is the spray extra?', 'No. Deodorizing is included free with every visit, on rock and turf yards alike. We spray the spots your dogs use most.'),
         ('How will I know you came?', 'You get a text the night before with a 30 minute window. On your day, you can watch our truck on a live map. '
@@ -63,7 +65,7 @@ def faq_common(town):
     return [
         ('How much does a pooper scooper cost in %s?' % town,
          'With us, weekly pickup is about $%d a week for 2 dogs. We bill it once a month: $%d. One dog is $%d a month. Every other week is $%d a month. ' % (_wk('week'), _P['week'][1], _P['week'][0], _P['eow'][1]) +
-         'There is no sign up fee, the spray is free, and [[bf:with the Black Friday sale your first month is free||your first cleanup is free]]. When you compare, ask if a price is per visit or per month, '
+         _FIRST + ' The spray is free[[bf:, and with the Black Friday sale your first month is free||]]. When you compare, ask if a price is per visit or per month, '
          'if there is a first cleanup fee, and if spray costs extra.'),
         ('Where should I throw away dog poop?',
          'Bag it, tie the bag, and put it in your trash can. Do not put it in the recycle bin, and never hose it into the street or a storm drain. '
