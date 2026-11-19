@@ -1163,6 +1163,9 @@ env = Object.assign({}, baseEnv, { FIRST_VISIT_FROM: '2027-03-10' });
   try { r = await call('/api/request', 'POST', Object.assign({}, good, { email: 'req@example.com', textsDeals: true })); } finally { Date.now = realNow; }
   const m = sent(/^New sign up request: Test Person/)[0];
   ok('a sign up request (checkout closed) emails the office the same billing words', r.status === 200 && !!m && /Billing they saw: \$0 today\. Then \$115 a month starting Apr 10\.\n/.test(m.text), m && m.text);
+  // A one time cleanup booked on the website (Joe, Nov 18, 2026): no card, the office gets the request and gives the price.
+  { const o = await call('/api/request', 'POST', Object.assign({}, good, { plan: 'once', dogs: 2, email: 'once@example.com' })); const om = sent(/^One time cleanup request: Test Person/)[0];
+    ok('a one time cleanup request reaches the office with the starting price and no card', o.status === 200 && !!om && /One time cleanup, 2 dogs\. Starts at \$99, depending on job size\./.test(om.text) && /No card was taken/.test(om.text), om && om.text); }
   const noMail = Object.assign({}, env); delete noMail.RESEND_API_KEY; delete noMail.SUPABASE_URL;
   const x = await worker.fetch(new Request('https://arizonapetwaste.com/api/waitlist', { method: 'POST', body: JSON.stringify({ name: 'No Mail', phone: '6235550199', address: '2 W Main St', zip: '85301' }), headers: { 'content-type': 'application/json' } }), noMail, ctx);
   ok('with no email set up the waitlist says to text us, so no lead is lost quietly', x.status === 503);

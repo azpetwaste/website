@@ -185,9 +185,11 @@
           <span class="wk">{{ p.week }}<small>a week</small></span>
         </button>
       </sc-for>
+      @@BK_ONCE@@
     </div>
     @@DEODOR@@
-    <p class="bk-note">We bill once a month. [[bf:Your first month is free. No long term contract.||No contract.]]</p>
+    <sc-if value="{{ notOnce }}" hint-placeholder-val="{{ true }}"><p class="bk-note">We bill once a month. [[bf:Your first month is free. No long term contract.||No contract.]]</p></sc-if>
+    <sc-if value="{{ isOnce }}" hint-placeholder-val="{{ false }}"><p class="bk-note">One visit, no plan. It starts at {{ onceFrom }}, depending on job size. A big job gets a custom quote. We text or call you with your price before we come. Nothing is charged today.</p></sc-if>
   </sc-if>
 
   <sc-if value="{{ s2 }}" hint-placeholder-val="{{ false }}">
@@ -373,7 +375,7 @@ class Component extends DCLogic {
     if (this.props.mode === 'page') {
       const q = new URLSearchParams(location.search);
       if (/^\d{5}$/.test(q.get('zip') || '')) { out.zip = q.get('zip'); out.city = ''; out.zipSet = true; }
-      if (['week', 'twice', 'eow'].indexOf(q.get('plan')) >= 0) out.plan = q.get('plan');
+      if (['week', 'twice', 'eow', 'once'].indexOf(q.get('plan')) >= 0) out.plan = q.get('plan');
       const n = parseInt(q.get('dogs'), 10);
       if (n >= 1 && n <= 6) out.dogs = n;
     }
@@ -483,7 +485,7 @@ class Component extends DCLogic {
     if (s.step === 2) {
       const e = this._errs();
       if (e.name || e.phone || e.email || e.addr || e.zip || s.addrNote) { this.setState({ tried: true, sugs: [] }); return; }
-      if (this._closed()) return this._request();
+      if (s.plan === 'once' || this._closed()) return this._request();
       return this._signIn();
     }
     if (s.step === 3) return this._verify();
@@ -549,6 +551,7 @@ class Component extends DCLogic {
   // Online checkout is not on yet: send the sign up to us by email and we call to finish.
   async _request() {
     const s = this.state;
+    if (this._demo() && !this._closed()) { this.setState({ req: true, reqOnce: s.plan === 'once', step: 5 }); return; }
     this.setState({ busy: true, err: '' });
     const eid = this._apw().eventId ? this._apw().eventId('rq') : '';
     try {
@@ -558,7 +561,7 @@ class Component extends DCLogic {
       });
       this._clearDraft();
       this._t('request', Object.assign({ id: eid }, this._tPlan()));
-      this.setState({ busy: false, req: true, step: 5 });
+      this.setState({ busy: false, req: true, reqOnce: s.plan === 'once', step: 5 });
     } catch (e) { this.setState({ busy: false, err: this._apw().msg(e) }); }
   }
   async _startPay() {
@@ -630,7 +633,8 @@ class Component extends DCLogic {
     const s = this.state;
     const zips = this._zips();
     const cities = { '85326': 'Buckeye, AZ 85326', '85396': 'Buckeye, AZ 85396', '85338': 'Goodyear, AZ 85338', '85395': 'Goodyear, AZ 85395', '85340': 'Litchfield Park, AZ 85340', '85355': 'Waddell, AZ 85355' };
-    const names = { week: 'Every week', twice: 'Twice a week', eow: 'Every other week' };
+    const names = { week: 'Every week', twice: 'Twice a week', eow: 'Every other week', once: 'One time cleanup' };
+    const once = s.plan === 'once';
     const zipOk = !!zips[s.zip];
     const price = this._price(s.plan, s.dogs);
     const dogsLabel = s.dogs === 1 ? '1 dog' : s.dogs + ' dogs';
@@ -647,10 +651,10 @@ class Component extends DCLogic {
     const zipList = zipAll ? Object.keys(zips) : cityNow.zips;
     const field = (k) => (e) => { const o = {}; o[k] = e.target.value; this.setState(o); };
     const dock = this.props.mode === 'dock';
-    const labels = ['Continue', 'Continue', 'Continue', 'Check code', 'Finish demo booking', ''];
+    const labels = ['Continue', 'Continue', once ? 'Send my request' : 'Continue', 'Check code', 'Finish demo booking', ''];
     return Object.assign({}, this._themeVals(), {
       s0: s.step === 0, s1: s.step === 1, s2: s.step === 2, s3: s.step === 3, s4: s.step === 4, s5: s.step === 5,
-      topTitle: s.step === 5 ? 'Arizona Pet Waste' : (free ? 'Start your free month' : 'Book now'),
+      topTitle: s.step === 5 ? 'Arizona Pet Waste' : (free && !once ? 'Start your free month' : 'Book now'),
       canBack: inFlow,
       noBack: !inFlow,
       back: () => this.setState({ step: Math.max(0, s.step === 4 ? 2 : s.step - 1), busy: false, err: '', codeErr: '' }),
@@ -659,13 +663,14 @@ class Component extends DCLogic {
       showProgress: s.step < 5,
       // Four steps: where, plan, about you, card. The email code (step 3) only shows for an email we already know,
       // and it counts as part of the card step.
-      segs: [0, 1, 2, 3].map((i) => ({ bg: i <= Math.min(s.step, 3) ? 'var(--accent)' : 'var(--line)' })),
-      stepLabel: 'Step ' + (Math.min(s.step, 3) + 1) + ' of 4',
+      // A one time cleanup has three steps: where, dogs and cleanup, about you. No card step: we send the price first.
+      segs: (once ? [0, 1, 2] : [0, 1, 2, 3]).map((i) => ({ bg: i <= Math.min(s.step, 3) ? 'var(--accent)' : 'var(--line)' })),
+      stepLabel: 'Step ' + (Math.min(s.step, once ? 2 : 3) + 1) + ' of ' + (once ? 3 : 4),
       // Step 1 has no Continue button: tapping a city moves on. (A button that does nothing until a city is picked
       // looked broken.) The waitlist has its own button.
       showBar: (s.step > 0 && s.step < 4) || (s.step === 4 && demo),
       showSum: s.step >= 1 && s.step <= 2,
-      priceShort: '$' + price + ' a month',
+      priceShort: once ? 'From $' + price : '$' + price + ' a month',
       planShort: names[s.plan] + ', ' + dogsLabel,
       sumPlan: names[s.plan] + ', ' + dogsLabel,
       sumPrice: '$' + price + ' a month',
@@ -697,7 +702,7 @@ class Component extends DCLogic {
       wName: s.wName, onWName: field('wName'), wPhone: s.wPhone, onWPhone: field('wPhone'), wAddr: s.wAddr, onWAddr: field('wAddr'),
       wTexts: !!s.wTexts, onWTexts: (e) => this.setState({ wTexts: !!e.target.checked }),
       doneTitle: s.req ? 'We got it!' : 'You are booked!',
-      doneLead: s.req ? 'We will call you soon to finish your sign up and set your day and time.' + (free ? ' Your first month is free.' : '') : 'Next, we reach out to let you know your day and time.',
+      doneLead: s.req && s.reqOnce ? 'We will text or call you soon with your price and a time. A one time cleanup starts at $' + this._price('once') + ', depending on job size.' : s.req ? 'We will call you soon to finish your sign up and set your day and time.' + (free ? ' Your first month is free.' : '') : 'Next, we reach out to let you know your day and time.',
       showYard: !s.req, req: !!s.req,
       // A new customer is not signed in here. Their My Yard link is in the welcome email. A customer who typed a code is.
       yardBtn: !s.req && (!!s.signedIn || demo),
@@ -710,6 +715,8 @@ class Component extends DCLogic {
         pick: () => this.setState({ dogs: n })
       })),
       plans: this._plans(false).map((p) => Object.assign(p, { on: yes(p.on) })),
+      onceOn: yes(once), pickOnce: () => this.setState({ plan: 'once' }),
+      isOnce: once, notOnce: !once, onceFrom: '$' + this._price('once'),
       name: s.name, onName: field('name'),
       phone: s.phone, onPhone: field('phone'),
       email: s.email, onEmail: field('email'),

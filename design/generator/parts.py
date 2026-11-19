@@ -73,6 +73,7 @@ def usd(n):
 PRICE_METHODS = r"""  _price(id, dogs) {
     // src/prices.json, written into the page when it is built: dollars a month for 1 to 6 dogs.
     const t = __PRICE_TABLE__;
+    if (id === 'once') return __ONCE__;  // the one time cleanup: the lowest price, a big job gets a custom quote
     return t[id][Math.min(6, Math.max(1, dogs)) - 1];
   }
   _per(id, dogs) {
@@ -115,7 +116,15 @@ PRICE_METHODS = r"""  _price(id, dogs) {
         dot: on ? '#FF4A1C' : 'transparent'
       };
     });
-  }""".replace('__PRICE_TABLE__', _json.dumps({k: PRICES['month'][k] for k in PLAN_IDS}, separators=(', ', ': ')))
+  }""".replace('__PRICE_TABLE__', _json.dumps({k: PRICES['month'][k] for k in PLAN_IDS}, separators=(', ', ': '))).replace('__ONCE__', str(PRICES['once']))
+
+# The one time cleanup in sign up (Joe, Nov 18, 2026, evening): "someone that wants a 1 time clean up which starts at $99
+# and depending on job it'll be a custom quote". It sits under the three plans on the plan step. Picking it skips the
+# card step: the request goes to the office (/api/request, plan "once") and we send the price before we come.
+BK_ONCE = ('<button type="button" class="bk-plan" role="radio" aria-checked="{{ onceOn }}" onClick="{{ pickOnce }}">'
+           '<span class="rd"><i></i></span>'
+           '<span class="nm"><b>One time cleanup</b><span>No plan. Starts at %s, depending on job size.</span></span>'
+           '<span class="wk">%s<small>starts at</small></span></button>' % (usd(PRICES['once']), usd(PRICES['once'])))
 
 ICON_SUN = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"></circle><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"></path></svg>'
 ICON_MOON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"></path></svg>'
@@ -351,8 +360,8 @@ CTA_PRICE = 'About <b>%s</b> a week for 2 dogs. <span>We bill %s once a month.</
 # how much, one button. Joe, Nov 18, 2026: "as soon as you land on it, you know exactly what it is... easy to click, easy to join."
 
 # Under the card: the one time pickup and the way to every price.
-PRICE_MORE = ('<div class="pr-x"><p class="pr-once"><strong>Need one pickup?</strong> A <a href="/one-time-dog-poop-cleanup/">one time pickup</a> starts at %s.</p>'
-              '<div class="pr-xl"><a href="sms:+16233096104" class="tl">Text us for one pickup</a><a href="Pricing.dc.html" class="tl">See every price</a></div></div>' % usd(PRICES['once']))
+PRICE_MORE = ('<div class="pr-x"><p class="pr-once"><strong>Need one cleanup?</strong> A <a href="/one-time-dog-poop-cleanup/">one time cleanup</a> starts at %s, depending on job size.</p>'
+              '<div class="pr-xl"><a href="Booking.dc.html?plan=once" class="tl">Book one cleanup</a><a href="Pricing.dc.html" class="tl">See every price</a></div></div>' % usd(PRICES['once']))
 
 # Every price in plain lines, for /pricing/, Terms and llms.txt. The weekly plan has its own price for each number of dogs.
 def price_lines():

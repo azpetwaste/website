@@ -37,7 +37,7 @@ export function loadPrices() {
 // What the server needs, and no more: the two tables and the list of plans that keep the older prices.
 export function serverCopy(p) {
   const pick = (t) => Object.fromEntries(PLAN_IDS.map((id) => [id, t[id]]));
-  return { month: pick(p.month), kept: { plans: p.kept.plans, month: pick(p.kept.month) } };
+  return { month: pick(p.month), once: p.once, kept: { plans: p.kept.plans, month: pick(p.kept.month) } };
 }
 export function workerBlock(p) { return START + '\nconst PRICES = ' + JSON.stringify(serverCopy(p)) + ';\n' + END; }
 export function workerHas(src) {

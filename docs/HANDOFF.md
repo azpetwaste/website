@@ -1008,3 +1008,7 @@ Joe, 3:52 pm, after seeing the white tiles live: "take off proud member of on th
 Joe, 4:12 pm: "Do you think having those logos at the top of the website shows more proof instantly? Let's see how it looks."
 - The home page shows the same three white marks under the Bonded and Insured strip, below the hero (`<!--MEMBERS_TOP-->` in `main.tpl.html`, filled by `membersHtml(true)`, look in `.seals-m`). About 110 px on a phone. The footer row stays on every page. Town pages do not have the top row.
 - It is on trial: Joe is looking at it live. If he does not like it, take the one line out of `main.tpl.html`.
+
+## Nov 18, 2026, evening (website session): one time cleanup in Book now
+
+A customer can book a one time cleanup on the website now: Book now, city, dogs, then "One time cleanup" (starts at $99, depending on job size, custom quote). No card is taken. It arrives like a sign up request: an office email "One time cleanup request: name" and a lead row of kind `signup_request` whose details start "One time cleanup". The office texts or calls with the price and a time. If the field desk shows leads by kind, these sit with sign up requests; telling them apart is the details line. (An earlier push that evening put a first cleanup fee on plans by mistake. It was reverted the same night: plans have no sign up fee.)

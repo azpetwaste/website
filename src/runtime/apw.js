@@ -341,7 +341,7 @@
       // The Book now button on the price card carries its dog count (/book/?dogs=3), so sign up opens with that many
       // dogs. A link may carry a plan the same way (/book/?plan=twice).
       var o = intent(), pl = u.searchParams.get('plan'), dg = parseInt(u.searchParams.get('dogs'), 10);
-      if (/^(week|twice|eow)$/.test(pl || '')) o.plan = pl;
+      if (/^(week|twice|eow|once)$/.test(pl || '')) o.plan = pl;
       if (dg >= 1 && dg <= 6) o.dogs = dg;
       APW.openBook(o);
     }

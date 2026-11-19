@@ -25,7 +25,7 @@ const PLANS = {
 // Dollars a month for 1 to 6 dogs. `month` is what a new sign up pays. `kept` is for plans that were running before
 // the prices changed: they keep the price they signed up at (see rowMonthly).
 /* PRICES:START (a copy of src/prices.json, written by build/prices.mjs. Change that file, never this block.) */
-const PRICES = {"month":{"week":[89,99,115,134,147,160],"twice":[189,189,202,215,228,241],"eow":[75,75,84,93,102,111]},"kept":{"plans":["sub_1UcpCgLoVhhubhCaah7WLt8o"],"month":{"week":[108,108,121,134,147,160],"twice":[189,189,202,215,228,241],"eow":[75,75,84,93,102,111]}}};
+const PRICES = {"month":{"week":[89,99,115,134,147,160],"twice":[189,189,202,215,228,241],"eow":[75,75,84,93,102,111]},"once":99,"kept":{"plans":["sub_1UcpCgLoVhhubhCaah7WLt8o"],"month":{"week":[108,108,121,134,147,160],"twice":[189,189,202,215,228,241],"eow":[75,75,84,93,102,111]}}};
 /* PRICES:END */
 // Every ZIP code in the towns we serve: Buckeye, Goodyear, Litchfield Park and Waddell (Citrus Park).
 const ZIPS = {
@@ -1632,6 +1632,7 @@ async function signupRequest(request, env, ctx) {
   const zip = String(b.zip || '');
   const z = ZIPS[zip];
   if (!z) return fail(400, 'We do not scoop in that ZIP code yet.');
+  if (b.plan === 'once') return onceRequest(request, env, ctx, b, zip, z);
   if (!PLANS[b.plan]) return fail(400, 'Please pick how often we come.');
   const dogs = Math.round(Number(b.dogs));
   if (!(dogs >= 1 && dogs <= 6)) return fail(400, 'Please pick 1 to 6 dogs.');
@@ -1654,6 +1655,32 @@ async function signupRequest(request, env, ctx) {
   if (!sent && !kept) return fail(503, 'Online sign up opens soon. Call or text 623.309.6104 and we will book you today.');
   if (metaOn(env) && ctx && ctx.waitUntil) ctx.waitUntil(metaEvent(env, 'Lead', eventIdOk(b.eid), Object.assign({ email, city: z.city, zip, ip: request.headers.get('cf-connecting-ip') || '', ua: clean(request.headers.get('user-agent'), 300) }, adIds(b.ad)),
     { lead_type: 'request', value: total / 100, currency: 'USD', content_name: b.plan, num_items: dogs }));
+  return ok({ ok: true });
+}
+
+// A one time cleanup booked on the website (Joe, Nov 18, 2026, evening): "a 1 time clean up which starts at $99 and
+// depending on job it'll be a custom quote". No card is taken. The office gets the request, gives the price and sets the
+// time. It is saved as a sign up request (the leads table allows four kinds) with details that start "One time cleanup".
+async function onceRequest(request, env, ctx, b, zip, z) {
+  const dogs = Math.round(Number(b.dogs));
+  if (!(dogs >= 1 && dogs <= 6)) return fail(400, 'Please pick 1 to 6 dogs.');
+  const name = clean(b.name, 120), phone = digits(b.phone), address = clean(b.address, 200), email = clean(b.email, 200).toLowerCase();
+  if (name.length < 2 || phone.length !== 10 || address.length < 5 || !emailOk(email)) return fail(400, 'Please fill in your name, mobile number, email and street address.');
+  if (await tooMany(env, 'signup_request')) return fail(429, 'We are getting a lot of requests right now. Call or text 623.309.6104 and we will set it up today.');
+  const what = 'One time cleanup, ' + dogs + (dogs === 1 ? ' dog' : ' dogs') + '. Starts at ' + money(PRICES.once * 100) + ', depending on job size. Give them the price before the visit.';
+  const sent = await mail(env, owner(env), 'One time cleanup request: ' + name + ', ' + z.name, [
+    'Someone booked a one time cleanup on the website. No card was taken. Text or call them with the price and a time.', '',
+    'Name: ' + name, 'Mobile: ' + phone, 'Email: ' + email, 'Address: ' + address + ', ' + z.city + ' ' + zip,
+    what,
+    'Visit texts: ' + (b.textsVisit ? 'yes' : 'no'),
+    'Text consent shown: ' + CONSENT.visit + ' ' + CONSENT.fine,
+    'Page: ' + clean(b.page, 120)
+  ].join('\n'));
+  const kept = sbLive(env) ? await addLead(env, { kind: 'signup_request', name, email, phone, address, zip,
+    details: what + ' Visit texts: ' + (b.textsVisit ? 'yes' : 'no') }) : false;
+  if (!sent && !kept) return fail(503, 'Call or text 623.309.6104 and we will set up your cleanup today.');
+  if (metaOn(env) && ctx && ctx.waitUntil) ctx.waitUntil(metaEvent(env, 'Lead', eventIdOk(b.eid), Object.assign({ email, city: z.city, zip, ip: request.headers.get('cf-connecting-ip') || '', ua: clean(request.headers.get('user-agent'), 300) }, adIds(b.ad)),
+    { lead_type: 'one_time', value: PRICES.once, currency: 'USD', content_name: 'once', num_items: dogs }));
   return ok({ ok: true });
 }
 
