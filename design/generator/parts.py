@@ -229,16 +229,9 @@ from scene import saguaro, agave, barrel  # noqa: E402
 SAY_PRICE = 'Weekly pickup is about %s a week for 2 dogs. We bill it once a month: %s. One dog is %s a month.' % (
     usd(week('week', 2)), usd(month('week', 2)), usd(month('week', 1)))
 
-# The first cleanup on a new plan (Joe, Nov 18, 2026: "normally it starts at $99", "depending on job size as well").
-# It is not charged in the card form. We tell the customer the price before we start.
-FIRST_FROM = usd(PRICES['first']['from'])
-FIRST_LINE = 'Your first cleanup starts at %s, %s.' % (FIRST_FROM, PRICES['first']['words'])
-FIRST_SAY = FIRST_LINE + ' We tell you the price before we start.'
-
 FAQ_ITEMS = [
-    ('[[bf:What is the Black Friday sale?||How do I sign up?]]', '[[bf:Sign up by November 30 and your first month is free. The sale ends at midnight on November 30.||Tap Book now. Pick your city, your dogs and your plan, then add your card. It takes about 2 minutes.]]'),
-    ('How much does it cost?', SAY_PRICE + ' Three dogs are %s a month. ' % usd(month('week', 3)) + FIRST_LINE + '[[bf: Black Friday sale: sign up by November 30 and your first month is free.||]]'),
-    ('Is there a first cleanup fee?', 'Yes. ' + FIRST_SAY + ' It is a one time fee for your first visit. We charge it to the card you signed up with.'),
+    ('[[bf:What is the Black Friday sale?||Is my first cleanup free?]]', '[[bf:Sign up by November 30 and your first month is free. The sale ends at midnight on November 30.||Yes. Your first cleanup is free when you sign up.]]'),
+    ('How much does it cost?', SAY_PRICE + ' Three dogs are %s a month. [[bf:Black Friday sale: sign up by November 30 and your first month is free.||Your first cleanup is free.]]' % usd(month('week', 3))),
     ('Is the spray really free?', 'Yes. Deodorizing is included free with every visit, on rock and turf yards alike. We spray the spots your dogs use most. It costs you nothing.'),
     ('Do you come in the summer heat?', 'Yes. In summer we start early, so your yard is done before the worst heat of the day.'),
     ('What if it storms?', 'Light rain is fine. If there is lightning, we wait until it is safe. We text you if your time changes.'),
@@ -326,10 +319,6 @@ DEODOR = ('<div class="dz"><p class="dz-n">Deodorizing treatment&#8201; <span cl
           '<p class="dz-p"><del class="dz-was"><span class="vh">Crossed out price: </span>%s</del> <ins class="dz-now">%s</ins></p>'
           '<p class="dz-l">%s</p></div>' % (_DZ['tag'], usd(float(_DZ['was'])), usd(float(_DZ['now'])), _DZ['label']))
 
-# The first cleanup as a line of the bill in sign up, under the deodorizing line (plan step and pay step).
-BK_FIRST = ('<div class="fc"><p class="fc-n">First cleanup</p><p class="fc-p"><small>from</small> %s</p>'
-            '<p class="fc-l">One time, %s. We tell you the price before we start.</p></div>' % (FIRST_FROM, PRICES['first']['words']))
-
 RC_NAMES = (('week', 'Weekly pickup'), ('twice', 'Twice a week pickup'), ('eow', 'Every other week pickup'))
 RC_FURS = ('#C98A45', '#5B3F2C', '#D9B98A', '#2A2422', '#B5652A', '#8C8F98')
 
@@ -353,7 +342,7 @@ PRICE_CARD = (
     '<ul class="rc-rows">' + ''.join(_rc_row(k, n) for k, n in RC_NAMES) + '</ul>'
     + DEODOR +
     '<a href="Booking.dc.html?dogs=2" class="btn btn-dot rc-go" data-rc-book>Book now</a>'
-    '<p class="rc-fine">[[bf:<strong>Black Friday sale: your first month is free.</strong> ||]]' + FIRST_LINE + ' [[bf:No long term contract.||No contract.]]</p>'
+    '<p class="rc-fine"><strong>[[bf:Black Friday sale: your first month is free.||Your first cleanup is free.]]</strong> No sign up fee. [[bf:No long term contract.||No contract.]]</p>'
     '</div>')
 
 # The price line in the last call on the home page.
@@ -568,7 +557,7 @@ CK_ITEMS = [('A 30 minute time window', 'We text it to you the night before.'),
             ('A free return within 24 hours', 'If we miss a pile.'),
             ('4 free skips a year', 'One tap in My Yard. After your first 60 days, you can pause for up to 120 days too.'),
             ('Every home in 6 ZIP codes', 'Buckeye, Goodyear, Litchfield Park, Citrus Park and Waddell.'),
-            ('[[bf:No long term contract||No contract]]', 'Month to month. [[self:Cancel in My Yard.||Cancel any time with one call or text.]]')]
+            ('[[bf:No long term contract||No contract]] and no sign up fee', 'Month to month. [[self:Cancel in My Yard.||Cancel any time with one call or text.]]')]
 SPECS = ('<section id="specs" class="sec">\n  <div class="in ck-g">\n'
          '  <div class="shd">\n'
          '    <h2 class="h2">What you get with every visit</h2>\n'
