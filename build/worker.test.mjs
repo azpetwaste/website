@@ -1166,6 +1166,33 @@ env = Object.assign({}, baseEnv, { FIRST_VISIT_FROM: '2027-03-10' });
   // A one time cleanup booked on the website (Joe, Nov 18, 2026): no card, the office gets the request and gives the price.
   { const o = await call('/api/request', 'POST', Object.assign({}, good, { plan: 'once', dogs: 2, email: 'once@example.com' })); const om = sent(/^One time cleanup request: Test Person/)[0];
     ok('a one time cleanup request reaches the office with the starting price and no card', o.status === 200 && !!om && /One time cleanup, 2 dogs\. Starts at \$99, depending on job size\./.test(om.text) && /No card was taken/.test(om.text), om && om.text); }
+  // Just once also says when the yard was last cleaned (Joe, Nov 19, 2026: the form asks, since the price depends on the job).
+  { const o = await call('/api/request', 'POST', Object.assign({}, good, { plan: 'once', dogs: 1, last: 'gt6', email: 'once2@example.com', name: 'Olive Once' })); const om = sent(/^One time cleanup request: Olive Once/)[0];
+    const row = T.leads.filter((l) => l.name === 'Olive Once')[0];
+    ok('a one time cleanup request tells the office when the yard was last cleaned, in the email and in the lead', o.status === 200 && !!om && /\nYard last cleaned: more than 6 weeks ago\.\n/.test(om.text)
+      && !!row && row.kind === 'signup_request' && /^One time cleanup, 1 dog\./.test(row.details) && /Yard last cleaned: more than 6 weeks ago\./.test(row.details), [om && om.text, row]); }
+  // Monthly (Joe, Nov 19, 2026): one visit a month. No set price yet, so no card: the office sends the price.
+  { const o = await call('/api/request', 'POST', Object.assign({}, good, { plan: 'month', dogs: 2, last: '2to6', email: 'month@example.com', name: 'Mona Month' })); const om = sent(/^Monthly cleanup request: Mona Month/)[0];
+    const row = T.leads.filter((l) => l.name === 'Mona Month')[0];
+    ok('a monthly cleanup request reaches the office with no card and no price promised', o.status === 200 && !!om && /Monthly cleanup, 2 dogs\. One visit a month\. Monthly has no set price yet\./.test(om.text) && /No card was taken/.test(om.text)
+      && /Yard last cleaned: 2 to 6 weeks ago\./.test(om.text) && !/\$\d/.test(om.text.split('Text consent shown')[0]) && !!row && row.kind === 'signup_request' && /^Monthly cleanup, 2 dogs\./.test(row.details), [om && om.text, row]);
+    const odd = await call('/api/request', 'POST', Object.assign({}, good, { plan: 'month', dogs: 2, last: 'constructor', email: 'month2@example.com', name: 'Odd Last' }));
+    ok('an answer the form does not have is left out, not printed', odd.status === 200 && !/Yard last cleaned/.test(sent(/^Monthly cleanup request: Odd Last/)[0].text));
+    ok('a plan name that is not ours is still turned down', (await call('/api/request', 'POST', Object.assign({}, good, { plan: 'constructor', email: 'bad@example.com' }))).status === 400); }
+  // My community (Joe, Nov 19, 2026): one short form, no card, no text box. It lands as a commercial lead.
+  { const c = { kind: 'hoa', org: 'Sunset Ridge HOA', city: 'Goodyear', name: 'Casey Board', phone: '(623) 555-0177', email: 'Casey@Example.com', note: 'Six stations and two parks.', page: '/book/' };
+    const r1 = await call('/api/community', 'POST', c); const cm = sent(/^Community quote request: Sunset Ridge HOA, Goodyear$/)[0];
+    const row = T.leads.filter((l) => l.name === 'Casey Board')[0];
+    ok('a community quote request emails the office and is saved as a commercial lead', r1.status === 200 && !!cm && /Kind of place: HOA\n/.test(cm.text) && /Phone: 6235550177\n/.test(cm.text) && /Email: casey@example\.com\n/.test(cm.text)
+      && /What they need: Six stations and two parks\./.test(cm.text) && /Texts: not asked/.test(cm.text) && !!row && row.kind === 'commercial' && row.address === 'Sunset Ridge HOA, Goodyear'
+      && /^Community quote request\. HOA: Sunset Ridge HOA, Goodyear\. They wrote: Six stations and two parks\.$/.test(row.details), [cm && cm.text, row]);
+    ok('it never turns texts on for anyone: no consent row and no queued text', !T.consent_log.some((x) => x.email === 'casey@example.com') && !T.messages.some((x) => x.to_addr === '6235550177'));
+    const bad = async (patch) => (await call('/api/community', 'POST', Object.assign({}, c, patch))).status;
+    ok('a community request needs the kind of place, a name for the place, a city, a name, a 10 digit phone and an email',
+      (await bad({ kind: '' })) === 400 && (await bad({ kind: 'constructor' })) === 400 && (await bad({ org: '' })) === 400 && (await bad({ city: '' })) === 400
+      && (await bad({ name: '' })) === 400 && (await bad({ phone: '555' })) === 400 && (await bad({ email: 'nope' })) === 400);
+    const before = T.leads.length, mailsBefore = mails.length;
+    ok('a bot that fills the hidden field gets a quiet OK and nothing is saved or sent', (await bad({ website: 'http://spam.example' })) === 200 && T.leads.length === before && mails.length === mailsBefore); }
   const noMail = Object.assign({}, env); delete noMail.RESEND_API_KEY; delete noMail.SUPABASE_URL;
   const x = await worker.fetch(new Request('https://arizonapetwaste.com/api/waitlist', { method: 'POST', body: JSON.stringify({ name: 'No Mail', phone: '6235550199', address: '2 W Main St', zip: '85301' }), headers: { 'content-type': 'application/json' } }), noMail, ctx);
   ok('with no email set up the waitlist says to text us, so no lead is lost quietly', x.status === 503);

@@ -54,6 +54,39 @@
 .apw .bk-plan .wk{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:27px;line-height:1}
 .apw .bk-plan .wk small{font-family:var(--f-text);font-stretch:104%;font-size:15px;font-weight:400;color:var(--mute)}
 .apw .bk-note{margin:14px 0 0;font-size:16px;line-height:1.5;color:var(--mute)}
+/* Joe, Nov 19, 2026, after going through the DoodyCalls sign up ("I like residential community", "How often do you need your
+   yard cleaned? Twice weekly, Weekly, Every other week, Monthly, Just once", "it needs to be easy as well for the consumer").
+   Who is this for: two big cards, each with a picture. Tapping one moves on. */
+.apw .bk-who{display:flex;flex-direction:column;gap:12px;margin-top:18px}
+.apw .bk-wc{display:flex;align-items:center;gap:16px;width:100%;min-height:112px;padding:16px 18px;border-radius:14px;border:2px solid var(--line);background:var(--bg2);color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.apw .bk-wc:hover{border-color:var(--accent)}
+.apw .bk-wc .wi{width:60px;height:60px;flex:0 0 60px;border-radius:14px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent-text)}
+.apw .bk-wc .wt{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.apw .bk-wc .wt b{font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:24px;line-height:1.1}
+.apw .bk-wc .wt span{font-size:16px;line-height:1.4;color:var(--ink2)}
+.apw .bk-wc>i{font-style:normal;font-size:26px;line-height:1;color:var(--accent-text)}
+/* the smallest phones: a smaller picture leaves the words more room, so each card is two or three lines */
+@media (max-width:359px){.apw .bk-wc{gap:12px;min-height:96px;padding:14px}.apw .bk-wc .wi{width:48px;height:48px;flex-basis:48px;border-radius:12px}.apw .bk-wc .wi svg{width:28px;height:28px}.apw .bk-wc .wt b{font-size:22px}}
+/* "We scoop in Goodyear": the good news, right after the city is picked */
+.apw .bk-ok{display:inline-flex;align-items:center;gap:8px;margin:0 0 14px;padding:6px 14px 6px 7px;border-radius:999px;background:var(--bg2);border:1px solid var(--line);color:var(--ink);font-size:16px;font-weight:700;line-height:1.3}
+.apw .bk-ok span{width:24px;height:24px;flex:0 0 24px;border-radius:50%;background:var(--ok);color:#FFFFFF;display:grid;place-items:center}
+/* the tag on the plan we point people to: it sits on the top edge of its row */
+.apw .bk-plans{gap:14px}
+.apw .bk-plan{position:relative}
+.apw .bk-plan .tag{position:absolute;top:-14px;right:12px;padding:3px 9px 2px;border-radius:6px;background:#FF4A1C;color:#0E1430;font-family:var(--f-head);font-stretch:90%;font-style:normal;font-weight:850;font-size:15px;letter-spacing:.03em;line-height:1.2;white-space:nowrap}
+.apw .bk-plan .wk{text-align:right}
+/* When was your yard last cleaned: three big rows. Tapping one moves on. */
+.apw .bk-last{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+.apw .bk-lc{display:flex;align-items:center;gap:12px;width:100%;min-height:80px;padding:12px 18px;border-radius:12px;border:2px solid var(--line);background:var(--bg2);color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.apw .bk-lc[aria-checked="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.apw .bk-lc .lt{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.apw .bk-lc .lt b{font-size:21px;font-weight:800;line-height:1.15}
+.apw .bk-lc .lt span{font-size:16px;line-height:1.35;color:var(--mute)}
+.apw .bk-lc>i{font-style:normal;font-size:24px;line-height:1;color:var(--accent-text)}
+/* the community form: what kind of place, as buttons to tap */
+.apw .bk-kinds{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}
+.apw .bk-kind{min-height:58px;padding:6px 10px;border-radius:12px;border:2px solid var(--line);background:var(--bg2);color:var(--ink);font:inherit;font-size:19px;font-weight:700;cursor:pointer}
+.apw .bk-kind[aria-checked="true"]{border-color:var(--accent);background:var(--accent-soft)}
 .apw .flab{display:block;margin-top:18px;font-size:17px;font-weight:700}
 .apw .flab .opt{font-weight:500;color:var(--mute)}
 .apw .fin{display:block;width:100%;height:56px;margin-top:6px;padding:0 16px;border-radius:12px;border:2px solid var(--field);background:var(--card);color:var(--ink);font:inherit;font-size:18px}
@@ -131,7 +164,18 @@
 
 <div class="bk-body">
 
-  <sc-if value="{{ s0 }}" hint-placeholder-val="{{ true }}">
+  <sc-if value="{{ sWho }}" hint-placeholder-val="{{ true }}">
+    <h1 class="bh1" tabindex="-1">Who is this for?</h1>
+    [[bf:<p class="bf-chip" data-deal-end="2026-12-01T06:59:59Z"><span>Black Friday sale</span>First month free. Ends Mon, Nov 30.</p>||]]
+    <p class="bk-lead">Tap one.</p>
+    <div class="bk-who" role="group" aria-label="Who is this for">
+      <button type="button" class="bk-wc" onClick="{{ pickHome }}"><span class="wi">@@ICON_WHO_HOME@@</span><span class="wt"><b>My home</b><span>Residential. I need my own yard cleaned.</span></span><i aria-hidden="true">›</i></button>
+      <button type="button" class="bk-wc" onClick="{{ pickCommunity }}"><span class="wi">@@ICON_WHO_COMMUNITY@@</span><span class="wt"><b>My community</b><span>An HOA, apartments, a dog park or a business.</span></span><i aria-hidden="true">›</i></button>
+    </div>
+    <p class="bk-help">Not sure? We can sign you up by phone. <a href="tel:+16233096104">Call 623.309.6104</a></p>
+  </sc-if>
+
+  <sc-if value="{{ s0 }}" hint-placeholder-val="{{ false }}">
     <h1 class="bh1" tabindex="-1">Where is your yard?</h1>
     [[bf:<p class="bf-chip" data-deal-end="2026-12-01T06:59:59Z"><span>Black Friday sale</span>First month free. Ends Mon, Nov 30.</p>||]]
     <p class="bk-lead">Tap your city.</p>
@@ -169,6 +213,7 @@
   </sc-if>
 
   <sc-if value="{{ s1 }}" hint-placeholder-val="{{ false }}">
+    <sc-if value="{{ hasTown }}" hint-placeholder-val="{{ true }}"><p class="bk-ok"><span>@@ICON_CHECK@@</span>{{ townLine }}</p></sc-if>
     <h1 class="bh1" tabindex="-1">How many dogs?</h1>
     <div class="bk-dogs" role="radiogroup" aria-label="How many dogs">
       <sc-for list="{{ dogOpts }}" as="d" hint-placeholder-count="6">
@@ -176,25 +221,69 @@
       </sc-for>
     </div>
     <p class="bk-more">More than 6 dogs? <a href="sms:+16233096104">Text us.</a></p>
-    <h2 class="bk-h2">How often should we come?</h2>
+    <h2 class="bk-h2">How often do you need your yard cleaned?</h2>
     <div class="bk-plans" role="radiogroup" aria-label="How often we come">
-      <sc-for list="{{ plans }}" as="p" hint-placeholder-count="3">
+      <sc-for list="{{ plans }}" as="p" hint-placeholder-count="5">
         <button type="button" class="bk-plan" role="radio" aria-checked="{{ p.on }}" onClick="{{ p.pick }}">
           <span class="rd"><i></i></span>
           <span class="nm"><b>{{ p.name }}</b><span>{{ p.month }}</span></span>
-          <span class="wk">{{ p.week }}<small>a week</small></span>
+          <span class="wk">{{ p.week }}<small>{{ p.unit }}</small></span>
+          <em class="tag" style="display: {{ p.tag }};">Recommended</em>
         </button>
       </sc-for>
-      @@BK_ONCE@@
     </div>
     @@DEODOR@@
-    <sc-if value="{{ notOnce }}" hint-placeholder-val="{{ true }}"><p class="bk-note">We bill once a month. [[bf:Your first month is free. No long term contract.||No contract.]]</p></sc-if>
+    <sc-if value="{{ isPlan }}" hint-placeholder-val="{{ true }}"><p class="bk-note">We bill once a month. [[bf:Your first month is free. No long term contract.||No contract.]]</p></sc-if>
     <sc-if value="{{ isOnce }}" hint-placeholder-val="{{ false }}"><p class="bk-note">One visit, no plan. It starts at {{ onceFrom }}, depending on job size. A big job gets a custom quote. We text or call you with your price before we come. Nothing is charged today.</p></sc-if>
+    <sc-if value="{{ isMonth }}" hint-placeholder-val="{{ false }}"><p class="bk-note">One visit a month. We text or call you with your price before the first visit. Nothing is charged today.</p></sc-if>
+  </sc-if>
+
+  <sc-if value="{{ sLast }}" hint-placeholder-val="{{ false }}">
+    <h1 class="bh1" tabindex="-1">When was your yard last cleaned?</h1>
+    <p class="bk-lead">This helps us give you a fair price. Tap one.</p>
+    <div class="bk-last" role="radiogroup" aria-label="When your yard was last cleaned">
+      <sc-for list="{{ lastOpts }}" as="l" hint-placeholder-count="3">
+        <button type="button" class="bk-lc" role="radio" aria-checked="{{ l.on }}" onClick="{{ l.pick }}"><span class="lt"><b>{{ l.label }}</b><span>{{ l.sub }}</span></span><i aria-hidden="true">›</i></button>
+      </sc-for>
+    </div>
+    <p class="bk-note">{{ lastNote }}</p>
+  </sc-if>
+
+  <sc-if value="{{ sCom }}" hint-placeholder-val="{{ false }}">
+    <h1 class="bh1" tabindex="-1">Tell us about your community.</h1>
+    <p class="bk-lead">We walk your site for free. Then we send you a written quote.</p>
+    <p class="flab" id="c-kind-l">What kind of place is it?</p>
+    <div class="bk-kinds" role="radiogroup" aria-labelledby="c-kind-l">
+      <sc-for list="{{ kindOpts }}" as="k" hint-placeholder-count="6">
+        <button type="button" class="bk-kind" role="radio" aria-checked="{{ k.on }}" onClick="{{ k.pick }}">{{ k.label }}</button>
+      </sc-for>
+    </div>
+    <sc-if value="{{ eKind }}" hint-placeholder-val="{{ false }}"><p class="ferr">{{ eKind }}</p></sc-if>
+    <label for="c-org" class="flab">Community or business name</label>
+    <input id="c-org" class="fin" type="text" autocomplete="organization" value="{{ cOrg }}" onChange="{{ onCOrg }}">
+    <sc-if value="{{ eOrg }}" hint-placeholder-val="{{ false }}"><p class="ferr">{{ eOrg }}</p></sc-if>
+    <label for="c-city" class="flab">City</label>
+    <input id="c-city" class="fin" type="text" autocomplete="address-level2" value="{{ cCity }}" onChange="{{ onCCity }}">
+    <sc-if value="{{ eCCity }}" hint-placeholder-val="{{ false }}"><p class="ferr">{{ eCCity }}</p></sc-if>
+    <label for="c-name" class="flab">Your name</label>
+    <input id="c-name" class="fin" type="text" autocomplete="name" value="{{ cName }}" onChange="{{ onCName }}">
+    <sc-if value="{{ eCName }}" hint-placeholder-val="{{ false }}"><p class="ferr">{{ eCName }}</p></sc-if>
+    <label for="c-phone" class="flab">Phone</label>
+    <input id="c-phone" class="fin" type="tel" inputmode="tel" autocomplete="tel" value="{{ cPhone }}" onChange="{{ onCPhone }}">
+    <sc-if value="{{ eCPhone }}" hint-placeholder-val="{{ false }}"><p class="ferr">{{ eCPhone }}</p></sc-if>
+    <label for="c-email" class="flab">Email</label>
+    <input id="c-email" class="fin" type="email" inputmode="email" autocomplete="email" value="{{ cEmail }}" onChange="{{ onCEmail }}">
+    <sc-if value="{{ eCEmail }}" hint-placeholder-val="{{ false }}"><p class="ferr">{{ eCEmail }}</p></sc-if>
+    <label for="c-note" class="flab">What do you need? <span class="opt">(if you want)</span></label>
+    <input id="c-note" class="fin" type="text" value="{{ cNote }}" onChange="{{ onCNote }}" onKeyDown="{{ enter }}">
+    <p class="fine">We call or email you about your quote. We do not text you from this form. See our <a href="/privacy/">Privacy Policy</a>.</p>
+    <sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><p class="ferr" role="alert">{{ err }}</p></sc-if>
+    <p class="bk-help">Want to talk now? <a href="tel:+16233096104">Call 623.309.6104</a></p>
   </sc-if>
 
   <sc-if value="{{ s2 }}" hint-placeholder-val="{{ false }}">
     <h1 class="bh1" tabindex="-1">Tell us about you.</h1>
-    <p class="bk-lead">We use this to reach you and set your day and time.</p>
+    <p class="bk-lead">{{ aboutLead }}</p>
     <label for="b-name" class="flab">Full name</label>
     <input id="b-name" class="fin" type="text" autocomplete="name" value="{{ name }}" onChange="{{ onName }}">
     <sc-if value="{{ eName }}" hint-placeholder-val="{{ false }}"><p class="ferr">{{ eName }}</p></sc-if>
@@ -321,11 +410,15 @@ class Component extends DCLogic {
   constructor(props) {
     super(props);
     this.state = Object.assign({
-      dark: this._themeFromProps(), step: 0, zip: '', city: '', zipSet: true, zipAll: false, other: false, dogs: 2, plan: 'week',
+      // Steps: 0 who is this for, then the city (two faces of one step, told apart by `who`), 1 dogs and how often,
+      // 7 when the yard was last cleaned (Just once and Monthly only), 2 about you, 3 the email code, 4 the card, 5 done,
+      // 6 the community form. The numbers 0 to 5 are the ones the form always had, so 6 and 7 came after.
+      dark: this._themeFromProps(), step: 0, who: '', zip: '', city: '', zipSet: true, zipAll: false, other: false, dogs: 2, plan: 'week', last: '',
       name: '', phone: '', email: '', addr: '', txtVisit: false, tried: false, sugs: [], addrNote: '',
       wait: '', waitDone: false, waitBusy: false, waitErr: '',
       code: '', codeErr: '', resent: false, busy: false, err: '',
-      payState: 'idle', payErr: '', payFree: null, payLineSrv: '', wName: '', wPhone: '', wAddr: '', wCity: '', wTexts: false, req: false
+      payState: 'idle', payErr: '', payFree: null, payLineSrv: '', wName: '', wPhone: '', wAddr: '', wCity: '', wTexts: false, req: false, reqKind: '',
+      cKind: '', cOrg: '', cCity: '', cName: '', cPhone: '', cEmail: '', cNote: '', cTried: false
     }, this._initial());
   }
   componentDidMount() { this._themeInit(); }
@@ -337,12 +430,13 @@ class Component extends DCLogic {
     if (prev.step !== s.step) {
       if (prev.step === 4) this._stopPay();
       if (s.step === 4) this._startPay();
-      this._focusStep();
       // Ad tracking (APW.track): sign up started, then the card step. Once each per visit. No personal details.
       if (s.step === 1 && !this._tStart) { this._tStart = 1; this._t('start', this._tPlan()); }
       if (s.step === 4 && !this._tCard && !this._demo()) { this._tCard = 1; this._t('card', this._tPlan()); }
     }
-    if (s.step < 4) this._save();
+    // The first step has two faces (who is this for, then the city): moving between them is a new screen too.
+    if (prev.step !== s.step || prev.who !== s.who) this._focusStep();
+    if (s.step < 4 || s.step === 6 || s.step === 7) this._save();
   }
   _apw() { return typeof window !== 'undefined' ? window.APW || null : null; }
   _t(step, d) { const a = this._apw(); if (a && a.track) a.track(step, d); }
@@ -351,6 +445,8 @@ class Component extends DCLogic {
   _cfg() { const a = this._apw(); return (a && a.cfg) || {}; }
   _demo() { const a = this._apw(); return !a || !a.live; }
   _closed() { const a = this._apw(); return !!(a && a.closed); }
+  // Just once and Monthly take no card on the website: the office sends the price first (Joe, Nov 18 and 19, 2026).
+  _quote(plan) { return plan === 'once' || plan === 'month'; }
   // Every ZIP code we scoop (the same six as ZIPS in the server), and the city button each one belongs to first.
   _zips() { return { '85326': 'Buckeye', '85396': 'Buckeye', '85338': 'Goodyear', '85395': 'Goodyear', '85340': 'Litchfield Park', '85355': 'Citrus Park' }; }
   _zipCity(zip) { return { '85326': 'buckeye', '85396': 'buckeye', '85338': 'goodyear', '85395': 'goodyear', '85340': 'litchfield', '85355': 'citrus' }[zip] || ''; }
@@ -367,30 +463,45 @@ class Component extends DCLogic {
     { id: 'citrus', label: 'Citrus Park', zips: ['85355', '85340'] }
   ]; }
   _city(id) { return this._cities().filter((c) => c.id === id)[0] || null; }
-  _pickCity(c) { this.setState({ city: c.id, zip: c.zips[0], zipSet: c.zips.length === 1, zipAll: false, other: false, waitDone: false, waitErr: '', step: 1, err: '', busy: false }); }
+  _pickCity(c) { this.setState({ who: 'home', city: c.id, zip: c.zips[0], zipSet: c.zips.length === 1, zipAll: false, other: false, waitDone: false, waitErr: '', step: 1, err: '', busy: false }); }
   _initial() {
     if (typeof window === 'undefined') return {};
     const out = {};
     try { Object.assign(out, JSON.parse(sessionStorage.getItem('apw.book') || '{}')); } catch (e) { }
+    // A sign up saved before November 19, 2026 has no answer to "Who is this for?". It was a home.
+    if (!out.who && (out.step === 1 || out.step === 2)) out.who = 'home';
     if (this.props.mode === 'page') {
+      // A link that says what it is for skips the first question: /book/?dogs=3 (the price card), /book/?plan=once,
+      // /book/?zip=85338, /book/?for=home. /book/?for=community opens the community form.
       const q = new URLSearchParams(location.search);
-      if (/^\d{5}$/.test(q.get('zip') || '')) { out.zip = q.get('zip'); out.city = ''; out.zipSet = true; }
-      if (['week', 'twice', 'eow', 'once'].indexOf(q.get('plan')) >= 0) out.plan = q.get('plan');
+      if (/^\d{5}$/.test(q.get('zip') || '')) { out.zip = q.get('zip'); out.city = ''; out.zipSet = true; out.who = 'home'; }
+      if (['week', 'twice', 'eow', 'month', 'once'].indexOf(q.get('plan')) >= 0) { out.plan = q.get('plan'); out.who = 'home'; }
       const n = parseInt(q.get('dogs'), 10);
-      if (n >= 1 && n <= 6) out.dogs = n;
+      if (n >= 1 && n <= 6) { out.dogs = n; out.who = 'home'; }
+      if (q.get('for') === 'home') out.who = 'home';
+      if (q.get('for') === 'community') { out.who = 'community'; out.step = 6; }
+      else if (out.who === 'home' && out.step === 6) out.step = 0;
     }
     delete out.dayIso;
     // A sign up saved before November 18, 2026 may hold the Verrado button, which is part of Buckeye now.
     if (out.city === 'verrado') out.city = 'buckeye';
     if (out.city && !this._city(out.city)) out.city = '';
-    if (out.step > 2 || out.step < 0 || typeof out.step !== 'number') out.step = 0;
-    if (out.step > 0 && !this._zips()[out.zip]) out.step = 0;
+    if (out.who !== 'home' && out.who !== 'community') out.who = '';
+    if (['week', 'twice', 'eow', 'month', 'once'].indexOf(out.plan) < 0) delete out.plan;
+    if (['lt2', '2to6', 'gt6'].indexOf(out.last) < 0) delete out.last;
+    // A saved sign up comes back to the step it was on, as far as about you (2). Never to the code or the card.
+    if ([0, 1, 2, 6, 7].indexOf(out.step) < 0) out.step = 0;
+    if ((out.step === 1 || out.step === 2 || out.step === 7) && (out.who !== 'home' || !this._zips()[out.zip])) out.step = 0;
+    if (out.step === 7 && !this._quote(out.plan)) out.step = 1;
+    if (out.step === 6 && out.who !== 'community') out.step = 0;
+    if (out.step === 0 && out.who === 'community') out.who = '';
     return out;
   }
   _save() {
     if (typeof window === 'undefined') return;
     const s = this.state;
-    const keep = { step: Math.min(s.step, 2), zip: s.zip, city: s.city, zipSet: s.zipSet, zipAll: s.zipAll, dogs: s.dogs, plan: s.plan, name: s.name, phone: s.phone, email: s.email, addr: s.addr, txtVisit: s.txtVisit, txtDeals: s.txtDeals };
+    const keep = { step: s.step === 3 ? 2 : s.step, who: s.who, zip: s.zip, city: s.city, zipSet: s.zipSet, zipAll: s.zipAll, dogs: s.dogs, plan: s.plan, last: s.last, name: s.name, phone: s.phone, email: s.email, addr: s.addr, txtVisit: s.txtVisit,
+      cKind: s.cKind, cOrg: s.cOrg, cCity: s.cCity, cName: s.cName, cPhone: s.cPhone, cEmail: s.cEmail, cNote: s.cNote };
     try { sessionStorage.setItem('apw.book', JSON.stringify(keep)); } catch (e) { }
   }
   _clearDraft() { try { sessionStorage.removeItem('apw.book'); } catch (e) { } }
@@ -476,18 +587,62 @@ class Component extends DCLogic {
       zip: s.zipSet === false ? 'Tap your ZIP code.' : ''
     };
   }
+  _cPhone10() { return String(this.state.cPhone || '').replace(/\D/g, '').replace(/^1(?=\d{10}$)/, ''); }
+  _cErrs() {
+    const s = this.state;
+    return {
+      kind: s.cKind ? '' : 'Tap what kind of place it is.',
+      org: s.cOrg.trim().length < 2 ? 'Type the name of your community or business.' : '',
+      city: s.cCity.trim().length < 2 ? 'Type your city.' : '',
+      name: s.cName.trim().length < 2 ? 'Type your name.' : '',
+      phone: this._cPhone10().length === 10 ? '' : 'Type your 10 digit phone number.',
+      email: /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s.cEmail.trim()) ? '' : 'Type your email, like you@email.com.'
+    };
+  }
+  // My community: one short form, no card and no text box. It goes to the office as a commercial lead, and we call or
+  // email to set up the free site walk.
+  async _community() {
+    const s = this.state, e = this._cErrs();
+    if (e.kind || e.org || e.city || e.name || e.phone || e.email) { this.setState({ cTried: true }); this._toErr(); return; }
+    if (this._demo() && !this._closed()) { this.setState({ req: true, reqKind: 'community', step: 5 }); return; }
+    this.setState({ busy: true, err: '' });
+    const eid = this._apw().eventId ? this._apw().eventId('cq') : '';
+    try {
+      await this._apw().post('/api/community', {
+        kind: s.cKind, org: s.cOrg.trim(), city: s.cCity.trim(), name: s.cName.trim(), phone: this._cPhone10(), email: s.cEmail.trim(), note: s.cNote.trim(),
+        page: location.pathname, website: '', eid: eid, ad: this._adIds()
+      });
+      this._clearDraft();
+      this._t('request', { id: eid, plan: 'community' });
+      this.setState({ busy: false, req: true, reqKind: 'community', step: 5, cTried: false });
+    } catch (err) { this.setState({ busy: false, err: this._apw().msg(err) }); }
+  }
   _go(step) { this.setState({ step: step, err: '', busy: false }); }
+  // Continue with something missing: the notes show under each box. The button sits under the form, so the first note
+  // may be far up the screen. Bring it into view, with its box above it, so nobody thinks the button did nothing.
+  _toErr() {
+    setTimeout(() => {
+      if (typeof document === 'undefined' || !this.__root) return;
+      const body = this.__root.querySelector('.bk-body'), note = body && body.querySelector('.ferr');
+      if (!note) return;
+      const top = note.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop - 150;
+      body.scrollTop = Math.max(0, top);
+    }, 60);
+  }
   _next() {
     const s = this.state;
     if (s.busy) return;
-    if (s.step === 0) { if (this._zips()[s.zip]) this._go(1); return; }
-    if (s.step === 1) return this._go(2);
+    // The first step and the "last cleaned" step have no Continue button: tapping an answer moves on.
+    if (s.step === 0 || s.step === 7) return;
+    // Just once and Monthly ask one more thing, so we can give a fair price: when the yard was last cleaned.
+    if (s.step === 1) return this._go(this._quote(s.plan) ? 7 : 2);
     if (s.step === 2) {
       const e = this._errs();
-      if (e.name || e.phone || e.email || e.addr || e.zip || s.addrNote) { this.setState({ tried: true, sugs: [] }); return; }
-      if (s.plan === 'once' || this._closed()) return this._request();
+      if (e.name || e.phone || e.email || e.addr || e.zip || s.addrNote) { this.setState({ tried: true, sugs: [] }); this._toErr(); return; }
+      if (this._quote(s.plan) || this._closed()) return this._request();
       return this._signIn();
     }
+    if (s.step === 6) return this._community();
     if (s.step === 3) return this._verify();
     if (s.step === 4 && this._demo()) return this._go(5);
   }
@@ -551,17 +706,18 @@ class Component extends DCLogic {
   // Online checkout is not on yet: send the sign up to us by email and we call to finish.
   async _request() {
     const s = this.state;
-    if (this._demo() && !this._closed()) { this.setState({ req: true, reqOnce: s.plan === 'once', step: 5 }); return; }
+    const kind = this._quote(s.plan) ? s.plan : '';
+    if (this._demo() && !this._closed()) { this.setState({ req: true, reqKind: kind, step: 5 }); return; }
     this.setState({ busy: true, err: '' });
     const eid = this._apw().eventId ? this._apw().eventId('rq') : '';
     try {
       await this._apw().post('/api/request', {
-        zip: s.zip, plan: s.plan, dogs: s.dogs, name: s.name.trim(), phone: this._phone10(), email: s.email.trim(), address: s.addr.trim(),
+        zip: s.zip, plan: s.plan, dogs: s.dogs, last: kind ? s.last : '', name: s.name.trim(), phone: this._phone10(), email: s.email.trim(), address: s.addr.trim(),
         textsVisit: !!s.txtVisit, textsDeals: false, page: location.pathname, website: '', eid: eid, ad: this._adIds()
       });
       this._clearDraft();
       this._t('request', Object.assign({ id: eid }, this._tPlan()));
-      this.setState({ busy: false, req: true, reqOnce: s.plan === 'once', step: 5 });
+      this.setState({ busy: false, req: true, reqKind: kind, step: 5 });
     } catch (e) { this.setState({ busy: false, err: this._apw().msg(e) }); }
   }
   async _startPay() {
@@ -619,13 +775,27 @@ class Component extends DCLogic {
   open(o) {
     const s = this.state;
     const next = {};
-    if (s.step <= 1 || s.step === 5) {
-      if (o.plan) next.plan = o.plan;
-      if (o.dogs) next.dogs = o.dogs;
-      if (o.zip && this._zips()[o.zip]) { next.zip = o.zip; next.city = ''; next.zipSet = true; next.other = false; }
-      const zip = next.zip || s.zip;
-      if (s.step === 5) { next.step = 0; next.req = false; }
-      if ((s.step === 0 || s.step === 5) && this._zips()[zip]) next.step = 1;
+    // Only while nothing has been typed yet (the first two steps, the last cleaned step, the community form) or after a
+    // finished sign up. A link never pulls someone out of the about you step or the card step.
+    if (s.step <= 1 || s.step === 5 || s.step === 6 || s.step === 7) {
+      if (o.who === 'community') {
+        Object.assign(next, { who: 'community', step: 6, req: false, reqKind: '', err: '' });
+      } else {
+        // A link that carries a plan, a dog count or a ZIP code is for a home, so it skips "Who is this for?".
+        const home = o.who === 'home' || !!o.plan || !!o.dogs || !!(o.zip && this._zips()[o.zip]);
+        if (o.plan) next.plan = o.plan;
+        if (o.dogs) next.dogs = o.dogs;
+        if (o.zip && this._zips()[o.zip]) { next.zip = o.zip; next.city = ''; next.zipSet = true; next.other = false; }
+        if (home) next.who = 'home';
+        // After a finished community request, a plain Book now starts again at the first question.
+        else if (s.step === 5 && s.reqKind === 'community') next.who = '';
+        const zip = next.zip || s.zip;
+        const who = typeof next.who === 'string' ? next.who : s.who;
+        const start = s.step === 0 || s.step === 5 || (s.step === 6 && home);
+        if (s.step === 5 || (s.step === 6 && home)) { next.step = 0; next.req = false; next.reqKind = ''; }
+        if (start && who === 'home' && this._zips()[zip]) next.step = 1;
+        if (s.step === 7 && o.plan && !this._quote(o.plan)) next.step = 1;
+      }
     }
     this.setState(next);
   }
@@ -633,14 +803,26 @@ class Component extends DCLogic {
     const s = this.state;
     const zips = this._zips();
     const cities = { '85326': 'Buckeye, AZ 85326', '85396': 'Buckeye, AZ 85396', '85338': 'Goodyear, AZ 85338', '85395': 'Goodyear, AZ 85395', '85340': 'Litchfield Park, AZ 85340', '85355': 'Waddell, AZ 85355' };
-    const names = { week: 'Every week', twice: 'Twice a week', eow: 'Every other week', once: 'One time cleanup' };
-    const once = s.plan === 'once';
+    // The five choices, in Joe's words and order (Nov 19, 2026): "Twice weekly, Weekly, Every other week, Monthly, Just once".
+    // My Yard, the emails and the crew app still say Every week, Twice a week and Every other week for the same plans.
+    const names = { twice: 'Twice weekly', week: 'Weekly', eow: 'Every other week', month: 'Monthly', once: 'Just once' };
+    const once = s.plan === 'once', monthly = s.plan === 'month';
+    const quote = this._quote(s.plan);
     const zipOk = !!zips[s.zip];
     const price = this._price(s.plan, s.dogs);
     const dogsLabel = s.dogs === 1 ? '1 dog' : s.dogs + ' dogs';
     const free = this._free();
     const bill = this._bill(free);
-    const inFlow = s.step > 0 && s.step < 5;
+    const whoFace = s.step === 0 && s.who !== 'home';
+    const com = s.step === 6;
+    // Back is on every screen after the first one, until the sign up is done.
+    const inFlow = (s.step === 0 && !whoFace) || s.step === 1 || s.step === 2 || s.step === 3 || s.step === 4 || s.step === 6 || s.step === 7;
+    // Where each screen sits in "Step 1 of 4": the city, dogs and how often, about you, the card. Just once and Monthly
+    // have no card step, and ask when the yard was last cleaned in its place: the city, dogs and how often, last cleaned, about you.
+    const at = s.step === 7 ? 2 : s.step === 2 ? (quote ? 3 : 2) : s.step >= 3 ? 3 : s.step;
+    const cErrs = s.cTried ? this._cErrs() : { kind: '', org: '', city: '', name: '', phone: '', email: '' };
+    const lasts = [['lt2', 'Under 2 weeks ago', 'A quick job.'], ['2to6', '2 to 6 weeks ago', 'Some piles to find.'], ['gt6', 'Over 6 weeks ago', 'A big job. That is what we do.']];
+    const kinds = [['hoa', 'HOA'], ['apartments', 'Apartments'], ['park', 'Dog park'], ['business', 'Business'], ['event', 'Event'], ['other', 'Other']];
     const demo = this._demo();
     const errs = s.tried ? this._errs() : { name: '', phone: '', email: '', addr: '', zip: '' };
     const cityNow = this._city(s.city);
@@ -651,31 +833,45 @@ class Component extends DCLogic {
     const zipList = zipAll ? Object.keys(zips) : cityNow.zips;
     const field = (k) => (e) => { const o = {}; o[k] = e.target.value; this.setState(o); };
     const dock = this.props.mode === 'dock';
-    const labels = ['Continue', 'Continue', once ? 'Send my request' : 'Continue', 'Check code', 'Finish demo booking', ''];
+    const labels = { 1: 'Continue', 2: quote ? 'Send my request' : 'Continue', 3: 'Check code', 4: 'Finish demo booking', 6: 'Get my free quote' };
     return Object.assign({}, this._themeVals(), {
-      s0: s.step === 0, s1: s.step === 1, s2: s.step === 2, s3: s.step === 3, s4: s.step === 4, s5: s.step === 5,
-      topTitle: s.step === 5 ? 'Arizona Pet Waste' : (free && !once ? 'Start your free month' : 'Book now'),
+      sWho: whoFace, s0: s.step === 0 && !whoFace, s1: s.step === 1, s2: s.step === 2, s3: s.step === 3, s4: s.step === 4, s5: s.step === 5, sCom: com, sLast: s.step === 7,
+      topTitle: s.step === 5 ? 'Arizona Pet Waste' : com ? 'Get a free quote' : (free && !quote && !whoFace ? 'Start your free month' : 'Book now'),
       canBack: inFlow,
       noBack: !inFlow,
-      back: () => this.setState({ step: Math.max(0, s.step === 4 ? 2 : s.step - 1), busy: false, err: '', codeErr: '' }),
+      // Back goes one screen up: the city to "Who is this for?", about you to the plans (or to "last cleaned" for a
+      // request), the code and the card to about you, the community form to "Who is this for?".
+      back: () => {
+        const to = { step: s.step, who: s.who, busy: false, err: '', codeErr: '' };
+        if (s.step === 0 || s.step === 6) { to.step = 0; to.who = ''; }
+        else if (s.step === 1) to.step = 0;
+        else if (s.step === 7) to.step = 1;
+        else if (s.step === 2) to.step = quote ? 7 : 1;
+        else to.step = 2;
+        this.setState(to);
+      },
+      pickHome: () => this.setState({ who: 'home', err: '' }),
+      pickCommunity: () => this.setState({ who: 'community', step: 6, err: '' }),
       closeLabel: dock ? 'Close' : 'Close and go to the home page',
       close: (e) => { const a = this._apw(); if (dock && a && a.closeBook) { e.preventDefault(); a.closeBook(); } },
-      showProgress: s.step < 5,
+      // "Who is this for?" comes before the steps, and the community form is one screen: neither shows "Step 1 of 4".
+      showProgress: (s.step < 5 || s.step === 7) && !whoFace,
       // Four steps: where, plan, about you, card. The email code (step 3) only shows for an email we already know,
       // and it counts as part of the card step.
-      // A one time cleanup has three steps: where, dogs and cleanup, about you. No card step: we send the price first.
-      segs: (once ? [0, 1, 2] : [0, 1, 2, 3]).map((i) => ({ bg: i <= Math.min(s.step, 3) ? 'var(--accent)' : 'var(--line)' })),
-      stepLabel: 'Step ' + (Math.min(s.step, once ? 2 : 3) + 1) + ' of ' + (once ? 3 : 4),
-      // Step 1 has no Continue button: tapping a city moves on. (A button that does nothing until a city is picked
-      // looked broken.) The waitlist has its own button.
-      showBar: (s.step > 0 && s.step < 4) || (s.step === 4 && demo),
-      showSum: s.step >= 1 && s.step <= 2,
-      priceShort: once ? 'From $' + price : '$' + price + ' a month',
+      // Just once and Monthly have four steps too: where, dogs and how often, when the yard was last cleaned, about you.
+      // No card step: we send the price first.
+      segs: [0, 1, 2, 3].map((i) => ({ bg: i <= at ? 'var(--accent)' : 'var(--line)' })),
+      stepLabel: 'Step ' + (at + 1) + ' of 4',
+      // The first step and the "last cleaned" step have no Continue button: tapping an answer moves on. (A button that
+      // does nothing until something is picked looked broken.) The waitlist has its own button.
+      showBar: s.step === 1 || s.step === 2 || s.step === 3 || s.step === 6 || (s.step === 4 && demo),
+      showSum: s.step === 1 || s.step === 2,
+      priceShort: monthly ? 'Custom quote' : once ? 'From $' + price : '$' + price + ' a month',
       planShort: names[s.plan] + ', ' + dogsLabel,
       sumPlan: names[s.plan] + ', ' + dogsLabel,
       sumPrice: '$' + price + ' a month',
-      nextOff: (s.step === 0 && !zipOk) || s.busy,
-      nextLabel: s.busy ? 'One moment…' : labels[s.step],
+      nextOff: s.busy,
+      nextLabel: s.busy ? 'One moment…' : (labels[s.step] || ''),
       next: () => this._next(),
       enter: (e) => { if (e.key === 'Enter') { e.preventDefault(); this._next(); } },
       zip: s.zip,
@@ -702,7 +898,11 @@ class Component extends DCLogic {
       wName: s.wName, onWName: field('wName'), wPhone: s.wPhone, onWPhone: field('wPhone'), wAddr: s.wAddr, onWAddr: field('wAddr'),
       wTexts: !!s.wTexts, onWTexts: (e) => this.setState({ wTexts: !!e.target.checked }),
       doneTitle: s.req ? 'We got it!' : 'You are booked!',
-      doneLead: s.req && s.reqOnce ? 'We will text or call you soon with your price and a time. A one time cleanup starts at $' + this._price('once') + ', depending on job size.' : s.req ? 'We will call you soon to finish your sign up and set your day and time.' + (free ? ' Your first month is free.' : '') : 'Next, we reach out to let you know your day and time.',
+      doneLead: !s.req ? 'Next, we reach out to let you know your day and time.'
+        : s.reqKind === 'community' ? 'We will call or email you soon to set up your free site walk. Then you get a written quote.'
+        : s.reqKind === 'once' ? 'We will text or call you soon with your price and a time. A one time cleanup starts at $' + this._price('once') + ', depending on job size.'
+        : s.reqKind === 'month' ? 'We will text or call you soon with your price and your day.'
+        : 'We will call you soon to finish your sign up and set your day and time.' + (free ? ' Your first month is free.' : ''),
       showYard: !s.req, req: !!s.req,
       // A new customer is not signed in here. Their My Yard link is in the welcome email. A customer who typed a code is.
       yardBtn: !s.req && (!!s.signedIn || demo),
@@ -714,9 +914,23 @@ class Component extends DCLogic {
         on: yes(s.dogs === n),
         pick: () => this.setState({ dogs: n })
       })),
-      plans: this._plans(false).map((p) => Object.assign(p, { on: yes(p.on) })),
-      onceOn: yes(once), pickOnce: () => this.setState({ plan: 'once' }),
-      isOnce: once, notOnce: !once, onceFrom: '$' + this._price('once'),
+      // How often: five rows. A plan shows its week price big, with what we bill a month. Just once shows where it
+      // starts. Monthly has no set price yet, so it says we send one. Weekly is the one we point people to.
+      plans: ['twice', 'week', 'eow', 'month', 'once'].map((id) => {
+        const row = { name: names[id], on: yes(s.plan === id), pick: () => this.setState({ plan: id }), tag: id === 'week' ? 'block' : 'none' };
+        if (id === 'month') return Object.assign(row, { month: 'We send your price.', week: '', unit: 'Custom quote' });
+        if (id === 'once') return Object.assign(row, { month: 'No plan. Price depends on job size.', week: '$' + this._price('once'), unit: 'starts at' });
+        return Object.assign(row, { month: '$' + this._price(id, s.dogs) + ' a month', week: '$' + this._week(id, s.dogs), unit: 'a week' });
+      }),
+      isOnce: once, isMonth: monthly, isPlan: !quote, onceFrom: '$' + this._price('once'),
+      hasTown: !!cityNow, townLine: cityNow ? 'Good news. We scoop in ' + cityNow.label + '.' : '',
+      lastOpts: lasts.map((l) => ({ label: l[1], sub: l[2], on: yes(s.last === l[0]), pick: () => this.setState({ last: l[0], step: 2, err: '', busy: false }) })),
+      lastNote: once ? 'A one time cleanup starts at $' + this._price('once') + ', depending on job size. We text or call you with your price before we come.' : 'We text or call you with your price before the first visit.',
+      aboutLead: quote ? 'We use this to send your price and set your day and time.' : 'We use this to reach you and set your day and time.',
+      kindOpts: kinds.map((k) => ({ label: k[1], on: yes(s.cKind === k[0]), pick: () => this.setState({ cKind: k[0] }) })),
+      cOrg: s.cOrg, onCOrg: field('cOrg'), cCity: s.cCity, onCCity: field('cCity'), cName: s.cName, onCName: field('cName'),
+      cPhone: s.cPhone, onCPhone: field('cPhone'), cEmail: s.cEmail, onCEmail: field('cEmail'), cNote: s.cNote, onCNote: field('cNote'),
+      eKind: cErrs.kind, eOrg: cErrs.org, eCCity: cErrs.city, eCName: cErrs.name, eCPhone: cErrs.phone, eCEmail: cErrs.email,
       name: s.name, onName: field('name'),
       phone: s.phone, onPhone: field('phone'),
       email: s.email, onEmail: field('email'),

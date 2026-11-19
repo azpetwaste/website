@@ -74,6 +74,7 @@ PRICE_METHODS = r"""  _price(id, dogs) {
     // src/prices.json, written into the page when it is built: dollars a month for 1 to 6 dogs.
     const t = __PRICE_TABLE__;
     if (id === 'once') return __ONCE__;  // the one time cleanup: the lowest price, a big job gets a custom quote
+    if (!t[id]) return 0;  // Monthly has no set price yet (Joe, Nov 19, 2026): the office sends one
     return t[id][Math.min(6, Math.max(1, dogs)) - 1];
   }
   _per(id, dogs) {
@@ -118,13 +119,10 @@ PRICE_METHODS = r"""  _price(id, dogs) {
     });
   }""".replace('__PRICE_TABLE__', _json.dumps({k: PRICES['month'][k] for k in PLAN_IDS}, separators=(', ', ': '))).replace('__ONCE__', str(PRICES['once']))
 
-# The one time cleanup in sign up (Joe, Nov 18, 2026, evening): "someone that wants a 1 time clean up which starts at $99
-# and depending on job it'll be a custom quote". It sits under the three plans on the plan step. Picking it skips the
-# card step: the request goes to the office (/api/request, plan "once") and we send the price before we come.
-BK_ONCE = ('<button type="button" class="bk-plan" role="radio" aria-checked="{{ onceOn }}" onClick="{{ pickOnce }}">'
-           '<span class="rd"><i></i></span>'
-           '<span class="nm"><b>One time cleanup</b><span>No plan. Starts at %s, depending on job size.</span></span>'
-           '<span class="wk">%s<small>starts at</small></span></button>' % (usd(PRICES['once']), usd(PRICES['once'])))
+# Sign up asks "Who is this for?" first (Joe, Nov 19, 2026, after going through the DoodyCalls sign up: "I like residential
+# community. I actually like that option"). Two cards, each with a picture: a house, and a row of buildings.
+ICON_WHO_HOME = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 11.5L12 3.5l9.5 8"></path><path d="M5 9.5v11h14v-11"></path><path d="M10 20.5v-6h4v6"></path></svg>'
+ICON_WHO_COMMUNITY = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 20.5h21"></path><path d="M3.5 20.5V6l7.5-2.5v17"></path><path d="M11 20.5v-8l4.75-3.5 4.75 3.5v8"></path><path d="M6.25 9h2M6.25 12.5h2M6.25 16h2M14.5 20.5v-4.25h2.5v4.25"></path></svg>'
 
 ICON_SUN = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"></circle><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"></path></svg>'
 ICON_MOON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"></path></svg>'

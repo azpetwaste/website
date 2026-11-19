@@ -106,6 +106,7 @@ async function route(path, request, env, ctx) {
   if (path === '/api/stripe-webhook' && m === 'POST') return webhook(request, env, ctx);
   if (path === '/api/waitlist' && m === 'POST') return waitlist(request, env, ctx);
   if (path === '/api/request' && m === 'POST') return signupRequest(request, env, ctx);
+  if (path === '/api/community' && m === 'POST') return communityRequest(request, env, ctx);
   if (path === '/api/address' && m === 'GET') return addressFind(request, env);
   if (path === '/api/address/pick' && m === 'GET') return addressPick(request, env);
   if (path === '/api/me/link' && m === 'POST') return meLink(request, env);
@@ -158,6 +159,9 @@ function keyMode(env) {
 const clean = (v, n) => String(v == null ? '' : v).replace(/[\u0000-\u001f]+/g, ' ').trim().slice(0, n);
 const digits = (v) => { let d = String(v || '').replace(/\D/g, ''); if (d.length === 11 && d[0] === '1') d = d.slice(1); return d; };
 const emailOk = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e || '');
+// What a choice from a form stands for, or '' when it is not one of ours. A plain map[key] says yes to names every
+// object has (like "constructor"), so anything a form sends is looked up with this.
+const own = (map, k) => (typeof k === 'string' && Object.prototype.hasOwnProperty.call(map, k) ? map[k] : '');
 const base = (env) => String(env.SUPABASE_URL || '').replace(/\/$/, '');
 // The most one request may send: a gate photo is up to 3 MB (about 4 MB once it is packed as text), a Stripe event
 // is well under 1 MB, and every form is tiny. Checked twice: by the size the sender states, and again while reading,
@@ -631,7 +635,7 @@ async function checkout(request, env, ctx) {
   const zip = String(b.zip || '');
   const z = ZIPS[zip];
   if (!z) return fail(400, 'We do not scoop in that ZIP code yet.');
-  if (!PLANS[b.plan]) return fail(400, 'Please pick how often we come.');
+  if (!own(PLANS, b.plan)) return fail(400, 'Please pick how often we come.');
   const dogs = Math.round(Number(b.dogs));
   if (!(dogs >= 1 && dogs <= 6)) return fail(400, 'Please pick 1 to 6 dogs.');
   const name = clean(b.name, 120), phone = digits(b.phone), address = clean(b.address, 200);
@@ -1632,8 +1636,8 @@ async function signupRequest(request, env, ctx) {
   const zip = String(b.zip || '');
   const z = ZIPS[zip];
   if (!z) return fail(400, 'We do not scoop in that ZIP code yet.');
-  if (b.plan === 'once') return onceRequest(request, env, ctx, b, zip, z);
-  if (!PLANS[b.plan]) return fail(400, 'Please pick how often we come.');
+  if (own(QUOTE_PLANS, b.plan)) return quoteRequest(request, env, ctx, b, zip, z);
+  if (!own(PLANS, b.plan)) return fail(400, 'Please pick how often we come.');
   const dogs = Math.round(Number(b.dogs));
   if (!(dogs >= 1 && dogs <= 6)) return fail(400, 'Please pick 1 to 6 dogs.');
   const name = clean(b.name, 120), phone = digits(b.phone), address = clean(b.address, 200), email = clean(b.email, 200).toLowerCase();
@@ -1658,29 +1662,76 @@ async function signupRequest(request, env, ctx) {
   return ok({ ok: true });
 }
 
-// A one time cleanup booked on the website (Joe, Nov 18, 2026, evening): "a 1 time clean up which starts at $99 and
-// depending on job it'll be a custom quote". No card is taken. The office gets the request, gives the price and sets the
-// time. It is saved as a sign up request (the leads table allows four kinds) with details that start "One time cleanup".
-async function onceRequest(request, env, ctx, b, zip, z) {
+// Just once and Monthly, asked for on the website. No card is taken for either: the office gets the request, gives the
+// price and sets the time. Each is saved as a sign up request (the leads table allows four kinds), and the details start
+// with which one it is.
+// Just once (Joe, Nov 18, 2026, evening): "a 1 time clean up which starts at $99 and depending on job it'll be a custom quote".
+// Monthly (Joe, Nov 19, 2026: "Twice weekly, Weekly, Every other week, Monthly, Just once. I like those options, and we can
+// have those"): one visit a month. It has no set price in src/prices.json yet, so the form says we send one. When Joe sets
+// it, a card step needs a Stripe price here and a once a month route in the field desk.
+// The form also asks both when the yard was last cleaned, since the price depends on the size of the job.
+const QUOTE_PLANS = { once: 'One time cleanup', month: 'Monthly cleanup' };
+const LAST_CLEANED = { lt2: 'less than 2 weeks ago', '2to6': '2 to 6 weeks ago', gt6: 'more than 6 weeks ago' };
+async function quoteRequest(request, env, ctx, b, zip, z) {
+  const once = b.plan === 'once';
   const dogs = Math.round(Number(b.dogs));
   if (!(dogs >= 1 && dogs <= 6)) return fail(400, 'Please pick 1 to 6 dogs.');
   const name = clean(b.name, 120), phone = digits(b.phone), address = clean(b.address, 200), email = clean(b.email, 200).toLowerCase();
   if (name.length < 2 || phone.length !== 10 || address.length < 5 || !emailOk(email)) return fail(400, 'Please fill in your name, mobile number, email and street address.');
   if (await tooMany(env, 'signup_request')) return fail(429, 'We are getting a lot of requests right now. Call or text 623.309.6104 and we will set it up today.');
-  const what = 'One time cleanup, ' + dogs + (dogs === 1 ? ' dog' : ' dogs') + '. Starts at ' + money(PRICES.once * 100) + ', depending on job size. Give them the price before the visit.';
-  const sent = await mail(env, owner(env), 'One time cleanup request: ' + name + ', ' + z.name, [
-    'Someone booked a one time cleanup on the website. No card was taken. Text or call them with the price and a time.', '',
+  const count = dogs + (dogs === 1 ? ' dog' : ' dogs');
+  const what = once
+    ? 'One time cleanup, ' + count + '. Starts at ' + money(PRICES.once * 100) + ', depending on job size. Give them the price before the visit.'
+    : 'Monthly cleanup, ' + count + '. One visit a month. Monthly has no set price yet. Give them the price before the first visit.';
+  const last = own(LAST_CLEANED, b.last) ? 'Yard last cleaned: ' + own(LAST_CLEANED, b.last) + '.' : '';
+  const sent = await mail(env, owner(env), own(QUOTE_PLANS, b.plan) + ' request: ' + name + ', ' + z.name, [
+    once ? 'Someone booked a one time cleanup on the website. No card was taken. Text or call them with the price and a time.'
+      : 'Someone asked for a monthly cleanup on the website. No card was taken. Text or call them with the price and a day.', '',
     'Name: ' + name, 'Mobile: ' + phone, 'Email: ' + email, 'Address: ' + address + ', ' + z.city + ' ' + zip,
-    what,
+    what
+  ].concat(last ? [last] : [], [
     'Visit texts: ' + (b.textsVisit ? 'yes' : 'no'),
     'Text consent shown: ' + CONSENT.visit + ' ' + CONSENT.fine,
     'Page: ' + clean(b.page, 120)
-  ].join('\n'));
+  ]).join('\n'));
   const kept = sbLive(env) ? await addLead(env, { kind: 'signup_request', name, email, phone, address, zip,
-    details: what + ' Visit texts: ' + (b.textsVisit ? 'yes' : 'no') }) : false;
+    details: what + (last ? ' ' + last : '') + ' Visit texts: ' + (b.textsVisit ? 'yes' : 'no') }) : false;
   if (!sent && !kept) return fail(503, 'Call or text 623.309.6104 and we will set up your cleanup today.');
   if (metaOn(env) && ctx && ctx.waitUntil) ctx.waitUntil(metaEvent(env, 'Lead', eventIdOk(b.eid), Object.assign({ email, city: z.city, zip, ip: request.headers.get('cf-connecting-ip') || '', ua: clean(request.headers.get('user-agent'), 300) }, adIds(b.ad)),
-    { lead_type: 'one_time', value: PRICES.once, currency: 'USD', content_name: 'once', num_items: dogs }));
+    once ? { lead_type: 'one_time', value: PRICES.once, currency: 'USD', content_name: 'once', num_items: dogs } : { lead_type: 'monthly', content_name: 'month', num_items: dogs }));
+  return ok({ ok: true });
+}
+
+// A community quote asked for on the website (Joe, Nov 19, 2026, after going through the DoodyCalls sign up: "I like
+// residential community. I actually like that option"). Book now asks "Who is this for?" first. My community opens one
+// short form and it lands here. No card, and no text box: the form says we call or email, so nobody here agreed to texts.
+// It is saved as a commercial lead (the leads table and the office app already have that kind).
+const COMMUNITY_KINDS = { hoa: 'HOA', apartments: 'Apartments', park: 'Dog park', business: 'Business', event: 'Event', other: 'Other' };
+async function communityRequest(request, env, ctx) {
+  const b = await body(request);
+  if (!b) return fail(400, 'Something was missing. Please try again.');
+  if (b.website) return ok({ ok: true }); // bots fill the hidden field
+  const kind = own(COMMUNITY_KINDS, b.kind);
+  if (!kind) return fail(400, 'Tap what kind of place it is.');
+  const org = clean(b.org, 120), city = clean(b.city, 60), name = clean(b.name, 120), phone = digits(b.phone), email = clean(b.email, 200).toLowerCase(), note = clean(b.note, 500);
+  if (org.length < 2) return fail(400, 'Type the name of your community or business.');
+  if (city.length < 2) return fail(400, 'Type your city.');
+  if (name.length < 2) return fail(400, 'Type your name.');
+  if (phone.length !== 10) return fail(400, 'Type your 10 digit phone number.');
+  if (!emailOk(email)) return fail(400, 'Type your email, like you@email.com.');
+  if (await tooMany(env, 'commercial')) return fail(429, 'We are getting a lot of requests right now. Call or text 623.309.6104 and we will set up your site walk.');
+  const what = 'Community quote request. ' + kind + ': ' + org + ', ' + city + '.' + (note ? ' They wrote: ' + note : '');
+  const sent = await mail(env, owner(env), 'Community quote request: ' + org + ', ' + city, [
+    'Someone asked for a community quote on the website. Call or email them to set up the free site walk.', '',
+    'Kind of place: ' + kind, 'Community or business: ' + org, 'City: ' + city,
+    'Name: ' + name, 'Phone: ' + phone, 'Email: ' + email,
+    'What they need: ' + (note || 'not said'),
+    'Texts: not asked. The form has no text box, so call or email them.',
+    'Page: ' + clean(b.page, 120)
+  ].join('\n'));
+  const kept = sbLive(env) ? await addLead(env, { kind: 'commercial', name, email, phone, address: org + ', ' + city, zip: null, details: what }) : false;
+  if (!sent && !kept) return fail(503, 'Call or text 623.309.6104 and we will set up your site walk.');
+  if (metaOn(env) && ctx && ctx.waitUntil) ctx.waitUntil(metaEvent(env, 'Lead', eventIdOk(b.eid), Object.assign({ email, ip: request.headers.get('cf-connecting-ip') || '', ua: clean(request.headers.get('user-agent'), 300) }, adIds(b.ad)), { lead_type: 'community' }));
   return ok({ ok: true });
 }
 

@@ -52,6 +52,9 @@ with sync_playwright() as p:
     ctx = phone(browser, 1350)
     page = ctx.new_page()
     page.goto(BASE + '/book/', wait_until='networkidle')
+    # Since November 19, 2026 sign up asks "Who is this for?" first. My home leads to the four steps.
+    page.get_by_role('button', name='My home').click()
+    page.wait_for_timeout(300)
     page.get_by_role('radio', name='Goodyear').click()
     page.wait_for_timeout(300)
     page.get_by_role('button', name='Continue').click()
@@ -66,6 +69,8 @@ with sync_playwright() as p:
     ctx = phone(browser, 1220)
     page = ctx.new_page()
     page.goto(BASE + '/book/', wait_until='networkidle')
+    page.get_by_role('button', name='My home').click()
+    page.wait_for_timeout(300)
     page.get_by_role('button', name='My city is not here').click()
     page.wait_for_timeout(500)
     assert page.evaluate("document.querySelector('#w-tx').checked") is False, 'the waitlist text box starts checked'

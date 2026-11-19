@@ -339,10 +339,12 @@
     if (u.origin === location.origin && /\/book\/(index\.html)?$/.test(u.pathname)) {
       e.preventDefault();
       // The Book now button on the price card carries its dog count (/book/?dogs=3), so sign up opens with that many
-      // dogs. A link may carry a plan the same way (/book/?plan=twice).
-      var o = intent(), pl = u.searchParams.get('plan'), dg = parseInt(u.searchParams.get('dogs'), 10);
-      if (/^(week|twice|eow|once)$/.test(pl || '')) o.plan = pl;
+      // dogs. A link may carry a plan the same way (/book/?plan=twice). Sign up asks "Who is this for?" first:
+      // /book/?for=community opens the community form, and /book/?for=home (or any plan or dog count) skips the question.
+      var o = intent(), pl = u.searchParams.get('plan'), dg = parseInt(u.searchParams.get('dogs'), 10), who = u.searchParams.get('for');
+      if (/^(week|twice|eow|month|once)$/.test(pl || '')) o.plan = pl;
       if (dg >= 1 && dg <= 6) o.dogs = dg;
+      if (who === 'community' || who === 'home') o.who = who;
       APW.openBook(o);
     }
   });

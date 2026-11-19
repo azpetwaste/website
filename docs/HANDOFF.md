@@ -1025,3 +1025,44 @@ Joe, 9:20 am, with a screenshot of a Facebook comment where the link picture was
 
 ### Search Console emails of Nov 19, 1:05 am ("Page with redirect")
 Two emails, one for pages in the sitemap and one for all pages. Checked that morning on the live site: all 45 addresses in `sitemap.xml` answer 200 with no redirect, and no link on any built page points at an address that redirects. The likely cause is the two pages that were merged on November 16 (`/same-day-dog-poop-pickup/` and `/turf-odor-treatment/`): both were in the sitemap until then and both now send people on in one step (to `/one-time-dog-poop-cleanup/` and `/pricing/`). That is what "Page with redirect" means, and it needs no fix. Not confirmed in Search Console itself: Google asked the built in browser to sign in again, and a password is Joe's to type.
+
+## Nov 19, 2026, midday (website chat): Book now rebuilt after the DoodyCalls sign up, Joe's ask
+
+Joe, 9:20 am: "research Duty Calls. They actually have something pretty set up... I like residential community. I actually like that option... How often do you need your yard cleaned? Twice weekly, Weekly, Every other week, Monthly, Just once. I like those options, and we can have those. Really dissect the get a quote and the checkout... it needs to be easy as well for the consumer."
+Their sign up was walked end to end with a made up email (ZIP 85338, stopped at the checkout page, nothing paid or agreed to). The write up, with their Phoenix prices that day, is the Project doc `claude/book-now-and-doodycalls-nov-19.md`. The rules are in `CLAUDE.md` (Book now).
+
+### What changed in the form (`design/generator/book.prod.tpl.html`)
+- **First screen: "Who is this for?"** Two cards with a picture each: My home, My community. Not counted in the 4 steps. Links that say what they are for skip it (`?dogs=`, `?plan=`, `?zip=`, `?for=home`), and `?for=community` opens the community form. In the pop up, `open(o)` takes `o.who`.
+- **"Good news. We scoop in Goodyear."** on the dogs screen, once a city is picked.
+- **How often: five rows.** Twice weekly, Weekly (tag: Recommended, picked to start), Every other week, Monthly, Just once. The words changed from Every week, Twice a week, Every other week and One time cleanup. Plan ids did not change, and `month` is new.
+- **Just once and Monthly** go: city, dogs and how often, "When was your yard last cleaned?", about you, "Send my request". No card. The old one time path had 3 steps. It has 4 now.
+- **My community** is one form: kind of place, name of the place, city, name, phone, email, what they need. Button: "Get my free quote". No text box on it.
+- **A missed box** now scrolls into view when Continue is tapped.
+- State: `who`, `last`, `reqKind` and the `c...` fields are new. Step numbers 0 to 5 mean what they did. 6 is the community form and 7 is "last cleaned".
+
+### What changed in the server (`src/worker/worker.js`)
+- `/api/request` takes `plan: "month"` and `last` (`lt2`, `2to6`, `gt6`). `onceRequest` is now `quoteRequest` for both Just once and Monthly. Subjects: "One time cleanup request: name, town" and "Monthly cleanup request: name, town". The lead is kind `signup_request`, and its details start "One time cleanup, 2 dogs." or "Monthly cleanup, 2 dogs." and carry "Yard last cleaned: 2 to 6 weeks ago." when the form sent it.
+- New route `/api/community` (`communityRequest`). Subject: "Community quote request: place, city". The lead is kind `commercial`, with the place and city in `address`, no ZIP, and details that start "Community quote request. HOA: place, city." It never touches texts: no consent row, no queued text.
+- `own(map, key)`: anything a form sends is looked up with it. A plain `PLANS[b.plan]` said yes to "constructor". Sign up requests and checkout now turn that down with a 400.
+- 8 new tests in `build/worker.test.mjs` (540 pass).
+
+### For the Field App chat
+- **Leads the office will see that it did not see before:** kind `commercial` rows made by the website (they used to be typed in by the office only), and `signup_request` rows whose details start "Monthly cleanup". Nothing about the table changed.
+- **Monthly is not a plan yet.** There is no price, no Stripe price and no once a month route. If Joe sets a price and wants a card step, the week plan needs a once a month cadence first. The website chat does not touch route code.
+
+### Also in this push
+- `/texts/`: the step by step says to tap My home first, the two proof pictures were retaken (`?v=4`), captions say November 19.
+- `GO_LIVE.md` part 10: a note that the Twilio opt in words still hold (step 3 of 4 did not change).
+- Every commercial page: under Call, Text us and Email, the line reads "Free site walk. Ask for a quote online" and opens the community form (`build/biz.mjs`).
+- `/contact/` and `/one-time-dog-poop-cleanup/`: links and words match the new form.
+- Ad tracking: a community request sends the same `request` step (`generate_lead`, Meta `Lead`) with `plan: "community"`, and the server sends Meta a `Lead` with `lead_type: "community"`. Monthly sends `lead_type: "monthly"`.
+
+### Checked
+- The whole form by a script in Chrome at 320 by 568, 360 by 740, 375 by 667, 390 by 844, 466 by 678, 768 by 1024, 890 by 626 and 1280 by 900: every screen of the home path, the Monthly path, the community path, Back from every screen, and no sideways scroll or script error at any size.
+- Every way in: `/book/`, `?plan=once`, `?plan=month`, `?dogs=3`, `?zip=`, `?for=home`, `?for=community`, a made up plan name, the Book now button in the top bar (pop up), the price card button, "Book one cleanup", the contact page link, the commercial page link, and a reload half way through.
+- `npm run check` with the sale on and off, `node build/prices.mjs --check`, `node build/worker.test.mjs` (540), `node build/week.test.mjs` (76), `python3 build/nav.test.py` (68), `python3 build/sweep.py` on the nine pages whose words changed.
+- Not checked: Safari and a real phone. A real request on the live site (it would email the office).
+
+### For Joe
+- **Monthly needs a price.** Until then it is "Custom quote" and the office sends one.
+- DoodyCalls asks for the email before it shows a price, asks "How did you hear about us?" and lets people pick a start date. We do none of the three. Say if you want any of them.
