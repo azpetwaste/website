@@ -1131,5 +1131,9 @@ Checked: `npm run check` with the sale on. `node build/worker.test.mjs` 542 pass
 
 The crew app, the tables and the route code were not touched. Nothing here changes what the office app shows.
 
+**One live test, sent on purpose** (Joe: "Make sure that goes directly to info@arizonapetwaste.com"). At 12:23 pm one request was posted to `/api/community` on the live site: place "TEST by Claude, please ignore", Goodyear, name "Test Request", phone 623 555 0100, email test@example.com. It was sent with no event id, so nothing went to Meta and no ad counted a lead. The server answered 200. The email was in the info@arizonapetwaste.com inbox at 12:23 pm with the subject "Community quote request: TEST by Claude, please ignore, Goodyear" (looked up in Joe's Chrome by that subject only, and left unread). The office app has one commercial lead named Test Request from this. Close it.
+
+After the push, on the live site: the form shows 1, 2, 3, 4+, and 4+ opens 4 dogs, 5 dogs, 6 dogs with $134 a month for weekly. "Free quote." is on the community card. The commercial page has the Get a free quote button. Areas we serve reads "No sign up fee. No long term contract."
+
 ### For Joe
 - 4+ asks for the exact number because 4, 5 and 6 dogs have three prices. If he wants 4+ to be one price, or a quote from the office, he says which and it is a small change.
