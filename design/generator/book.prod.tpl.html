@@ -179,7 +179,7 @@
     [[bf:<p class="bf-chip" data-deal-end="2026-12-01T06:59:59Z"><span>Black Friday sale</span>First month free. Ends Mon, Nov 30.</p>||]]
     <p class="bk-lead">Tap one.</p>
     <div class="bk-who" role="group" aria-label="Who is this for">
-      <button type="button" class="bk-wc" onClick="{{ pickHome }}"><span class="wi">@@ICON_WHO_HOME@@</span><span class="wt"><b>My home</b><span>Residential. I need my own yard cleaned.</span></span><i aria-hidden="true">›</i></button>
+      <button type="button" class="bk-wc" onClick="{{ pickHome }}"><span class="wi">@@ICON_WHO_HOME@@</span><span class="wt"><b>My home</b><span>Residential. I need my own yard cleaned.</span>[[bf:<em>First month free.</em>||]]</span><i aria-hidden="true">›</i></button>
       <button type="button" class="bk-wc" onClick="{{ pickCommunity }}"><span class="wi">@@ICON_WHO_COMMUNITY@@</span><span class="wt"><b>My community</b><span>An HOA, apartments, a dog park or a business.</span><em>Free quote.</em></span><i aria-hidden="true">›</i></button>
     </div>
     <p class="bk-help">Not sure? We can sign you up by phone. <a href="tel:+16233096104">Call 623.309.6104</a></p>
@@ -886,8 +886,11 @@ class Component extends DCLogic {
       // does nothing until something is picked looked broken.) The waitlist has its own button.
       showBar: s.step === 1 || s.step === 2 || s.step === 3 || s.step === 6 || (s.step === 4 && demo),
       showSum: s.step === 1 || s.step === 2,
-      priceShort: monthly ? 'Custom quote' : once ? 'From $' + price : '$' + price + ' a month',
-      planShort: names[s.plan] + ', ' + dogsLabel,
+      // The bar under the plan step and the about you step. With a free month it leads with the free month (Joe, Nov 19,
+      // 2026: "emphasize free, first month free"), in the order the pay step says it: free first, then the month price.
+      // With no free month, or for a request with no card, it reads as before: the price, then the plan and the dogs.
+      priceShort: monthly ? 'Custom quote' : once ? 'From $' + price : free ? 'First month free' : '$' + price + ' a month',
+      planShort: free && !quote ? 'Then $' + price + ' a month' : names[s.plan] + ', ' + dogsLabel,
       sumPlan: names[s.plan] + ', ' + dogsLabel,
       sumPrice: '$' + price + ' a month',
       nextOff: s.busy,

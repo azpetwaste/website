@@ -258,7 +258,7 @@ Joe: "our brain on this app needs to always be optimizing routes." A move must a
 
 ### Nov 10, 2026, 11 am. Book, Call, Text bar, simpler town pages, CTA pass (website and AEO chat), on Joe's word
 - **One bottom bar on every public page** (`DOCK` and `DOCK_CSS` in `build/build.mjs`). Phones and tablets, there from the first paint: Book now (with the sale line under it, on the sale tag), Call, Text, and the number. Hidden while the sign up sheet is open, on `/book/` and `/account/`, and on computers (the header has Book now). The old scroll in bar is gone (`SBAR` in `parts.py` is empty).
-- **Hero button** on home and town pages reads "Get the Black Friday deal" during the sale and "Book now" after. The round sale sticker on the button is gone.
+- **Hero button** on home and town pages reads "Get the Black Friday deal" during the sale and "Book now" after. The round sale sticker on the button is gone. (Since November 19, 2026 it reads "Start your free month" during the sale. See that day.)
 - **Town pages are short now** (Buckeye went from about 18,000 to 7,000 pixels on a phone). Order: hero, "We cover all of TOWN" with the map, prices, questions, then "More about TOWN" where the why, what a visit includes, neighborhoods and local guide sections sit folded shut (`details.fold`). The words are all still in the page for Google and AI. The neighborhood list under the map is folded too.
 - **No dashed lines.** ZIP outlines on the map are thin solid lines, the key reads "We scoop every home in the orange area. Every street.", the town chips and the "we set your day by route" chip are off the town pages. Joe did not like the dashed line key.
 - **Google review slot.** `reviews` and `googleProfile` in `src/site.config.json`. When a real review is typed in (name, town, stars, text, link to it on Google) a star row shows under the hero button on home and town pages. It is empty today, so nothing shows. Joe asked for a 5 star review up front before one exists. Not done: the rule above stands, never write a review, and a made up Google review breaks Google's and the FTC's rules. Joe plans to sign up and leave a real one. He builds the site, so if he has a stake in the company his own review needs to say so or come off.
@@ -1137,3 +1137,32 @@ After the push, on the live site: the form shows 1, 2, 3, 4+, and 4+ opens 4 dog
 
 ### For Joe
 - 4+ asks for the exact number because 4, 5 and 6 dogs have three prices. If he wants 4+ to be one price, or a quote from the office, he says which and it is a small change.
+
+## Nov 19, 2026, 1 pm (website chat): the audit, and the free month said louder, Joe's ask
+Joe, 12:30 pm: "do an audit... make sure people find it easy to book. People haven't booked. We've gotten like 9 leads, so I'm not trying to break the whole thing... emphasize free, first month free." The whole audit, with the numbers, is the Project doc `claude/site-audit-nov-19.md`. Read it before changing the home page or the form again.
+
+### What the numbers say (looked at about 12:45 pm, no names read out)
+- **Leads.** 9 rows came from the Facebook and Instagram lead form. 1 is Meta's own test lead, 8 are people. They came in between Nov 17, 6:59 pm and Nov 19, 9:21 am. In the office app all 8 read New, and none has a "Reached in" time (`contacted_at` is empty). If someone called them from their own phone, the app does not know. 2 of the 8 gave a ZIP code outside our six.
+- **Sign ups on the website.** 0 from the public. The `customers` table has 6 rows and all 6 are staff tests. No real visitor has opened the card step.
+- **Visitors (Google Analytics, about Nov 12 to 18).** 135 people, 172 visits. 83 saw the home page, 44 saw `/book/`. About 1 visit in 3 lands straight on `/book/` from a Facebook ad and stays about 16 seconds. 9 people got past the first question, staff included.
+- **Google search.** 2 clicks from search in two weeks. Search is not bringing people yet. Facebook is.
+- **Errors.** None since Nov 17. Address suggestions are still off (Places API, Atlas, item 9 in `CLAUDE.md`).
+- **Speed.** Home page 98 of 100, `/book/` 99 of 100, accessibility 100 and 98.
+
+### What changed on the site (three small things, sale words only)
+1. **The main button** on the home page and the town pages reads "Start your free month" (it was "Get the Black Friday deal"). Same outline look. The form it opens has the same words at the top. `main.tpl.html`, `city.tpl.html`.
+2. **The My home card** on "Who is this for?" reads "First month free." in orange, next to "Free quote." on the community card. `book.prod.tpl.html`.
+3. **The bar at the bottom of the plan step and the about you step** reads "First month free" and "Then $99 a month" (it was "$99 a month" and "Weekly, 2 dogs"). With no free month it reads as before. `priceShort` and `planShort` in `book.prod.tpl.html`.
+- The step 3 proof picture on `/texts/` shows that bar, so it was retaken (`build/optin-shots.py`, `sms-optin-form.png?v=5`). The opt in words and the box did not change. The other two pictures came out the same and were left alone.
+- No price, plan, step or server code changed. Checks: `npm run check`, prices, `worker.test.mjs` 542, `nav.test.py` 68, `sweep.py` on the five pages that changed.
+
+### Not changed, and why
+- The outline look of the main button (Joe's rule of Nov 15). A solid orange button would be easier to see on the video. It is his call.
+- The top bar "Book now" and the price card "Book now" keep their words (`CLAUDE.md` names them).
+- "Who is this for?" stays as the first screen. It is one more tap for a home. A Facebook ad can skip it by linking to `/book/?for=home`.
+
+### For Joe, in order
+1. Call or text the 8 Facebook leads today and mark each one in the office app. The oldest has waited two days.
+2. Facebook ads: limit the audience to the six ZIP codes (2 of 8 leads were outside them), and send ad clicks to the home page or to `/book/?for=home`.
+3. Atlas: Places API (address suggestions), and mark `sign_up`, `generate_lead` and `begin_checkout` as key events in Google Analytics so it counts them.
+4. His call: a solid orange main button on the home page.
