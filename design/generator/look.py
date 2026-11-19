@@ -256,8 +256,21 @@ HDR_CSS = _min(r"""
 .apw .hsp{flex:1}
 .apw .dnav,.apw .hcall{display:none}
 .apw .hbook{min-height:44px;padding:0 14px;border-radius:10px;font-size:17px}
-@media (max-width:409px){.apw .hin{gap:6px;padding:0 10px 0 12px}.apw .lgo{height:46px}.apw .hbook{padding:0 12px;font-size:16px}}
-@media (max-width:339px){.apw .hbook{display:none}}
+/* Customer login (Joe, Nov 19, 2026). It opens My Yard. On a phone it is the words "Log in" by the Book now button
+   (under 360 wide there is no room, so it is in the menu only). From a small tablet up it has a person and the words
+   "Customer login", and on a computer it is an outline button. It is see through, like everything on the header video.
+   The widths below were measured: every step leaves 8 px or more between the logo and the buttons. */
+.apw .hlog{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;min-height:44px;padding:0 10px;border-radius:10px;color:var(--ink);font-family:var(--f-head);font-stretch:88%;font-size:17px;font-weight:750;text-decoration:none;white-space:nowrap}
+.apw .hlog svg{flex:none}
+.apw .hlog-s{display:none}
+.apw .hlog:hover{color:var(--accent-text)}
+@media (max-width:599px){.apw .hlog-l{display:none}.apw .hlog-s{display:inline}}
+@media (max-width:519px){.apw .hlog{padding:0 6px;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:5px;text-decoration-color:var(--accent)}.apw .hlog svg{display:none}}
+@media (max-width:459px){.apw .lgo{height:46px}}
+@media (max-width:429px){.apw .hin{gap:6px;padding:0 10px 0 12px}.apw .hbook{padding:0 12px;font-size:16px}.apw .hlog{padding:0 3px;font-size:16px}}
+@media (max-width:399px){.apw .lgo{height:38px}}
+@media (max-width:374px){.apw .hin{gap:5px;padding:0 8px 0 10px}.apw .hbook{padding:0 10px}}
+@media (max-width:359px){.apw .hlog{display:none}.apw .lgo{height:40px}}
 @media (max-width:1023px){.has-dk .apw .hbook{display:none}}
 @media (min-width:1024px){
 .apw .hin{height:88px;padding:0 40px;gap:10px}
@@ -266,10 +279,15 @@ HDR_CSS = _min(r"""
 .apw .dnav a{display:inline-flex;align-items:center;min-height:44px;padding:0 12px;border-radius:10px;color:var(--ink);font-family:var(--f-head);font-stretch:90%;font-size:18px;font-weight:650;text-decoration:none;white-space:nowrap}
 .apw .dnav>a:hover,.apw .dnav .ddt:hover{color:var(--accent-text)}
 .apw .hbook{min-height:50px;padding:0 24px;border-radius:12px;font-size:19px}
+.apw .hlog{min-height:50px;padding:0 16px;border:2px solid var(--line2);border-radius:12px;font-size:18px}
+.apw .hlog:hover{border-color:var(--accent);color:var(--ink)}
 .apw .mbtn{display:none}
 }
-@media (min-width:1024px) and (max-width:1239px){.apw .lgo{height:60px}.apw .dnav{margin-left:8px}.apw .dnav a{padding:0 9px;font-size:17px}}
-@media (min-width:1240px){.apw .hcall{display:inline-flex;align-items:center;min-height:44px;margin-right:14px;color:var(--ink);font-family:var(--f-head);font-stretch:90%;font-size:20px;font-weight:750;letter-spacing:.01em;text-decoration:none;white-space:nowrap}.apw .hcall:hover{color:var(--accent-text)}}
+@media (min-width:1024px) and (max-width:1239px){.apw .hin{padding:0 20px;gap:8px}.apw .lgo{height:52px}.apw .dnav{margin-left:6px;gap:0}.apw .dnav a{padding:0 7px;font-size:16px}.apw .hlog{padding:0 12px;font-size:16px}.apw .hbook{padding:0 16px;font-size:17px}}
+@media (min-width:1024px) and (max-width:1099px){.apw .hlog-l{display:none}.apw .hlog-s{display:inline}}
+@media (min-width:1240px) and (max-width:1439px){.apw .hin{padding:0 28px}.apw .lgo{height:62px}.apw .dnav{margin-left:12px}.apw .dnav a{padding:0 9px;font-size:17px}.apw .hlog{padding:0 14px;font-size:17px}.apw .hbook{padding:0 20px;font-size:18px}}
+@media (min-width:1440px){.apw .hin{max-width:1440px}}
+@media (min-width:1560px){.apw .hin{max-width:1540px}.apw .hcall{display:inline-flex;align-items:center;min-height:44px;margin-right:10px;color:var(--ink);font-family:var(--f-head);font-stretch:90%;font-size:20px;font-weight:750;letter-spacing:.01em;text-decoration:none;white-space:nowrap}.apw .hcall:hover{color:var(--accent-text)}}
 """)
 
 DD_CSS = _min(r"""
@@ -324,6 +342,7 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .mtop{display:flex;align-items:center;gap:10px;height:68px}
 .apw .mnav{display:flex;flex-direction:column;margin-top:6px}
 .apw .mbk{margin-top:24px}
+.apw .mlog{margin-top:10px;gap:8px}
 .apw .mct{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
 .apw .mnum{margin:18px 0 0;text-align:center;font-family:var(--f-head);font-stretch:88%;font-weight:750;font-size:22px;color:var(--ink)}
 

@@ -16,6 +16,10 @@ const DC = vm.runInThisContext('(function(){var module={exports:{}};' + fs.readF
 
 const cfg = JSON.parse(fs.readFileSync(path.join(SRC, 'site.config.json'), 'utf8'));
 const ORIGIN = (process.env.SITE_ORIGIN || cfg.origin).replace(/\/$/, '');
+// The picture a shared link shows (Facebook, Messages, X). Joe, Nov 19, 2026: "just the logo on social media so its clean".
+// It is the logo alone, in the middle, so a square cut of it (a Facebook comment) still shows the whole logo.
+// design/share/make_og.py makes it. A new picture needs a new file name: Facebook and browsers keep the old one by its address.
+const SHARE_IMG = '/assets/img/share-logo.png';
 const TODAY = new Date().toISOString().slice(0, 10);
 const board = (id) => JSON.parse(fs.readFileSync(path.join(SRC, 'boards', id + '.json'), 'utf8'));
 const content = JSON.parse(fs.readFileSync(path.join(SRC, 'boards/content.json'), 'utf8'));
@@ -551,16 +555,17 @@ ${p.index || p.canonical ? `<link rel="canonical" href="${url}">` : ''}
 <meta property="og:title" content="${esc(p.ogTitle || p.title)}">
 <meta property="og:description" content="${esc(p.description)}">
 <meta property="og:url" content="${url}">
-<meta property="og:image" content="${ORIGIN}/assets/img/og.jpg">
-<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image" content="${ORIGIN}${SHARE_IMG}">
+<meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Arizona Pet Waste. Dog poop pickup in Buckeye, Goodyear, Litchfield Park and Citrus Park, AZ.">
+<meta property="og:image:alt" content="The Arizona Pet Waste logo.">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(p.ogTitle || p.title)}">
 <meta name="twitter:description" content="${esc(p.description)}">
-<meta name="twitter:image" content="${ORIGIN}/assets/img/og.jpg">${VERIFY}
+<meta name="twitter:image" content="${ORIGIN}${SHARE_IMG}">
+<meta name="twitter:image:alt" content="The Arizona Pet Waste logo.">${VERIFY}
 <meta name="theme-color" content="#0A0F24">
 <meta name="format-detection" content="telephone=no">
 <link rel="icon" href="/assets/img/icon.svg" type="image/svg+xml">

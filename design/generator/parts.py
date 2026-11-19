@@ -135,6 +135,8 @@ LOGO_SEAL = ('<sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}"><im
 LOGO_H = ('<sc-if value="{{ isLight }}" hint-placeholder-val="{{ true }}"><img class="lgo" src="' + BLOB_LOGO + '" alt="" width="220" height="67"></sc-if>'
           '<sc-if value="{{ isDark }}" hint-placeholder-val="{{ false }}"><img class="lgo" src="' + BLOB_LOGO_DARK + '" alt="" width="220" height="67"></sc-if>')
 ICON_MENU = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>'
+# a person, for the Customer login button in the top bar and the menu (Joe, Nov 19, 2026)
+ICON_USER = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4.5 20.5c1.2-3.6 4-5.5 7.5-5.5s6.3 1.9 7.5 5.5"></path></svg>'
 ICON_CLOSE = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>'
 ICON_BACK = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg>'
 ICON_CHAT = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H10l-6 4z"></path></svg>'
@@ -430,6 +432,9 @@ def _header(home, links):
             '  <span class="hsp"></span>\n'
             '  ' + THEME_BTN + '\n'
             '  <a href="tel:+16233096104" class="hcall" aria-label="Call 623.309.6104">623.309.6104</a>\n'
+            # Customer login (Joe, Nov 19, 2026: "add a customer login button... That should lead to my yard. Let's put that
+            # button on top too, easy to look at"). It opens My Yard. On a phone the words are "Log in", so it fits by Book now.
+            '  <a href="MyYard.dc.html" class="hlog" aria-label="Customer login">' + ICON_USER + '<span class="hlog-l">Customer login</span><span class="hlog-s">Log in</span></a>\n'
             '  <a href="Booking.dc.html" class="btn btn-dot hbook">Book now</a>\n'
             '  <button type="button" class="ibtn mbtn" aria-label="Open menu" onClick="{{ openMenu }}">' + ICON_MENU + '</button>\n'
             '</div></header>')
@@ -447,6 +452,7 @@ def _menu(links):
             '      </div>\n'
             '      <nav aria-label="Main" class="mnav">' + nav + '</nav>\n'
             '      <a href="Booking.dc.html" class="btn btn-dot mbk">Book now</a>\n'
+            '      <a href="MyYard.dc.html" class="btn btn-line mlog">' + ICON_USER + 'Customer login</a>\n'
             '      <div class="mct">\n'
             '        <a href="tel:+16233096104" class="btn btn-line">Call</a>\n'
             '        <a href="sms:+16233096104" class="btn btn-line">Text</a>\n'
@@ -538,8 +544,9 @@ def _footer(pre):
             '</footer>')
 
 
-_NAV = [('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Commercial.dc.html', 'Commercial'), ('Faq.dc.html', 'FAQ')]
-_MNAV = [('Main.dc.html', 'Home'), ('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Commercial.dc.html', 'Commercial'), ('Faq.dc.html', 'FAQ'), ('Blog.dc.html', 'Blog'),
+# Contact us sits next to FAQ (Joe, Nov 19, 2026: "a simple contact us at the top of the website please next to FAQ"). It opens /contact/.
+_NAV = [('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Commercial.dc.html', 'Commercial'), ('Faq.dc.html', 'FAQ'), ('Contact.dc.html', 'Contact us')]
+_MNAV = [('Main.dc.html', 'Home'), ('HowItWorks.dc.html', 'How it works'), ('Pricing.dc.html', 'Pricing'), ('AreasWeServe.dc.html', 'Areas we serve'), ('Commercial.dc.html', 'Commercial'), ('Faq.dc.html', 'FAQ'), ('Contact.dc.html', 'Contact us'), ('Blog.dc.html', 'Blog'),
          ('CityBuckeye.dc.html', 'Buckeye'), ('CityGoodyear.dc.html', 'Goodyear'), ('CityLitchfieldPark.dc.html', 'Litchfield Park'), ('CityCitrusPark.dc.html', 'Citrus Park'), ('CityWaddell.dc.html', 'Waddell')]
 HEADER_MAIN = _header('Main.dc.html', _NAV)
 HEADER_CITY = _header('Main.dc.html', _NAV)
