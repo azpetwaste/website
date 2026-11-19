@@ -33,11 +33,19 @@
 .apw .bk-help a{display:inline-flex;align-items:center;min-height:44px;font-weight:800;color:var(--ink);text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px;text-decoration-color:var(--accent)}
 .apw .bk-box{margin-top:12px;padding:16px;border-radius:12px;background:var(--bg2);border:1px solid var(--line)}
 .apw .bk-box>p:first-child{margin:0;font-size:17px;line-height:1.5}
-.apw .bk-dogs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-top:16px}
-/* the smallest phones (320 wide): a thinner gap keeps each of the six buttons 44 px wide */
-@media (max-width:339px){.apw .bk-dogs{gap:3px}}
+/* How many dogs (Joe, Nov 19, 2026: "Let's do 1, 2, 3, and then do 4+. Take out the 5 and 6. Let it be easy."): four big
+   buttons, the same four the DoodyCalls quote screen has. */
+.apw .bk-dogs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:16px}
 .apw .bk-dog{min-height:62px;border-radius:12px;border:2px solid var(--field);background:var(--card);color:var(--ink);font:inherit;font-size:24px;font-weight:800;cursor:pointer}
 .apw .bk-dog[aria-checked="true"]{border-color:var(--ink);background:var(--ink);color:var(--bg)}
+/* 4+ asks one thing more, as DoodyCalls does: the exact number. 4, 5 and 6 dogs each have their own price, so it is
+   three buttons to tap. Only someone who taps 4+ ever sees them. */
+.apw .bk-dmore{margin-top:10px;padding:14px 14px 4px;border-radius:12px;background:var(--bg2);border:1px solid var(--line)}
+.apw .bk-dq{margin:0;font-size:17px;font-weight:700;line-height:1.3}
+.apw .bk-dmore .bk-dogs{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:10px}
+.apw .bk-dmore .bk-dog{min-height:56px;padding:0 4px;font-size:20px;white-space:nowrap}
+/* the smallest phones (320 wide): "4 dogs" stays on one line */
+@media (max-width:359px){.apw .bk-dmore{padding:12px 10px 4px}.apw .bk-dmore .bk-dog{font-size:18px}}
 .apw .bk-more{margin:8px 0 0;font-size:16px;line-height:1.5;color:var(--mute)}
 .apw .bk-more a{display:inline-flex;align-items:center;min-height:44px;font-weight:700;color:var(--ink)}
 .apw .bk-h2{margin:16px 0 0;font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:25px;line-height:1.1}
@@ -64,6 +72,8 @@
 .apw .bk-wc .wt{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
 .apw .bk-wc .wt b{font-family:var(--f-head);font-stretch:86%;font-weight:800;font-size:24px;line-height:1.1}
 .apw .bk-wc .wt span{font-size:16px;line-height:1.4;color:var(--ink2)}
+/* "Free quote." on the community card, on a line of its own (Joe, Nov 19, 2026: "Make sure that gets a free quote") */
+.apw .bk-wc .wt em{font-style:normal;font-size:16px;font-weight:800;line-height:1.3;color:var(--accent-text)}
 .apw .bk-wc>i{font-style:normal;font-size:26px;line-height:1;color:var(--accent-text)}
 /* the smallest phones: a smaller picture leaves the words more room, so each card is two or three lines */
 @media (max-width:359px){.apw .bk-wc{gap:12px;min-height:96px;padding:14px}.apw .bk-wc .wi{width:48px;height:48px;flex-basis:48px;border-radius:12px}.apw .bk-wc .wi svg{width:28px;height:28px}.apw .bk-wc .wt b{font-size:22px}}
@@ -170,7 +180,7 @@
     <p class="bk-lead">Tap one.</p>
     <div class="bk-who" role="group" aria-label="Who is this for">
       <button type="button" class="bk-wc" onClick="{{ pickHome }}"><span class="wi">@@ICON_WHO_HOME@@</span><span class="wt"><b>My home</b><span>Residential. I need my own yard cleaned.</span></span><i aria-hidden="true">›</i></button>
-      <button type="button" class="bk-wc" onClick="{{ pickCommunity }}"><span class="wi">@@ICON_WHO_COMMUNITY@@</span><span class="wt"><b>My community</b><span>An HOA, apartments, a dog park or a business.</span></span><i aria-hidden="true">›</i></button>
+      <button type="button" class="bk-wc" onClick="{{ pickCommunity }}"><span class="wi">@@ICON_WHO_COMMUNITY@@</span><span class="wt"><b>My community</b><span>An HOA, apartments, a dog park or a business.</span><em>Free quote.</em></span><i aria-hidden="true">›</i></button>
     </div>
     <p class="bk-help">Not sure? We can sign you up by phone. <a href="tel:+16233096104">Call 623.309.6104</a></p>
   </sc-if>
@@ -216,11 +226,21 @@
     <sc-if value="{{ hasTown }}" hint-placeholder-val="{{ true }}"><p class="bk-ok"><span>@@ICON_CHECK@@</span>{{ townLine }}</p></sc-if>
     <h1 class="bh1" tabindex="-1">How many dogs?</h1>
     <div class="bk-dogs" role="radiogroup" aria-label="How many dogs">
-      <sc-for list="{{ dogOpts }}" as="d" hint-placeholder-count="6">
+      <sc-for list="{{ dogOpts }}" as="d" hint-placeholder-count="4">
         <button type="button" class="bk-dog" role="radio" aria-checked="{{ d.on }}" aria-label="{{ d.aria }}" onClick="{{ d.pick }}">{{ d.label }}</button>
       </sc-for>
     </div>
-    <p class="bk-more">More than 6 dogs? <a href="sms:+16233096104">Text us.</a></p>
+    <sc-if value="{{ dogsMore }}" hint-placeholder-val="{{ false }}">
+      <div class="bk-dmore">
+        <p class="bk-dq" id="b-dmore-l">How many is that?</p>
+        <div class="bk-dogs" role="radiogroup" aria-labelledby="b-dmore-l">
+          <sc-for list="{{ dogMoreOpts }}" as="d" hint-placeholder-count="3">
+            <button type="button" class="bk-dog" role="radio" aria-checked="{{ d.on }}" onClick="{{ d.pick }}">{{ d.label }}</button>
+          </sc-for>
+        </div>
+        <p class="bk-more">More than 6 dogs? <a href="sms:+16233096104">Text us.</a></p>
+      </div>
+    </sc-if>
     <h2 class="bk-h2">How often do you need your yard cleaned?</h2>
     <div class="bk-plans" role="radiogroup" aria-label="How often we come">
       <sc-for list="{{ plans }}" as="p" hint-placeholder-count="5">
@@ -908,12 +928,21 @@ class Component extends DCLogic {
       yardBtn: !s.req && (!!s.signedIn || demo),
       yardHead: s.signedIn || demo ? 'Set up your yard.' : 'Check your email.',
       yardText: s.signedIn || demo ? 'Add your dogs’ names, your gate code and any problem spots. It takes 2 minutes.' : 'We sent a link to ' + (s.email.trim() || 'your email') + '. Tap it to set up My Yard: your dogs’ names, your gate code and any problem spots.',
-      dogOpts: [1, 2, 3, 4, 5, 6].map((n) => ({
-        label: String(n),
-        aria: n === 1 ? '1 dog' : n + ' dogs',
-        on: yes(s.dogs === n),
-        pick: () => this.setState({ dogs: n })
-      })),
+      // How many dogs (Joe, Nov 19, 2026: "Let's do 1, 2, 3, and then do 4+. Take out the 5 and 6. Let it be easy.").
+      // Four buttons, the same four as the DoodyCalls quote screen. There, 4+ opens a box to type the exact number. Here it
+      // opens three buttons (4, 5, 6): each of those has its own price in the price file, and a plan is billed by its dog
+      // count, so the form has to know the number. 4+ starts on 4. No price changed.
+      dogOpts: [1, 2, 3, 4].map((n) => {
+        const more = n === 4;
+        return {
+          label: more ? '4+' : String(n),
+          aria: n === 1 ? '1 dog' : more ? '4 or more dogs' : n + ' dogs',
+          on: yes(more ? s.dogs >= 4 : s.dogs === n),
+          pick: () => this.setState({ dogs: more ? Math.max(4, s.dogs) : n })
+        };
+      }),
+      dogsMore: s.dogs >= 4,
+      dogMoreOpts: [4, 5, 6].map((n) => ({ label: n + ' dogs', on: yes(s.dogs === n), pick: () => this.setState({ dogs: n }) })),
       // How often: five rows. A plan shows its week price big, with what we bill a month. Just once shows where it
       // starts. Monthly has no set price yet, so it says we send one. Weekly is the one we point people to.
       plans: ['twice', 'week', 'eow', 'month', 'once'].map((id) => {

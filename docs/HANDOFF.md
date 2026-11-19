@@ -1114,3 +1114,22 @@ Their sign up was walked end to end with a made up email (ZIP 85338, stopped at 
 ### For Joe
 - **Monthly needs a price.** Until then it is "Custom quote" and the office sends one.
 - DoodyCalls asks for the email before it shows a price, asks "How did you hear about us?" and lets people pick a start date. We do none of the three. Say if you want any of them.
+
+## Nov 19, 2026, afternoon (website chat): 1, 2, 3, 4+ dogs, community quotes to info@, and Get a free quote on the commercial pages, Joe's asks
+
+Joe, 12:03 pm: "I kind of want the booking system to be like duty calls, but let's keep it sleek, simple, and easy to understand on mobile and desktop, iPhone dual, and tablets." "If you think it's too much, let's fix that. It needs to be just simple." Then, 12:04 pm, after he looked at the live form: "Actually, it looks like you guys already did that. How many dogs? Let's do 1, 2, 3, and then do 4+. Take out the 5 and 6. Let it be easy. Twice weekly looks good. Recommended. Looks great. Everything looks good here. Okay, perfect. The commercial side: my commercial or my community, anything of that end? Make sure that gets a free quote. Make sure that goes directly to info@arizonapetwaste.com."
+
+So there was no rebuild. Three changes and one fix:
+
+- **How many dogs: 1, 2, 3, 4+.** The six buttons are four. It is what the DoodyCalls quote screen has (looked at again that noon: "How many pups on the property? 1, 2, 3, 4+", and their 4+ opens a box that says "Please specify the exact number of dogs"). Our 4+ opens "How many is that?" with 4 dogs, 5 dogs and 6 dogs, 4 picked to start, and "More than 6 dogs? Text us." moved in there. The form needs the exact number because 4, 5 and 6 dogs each have their own price (`src/prices.json`) and the plan is billed by the count. No price changed: 4 dogs weekly is still $134, 5 is $147, 6 is $160. `book.prod.tpl.html`: `dogOpts`, `dogsMore`, `dogMoreOpts`, `.bk-dmore`. The server did not change (it still takes 1 to 6).
+- **The community card says "Free quote."** on a line of its own, in orange, on the "Who is this for?" screen.
+- **Community quotes go to info@arizonapetwaste.com.** They already did when `NOTIFY_EMAIL` was unset or was that address. Now it does not depend on the setting: `quoteInbox` in `worker.js` puts info@ first and adds the office inbox only when it is another address. `mail()` takes one more optional value, who a Reply goes to, and the community email uses the email of the person who asked, so the office hits Reply. The first line of the email says "free community quote". Two new tests (542 in all).
+- **Commercial pages lead with "Get a free quote".** `ctaButtons` in `build/biz.mjs`: the first button, top and bottom, opens `/book/?for=community`. Call, Text us and Email follow. From a tablet up the four sit two by two (`.bxh-four`), because three in a row left Email alone on a second row. On a phone: the quote button, the call button, then Text us and Email side by side.
+- **Fix, my mistake from the morning push.** The small line under the top buttons is shared by the commercial pages and Areas we serve. The morning change added the community link to it everywhere, so `/pooper-scooper/`, a page for homes, read "No sign up fee. No long term contract.. Ask for a quote online" for about two hours. The line is back to how it was, and the link is the first button on the commercial pages.
+
+Checked: `npm run check` with the sale on. `node build/worker.test.mjs` 542 passed. `node build/week.test.mjs` 76. `python3 build/nav.test.py` 68. The dog buttons walked in a real browser at 320, 360, 390, 466, 768 and 1280 wide and on a wide short screen (890 by 466): every button is 56 px tall or more and 64 px wide or more, no words under 15 px, nothing scrolls sideways, the prices in the rows and in the bar match the price file for 1 to 6 dogs, and `/book/?dogs=5` opens on 4+ with 5 dogs picked. The commercial buttons looked at on 390, 768, 1024 and 1280. `build/optin-shots.py` run again: the three proof pictures for Twilio came out the same to the byte, so `/texts/` still matches the form.
+
+The crew app, the tables and the route code were not touched. Nothing here changes what the office app shows.
+
+### For Joe
+- 4+ asks for the exact number because 4, 5 and 6 dogs have three prices. If he wants 4+ to be one price, or a quote from the office, he says which and it is a small change.

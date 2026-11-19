@@ -520,20 +520,26 @@ const idOf = (x) => (typeof x === 'string' ? x : (x && x.id) || '');
 const uuid = (x) => (/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(String(x || '')) ? String(x) : '');
 
 // `html` is optional: the same email with our look (see brandMail). The plain text always goes along.
-async function mail(env, to, subject, text, html) {
+// `replyTo` is optional too: who a Reply goes to. Left out, a Reply goes to the office.
+async function mail(env, to, subject, text, html, replyTo) {
   if (!env.RESEND_API_KEY || !to) return false;
   const from = env.MAIL_FROM || 'Arizona Pet Waste <info@arizonapetwaste.com>';
   try {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { authorization: 'Bearer ' + env.RESEND_API_KEY, 'content-type': 'application/json' },
-      body: JSON.stringify(Object.assign({ from, to: Array.isArray(to) ? to : [to], subject, text, reply_to: env.NOTIFY_EMAIL || 'info@arizonapetwaste.com' }, html ? { html } : {}))
+      body: JSON.stringify(Object.assign({ from, to: Array.isArray(to) ? to : [to], subject, text, reply_to: replyTo || env.NOTIFY_EMAIL || 'info@arizonapetwaste.com' }, html ? { html } : {}))
     });
     if (!r.ok) { console.error('mail failed', r.status, await r.text()); return false; }
     return true;
   } catch (e) { console.error('mail failed', e); return false; }
 }
 const owner = (env) => env.NOTIFY_EMAIL || 'info@arizonapetwaste.com';
+// A community or commercial quote always lands in info@arizonapetwaste.com (Joe, Nov 19, 2026: "Make sure that gets a free
+// quote. Make sure that goes directly to info@arizonapetwaste.com."). If the office inbox (NOTIFY_EMAIL) is ever set to
+// another address, that one gets a copy, and info@ still gets the quote.
+const QUOTE_INBOX = 'info@arizonapetwaste.com';
+const quoteInbox = (env) => { const o = String(owner(env)).trim(); return o.toLowerCase() === QUOTE_INBOX ? [QUOTE_INBOX] : [QUOTE_INBOX, o]; };
 
 /* ---------- customer emails with our look: the logo on navy, one orange button, plain words ---------- */
 // One email, two forms. `text` is for mail apps that show words only. `html` is the same words under the logo, with
@@ -1721,14 +1727,16 @@ async function communityRequest(request, env, ctx) {
   if (!emailOk(email)) return fail(400, 'Type your email, like you@email.com.');
   if (await tooMany(env, 'commercial')) return fail(429, 'We are getting a lot of requests right now. Call or text 623.309.6104 and we will set up your site walk.');
   const what = 'Community quote request. ' + kind + ': ' + org + ', ' + city + '.' + (note ? ' They wrote: ' + note : '');
-  const sent = await mail(env, owner(env), 'Community quote request: ' + org + ', ' + city, [
-    'Someone asked for a community quote on the website. Call or email them to set up the free site walk.', '',
+  // To info@arizonapetwaste.com, always (quoteInbox). A Reply to this email goes to the person who asked.
+  const sent = await mail(env, quoteInbox(env), 'Community quote request: ' + org + ', ' + city, [
+    'Someone asked for a free community quote on the website. Call or email them to set up the free site walk.',
+    'Hit Reply to write to them.', '',
     'Kind of place: ' + kind, 'Community or business: ' + org, 'City: ' + city,
     'Name: ' + name, 'Phone: ' + phone, 'Email: ' + email,
     'What they need: ' + (note || 'not said'),
     'Texts: not asked. The form has no text box, so call or email them.',
     'Page: ' + clean(b.page, 120)
-  ].join('\n'));
+  ].join('\n'), null, email);
   const kept = sbLive(env) ? await addLead(env, { kind: 'commercial', name, email, phone, address: org + ', ' + city, zip: null, details: what }) : false;
   if (!sent && !kept) return fail(503, 'Call or text 623.309.6104 and we will set up your site walk.');
   if (metaOn(env) && ctx && ctx.waitUntil) ctx.waitUntil(metaEvent(env, 'Lead', eventIdOk(b.eid), Object.assign({ email, ip: request.headers.get('cf-connecting-ip') || '', ua: clean(request.headers.get('user-agent'), 300) }, adIds(b.ad)), { lead_type: 'community' }));

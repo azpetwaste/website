@@ -150,8 +150,13 @@ function reportCard(site) {
     row(true, 'Bag rolls refilled', '6 of 6') + row(false, 'Lid is loose on station 4', 'Reported') + '</ul>' +
     '<figcaption class="bxr-foot">Sent to your board and manager by text or email</figcaption></figure>';
 }
+// The first button on every commercial page asks for the free quote (Joe, Nov 19, 2026: "The commercial side: my commercial
+// or my community, anything of that end? Make sure that gets a free quote. Make sure that goes directly to
+// info@arizonapetwaste.com."). It opens the community form in Book now, and the server emails that form to
+// info@arizonapetwaste.com. Call, Text us and Email come after it, and Email writes to the same inbox.
 export function ctaButtons(primary) {
-  return `<div class="bxh-cta"><a class="btn btn-dot" href="${TEL}">${ICONS.phone}${primary || 'Call ' + PHONE}</a>` +
+  return `<div class="bxh-cta bxh-four"><a class="btn btn-dot" href="/book/?for=community">${primary || 'Get a free quote'}</a>` +
+    `<a class="btn btn-line-n" href="${TEL}">${ICONS.phone}Call ${PHONE}</a>` +
     `<a class="btn btn-line-n" href="${SMS}">${ICONS.text}Text us</a><a class="btn btn-line-n" href="${MAIL}">${ICONS.mail}Email</a></div>`;
 }
 const SEAL = (() => {
@@ -168,9 +173,9 @@ export function hero(pg, trail) {
   return '<section class="bxh"><div class="bxw"><div class="bxh-in"><div class="bxh-copy">' + crumbsNav(trail) +
     `<h1>${esc(pg.h1)}</h1><p class="lead">${h.lead || ''}</p>` +
     (h.ctaHtml || ctaButtons(h.cta)) +
-    // The quote form (Joe, Nov 19, 2026: Book now asks "Who is this for?", and My community opens a short quote form).
-    // Every commercial page offers it right under the Call, Text us and Email buttons.
-    (trust ? `<p class="bxtrust">${esc(trust)}. <a href="/book/?for=community">Ask for a quote online</a></p>` : '') +
+    // This line is also on Areas we serve, a page for homes, so it never carries the community quote link: that link is
+    // the first button on the commercial pages (ctaButtons).
+    (trust ? `<p class="bxtrust">${esc(trust)}</p>` : '') +
     '<ul class="bxbadges" aria-label="Bonded, insured and background checked">' + [['Bonded', '$50,000 bond'], ['Insured', '$1,000,000 liability'], ['Background checked', 'Every team member']].map(([a, b]) => `<li>${SEAL}<span><b>${a}</b><small>${b}</small></span></li>`).join('') + '</ul>' +
     '<ul class="bxh-stats">' + stats.map(([n, u, t]) => `<li><b>${esc(n)} ${esc(u)}</b><span>${esc(t)}</span></li>`).join('') + '</ul>' +
     '</div><div class="bxh-side">' + (h.side || reportCard(h.site)) + '</div></div></div></section>';
@@ -233,7 +238,9 @@ const RAW_CSS = `.apw .doc.bxdoc{max-width:none;margin:0;padding:0;background:va
 .apw .bxh h1{margin:0;font-family:var(--f-head);font-stretch:68%;font-weight:850;font-size:clamp(46px,14vw,64px);letter-spacing:-.006em;line-height:.92;color:var(--ink);text-wrap:balance}
 .apw .bxdoc .bxh .lead{margin:22px 0 0;max-width:620px;font-size:19px;line-height:1.55;color:var(--ink2)}
 .apw .bxh-cta{display:flex;flex-wrap:wrap;gap:10px;margin-top:28px}.apw .bxh-cta .btn{min-height:56px;padding:0 22px;font-size:19px}
-.apw .bxdoc .bxtrust{margin:8px 0 0;font-size:16px;line-height:1.45;color:var(--mute)}.apw .bxdoc .bxtrust a{display:inline-flex;align-items:center;min-height:44px;font-weight:700;color:var(--ink)}
+/* the four commercial buttons (free quote, call, text, email) sit two by two from a tablet up, so none is left alone on a row */
+@media (min-width:641px){.apw .bxh-four{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));max-width:480px}.apw .bxh-four .btn{padding:0 12px}}
+.apw .bxdoc .bxtrust{margin:14px 0 0;font-size:15px;line-height:1.45;color:var(--mute)}
 .apw .bxdoc .bxbadges{display:flex;flex-wrap:wrap;gap:16px 28px;margin:28px 0 0;padding:24px 0 0;border-top:1px solid var(--line);list-style:none}
 .apw .bxdoc .bxbadges li{display:flex;align-items:center;gap:10px;margin:0}
 .apw .bxseal{flex:0 0 40px;width:40px;height:40px;display:block}
@@ -342,6 +349,6 @@ const RAW_CSS = `.apw .doc.bxdoc{max-width:none;margin:0;padding:0;background:va
 .apw .bxr{margin:0}
 .apw .bxareas{grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);align-items:start;gap:32px}
 .apw .bxtwo{grid-template-columns:repeat(2,minmax(0,1fr));gap:72px}.apw .bxrel{grid-template-columns:repeat(2,minmax(0,1fr))}
-.apw .bxcta{margin-top:140px;padding:96px 0}.apw .bxcta-in{grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:48px}.apw .bxcta .bxh-cta{margin-top:0}.apw .bxdoc .bxcta h2{font-size:clamp(96px,9.4vw,140px)}}
+.apw .bxcta{margin-top:140px;padding:96px 0}.apw .bxcta-in{grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:48px}.apw .bxcta .bxh-cta{margin-top:0}.apw .bxcta .bxh-four{width:470px}.apw .bxdoc .bxcta h2{font-size:clamp(96px,9.4vw,140px)}}
 @media (prefers-reduced-motion:reduce){.apw .bxpm::after{transition:none}}`;
 export const BIZ_CSS = RAW_CSS.replace(/\.apw \.bxdoc /g, '.apw .doc.bxdoc ').replace(/\.apw \.(?!doc)/g, '.apw .doc.bxdoc .');

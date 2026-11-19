@@ -1187,6 +1187,15 @@ env = Object.assign({}, baseEnv, { FIRST_VISIT_FROM: '2027-03-10' });
       && /What they need: Six stations and two parks\./.test(cm.text) && /Texts: not asked/.test(cm.text) && !!row && row.kind === 'commercial' && row.address === 'Sunset Ridge HOA, Goodyear'
       && /^Community quote request\. HOA: Sunset Ridge HOA, Goodyear\. They wrote: Six stations and two parks\.$/.test(row.details), [cm && cm.text, row]);
     ok('it never turns texts on for anyone: no consent row and no queued text', !T.consent_log.some((x) => x.email === 'casey@example.com') && !T.messages.some((x) => x.to_addr === '6235550177'));
+    // Joe, Nov 19, 2026: "Make sure that gets a free quote. Make sure that goes directly to info@arizonapetwaste.com."
+    ok('a community quote goes straight to info@arizonapetwaste.com, says it is a free quote, and a Reply goes to the person who asked',
+      !!cm && cm.to.length === 1 && cm.to[0] === 'info@arizonapetwaste.com' && cm.reply_to === 'casey@example.com' && /free community quote/.test(cm.text) && /free site walk/.test(cm.text), cm && [cm.to, cm.reply_to, cm.text]);
+    { const keepEnv = env; env = Object.assign({}, env, { NOTIFY_EMAIL: 'Office@Example.com' });
+      const r2 = await call('/api/community', 'POST', Object.assign({}, c, { org: 'Canyon Trails HOA', name: 'Pat Manager', email: 'pat@example.com' }));
+      env = keepEnv;
+      const m2 = sent(/^Community quote request: Canyon Trails HOA, Goodyear$/)[0];
+      ok('with the office inbox set to another address, info@arizonapetwaste.com still gets the quote and the office gets a copy',
+        r2.status === 200 && !!m2 && m2.to.length === 2 && m2.to[0] === 'info@arizonapetwaste.com' && m2.to[1] === 'Office@Example.com' && m2.reply_to === 'pat@example.com', m2 && [m2.to, m2.reply_to]); }
     const bad = async (patch) => (await call('/api/community', 'POST', Object.assign({}, c, patch))).status;
     ok('a community request needs the kind of place, a name for the place, a city, a name, a 10 digit phone and an email',
       (await bad({ kind: '' })) === 400 && (await bad({ kind: 'constructor' })) === 400 && (await bad({ org: '' })) === 400 && (await bad({ city: '' })) === 400
