@@ -1039,6 +1039,41 @@ Two emails, one for pages in the sitemap and one for all pages. Checked that mor
 
 The live pages are right (checked in `dist` that day: no page says $108, $49, $95 or $35, and About says "insured and bonded"). Google has not read them since. The fix is in Search Console and needs the Google sign in: URL inspection, then Request indexing, for `/`, `/pricing/`, `/faq/`, `/terms/`, `/about/`, the five town pages, `/pooper-scooper/buckeye-az/verrado/`, `/one-time-dog-poop-cleanup/`, `/contact/` and the blog post above, in that order. Google stops after about ten a day, so it takes two days. Then Sitemaps, and send `sitemap.xml` again. Bing was told by IndexNow after both pushes of November 19 (both runs passed).
 
+### Search Console and Facebook, done from Joe's Chrome (Nov 19, 11:30 am to 12:15 pm)
+Joe, 11:26 am, after he was asked for the Monthly price, the Google sign in and the Facebook refresh: "Yeah, I need you to handle this. Use co-work, use whatever you have to do. You handle this. I need three changes, and tell me exactly what you changed. We're not going to change pricing to duty calls."
+
+**Pricing.** No price changed on November 19. `src/prices.json` was last touched on November 18. His answer on DoodyCalls is a standing rule now: our prices are the ones he set on November 18, and what another company charges does not move them. Monthly stays a custom quote ("We send your price") until he names a number.
+
+**Which browser and which account.** The built in browser cannot get into Google: it asks for the password, and a password is never typed by Claude. Joe's own Chrome (the Claude in Chrome extension) is signed in to four Google accounts. Only one is ours: info@arizonapetwaste.com, which was account slot 2 that day (`https://search.google.com/u/2/search-console?resource_id=sc-domain%3Aarizonapetwaste.com`). Two of the other three are OMG accounts, and Joe's standing rule for this project is never touch OMG accounts. Slot numbers move when he signs in or out, so read the account name at the top right ("Google Account: ... (info@arizonapetwaste.com)") before any click.
+
+**What the Page indexing report said** (its last update was November 15): 40 pages indexed, 11 not.
+- Page with redirect: 1 page, `/turf-odor-treatment/`, first seen November 16, crawled November 17. That is the page behind the two emails. It forwards to `/pricing/` on purpose (Joe took the paid turf odor treatment off on November 16). "Validate fix" was not pressed: the page is meant to forward, so that check would fail and send another email.
+- Discovered, not indexed: 8. Seven blog posts (`can-dog-poop-make-you-sick`, `dog-poop-smell-in-yard`, `heat-stroke-in-dogs`, `is-dog-poop-good-fertilizer`, `pooper-scooper-service-cost-arizona`, `scorpion-sting-toad-poisoning-dogs`, `why-does-my-dog-eat-poop`) and `/texts/`. Google knows them and has not read them yet. Normal for a site this new.
+- Crawled, not indexed: 2. `/bonded-and-insured/` and `/one-time-dog-poop-cleanup/`. The second one is indexed now.
+- Search clicks from November 4 to 16: 2. The site is new to Google.
+
+**Request indexing, done for 10 pages** (the date is Google's last read of the page before the request):
+1. `/pricing/` (Nov 17, 5:10 am, before the price change)
+2. `/faq/` (Nov 9)
+3. `/terms/` (Nov 10)
+4. `/about/` (Nov 9)
+5. `/` (Nov 18, 1:34 pm)
+6. `/pooper-scooper/goodyear-az/` (Nov 17)
+7. `/pooper-scooper/buckeye-az/` (Nov 17)
+8. `/pooper-scooper/citrus-park-az/` (Nov 8)
+9. `/pooper-scooper/buckeye-az/verrado/` (Nov 8)
+10. `/blog/how-to-choose-a-pooper-scooper-service/` (Nov 11)
+
+Google answered "Quota Exceeded" on the next one. Eleven presses went through, one of them a second press on Goodyear by mistake, so the limit is about ten a day. `/pooper-scooper/litchfield-park-az/` was skipped on purpose: Google read it on November 18 at 8:09 pm, after the price change.
+
+**Left for the next days, in this order:** `/same-day-dog-poop-pickup/` (Google still has it "on Google" from November 11 with the $49 price: asking again makes Google see that it forwards), `/one-time-dog-poop-cleanup/`, `/contact/`, `/pooper-scooper/waddell-az/`, `/pooper-scooper/`, `/bonded-and-insured/`, `/blog/pooper-scooper-service-cost-arizona/`, `/how-it-works/`, `/our-promise/`, `/commercial-pet-waste-removal/`. Then the other six blog posts and `/texts/`.
+
+**Sitemap.** `https://arizonapetwaste.com/sitemap.xml` was sent again. The row reads Submitted November 19, 2026, Success, 45 pages.
+
+**Facebook.** Sharing Debugger (`developers.facebook.com/tools/debug/`), signed in as Joe in the same Chrome. Scrape Again was pressed for `https://arizonapetwaste.com/` and `https://arizonapetwaste.com/book/`. Both answer 200 and show the logo picture now. `/pricing/` had never been shared, so it has no old picture to clear. One thing seen and not explained: the home page's try from about an hour earlier read "Could not connect to server, response code 418". Nothing in this repo answers 418, and the two tries after it answered 200. If previews break again, look at the bot settings in Cloudflare (Security, Bots) first. That is Atlas's sign in.
+
+**Doing it by script, for next time.** The address box at the top of Search Console needs a beat: close the "Indexing requested" notice, wait 2 seconds, click the box, wait 1 second, type the address, press Enter, wait 10 seconds. Then read the address printed under the box before pressing Request indexing. Twice the typed address did not take and the page still showed the one before. The request itself takes about 40 seconds.
+
 ## Nov 19, 2026, midday (website chat): Book now rebuilt after the DoodyCalls sign up, Joe's ask
 
 Joe, 9:20 am: "research Duty Calls. They actually have something pretty set up... I like residential community. I actually like that option... How often do you need your yard cleaned? Twice weekly, Weekly, Every other week, Monthly, Just once. I like those options, and we can have those. Really dissect the get a quote and the checkout... it needs to be easy as well for the consumer."
