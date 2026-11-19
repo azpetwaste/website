@@ -1026,6 +1026,19 @@ Joe, 9:20 am, with a screenshot of a Facebook comment where the link picture was
 ### Search Console emails of Nov 19, 1:05 am ("Page with redirect")
 Two emails, one for pages in the sitemap and one for all pages. Checked that morning on the live site: all 45 addresses in `sitemap.xml` answer 200 with no redirect, and no link on any built page points at an address that redirects. The likely cause is the two pages that were merged on November 16 (`/same-day-dog-poop-pickup/` and `/turf-odor-treatment/`): both were in the sitemap until then and both now send people on in one step (to `/one-time-dog-poop-cleanup/` and `/pricing/`). That is what "Page with redirect" means, and it needs no fix. Not confirmed in Search Console itself: Google asked the built in browser to sign in again, and a password is Joe's to type.
 
+**Checked again at midday against Google's own results** (a `site:arizonapetwaste.com` search through DataforSEO, November 19). Google still lists `/same-day-dog-poop-pickup/` with its copy of November 11 ("Same day dog poop pickup for $49"). That address forwards to `/one-time-dog-poop-cleanup/` since November 16, so it is one of the pages in the email and the cause is confirmed for it. Google drops a forwarded address by itself. Do not take the redirect off: it is what carries the old page's standing over to the new one.
+
+**What does need doing in Search Console: Google's copies of our pages are old.** Its results that day still showed words the site no longer says:
+- `/pricing/`: "about $25 a week ($108 a month)".
+- `/faq/` (its copy of Nov 9): "$108 a month" and "a turf odor treatment for $35".
+- `/terms/` (Nov 7): "same day for $49", "$108 a month", "One time cleanup: $95".
+- `/about/`: "licensed, bonded and insured".
+- The home page in one result (its copy of Nov 16): "about $25 a week".
+- The Goodyear, Citrus Park and Verrado pages (Nov 8): "about $25 a week" and the $35 treatment.
+- `/blog/how-to-choose-a-pooper-scooper-service/` (Nov 9): "$108 a month".
+
+The live pages are right (checked in `dist` that day: no page says $108, $49, $95 or $35, and About says "insured and bonded"). Google has not read them since. The fix is in Search Console and needs the Google sign in: URL inspection, then Request indexing, for `/`, `/pricing/`, `/faq/`, `/terms/`, `/about/`, the five town pages, `/pooper-scooper/buckeye-az/verrado/`, `/one-time-dog-poop-cleanup/`, `/contact/` and the blog post above, in that order. Google stops after about ten a day, so it takes two days. Then Sitemaps, and send `sitemap.xml` again. Bing was told by IndexNow after both pushes of November 19 (both runs passed).
+
 ## Nov 19, 2026, midday (website chat): Book now rebuilt after the DoodyCalls sign up, Joe's ask
 
 Joe, 9:20 am: "research Duty Calls. They actually have something pretty set up... I like residential community. I actually like that option... How often do you need your yard cleaned? Twice weekly, Weekly, Every other week, Monthly, Just once. I like those options, and we can have those. Really dissect the get a quote and the checkout... it needs to be easy as well for the consumer."
