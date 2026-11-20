@@ -1074,6 +1074,28 @@ Google answered "Quota Exceeded" on the next one. Eleven presses went through, o
 
 **Doing it by script, for next time.** The address box at the top of Search Console needs a beat: close the "Indexing requested" notice, wait 2 seconds, click the box, wait 1 second, type the address, press Enter, wait 10 seconds. Then read the address printed under the box before pressing Request indexing. Twice the typed address did not take and the page still showed the one before. The request itself takes about 40 seconds.
 
+### Search Console, day 2 (Nov 20, 12:30 pm to 12:55 pm), from Joe's Chrome
+A follow up set on November 19 ran by itself. Same Chrome, account slot 2, and the account name on the page read info@arizonapetwaste.com before anything was pressed. No password was typed. The tab was closed at the end.
+
+**Request indexing, 11 more pages.** Each one answered "Indexing requested":
+1. `/same-day-dog-poop-pickup/` (Google took the request. It still read "URL is on Google" from its old copy.)
+2. `/one-time-dog-poop-cleanup/`
+3. `/contact/`
+4. `/pooper-scooper/waddell-az/`
+5. `/pooper-scooper/`
+6. `/bonded-and-insured/` (reads "URL is on Google" now. It was "crawled, not indexed" on November 19.)
+7. `/blog/pooper-scooper-service-cost-arizona/` (not on Google yet: "Discovered, currently not indexed")
+8. `/how-it-works/`
+9. `/our-promise/`
+10. `/commercial-pet-waste-removal/`
+11. `/blog/dog-poop-smell-in-yard/` (not on Google yet)
+
+The 12th press, `/blog/is-dog-poop-good-fertilizer/`, got "Quota Exceeded". So the limit that day was 11.
+
+**Did Google read the pages asked for on November 19?** Yes, the two that were looked at. `/pricing/`: last crawl November 19, 11:39 am. `/faq/`: last crawl November 19, 11:50 am. Both within minutes of the request, so Google now has the new prices for those two. The words in the search results follow after Google files the new copy.
+
+**Left, 6 pages:** `/blog/is-dog-poop-good-fertilizer/`, `/blog/can-dog-poop-make-you-sick/`, `/blog/heat-stroke-in-dogs/`, `/blog/scorpion-sting-toad-poisoning-dogs/`, `/blog/why-does-my-dog-eat-poop/` and `/texts/`. One more follow up is set for November 21 at 12:30 pm. After that every page in the sitemap has been asked for once, and there is nothing more to press.
+
 ## Nov 19, 2026, midday (website chat): Book now rebuilt after the DoodyCalls sign up, Joe's ask
 
 Joe, 9:20 am: "research Duty Calls. They actually have something pretty set up... I like residential community. I actually like that option... How often do you need your yard cleaned? Twice weekly, Weekly, Every other week, Monthly, Just once. I like those options, and we can have those. Really dissect the get a quote and the checkout... it needs to be easy as well for the consumer."
