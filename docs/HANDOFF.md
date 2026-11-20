@@ -1166,3 +1166,11 @@ Joe, 12:30 pm: "do an audit... make sure people find it easy to book. People hav
 2. Facebook ads: limit the audience to the six ZIP codes (2 of 8 leads were outside them), and send ad clicks to the home page or to `/book/?for=home`.
 3. Atlas: Places API (address suggestions), and mark `sign_up`, `generate_lead` and `begin_checkout` as key events in Google Analytics so it counts them.
 4. His call: a solid orange main button on the home page.
+
+## Nov 19, 2026, 5:15 pm (website chat): the West Valley chamber Proud Member badge, Joe's ask
+Joe sent the chamber's badge (WVRC_Proud_Logo.jpg) and wrote: "please add that logo instead on the website; please put at the top + footer and please link it: https://westvalleyregional.org/directory/arizona-pet-waste".
+- **The badge replaced the white West Valley chamber logo** in both rows of member marks: under the trust strip on the home page and at the bottom of the footer of every page. It is the chamber's file in its own colors, scaled to 480 px tall, nothing else changed (`static/assets/img/brands/west-valley-regional-chamber-proud-member.webp`). The old white file is out of the folder.
+- **It is a link** to our page in the chamber's directory, in a new tab. `src/site.config.json` "members": `"listing"` is filled in and `"link"` is true. It is a little taller than the other two (`"h": 104`): at the old height its words could not be read.
+- **The listing shows the street line.** The rule was no link to a page that shows one. Joe asked for this link by its address, so it is linked, and he was told. The chamber can take the street line off the listing if he wants it hidden. No other listing changed: aPaws still has no link for the same reason.
+- With a listing on file, the business data (`memberOf`) and `llms.txt` now name the West Valley Regional Chamber, by its home page.
+- Also that hour: Joe asked for the full logo (the state and the name). He got `logo-horizontal.svg` and `logo-horizontal-dark.svg` as SVG and as 3000 px PNG files. Nothing on the site changed for that.

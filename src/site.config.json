@@ -30,12 +30,12 @@
     {
       "name": "West Valley Regional Chamber",
       "org": "West Valley Regional Chamber",
-      "file": "west-valley-regional-chamber-white",
-      "h": 58,
-      "alt": "West Valley Regional Chamber",
+      "file": "west-valley-regional-chamber-proud-member",
+      "h": 104,
+      "alt": "West Valley Regional Chamber proud member.",
       "site": "https://westvalleyregional.org/",
-      "listing": "",
-      "link": false
+      "listing": "https://westvalleyregional.org/directory/arizona-pet-waste",
+      "link": true
     },
     {
       "name": "Buckeye Valley Chamber of Commerce",

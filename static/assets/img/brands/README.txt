@@ -22,13 +22,18 @@ Payment marks (footer, under Payment options, each on a small white tile). All s
   visa.svg  mastercard.svg  amex.svg  discover.svg  apple-pay.svg  google-pay.svg
 
 Member logos (trust marks at the bottom of the footer of every page, straight on the dark blue: no heading, no box).
-Joe sent the logo files on November 18, 2026. Each one here is that logo in ONE color: white on a see through
+Joe sent the logo files on November 18, 2026. The aPaws and Buckeye Valley files here are that logo in ONE color: white on a see through
 background, trimmed to its edges and scaled to 228 px tall. The shapes are the group's own and were not touched. Only
 the color changed, because two of the three are dark and would not show on the page (Joe: "It looks weird in boxes...
 maybe transparent with the website"):
   apaws-white.webp                         the aPaws "Proud Member" seal. From MemberSealProud.tif in the zip aPaws gives its
                                            members (black ink on white). Ink became white, paper became see through.
-  west-valley-regional-chamber-white.webp  the chamber's logo, the PNG Joe attached (it is the logo on westvalleyregional.org).
+  west-valley-regional-chamber-proud-member.webp
+                                           the chamber's own "Proud Member" badge, in its own colors. Joe sent it on November 19, 2026
+                                           (WVRC_Proud_Logo.jpg, 1605 by 2576) and asked for it in place of the white chamber logo.
+                                           It is that file scaled to 480 px tall. Nothing else was changed: it has its own white panel,
+                                           so it shows on the dark page as it is. It links to our page in the chamber's directory.
+                                           The white logo it replaced (west-valley-regional-chamber-white.webp) is out of the folder.
   buckeye-valley-chamber-white.webp        the chamber's logo, the PNG Joe attached (it is the logo on buckeyevalleychamber.org).
   A mark shows when its file is here AND it has an entry in src/site.config.json "members". Take a group out of both when
   a membership ends. A mark is a link only when "link" is true there, and never to a page that shows a street address.
