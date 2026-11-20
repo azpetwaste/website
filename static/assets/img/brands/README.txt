@@ -35,8 +35,12 @@ maybe transparent with the website"):
                                            so it shows on the dark page as it is. It links to our page in the chamber's directory.
                                            The white logo it replaced (west-valley-regional-chamber-white.webp) is out of the folder.
   buckeye-valley-chamber-white.webp        the chamber's logo, the PNG Joe attached (it is the logo on buckeyevalleychamber.org).
+  Since the evening of November 19, 2026 all three show big, at full strength (Joe: "make all 3 logos BIG and visible").
+  The two white files are 228 px tall and now show up to 137 px tall, so on a sharp screen they are stretched a little.
+  If Joe sends the aPaws seal or the Buckeye Valley logo again, make new white files about 480 px tall, with new names.
   A mark shows when its file is here AND it has an entry in src/site.config.json "members". Take a group out of both when
-  a membership ends. A mark is a link only when "link" is true there, and never to a page that shows a street address.
+  a membership ends. A mark is a link only when "link" is true there. A listing that shows a street address is linked only when Joe asks for
+  that link by its address: he did for West Valley and for aPaws on November 19, 2026.
   For a white page or a printed piece, ask Joe for the color files again: only the white ones are kept here.
   Everything under /assets/ is kept by a browser for a year (see _headers). So a file whose picture changes needs a new
   name, or people who were here before keep seeing the old one. That is why these end in -white.

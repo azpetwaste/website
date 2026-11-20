@@ -678,12 +678,15 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .ffam svg{flex:0 0 auto;width:38px;height:38px}
 /* The groups we belong to: trust marks at the bottom of the footer. No heading and no box (Joe, Nov 18, 2026: "It looks
    weird in boxes... maybe transparent with the website"). Each file is the group's logo in one color, white on see through. */
-.apw .fmem{--k:1;container-type:inline-size;display:flex;flex-wrap:wrap;align-items:center;gap:22px min(30px,8cqw);margin:34px 0 0;padding:30px 0 0;border-top:1px solid rgba(255,255,255,.14);list-style:none}
+.apw .fmem{--k:1;container-type:inline-size;display:flex;flex-wrap:wrap;align-items:center;gap:22px min(24px,6cqw);margin:34px 0 0;padding:30px 0 0;border-top:1px solid rgba(255,255,255,.14);list-style:none}
 .apw .fmem li{flex:0 0 auto;display:flex;align-items:center;margin:0;padding:0}
 .apw .fmem a{display:flex;align-items:center;min-height:48px}
 .apw .fmem a:focus-visible{outline:3px solid #F6F4EF;outline-offset:8px;border-radius:2px}
-/* --h is the height on a phone, a plain number. On a narrow phone the three shrink together, so they stay on one row. */
-.apw .fmem img{display:block;width:auto;height:min(calc(var(--h,64)*var(--k)*1px),calc(var(--h,64)/360*100cqw));max-width:none;opacity:.92}
+/* --h is the height on a phone, a plain number. On a narrow phone the three shrink together, so they stay on one row.
+   Big and at full strength (Joe, Nov 19, 2026: "make all 3 logos BIG and visible"): on a phone the three fill the row
+   from edge to edge. The heights in site.config.json times each logo's shape must add up to 316 or less (360 less the
+   two gaps), or the third one drops to a second row. */
+.apw .fmem img{display:block;width:auto;height:min(calc(var(--h,64)*var(--k)*1px),calc(var(--h,64)/360*100cqw));max-width:none}
 .apw .flegal{display:flex;flex-wrap:wrap;gap:0 20px;margin-top:26px}
 .apw .fcopy{margin:14px 0 0;font-size:15px;line-height:1.6;color:#AEB5D8}
 
@@ -793,9 +796,9 @@ PAGE_CSS = HDR_CSS + _min(r"""
 .apw .fg3{grid-template-columns:minmax(0,1.1fr) minmax(0,1.2fr) minmax(0,1fr);gap:64px}
 .apw .fseals{grid-template-columns:repeat(4,auto);gap:26px 40px;align-items:center}
 .apw .ffam{margin:10px 0 0;font-size:44px}
-.apw .fmem{--k:1.22;gap:26px 54px;margin-top:40px;padding-top:36px}
+.apw .fmem{--k:1.4;gap:26px 64px;margin-top:40px;padding-top:36px}
 .apw .seals-m{padding:0 40px 28px}
-.apw .seals-m .fmem-top{--k:1.05;max-width:1200px;margin:0 auto;padding-top:22px;justify-content:flex-start;gap:26px 64px}
+.apw .seals-m .fmem-top{--k:1.3;max-width:1200px;margin:0 auto;padding-top:22px;justify-content:flex-start;gap:26px 72px}
 }
 @media (min-width:1240px){.apw .seals-l{gap:44px}.apw .seals-l b{font-size:20px}}
 @media (prefers-reduced-motion:reduce){.apw .fold>summary::after{transition:none}}
