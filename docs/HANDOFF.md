@@ -1236,8 +1236,8 @@ Joe: "please list this under apaws and link back to it: https://apaws.org/search
 ### Nov 21, 2026 (field desk session). Texts and emails that send on their own. On a branch, in a pull request, not deployed.
 Joe: three live customers (so nothing can break), Twilio approved the A2P campaign on November 19, make the flow after a booking automatic, every action doable from the Field App, open a pull request and do not deploy, he tests on himself first.
 - Branch `field-app/auto-texts`. Nothing was pushed to `main`, nothing was run on the live database, no text or email was sent to anyone.
-- Server (`src/worker/worker.js`): `sendText`, `queueText` (now sends), `dayTexts`, `dayNotice`, `twilioStatus`, `twilioInbound`, `doneFallback`, `doneNotice`, `visitWindows`, `nightBefore` (batches, held texts), `sendWelcome`, `officeTextSend`, `officeWelcome`, `yardStatus`, a better `first()`.
-- New addresses: `POST /api/twilio/status`, `POST /api/twilio/inbound` (both signed by Twilio), `POST /api/office/text/send`, `POST /api/office/customer/welcome`. `/api/office/settings` takes `firstAt`. `/api/health` answers `texts` and `textsTest`.
+- Server (`src/worker/worker.js`): `sendText`, `queueText` (now sends), `dayTexts`, `dayNotice`, `twilioStatus`, `twilioInbound`, `doneFallback`, `doneNotice`, `nightBefore` (batches, held texts), `sendWelcome`, `officeTextSend`, `officeWelcome`, `yardStatus`, a better `first()`.
+- New addresses: `POST /api/twilio/status`, `POST /api/twilio/inbound` (both signed by Twilio), `POST /api/office/text/send`, `POST /api/office/customer/welcome`. `/api/health` answers `texts` and `textsTest`.
 - New settings: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_MESSAGING_SERVICE_SID`, `SMS_TEST_ALLOWLIST`, optional `SMS_HOURS` and `SMS_BATCH`. `CRON_SECRET` was already there.
 - Safe by default: with no Twilio settings the site behaves as it did, with two differences a customer can see. The welcome email has a "What happens next" list. A new sign up that gets a day also gets a day text queued for the business phone.
 - The code works on the database as it is today (the tests were also run against the old columns), but run `supabase/patch-2026-11-21.sql` before the Twilio settings go in.
@@ -1246,4 +1246,26 @@ Joe: three live customers (so nothing can break), Twilio approved the A2P campai
 - Not run: anything against the real Twilio, the real database or a real phone. That is Joe's test, `docs/TEST_AUTO_TEXTS.md`.
 - After Joe approves: take out `SMS_TEST_ALLOWLIST`, then rebuild the training video and the training page (line 17 of `docs/video/lines.json` and two steps on the page say a text is sent with one tap).
 - Open questions for Joe are in the pull request.
+
+### Nov 21, 2026, later (field desk session). The core rule: a day AND a time, set in the Field App, is the one trigger. Same branch, same pull request, not deployed.
+Joe: "The field app is where we schedule. In the field app, for any confirmed customer (a booked house), we need to be able to set their service date AND time (e.g. Monday 10:30 AM), and change it later. Setting or changing that date/time is what triggers the customer messages. Nothing goes out until we set it." Then: a confirmation right away, the night before text with the time and the 30 minute window and the truck link, "We're on our way!" when the worker taps, the done text with the gate photo. Recurring customers carry the day and time forward. A one time change updates that visit's texts.
+- What changed from the first commit on this branch:
+  - New columns: `customers.service_time`, `customers.service_time2`, `stops.visit_time` (in `supabase/patch-2026-11-21.sql` and `crm.sql`). Still NOT run on the live database.
+  - A sign up no longer emails or texts a day. Live today it emails "Your service day is ..." when it finds a day. After this merge it says nothing until the office sets day and time.
+  - `dayNotice` is gone. `schedNotice` (one customer), `schedNoticeMany` (Plan the week, Move yards for good), `visitNotice` (one visit), `nightFix`, `timesOf`, `schedOn`, `tellGate`.
+  - Plan the week and Move yards for good used to email every moved customer. Now they tell only customers with a day and a time, and only past the gate (Twilio on, test list in test mode).
+  - "First yard at" and the route order window are gone (`visitWindows`, `first_yard_at`). The window is the set time, 15 minutes each side.
+  - The night before and "on our way" texts are only made for a visit with a time. Before the patch is run nobody has a time, so those two texts stop being queued for the business phone the moment this code is live. The done text is as before.
+  - Routes: stop order first, then by time, then the rest in the shortest driving order.
+  - Card: Time (and Second day time for twice a week), "Send their day and time again". Schedule: the time on every yard, "Change this visit's time" in the yard menu, the list "Booked houses with no day and time yet". Crew: "Around 10:30 AM" on the route list.
+  - New text kind `visit_change`. `/api/office/stop` takes action `time`. `/api/office/customer` takes `service_time`, `service_time2`, `tell`. `/api/office/day` and `/api/crew/today` answer `times`.
+- Tests: `desk.test.mjs` 218. The same file with `OLD_DB=1` (the database before the patch, texts block skipped) 151. `worker.test.mjs` 542, `week.test.mjs` 76, `signup10` 40, `nav.test.py` 68, `npm run check` passes. `signup50` 130 pass and 1 fails ("only Monday to Friday is used", the Saturday failure that `main` has too).
+- Not run: the real Twilio, the live database, a real phone, `sweep.py`, `signup50` at 500.
+- Things Joe should know:
+  - "On our way" goes when the yard becomes the next stop (Start route, or the yard before it is finished). That can be well before or after the set time.
+  - The time is a promise the route has to keep. The app puts yards in time order. It does not check that two times on one route can both be met.
+  - My Yard and the truck link page do not show the set time yet. The texts and emails do.
+  - A customer who skipped texts gets the confirmation and any change by email. They get no night before reminder.
+  - Times set for a real customer while test mode is on tell nobody. After test mode is off, open the card and tap "Send their day and time again".
+  - The training video and page still need the rebuild at go live, now also for the Time box and the yard menu.
 

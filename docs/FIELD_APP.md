@@ -71,15 +71,16 @@ Joe asked for the time on every lead, a Health list he can read, a plainer Money
 
 ## Nov 21, 2026: the post booking flow sends on its own (pull request, not live until Joe tests)
 Twilio approved the campaign on November 19. Built on the branch `field-app/auto-texts`:
-- Visit texts go through the Twilio Messaging Service: your day is set, night before (with the truck link and a 30 minute window), on the way, yard is done, could not service. The Texts screen is the log and the backup, with Send now and Send by hand.
+- Visit texts go through the Twilio Messaging Service: your day and time are set, one visit changed, night before, on our way, yard is done, could not service. The Texts screen is the log and the backup, with Send now and Send by hand.
 - Test mode (`SMS_TEST_ALLOWLIST`): texts only go to the listed numbers.
 - STOP, START, replies and delivery news come back from Twilio. A reply is emailed to the office.
-- A day set or changed on any screen tells the customer by email and text. The customer card used to tell nobody.
+- **The schedule is a day and a time, set in the Field App, and it is the one trigger** (Joe's core rule, the same day). On the customer card the office sets Service day and Time and saves. That sends the confirmation by email and text. Nothing goes to the customer before both are set: a sign up tells nobody a day, and a house with no time gets no night before and no "on our way" text. Changing the day or the time sends the new schedule. Booked houses that still need one are listed on the Schedule.
+- A change for one visit: tap the yard on the Schedule, "Change this visit's time". Or move the yard to another day for this once. The customer is told that visit's new day and time.
+- The night before text says the day, the set time and the 30 minute window around it, with the truck link. Routes run in time order.
 - The evening run is a GitHub workflow that calls the site at 5:30 PM Arizona time.
 - A gate photo text that fails sends the photo by email.
 - Customer card: Customer name, My Yard status (invited or last signed in), Resend welcome email, Resend text, each with an "are you sure".
-- Plan the week: "First yard at", which the night before window is worked out from.
-- Database: `supabase/patch-2026-11-21.sql` (adds columns only). It was NOT run on the live database from this chat.
+- Database: `supabase/patch-2026-11-21.sql` (adds columns only, the visit times included). It was NOT run on the live database from this chat.
 - How a person tests it: `docs/TEST_AUTO_TEXTS.md`. Rules: `CLAUDE.md`, "Texts".
 - The hard rule above, "No texts or calls go out by code", is replaced by those rules. Calls are still never placed by code.
 

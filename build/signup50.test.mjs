@@ -571,7 +571,8 @@ ok('twice a week yards get two different days with a gap', (await count("select 
 const eo = (await db.query("select count(*) filter (where eow_week = 0)::int a, count(*) filter (where eow_week = 1)::int b from customers where plan = 'eow' and status in ('trialing','active')")).rows[0];
 ok('every other week yards are split between the two weeks', Math.abs(eo.a - eo.b) <= need * 5 + 1, eo);
 ok('each scooper works one part of town: ' + (wk.weekMiles / wk.slots.reduce((n, x) => n + x.homes, 0)).toFixed(2) + ' miles a yard', N < 200 || wk.slots.every((x) => x.miles < 45), Math.max(...wk.slots.map((x) => x.miles)));
-ok('every customer whose day changed got an email', wk.emailed === wk.changes && mails.length === Math.ceil(wk.changes / 100), { emailed: wk.emailed, batches: mails.length });
+// Joe, Nov 21, 2026: a customer hears a day only once the office has set their day AND time. None of these have a time yet.
+ok('a week plan tells no customer a day while no time is set for them', wk.emailed === 0 && wk.texted === 0 && mails.length === 0, { emailed: wk.emailed, batches: mails.length });
 console.log('  Scooper by day (yards / miles):');
 for (const t of [...new Set(wk.slots.map((x) => x.name))]) console.log('    ' + t.padEnd(12) + wk.slots.filter((x) => x.name === t).map((x) => x.dayName.slice(0, 3) + ' ' + String(x.yards).padStart(2) + ' / ' + String(x.miles).padStart(4)).join('   '));
 console.log('  Week: ' + wk.routes + ' routes, ' + wk.weekMiles + ' miles, biggest day ' + wk.biggestDay + ' yards. Before: one day per area, biggest day ' + Math.round(N * 0.46) + ' yards for one scooper.');

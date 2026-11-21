@@ -175,6 +175,13 @@ table.t tr.click:hover td{background:var(--bg2)}
   function time(iso) { return iso ? new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix' }) : ''; }
   function ago(iso) { if (!iso) return ''; var m = Math.round((Date.now() - Date.parse(iso)) / 60000); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : Math.round(m / 60) + ' hr ago'; }
   // "Nov 17, 6:59 PM", Arizona time. Used for when a lead came in and when something went wrong.
+  // A set time ("10:30") the way people say it ("10:30 AM"), and the list of times the office picks from.
+  function t12(t) { if (!/^\d\d:\d\d$/.test(t || '')) return ''; var hh = +t.slice(0, 2); return ((hh + 11) % 12 + 1) + ':' + t.slice(3) + (hh < 12 ? ' AM' : ' PM'); }
+  function timeSel(id, v, none) {
+    var list = []; for (var m = 6 * 60; m <= 18 * 60; m += 15) list.push(String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'));
+    if (v && list.indexOf(v) < 0) list.unshift(v);
+    return '<select class="f" id="' + id + '"><option value="">' + h(none || 'No time yet') + '</option>' + list.map(function (t) { return '<option value="' + t + '"' + (v === t ? ' selected' : '') + '>' + t12(t) + '</option>'; }).join('') + '</select>';
+  }
   function stamp(iso) { return iso ? new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Phoenix' }) : ''; }
   // How long, in plain words: 4 min, 3 hr, 2 days.
   function span(ms) { var m = Math.max(0, Math.round(ms / 60000)); if (m < 1) return 'under a minute'; if (m < 60) return m + ' min'; var hr = Math.round(m / 60); if (hr < 48) return hr + ' hr'; return Math.round(hr / 24) + ' days'; }
@@ -238,9 +245,9 @@ table.t tr.click:hover td{background:var(--bg2)}
       cs.push({ id: 'c' + (i + 1), name: first + ' ' + LN[(i * 7) % LN.length], email: first.toLowerCase() + (i + 1) + '@example.com', phone: '623555' + String(1000 + i), address: (100 + i * 3) + ' ' + ST[(i * 5) % ST.length], zip: z[0], area: z[1],
         dogs: dogs, dog_names: DOGS.slice(i % 9, i % 9 + dogs).join(', '), gate_code: i % 4 === 0 ? '' : String(1000 + (i * 37) % 9000), gate_notes: i % 6 === 0 ? 'Side gate on the left.' : '', problem_spots: i % 9 === 0 ? 'Back corner by the shed.' : '', office_notes: '', skip_spray: i % 11 === 0,
         plan: i % 10 === 0 ? 'twice' : i % 7 === 0 ? 'eow' : 'week', status: i % 40 === 39 ? 'past_due' : i % 5 === 0 ? 'trialing' : 'active', lat: 33.43 + (i % 50) / 500, lng: -112.36 - (i % 30) / 300,
-        service_day: 1 + (i % 5), service_day2: null, eow_week: 0, stop_order: null, scooper_id: 's' + (2 + (i % 3)), texts_visit: i % 8 !== 0, texts_deals: false, pause_from: null, pause_until: null });
+        service_day: 1 + (i % 5), service_time: String(8 + (i % 8)).padStart(2, '0') + (i % 2 ? ':30' : ':00'), service_time2: null, service_day2: null, eow_week: 0, stop_order: null, scooper_id: 's' + (2 + (i % 3)), texts_visit: i % 8 !== 0, texts_deals: false, pause_from: null, pause_until: null });
     }
-    cs[4].service_day = null; cs[4].scooper_id = null; cs[17].service_day = null; cs[17].scooper_id = null; cs[33].service_day = null; cs[33].scooper_id = null;
+    cs[4].service_day = null; cs[4].service_time = null; cs[9].service_time = null; cs[17].service_time = null; cs[33].service_time = null; cs[4].scooper_id = null; cs[17].service_day = null; cs[17].scooper_id = null; cs[33].service_day = null; cs[33].scooper_id = null;
     var runDay = wd >= 1 && wd <= 5 ? wd : 1;
     var routes = [2, 3, 4].map(function (n) { return { id: 'r' + (n - 1), status: 'planned', staff: { id: 's' + n, name: team[n - 1].name } }; });
     var stops = cs.filter(function (c) { return c.service_day === runDay && c.status !== 'past_due'; }).map(function (c, k) {
@@ -257,14 +264,15 @@ table.t tr.click:hover td{background:var(--bg2)}
   }
   function mine() { return D.stops.filter(function (x) { return x.route_id === D.route.id && (!x.day || x.day === D.today); }); }
   function demoText(kind, st, body) { if (st.customer.texts_visit) D.texts.push({ id: ++D.n + 10, kind: kind, to_addr: st.customer.phone, body: body, status: 'queued', stop_id: st.id, customer: { name: st.customer.name } }); }
-  function demoNext() { var nx = mine().filter(function (x) { return x.status === 'scheduled'; })[0]; if (nx) { nx.status = 'on_the_way'; nx.on_way_at = new Date().toISOString(); demoText('on_the_way', nx, 'Arizona Pet Waste: We are on the way. See our truck: arizonapetwaste.com/t/DEMO01'); } }
+  function demoNext() { var nx = mine().filter(function (x) { return x.status === 'scheduled'; })[0]; if (nx) { nx.status = 'on_the_way'; nx.on_way_at = new Date().toISOString(); demoText('on_the_way', nx, 'Arizona Pet Waste: We are on our way! Here is the truck: arizonapetwaste.com/t/DEMO01'); } }
   function demoDay() {
     var pings = {}; if (D.ping) pings.r1 = { at: D.ping };
     var dd = S.day || D.today, ds = D.stops.filter(function (x) { return (x.day || D.today) === dd; });
-    return { day: dd, cap: (S.wk && S.wk.cap) || 30, today: D.today, stops: ds, routes: dd === D.today ? D.routes : D.routes.filter(function (r) { return ds.some(function (x) { return x.route_id === r.id; }); }), pings: pings, needDay: D.customers.filter(function (c) { return c.service_day == null && c.status !== 'canceled'; }), queuedTexts: D.texts.filter(function (t) { return t.status === 'queued'; }).length };
+    return { day: dd, cap: (S.wk && S.wk.cap) || 30, today: D.today, times: demoTimes(ds), timesOn: true, stops: ds, routes: dd === D.today ? D.routes : D.routes.filter(function (r) { return ds.some(function (x) { return x.route_id === r.id; }); }), pings: pings, needDay: D.customers.filter(function (c) { return (c.service_day == null || !c.service_time) && c.status !== 'canceled'; }), queuedTexts: D.texts.filter(function (t) { return t.status === 'queued'; }).length };
   }
-  function demoToday() { return { mapsKey: D.mapsKey || null, day: D.today, dayName: DAYS[D.wd], route: D.route, stops: mine(), texts: D.texts.filter(function (t) { return t.status === 'queued' && t.stop_id; }) }; }
-  function demoCust(id) { var c = D.customers.filter(function (x) { return x.id === id; })[0]; return { yard: { invited: true, invitedAt: new Date(Date.now() - 3 * 864e5).toISOString(), lastSeenAt: +String(id).replace(/\D/g, '') % 3 ? new Date(Date.now() - 864e5).toISOString() : null }, twilio: false, customer: c, monthly: 8000, visits: D.stops.filter(function (s) { return s.customer.id === id && s.status !== 'scheduled'; }), texts: D.texts.filter(function (t) { return t.customer && t.customer.name === c.name; }) }; }
+  function demoTimes(list) { var o = {}; list.forEach(function (x) { o[x.id] = x.visit_time || x.customer.service_time || null; }); return o; }
+  function demoToday() { return { mapsKey: D.mapsKey || null, day: D.today, dayName: DAYS[D.wd], route: D.route, times: demoTimes(mine()), stops: mine(), texts: D.texts.filter(function (t) { return t.status === 'queued' && t.stop_id; }) }; }
+  function demoCust(id) { var c = D.customers.filter(function (x) { return x.id === id; })[0]; return { yard: { invited: true, invitedAt: new Date(Date.now() - 3 * 864e5).toISOString(), lastSeenAt: +String(id).replace(/\D/g, '') % 3 ? new Date(Date.now() - 864e5).toISOString() : null }, twilio: false, timesOn: true, customer: c, monthly: 8000, visits: D.stops.filter(function (s) { return s.customer.id === id && s.status !== 'scheduled'; }), texts: D.texts.filter(function (t) { return t.customer && t.customer.name === c.name; }) }; }
   async function demoApi(method, path, b) {
     if (!D) demoSeed();
     await new Promise(function (r) { setTimeout(r, 120); });
@@ -315,7 +323,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     }
     if (p === '/api/office/stop') {
       var i = D.stops.indexOf(st);
-      if (b.action === 'skip') st.status = 'skipped'; if (b.action === 'unskip') st.status = 'scheduled';
+      if (b.action === 'skip') st.status = 'skipped'; if (b.action === 'unskip') st.status = 'scheduled'; if (b.action === 'time') st.visit_time = b.time || null;
       var same = D.stops.filter(function (x) { return x.route_id === st.route_id; }), k = same.indexOf(st), other = b.action === 'up' ? same[k - 1] : b.action === 'down' ? same[k + 1] : null;
       if (other) { var j = D.stops.indexOf(other); D.stops[i] = other; D.stops[j] = st; }
       if (b.action === 'move') { var rt = D.routes.filter(function (x) { return x.staff.id === b.staffId; })[0]; if (!rt) { var who = D.team.filter(function (m) { return m.id === b.staffId; })[0]; if (!who) throw new Error('Pick someone on the team.'); rt = { id: 'r' + (++D.n + 50), day: D.today, status: 'planned', staff: { id: who.id, name: who.name } }; D.routes.push(rt); } st.route_id = rt.id; }
@@ -330,8 +338,8 @@ table.t tr.click:hover td{background:var(--bg2)}
       var c = D.customers.filter(function (x) { return x.id === b.id; })[0];
       ['name', 'gate_code', 'dog_names', 'gate_notes', 'problem_spots', 'office_notes', 'skip_spray'].forEach(function (k) { if (k in b) c[k] = b[k]; });
       ['service_day', 'service_day2', 'stop_order'].forEach(function (k) { if (k in b) c[k] = b[k] === '' || b[k] == null ? null : +b[k]; });
-      ['pause_from', 'pause_until', 'scooper_id'].forEach(function (k) { if (k in b) c[k] = b[k] || null; });
-      return demoCust(b.id);
+      ['pause_from', 'pause_until', 'scooper_id', 'service_time', 'service_time2'].forEach(function (k) { if (k in b) c[k] = b[k] || null; });
+      var dc = demoCust(b.id); dc.told = c.service_day != null && !c.service_time ? { needTime: true } : { off: true }; return dc;
     }
     if (p === '/api/office/photo' && method === 'POST') { var us = D.stops.filter(function (x) { return String(x.id) === String(b.stopId); })[0]; if (us) { us.photo_path = 'demo'; us.no_photo = false; if (us.status !== 'done') { us.status = 'done'; us.done_at = b.takenAt || new Date().toISOString(); } } return demoDay(); }
     if (p === '/api/office/photo') return { url: '/assets/img/gate-photo.jpg' };
@@ -482,7 +490,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     out += '<div style="padding:22px 0 0"><span class="lbl">Yard ' + idx + ' of ' + stops.length + '</span></div>' +
       '<div class="steps">' + [[1, 'Drive'], [2, 'Scoop'], [3, 'Photo']].map(function (x) { return '<span class="' + (x[0] === step ? 'on' : x[0] < step ? 'was' : '') + '"><b>' + (x[0] < step ? '✓' : x[0]) + '</b>' + x[1] + '</span>'; }).join('') + '</div>' +
       '<p class="todo">' + todo + '</p>' +
-      '<p class="big">' + h(c.address) + '</p><div style="color:var(--mute);margin-top:6px">' + h(c.name) + ' · ' + h(c.dogs) + (c.dogs == 1 ? ' dog' : ' dogs') + (c.dog_names ? ' · ' + h(c.dog_names) : '') + '</div>' +
+      '<p class="big">' + h(c.address) + '</p><div style="color:var(--mute);margin-top:6px">' + ((route().times || {})[cur.id] ? 'Set for around ' + h(t12(route().times[cur.id])) + ' · ' : '') + h(c.name) + ' · ' + h(c.dogs) + (c.dogs == 1 ? ' dog' : ' dogs') + (c.dog_names ? ' · ' + h(c.dog_names) : '') + '</div>' +
       '<div class="row2" style="margin-top:16px"><a class="btn ghost sm" style="width:100%" href="' + h(maps(c.address + ' ' + (c.zip || ''))) + '" target="_blank" rel="noopener">Directions</a>' +
       '<a class="btn ghost sm" style="width:100%" href="tel:+1' + h(String(c.phone || '').replace(/\D/g, '')) + '">Call</a></div>' +
       '<dl class="kv" style="margin-top:18px"><dt class="lbl">Gate code</dt><dd><div class="gate">' + (c.gate_code ? h(c.gate_code) : '<span style="color:var(--dim);font-size:22px">No code needed</span>') + '</div></dd>' +
@@ -518,7 +526,7 @@ table.t tr.click:hover td{background:var(--bg2)}
   function chk(k, label) { return '<button class="check' + (S.check[k] ? ' on' : '') + '" data-ck="' + k + '"><i>' + (S.check[k] ? '✓' : '') + '</i>' + h(label) + '</button>'; }
   function stopList(stops) {
     return '<ul class="list" style="margin-top:18px;border-top:1px solid var(--line)">' + stops.map(function (s, i) {
-      return '<li><span class="n">' + String(i + 1).padStart(2, '0') + '</span><div><div class="a">' + h(s.customer.address) + '</div><div class="s">' + h(s.customer.name) + (s.customer.gate_code ? ' · gate ' + h(s.customer.gate_code) : '') + '</div></div>' + (s.status === 'scheduled' ? '' : tag(s.status)) + '</li>';
+      return '<li><span class="n">' + String(i + 1).padStart(2, '0') + '</span><div><div class="a">' + h(s.customer.address) + '</div><div class="s">' + ((route().times || {})[s.id] ? 'Around ' + h(t12(route().times[s.id])) + ' · ' : '') + h(s.customer.name) + (s.customer.gate_code ? ' · gate ' + h(s.customer.gate_code) : '') + '</div></div>' + (s.status === 'scheduled' ? '' : tag(s.status)) + '</li>';
     }).join('') + '</ul>';
   }
   // The gate photo is our proof of the visit, so it is never thrown away. It is kept on the phone until the server says it
@@ -666,7 +674,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       el.remove(); if (k === 'go') fn();
     });
   }
-  var TEXT_KIND = { day_set: 'Your day is set', night_before: 'Night before', on_the_way: 'On the way', done: 'Yard is done', cant: 'Could not service', card_failed: 'Card did not work', welcome: 'Welcome email', reply: 'They texted us' };
+  var TEXT_KIND = { day_set: 'Day and time set', visit_change: 'One visit changed', night_before: 'Night before', on_the_way: 'On the way', done: 'Yard is done', cant: 'Could not service', card_failed: 'Card did not work', welcome: 'Welcome email', reply: 'They texted us' };
   var TEXT_STATE = { queued: ['Waiting', 'warn'], sent: ['Sent', 'dim'], delivered: ['Delivered', 'ok'], failed: ['Did not send', 'bad'], skipped: ['Skipped', 'dim'], received: ['Reply', 'acc'] };
   function textState(t) { var x = TEXT_STATE[t.status] || [t.status, 'dim']; return '<span class="tag ' + x[1] + '">' + x[0] + '</span>'; }
   function bindSend(root, crew, after) {
@@ -781,8 +789,8 @@ table.t tr.click:hover td{background:var(--bg2)}
       '<div class="stats"><div class="stat"><span class="lbl">Yards</span><b>' + all.length + '</b></div><div class="stat"><span class="lbl">Done</span><b>' + all.filter(function (s) { return s.status === 'done'; }).length + '</b></div>' +
       '<div class="stat"><span class="lbl">Problems</span><b' + (issues ? ' style="color:var(--bad)"' : '') + '>' + issues + '</b></div><div class="stat" data-tab="texts" style="cursor:pointer"><span class="lbl">Texts to send</span><b' + (d.queuedTexts ? ' style="color:var(--accent)"' : '') + '>' + d.queuedTexts + '</b></div></div>';
     if (d.needDay.length) {
-      out += '<div class="sec"><h3>New sign ups with no day yet <span class="tag warn">' + d.needDay.length + '</span></h3><p style="color:var(--mute);font-size:14px;margin:0 0 6px">Tap one, pick their day, then call or text them.</p><ul class="list">' +
-        d.needDay.slice(0, 20).map(function (c) { return '<li class="tap" data-cust="' + c.id + '"><span class="n">New</span><div><div class="a">' + h(c.name) + '</div><div class="s">' + h(c.address) + '</div></div><span class="lbl">Pick day ›</span></li>'; }).join('') + '</ul></div>';
+      out += '<div class="sec"><h3>Booked houses with no day and time yet <span class="tag warn">' + d.needDay.length + '</span></h3><p style="color:var(--mute);font-size:15px;line-height:1.45;margin:0 0 6px">Tap one and set the day and the time. That is what tells the customer. Nothing is sent to them until both are set.</p><ul class="list">' +
+        d.needDay.slice(0, 20).map(function (c) { return '<li class="tap" data-cust="' + c.id + '"><span class="n">New</span><div><div class="a">' + h(c.name) + '</div><div class="s">' + h(c.address) + '</div></div><span class="lbl">' + (c.service_day == null ? 'Set day and time ›' : DAYS[c.service_day].slice(0, 3) + ' · set time ›') + '</span></li>'; }).join('') + '</ul></div>';
     }
     if (!d.routes.length) out += '<div class="sec"><p class="empty">No routes for this day yet.</p><div style="max-width:320px"><button class="btn" data-o="plan">Build this day\'s routes</button></div></div>';
     S.open = S.open || {};
@@ -800,7 +808,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       if (open) out += '<ul class="list">' + st.map(function (s, i) {
         var can = pk && s.status === 'scheduled', on = can && pk.ids[s.id];
         return '<li class="tap" ' + (pk ? (can ? 'data-pickstop="' + s.id + '"' : 'style="opacity:.4"') : 'data-menu="' + s.id + '"') + '>' +
-          '<span class="n">' + (pk ? '<span style="display:inline-flex;width:24px;height:24px;border:1px solid ' + (on ? 'var(--accent)' : 'var(--mute)') + ';background:' + (on ? 'var(--accent)' : 'transparent') + ';color:#000;align-items:center;justify-content:center;font-weight:800;font-size:14px">' + (on ? '✓' : '') + '</span>' : String(i + 1).padStart(2, '0')) + '</span><div><div class="a">' + h(s.customer.address) + '</div><div class="s">' + h(s.customer.name) +
+          '<span class="n">' + (pk ? '<span style="display:inline-flex;width:24px;height:24px;border:1px solid ' + (on ? 'var(--accent)' : 'var(--mute)') + ';background:' + (on ? 'var(--accent)' : 'transparent') + ';color:#000;align-items:center;justify-content:center;font-weight:800;font-size:14px">' + (on ? '✓' : '') + '</span>' : String(i + 1).padStart(2, '0')) + '</span><div><div class="a">' + h(s.customer.address) + '</div><div class="s">' + ((d.times || {})[s.id] ? '<b style="color:var(--ink,inherit)">' + h(t12(d.times[s.id])) + '</b> · ' : (d.timesOn && s.status === 'scheduled' ? 'No time set · ' : '')) + h(s.customer.name) +
           (s.reason ? ' · ' + h(s.reason.replace(/_/g, ' ')) : '') + (s.note ? ' · ' + h(s.note) : '') + (time(s.done_at || s.arrived_at || s.on_way_at) ? ' · ' + h(time(s.done_at || s.arrived_at || s.on_way_at)) : '') + '</div></div>' +
           '<div class="r">' + (s.status === 'skipped' && /^Moved to /.test(s.note || '') ? '<span class="tag">Moved</span>' : s.status === 'scheduled' ? '' : tag(s.status)) + (s.no_photo ? '<div style="margin-top:4px"><span class="tag bad">No photo</span></div>' : '') + '</div></li>';
       }).join('') + '</ul>';
@@ -859,6 +867,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       (s.photo_path || (s.status !== 'skipped' && d.day <= d.today) ? g('Gate photo') : '') +
       (s.photo_path ? b('photo', 'See the gate photo') : '') +
       (s.status !== 'skipped' && d.day <= d.today ? b('upload', s.photo_path ? 'Upload a new gate photo' : 'Upload a gate photo') : '') +
+      (s.status === 'scheduled' && d.timesOn && d.day >= d.today ? g('Time of this visit') + '<p style="color:var(--mute);font-size:14px;line-height:1.45;margin:4px 0 0">' + ((d.times || {})[s.id] ? 'Now around ' + h(t12(d.times[s.id])) + '.' : 'No time set.') + ' A change here is for this visit only.</p>' + b('time', 'Change this visit\'s time') : '') +
       (open ? g('This visit') + b('skip', 'Skip this visit') + b('up', 'Move earlier in the route') + b('down', 'Move later in the route') : '') +
       (open && others.length ? g('Give this yard to') + '<div class="chips">' + others.map(function (m) { return '<button class="chip" data-k="to:' + m.id + '">' + h(m.name) + '</button>'; }).join('') + '</div>' : '') +
       (s.status === 'skipped' ? g('This visit') + b('unskip', 'Put this visit back') : '') +
@@ -873,9 +882,26 @@ table.t tr.click:hover td{background:var(--bg2)}
       if (k === 'copy') { try { await navigator.clipboard.writeText(link); toast('Link copied'); } catch (err) { sheetForm('Copy this link', [{ id: 'l', label: 'Link', value: link, readonly: true }]); } return; }
       if (k === 'cust') { el.remove(); return openCustomer(s.customer.id); }
       if (k === 'upload') { el.remove(); return officeUpload(s.id, d.day); }
+      if (k === 'time') { el.remove(); return visitTime(s, d); }
       if (k === 'photo') { try { var ph = await api('GET', '/api/office/photo?stop=' + s.id); window.open(ph.url, '_blank', 'noopener'); } catch (err) { toast(err.message); } return; }
       var body = k.indexOf('to:') === 0 ? { id: s.id, action: 'move', staffId: k.slice(3) } : { id: s.id, action: k };
       try { S.data.day = await api('POST', '/api/office/stop', body); toast({ skip: 'Skipped. Tap the yard to put it back.', unskip: 'Visit is back on the route', up: 'Moved earlier', down: 'Moved later' }[k] || 'Moved to the other route'); el.remove(); render(); }
+      catch (err) { toast(err.message); }
+    });
+  }
+  // A new time for one visit. The customer's usual day and time stay as they are.
+  function visitTime(s, d) {
+    var el = document.createElement('div'); el.className = 'sheet';
+    el.innerHTML = '<div class="pane" role="dialog" aria-modal="true"><div class="lbl">' + h(s.customer.name) + ' · ' + h(dayLabel(d.day)) + '</div><p class="big" style="font-size:26px">New time for this visit</p>' +
+      '<p style="color:var(--mute);font-size:15px;line-height:1.5;margin:8px 0 0">This is for this one visit. Saving tells the customer the new time by email and text.</p>' +
+      '<label class="fl"><span class="lbl">Time</span>' + timeSel('vt_t', (d.times || {})[s.id] || '', 'Back to their usual time') + '</label>' +
+      '<div style="height:12px"></div><button class="btn" data-k="go">Save and tell the customer</button><button class="btn ghost" data-k="x" style="margin-top:8px">Back</button></div>';
+    document.body.appendChild(el);
+    el.addEventListener('click', async function (e) {
+      if (e.target === el) return el.remove();
+      var k = e.target && e.target.dataset && e.target.dataset.k; if (!k) return;
+      if (k === 'x') return el.remove();
+      try { S.data.day = await api('POST', '/api/office/stop', { id: s.id, action: 'time', time: el.querySelector('#vt_t').value }); el.remove(); toast('Time saved'); render(); }
       catch (err) { toast(err.message); }
     });
   }
@@ -1035,9 +1061,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       '<ol style="color:var(--mute);font-size:14px;max-width:70ch;padding-left:20px;margin:8px 0 0;line-height:1.6"><li>Pick how many yards one scooper does in a day. No day goes over that.</li><li>Tap the plan button. Yards are grouped by town, so a day stays in one area and the truck drives less.</li><li>Read the table. Each box is one scooper\'s day: yards, miles and towns.</li><li>Save. Each customer gets an email with their day.</li></ol>' +
       '<span class="lbl" style="display:block;margin-top:18px">Yards one scooper does in a day</span><div class="chips" style="margin-top:8px">' + caps.sort(function (x, y) { return x - y; }).map(function (n) { return '<button class="chip' + (o.cap === n ? ' on' : '') + '" data-cap="' + n + '" style="min-width:56px;font-size:15px">' + n + '</button>'; }).join('') + '</div>' +
       '<span class="lbl" style="display:block;margin-top:18px">Days we scoop</span><div class="chips" style="margin-top:8px">' + [['1,2,3,4,5', 'Monday to Friday'], ['1,2,3,4,5,6', 'Monday to Saturday']].map(function (x) { return '<button class="chip' + (o.days === x[0] ? ' on' : '') + '" data-wdays="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' +
-      (DEMO ? '' : '<label class="fl" style="max-width:640px"><span class="lbl">Where the truck starts each day</span><input class="f" id="wk_start" autocomplete="off" placeholder="Street, city, ZIP" value="' + h(o.start || '') + '"></label><div style="max-width:320px"><button class="btn ghost" data-wkstart="1">Save the start</button></div>' +
-        '<label class="fl" style="max-width:320px"><span class="lbl">First yard at (for the 30 minute window in the night before text)</span><select class="f" id="wk_first"><option value="">Not set: no window in the text</option>' +
-        ['06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '12:00'].map(function (t) { var hh = +t.slice(0, 2); return '<option value="' + t + '"' + (o.firstAt === t ? ' selected' : '') + '>' + ((hh + 11) % 12 + 1) + ':' + t.slice(3) + (hh < 12 ? ' AM' : ' PM') + '</option>'; }).join('') + '</select></label>') +
+      (DEMO ? '' : '<label class="fl" style="max-width:640px"><span class="lbl">Where the truck starts each day</span><input class="f" id="wk_start" autocomplete="off" placeholder="Street, city, ZIP" value="' + h(o.start || '') + '"></label><div style="max-width:320px"><button class="btn ghost" data-wkstart="1">Save the start</button></div>') +
       (DEMO ? '<label class="fl" style="max-width:310px"><span class="lbl">Sample customers (made up, across our ZIP codes)</span><select class="f" id="wk_n">' + [100, 250, 500, 1000].map(function (n) { return '<option' + (o.n === n ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select></label>' : '') +
       '<div class="row2" style="max-width:640px;margin-top:14px">' + (DEMO ? '' : '<button class="btn ghost" data-wk="new">Place new yards only</button>') + '<button class="btn" data-wk="all">' + (DEMO ? 'Plan the sample week' : 'Rebuild the whole week') + '</button></div>' +
       (DEMO ? '' : '<p style="color:var(--mute);font-size:13px;max-width:70ch">Place new yards only moves nobody. Rebuild the whole week can move customers to a new day. You see the plan first. Nothing is saved until you press Save.</p>');
@@ -1115,7 +1139,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       row('Online sign up', c.booking, 'New customers can pay on the site and land here.', 'The Stripe keys are not in Cloudflare yet. The site takes requests as leads until then.') +
       row('Live truck map', c.map, 'Customers see the truck on a Google map.', 'The Google Maps keys are not in Cloudflare. Customers see a simple progress line.') +
       row('Texts send on their own', c.texts, x.textsTest != null ? 'Test mode: only ' + x.textsTest + ' test ' + (x.textsTest === 1 ? 'number gets' : 'numbers get') + ' texts. Everyone else waits in the Texts tab.' : 'Visit texts go out through Twilio. The Texts tab is the log.', 'The Twilio settings are not in Cloudflare yet. Staff send each text by hand from the Texts tab.') +
-      row('Night before texts every evening', !!x.nightRanAt, 'Last ran ' + h(stamp(x.nightRanAt)) + '.' + (x.firstAt ? '' : ' No 30 minute window yet: set "First yard at" in Plan the week.'), 'The evening run has not called in yet. It needs CRON_SECRET in Cloudflare and in GitHub.') +
+      row('Night before texts every evening', !!x.nightRanAt, 'Last ran ' + h(stamp(x.nightRanAt)) + '.' + (x.timesOn ? '' : ' Visit times are not switched on yet: the database patch has not been run.'), 'The evening run has not called in yet. It needs CRON_SECRET in Cloudflare and in GitHub.') +
       row('Lock on wrong sign in codes', c.signLock, '5 wrong codes and that email waits 15 minutes.', 'A weaker lock is on in its place. The full one needs one step in the database: run supabase/patch-2026-11-16.sql in the Supabase SQL Editor.') +
       row('Bot check on sign in screens', c.botCheck, 'The check runs on our sign in screens. It only stops robots once Captcha is also on in Supabase (Authentication, Attack Protection). On Nov 16, 2026 that switch was off.', 'Not set up yet. It needs TURNSTILE_SITE_KEY in Cloudflare and the Turnstile secret in Supabase.') +
       '</tbody></table></div></div>' +
@@ -1135,10 +1159,13 @@ table.t tr.click:hover td{background:var(--bg2)}
     return 'not invited yet. The welcome email goes out when they finish sign up';
   }
   function toldLine(t, c) {
-    if (t.off) return 'Day saved. Texts are not on yet, so the customer was not told. Call or text them their day.';
-    if (t.test) return 'Day saved. Test mode is on, so ' + (c.name || 'the customer') + ' was not told.';
+    var who = c.name || 'the customer';
+    if (t.needTime) return 'Saved. Now pick a time. ' + who + ' is not told until the day and the time are both set.';
+    if (t.off) return 'Saved. Texts are not on yet, so ' + who + ' was not told.';
+    if (t.test) return 'Saved. Test mode is on, so ' + who + ' was not told.';
+    if (t.error) return 'Saved, but telling ' + who + ' did not work. Tap "Send their day and time again".';
     var how = [t.mailed ? 'email' : '', t.text === 'sent' ? 'text' : ''].filter(Boolean).join(' and ');
-    return 'Day saved. ' + (how ? (c.name || 'The customer') + ' was told by ' + how + '.' : 'The customer was not told: no email went out.') + (t.text === 'queued' ? ' The text is waiting in the Texts tab.' : '');
+    return 'Saved. ' + (how ? who + ' was told ' + (t.say || 'their day and time') + ' by ' + how + '.' : who + ' was not told: no email went out.') + (t.text === 'queued' ? ' The text is waiting in the Texts tab.' : '');
   }
   async function openCustomer(id) {
     try { S.sel = await api('GET', '/api/office/customer?id=' + id); } catch (e) { return toast(e.message); }
@@ -1157,10 +1184,12 @@ table.t tr.click:hover td{background:var(--bg2)}
       '<br><span style="color:var(--mute);font-size:14px">My Yard: ' + h(yardLine(S.sel.yard)) + '</span>' +
       (c.stripe_customer_id ? '<br><a href="https://dashboard.stripe.com/customers/' + h(c.stripe_customer_id) + '" target="_blank" rel="noopener" style="font-size:14px">Open in Stripe ›</a>' : '') + '</p>' +
       (S.sel.yard && S.sel.yard.invited ? '<div style="margin-top:14px;max-width:320px"><button class="btn ghost sm" style="width:100%" id="rewel">Resend welcome email</button></div>' : '') +
-      '<div class="hr" style="margin:20px 0 4px"></div><span class="lbl">Route</span>' + (S.sel.twilio ? '<p style="color:var(--mute);font-size:14px;line-height:1.45;margin:6px 0 0">' + (S.sel.textsTest ? 'Test mode is on. Saving a new service day only tells a customer on the test list.' : 'Saving a new service day tells the customer by email' + (c.texts_visit ? ' and text' : '') + '.') + '</p>' : '') + '<div class="grid2"><label class="fl"><span class="lbl">Service day</span>' + daySel('f_sd', c.service_day) + '</label>' +
-      (c.plan === 'twice' ? '<label class="fl"><span class="lbl">Second day</span>' + daySel('f_sd2', c.service_day2) + '</label>' : '') +
+      '<div class="hr" style="margin:20px 0 4px"></div><span class="lbl">Route</span>' + '<p style="color:var(--mute);font-size:15px;line-height:1.45;margin:6px 0 0">' + (!S.sel.timesOn ? 'Visit times are not switched on yet. The database patch has to be run first.' : 'Set the day and the time. Saving them is what tells the customer, by email' + (c.texts_visit ? ' and text' : '') + '. Nothing is sent until both are set.' + (!S.sel.twilio ? ' Texts are not on yet, so nobody is told for now.' : S.sel.textsTest ? ' Test mode is on: only a customer on the test list is told.' : '')) + '</p>' +
+      '<div class="grid2"><label class="fl"><span class="lbl">Service day</span>' + daySel('f_sd', c.service_day) + '</label>' +
+      (S.sel.timesOn ? '<label class="fl"><span class="lbl">Time</span>' + timeSel('f_st', c.service_time || '') + '</label>' : '') +
+      (c.plan === 'twice' ? '<label class="fl"><span class="lbl">Second day</span>' + daySel('f_sd2', c.service_day2) + '</label>' + (S.sel.timesOn ? '<label class="fl"><span class="lbl">Second day time</span>' + timeSel('f_st2', c.service_time2 || '', 'Same time') + '</label>' : '') : '') +
       (c.plan === 'eow' ? '<label class="fl"><span class="lbl">Every other week</span><select class="f" id="f_eow"><option value="0"' + (c.eow_week ? '' : ' selected') + '>Week A</option><option value="1"' + (c.eow_week ? ' selected' : '') + '>Week B</option></select></label>' : '') +
-      '<label class="fl"><span class="lbl">Stop order</span><input class="f" id="f_so" inputmode="numeric" value="' + h(c.stop_order == null ? '' : c.stop_order) + '" placeholder="1, 2, 3…"></label>' +
+      '<label class="fl"><span class="lbl">Stop order (wins over the time)</span><input class="f" id="f_so" inputmode="numeric" value="' + h(c.stop_order == null ? '' : c.stop_order) + '" placeholder="1, 2, 3…"></label>' +
       '<label class="fl"><span class="lbl">Scooper</span><select class="f" id="f_sc"><option value="">Default</option>' + team.filter(function (m) { return m.active; }).map(function (m) { return '<option value="' + m.id + '"' + (c.scooper_id === m.id ? ' selected' : '') + '>' + h(m.name) + '</option>'; }).join('') + '</select></label>' +
       '<label class="fl"><span class="lbl">Pause from</span><input class="f" id="f_pf" type="date" value="' + h(c.pause_from || '') + '"></label><label class="fl"><span class="lbl">Pause until</span><input class="f" id="f_pu" type="date" value="' + h(c.pause_until || '') + '"></label></div>' +
       '<div class="hr" style="margin:20px 0 4px"></div><span class="lbl">Yard</span><div class="grid2"><label class="fl"><span class="lbl">Gate code</span><input class="f mono" id="f_gc" value="' + h(c.gate_code || '') + '"></label><label class="fl"><span class="lbl">Dog names</span><input class="f" id="f_dn" value="' + h(c.dog_names || '') + '"></label></div>' +
@@ -1170,11 +1199,12 @@ table.t tr.click:hover td{background:var(--bg2)}
       '<label class="fl" style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="f_ss"' + (c.skip_spray ? ' checked' : '') + '> <span>Skip the spray</span></label>' +
       '<label class="fl"><span class="lbl">Office notes (crew sees these)</span><textarea class="f" id="f_on">' + h(c.office_notes || '') + '</textarea></label>' +
       '<div style="margin-top:16px"><button class="btn" id="fsave">Save</button></div>' +
+      (S.sel.timesOn && S.sel.twilio && c.service_day != null && c.service_time ? '<div style="margin-top:8px"><button class="btn ghost" id="retell">Send their day and time again</button></div>' : '') +
       '<div class="hr" style="margin:26px 0 4px"></div><span class="lbl">Visits</span>' + (S.sel.visits.length ? '<table class="t"><tbody>' + S.sel.visits.map(function (v) {
         return '<tr><td class="mono" style="font-size:12px">' + h(dayLabel(v.day)) + '</td><td>' + tag(v.status) + (v.no_photo ? ' <span class="tag bad">No photo</span>' : '') + (v.note ? '<div style="font-size:13px;color:var(--mute)">' + h(v.note) + '</div>' : '') + '</td><td style="text-align:right">' + (v.photo_path ? '<button class="ib" data-photo="' + v.id + '">Photo</button>' : '') + '</td></tr>';
       }).join('') + '</tbody></table>' : '<p class="empty">No visits yet.</p>') +
       '<span class="lbl" style="display:block;margin-top:22px">Texts and emails</span>' + (S.sel.texts.length ? S.sel.texts.map(function (t) {
-        var again = S.sel.twilio && t.channel !== 'email' && ['day_set', 'night_before', 'on_the_way', 'done', 'cant'].indexOf(t.kind) >= 0 && c.texts_visit;
+        var again = S.sel.twilio && t.channel !== 'email' && ['day_set', 'visit_change', 'night_before', 'on_the_way', 'done', 'cant'].indexOf(t.kind) >= 0 && c.texts_visit;
         return '<div class="tcard"><div style="display:flex;gap:10px;justify-content:space-between;align-items:flex-start"><div class="lbl">' + h(TEXT_KIND[t.kind] || t.kind.replace(/_/g, ' ')) + (t.channel === 'email' ? ' · email' : '') + ' · ' + h(stamp(t.delivered_at || t.sent_at || t.created_at)) + '</div>' + textState(t) + '</div>' +
           '<p style="font-size:14px;margin-bottom:6px">' + h(t.body) + '</p>' + (t.error ? '<p style="color:var(--bad);font-size:14px;margin:0 0 6px">' + h(t.error) + '</p>' : '') +
           (again ? '<button class="ib" style="min-height:44px;padding:0 14px" data-again="' + t.id + '">' + (t.status === 'queued' ? 'Send now' : 'Resend text') + '</button>' : '') + '</div>';
@@ -1186,8 +1216,16 @@ table.t tr.click:hover td{background:var(--bg2)}
       var b = { id: c.id, name: val('f_nm'), service_day: val('f_sd'), stop_order: val('f_so'), scooper_id: val('f_sc'), pause_from: val('f_pf'), pause_until: val('f_pu'), gate_code: val('f_gc'), dog_names: val('f_dn'), gate_notes: val('f_gn'), problem_spots: val('f_ps'), office_notes: val('f_on'), skip_spray: el.querySelector('#f_ss').checked };
       if (String(val('f_dg') || '') !== String(c.dogs == null ? '' : c.dogs)) b.dogs = val('f_dg');
       if (el.querySelector('#f_sd2')) b.service_day2 = val('f_sd2');
+      if (el.querySelector('#f_st')) b.service_time = val('f_st');
+      if (el.querySelector('#f_st2')) b.service_time2 = val('f_st2');
       if (el.querySelector('#f_eow')) b.eow_week = val('f_eow');
       try { S.sel = await api('POST', '/api/office/customer', b); toast('Saved'); drawCustomer(); loadTab(); } catch (e) { toast(e.message); }
+    };
+    var rt = el.querySelector('#retell');
+    if (rt) rt.onclick = function () {
+      sure('Send their day and time again?', (c.name || 'This customer') + ' gets ' + DAYS[c.service_day] + ' around ' + t12(c.service_time) + ' by email' + (c.texts_visit ? ' and text' : '') + '.', 'Send it', async function () {
+        try { S.sel = await api('POST', '/api/office/customer', { id: c.id, tell: true }); drawCustomer(); } catch (e) { toast(e.message); }
+      });
     };
     var rw = el.querySelector('#rewel');
     if (rw) rw.onclick = function () { sure('Send the welcome email again?', 'It goes to ' + c.email + ' with a new My Yard link that works for 7 days.', 'Send email', async function () { try { S.sel = await api('POST', '/api/office/customer/welcome', { id: c.id }); toast('Welcome email sent'); drawCustomer(); } catch (e) { toast(e.message); } }); };
@@ -1203,15 +1241,13 @@ table.t tr.click:hover td{background:var(--bg2)}
     app.querySelectorAll('[data-plan]').forEach(function (b) { b.onclick = async function () {
       var open = b.dataset.plan === '1'; S.wk = S.wk || { cap: 30, days: '1,2,3,4,5', n: DEMO ? 100 : 500 };
       if (!open) return goHome(true);
-      if (!DEMO && !S.wk.loaded) { try { var st = await api('GET', '/api/office/settings'); S.wk.cap = st.cap; S.wk.days = st.days; S.wk.start = st.start || ''; S.wk.firstAt = st.firstAt || ''; S.wk.loaded = true; } catch (e) { } }
+      if (!DEMO && !S.wk.loaded) { try { var st = await api('GET', '/api/office/settings'); S.wk.cap = st.cap; S.wk.days = st.days; S.wk.start = st.start || ''; S.wk.loaded = true; } catch (e) { } }
       nav('today', true);
     }; });
     var saveSet = function () { if (!DEMO) api('POST', '/api/office/settings', { cap: S.wk.cap, days: S.wk.days }).then(function () { toast('Saved'); }).catch(function (e) { toast(e.message); }); S.data.week = null; render(); };
     app.querySelectorAll('[data-slot]').forEach(function (b) { b.onclick = function () { var n = +b.dataset.slot; S.wk.sel = n < 0 || S.wk.sel === n ? null : n; render(); var m = document.getElementById('wkmap'); if (m && S.wk.sel != null) m.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }; });
     if (S.plan && S.data.week && S.data.week.slots && S.data.week.mapsKey) keepMap('wkmap', [S.wk.sel, S.data.week.routes, S.data.week.weekMiles, S.data.week.cap, S.data.week.customers].join('|'), function (el) { wkMap(S.data.week, el); });
     app.querySelectorAll('[data-wkstart]').forEach(function (b) { b.onclick = function () { var v = (document.getElementById('wk_start') || {}).value || ''; api('POST', '/api/office/settings', { start: v }).then(function (r) { S.wk.start = r.start || ''; S.data.week = null; toast(r.start ? 'Start saved' : 'Start cleared'); render(); }).catch(function (e) { toast(e.message); }); }; });
-    var wf = document.getElementById('wk_first');
-    if (wf) wf.onchange = function () { api('POST', '/api/office/settings', { firstAt: wf.value }).then(function (r) { S.wk.firstAt = r.firstAt || ''; toast(r.firstAt ? 'First yard time saved' : 'First yard time cleared'); }).catch(function (e) { toast(e.message); }); };
     app.querySelectorAll('[data-cap]').forEach(function (b) { b.onclick = function () { S.wk.cap = +b.dataset.cap; saveSet(); }; });
     app.querySelectorAll('[data-wdays]').forEach(function (b) { b.onclick = function () { S.wk.days = b.dataset.wdays; saveSet(); }; });
     app.querySelectorAll('[data-wk]').forEach(function (b) { b.onclick = async function () {
@@ -1263,7 +1299,7 @@ table.t tr.click:hover td{background:var(--bg2)}
         var o = b.dataset.o; b.disabled = true;
         try {
           if (o === 'plan') { var r = await api('POST', '/api/office/plan', { date: S.data.day.day }); toast(r.added ? 'Added ' + r.added + ' yards' : 'Routes are up to date'); }
-          if (o === 'night') { var n = await api('POST', '/api/office/night-before', {}); toast(n.queued + ' night before texts ready for ' + dayLabel(n.day)); }
+          if (o === 'night') { var n = await api('POST', '/api/office/night-before', {}); toast(n.queued + ' night before texts ready for ' + dayLabel(n.day) + (n.timed != null && n.timed < n.stops ? '. ' + (n.stops - n.timed) + ' yards have no time set and get none' : '')); }
           if (o === 'addstaff') { S.data.team = await api('POST', '/api/office/team', { name: val('tn'), email: val('te'), phone: val('tp'), role: val('tr'), scoops: !!(document.getElementById('ts') || {}).checked }); toast('Added'); }
           if (o === 'clearhealth') {
             b.disabled = false;

@@ -1026,7 +1026,7 @@ function welcomeText(env, c, link, money) {
     'You are booked.', '',
     ...(money && money.length ? money.flatMap((x) => [x, '']) : []),
     'What happens next:',
-    '1. We set your service day and send it to you by ' + (texts ? 'text and email.' : 'email.'),
+    '1. We set your service day and time and send them to you by ' + (texts ? 'text and email.' : 'email.'),
     texts ? '2. The night before each visit, we text you a reminder.' : '2. We come on your service day. You do not need to be home.',
     texts ? '3. On visit day, we text you when we are on the way. When we are done, we text you a photo of your latched gate.' : '3. When we are done, we email you a photo of your latched gate.', '',
     'Next, set up My Yard: add your gate code, your dogs’ names and any problem spots. This link signs you in, no code needed. It works for ' + LINK_DAYS + ' days:',
@@ -1931,8 +1931,8 @@ async function placeCustomer(env, c) {
         }
       }
     }
-    if (patch.service_day != null && c.email) await mail(env, c.email, 'Your service day is ' + DAYS[patch.service_day], dayMail(c.name, patch.service_day, patch.service_day2, false));
-    if (patch.service_day != null) await dayTexts(env, [{ c, d1: patch.service_day, d2: patch.service_day2, moved: false }]).catch((e) => console.error('day text', e));
+    // Joe, Nov 21, 2026: nothing goes to the customer here. The day picked above is a first guess for the route.
+    // The customer hears their day and time when the office sets both in the Field App (schedNotice).
     if (c.phone) await db(env, 'PATCH', 'leads?phone=eq.' + enc(c.phone) + '&status=in.(new,contacted,quoted)', { status: 'won', updated_at: new Date().toISOString() }, 'return=minimal');
   } catch (e) { console.error('place customer', e); }
 }
@@ -2101,7 +2101,7 @@ async function desk(path, request, env, ctx) {
 // - Test mode: SMS_TEST_ALLOWLIST is a list of mobile numbers. When it is set, texts go to those numbers and no others.
 //   Everyone else's texts wait in the Texts tab, as they did before Twilio.
 // - Deals texts do not exist. The card problem text (`card_failed`) is not a visit text and is still sent by hand.
-const AUTO_KINDS = ['day_set', 'night_before', 'on_the_way', 'done', 'cant'];
+const AUTO_KINDS = ['day_set', 'visit_change', 'night_before', 'on_the_way', 'done', 'cant'];
 function smsOn(env) { return !!(env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_MESSAGING_SERVICE_SID); }
 function smsAllow(env) {
   const raw = String(env.SMS_TEST_ALLOWLIST || '').trim();
@@ -2114,7 +2114,7 @@ const smsMay = (env, phone) => { const a = smsAllow(env); return !a || a.has(dig
 // Arizona has no daylight saving time, so its clock is always seven hours behind UTC.
 const azMinutes = () => { const d = new Date(Date.now() - 7 * 3600e3); return d.getUTCHours() * 60 + d.getUTCMinutes(); };
 // A text nobody is waiting for (the day we set, the night before reminder) only goes out from 8 in the morning to 9 at night.
-const QUIET_KINDS = ['day_set', 'night_before'];
+const QUIET_KINDS = ['day_set', 'visit_change', 'night_before'];
 // SMS_HOURS (optional, "8-21") moves those hours.
 const quietNow = (env) => {
   const h = /^(\d{1,2})-(\d{1,2})$/.exec(String((env && env.SMS_HOURS) || '').trim()), from = h ? Number(h[1]) : 8, to = h ? Number(h[2]) : 21, m = azMinutes();
@@ -2124,16 +2124,80 @@ const TWILIO_WHY = { 21610: 'They replied STOP, so Twilio will not text them.', 
   30005: 'The number is not in service.', 30006: 'That is a landline or cannot get texts.', 30007: 'The carrier blocked the text.', 30034: 'The number is not on an approved campaign yet.' };
 const twilioWhy = (code) => (TWILIO_WHY[code] || 'Twilio could not deliver it.') + ' (Twilio ' + code + ')';
 
+/* ---------- the schedule: a day AND a time (Joe, Nov 21, 2026, the core rule) ----------
+   The office sets a booked house's service day and time in the Field App ("Monday 10:30 AM") and can change it later.
+   Setting or changing it is what tells the customer. Until both are set, no day text, no night before text and no
+   "on our way" text goes out. The gate photo notice after a visit always goes: that promise does not wait on a time.
+   customers.service_time is the time for the service day ("10:30"), service_time2 the time for the second day of a twice
+   a week plan (empty means the same time). stops.visit_time is a change for that one visit. They come with
+   supabase/patch-2026-11-21.sql: until it is run nobody has a time, so nobody is told anything (schedOn). */
+const isTime = (v) => /^([01]\d|2[0-3]):[0-5]\d$/.test(String(v == null ? '' : v));
+const toMin = (t) => Number(String(t).slice(0, 2)) * 60 + Number(String(t).slice(3, 5));
+const clock12 = (min) => { const h = Math.floor(min / 60) % 24, m = min % 60; return { t: ((h + 11) % 12 + 1) + ':' + String(m).padStart(2, '0'), ap: h < 12 ? 'AM' : 'PM' }; };
+const timeSay = (t) => { const c = clock12(toMin(t)); return c.t + ' ' + c.ap; };
+// The 30 minute window around a set time: "10:15 and 10:45 AM".
+function windowText(t) {
+  const m = toMin(t), a = clock12(Math.max(0, m - 15)), b = clock12(Math.min(1439, m + 15));
+  return a.t + (a.ap === b.ap ? '' : ' ' + a.ap) + ' and ' + b.t + ' ' + b.ap;
+}
+// The time a customer is served on a weekday. A one time move to another weekday keeps their usual time.
+const timeOn = (c, wd) => (c && c.service_day2 === wd && c.service_day !== wd && isTime(c.service_time2) ? c.service_time2 : (c && isTime(c.service_time) ? c.service_time : null));
+const schedSet = (c) => !!(c && c.service_day != null && isTime(c.service_time));
+const schedSay = (c) => DAYS[c.service_day] + ' around ' + timeSay(c.service_time) +
+  (c.plan === 'twice' && c.service_day2 != null ? ' and ' + DAYS[c.service_day2] + ' around ' + timeSay(timeOn(c, c.service_day2)) : '');
+const dateSay = (day) => new Date(day + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC' });
+// The next visit on a schedule, as a date. Today counts while the set time is still ahead.
+function nextVisit(c) {
+  const today = azToday(), t = timeOn(c, weekday(today));
+  return nextVisits(c, t && azMinutes() < toMin(t) ? today : addDays(today, 1), 1)[0] || null;
+}
+// Are the time columns in the database yet? Asked once and remembered. A no is asked again after a minute.
+let SCHED_ON = false, SCHED_AT = 0;
+async function schedOn(env) {
+  if (SCHED_ON) return true;
+  if (Date.now() - SCHED_AT < 60e3) return false;
+  SCHED_AT = Date.now();
+  try {
+    await db(env, 'GET', 'customers?select=service_time,service_time2&limit=1');
+    await db(env, 'GET', 'stops?select=visit_time&limit=1');
+    SCHED_ON = true;
+  } catch (e) { SCHED_ON = false; }
+  return SCHED_ON;
+}
+// The time of each visit in a list of stops ({ id, day, customer_id or customer.id }): { stop id: "10:30" or null }.
+// A time set for that one visit wins over the customer's usual time.
+async function timesOf(env, stops) {
+  const out = {};
+  if (!stops || !stops.length || !(await schedOn(env))) return out;
+  const cid = (st) => st.customer_id || (st.customer && st.customer.id);
+  const ids = [...new Set(stops.map(cid).filter(Boolean))], sids = stops.map((st) => st.id).filter(Boolean);
+  const cust = {}, own = {};
+  for (let i = 0; i < ids.length; i += 100) for (const r of await db(env, 'GET', 'customers?id=in.(' + ids.slice(i, i + 100).join(',') + ')&select=id,service_day,service_day2,service_time,service_time2')) cust[r.id] = r;
+  for (let i = 0; i < sids.length; i += 200) for (const r of await db(env, 'GET', 'stops?id=in.(' + sids.slice(i, i + 200).join(',') + ')&select=id,visit_time')) own[r.id] = r.visit_time;
+  for (const st of stops) out[st.id] = isTime(own[st.id]) ? own[st.id] : timeOn(cust[cid(st)], weekday(st.day));
+  return out;
+}
+// Who may be told about a schedule right now. Nobody until texts are on (Twilio settings in Cloudflare). While test
+// mode is on, only a customer whose mobile number is on the test list. So no real customer hears a thing until Joe
+// takes test mode off.
+const tellGate = (env, c) => (!smsOn(env) ? 'off' : (testMode(env) && !smsMay(env, c && c.phone) ? 'test' : ''));
+
 function textBody(env, kind, code, reason, opt) {
   const link = siteHost(env) + '/t/' + code;
-  if (kind === 'night_before') return 'Arizona Pet Waste comes tomorrow' + (opt && opt.window ? ' between ' + opt.window : '') + '. Please unlock the gate and keep your dogs inside. See your visit: ' + link + ' Reply STOP to opt out.';
-  if (kind === 'on_the_way') return 'Arizona Pet Waste: We are on the way. See our truck: ' + link;
+  if (kind === 'night_before') {
+    const t = opt && isTime(opt.time) ? opt.time : null, when = opt && opt.day ? (opt.day === addDays(azToday(), 1) ? 'tomorrow (' + DAYS[weekday(opt.day)] + ')' : 'on ' + dateSay(opt.day)) : 'tomorrow';
+    return 'Arizona Pet Waste: We will be there ' + when + (t ? ' around ' + timeSay(t) + ', between ' + windowText(t) : '') + '. Please unlock the gate and keep your dogs inside. Watch the truck on the way: ' + link + ' Reply STOP to opt out.';
+  }
+  if (kind === 'on_the_way') return 'Arizona Pet Waste: We are on our way! Here is the truck: ' + link;
   if (kind === 'done') return 'Arizona Pet Waste: Your yard is done. See your latched gate: ' + link + ' Missed a pile? Reply and we come back within 24 hours.';
   if (kind === 'cant') return 'Arizona Pet Waste: We could not service your yard today because ' + (REASONS[reason] || REASONS.other) + '. Reply and we will set a time.';
+  if (kind === 'visit_change') return 'Arizona Pet Waste: Your visit is now ' + dateSay(opt.day) + ' around ' + timeSay(opt.time) + '. This change is for that visit only. Reply STOP to opt out.';
   return '';
 }
-function dayText(d1, d2, moved) {
-  return 'Arizona Pet Waste: Your ' + (moved ? 'new ' : '') + 'service day is ' + DAYS[d1] + (d2 != null ? ' and ' + DAYS[d2] : '') + '. We text you the night before each visit. Reply STOP to opt out.';
+// The words of "your day and time are set". c is a customer row with a full schedule.
+function dayText(c, moved) {
+  const next = nextVisit(c);
+  return 'Arizona Pet Waste: Your ' + (moved ? 'new ' : '') + 'service day is ' + schedSay(c) + '.' + (next ? ' Your next visit is ' + dateSay(next) + '.' : '') + ' We text you the night before each visit. Reply STOP to opt out.';
 }
 // Sends one row of `messages` through Twilio. Answers: sent, failed, held (test mode, or too late at night),
 // off (Twilio is not set up) or taken (another request is already sending it). A row is claimed before Twilio is
@@ -2180,12 +2244,12 @@ async function queueText(env, customer, stopId, kind, code, reason, opt) {
   if (msg && msg.id) { try { state = await sendText(env, msg); } catch (e) { console.error('send text', e); } }
   return { id: msg && msg.id, state };
 }
-// "Your day is set" texts. list: [{ c: { id, phone, texts_visit }, d1, d2, moved }]. All rows are written in one go.
-// The first few are sent right away. The rest wait as queued and the evening run sends them, so a week plan that
-// moves hundreds of yards cannot run this server out of time.
+// "Your day and time are set" texts. list: [{ c: a customer row with a full schedule, moved }]. All rows are written in
+// one go. The first few are sent right away. The rest wait as queued and the evening run sends them, so a week plan
+// that moves hundreds of yards cannot run this server out of time.
 const DAY_TEXTS_NOW = 15;
 async function dayTexts(env, list) {
-  const want = list.filter((x) => x.c && x.c.texts_visit && digits(x.c.phone).length === 10 && x.d1 != null);
+  const want = list.filter((x) => x.c && x.c.texts_visit && digits(x.c.phone).length === 10 && schedSet(x.c));
   if (!want.length) return { queued: 0, sent: 0 };
   // The same words as the last day text to that customer, inside ten minutes: one text is enough (a double tap on Save).
   const since = new Date(Date.now() - 10 * 60e3).toISOString();
@@ -2197,8 +2261,8 @@ async function dayTexts(env, list) {
   const seen = new Set([...newest].map(([id, body]) => id + '|' + body));
   const rows = [];
   for (const x of want) {
-    const body = dayText(x.d1, x.d2, x.moved), key = x.c.id + '|' + body;
-    if (seen.has(key)) continue;
+    const body = dayText(x.c, x.moved), key = x.c.id + '|' + body;
+    if (seen.has(key) && !x.again) continue;
     seen.add(key);
     rows.push({ customer_id: x.c.id, stop_id: null, kind: 'day_set', channel: 'sms', to_addr: x.c.phone, body });
   }
@@ -2207,18 +2271,58 @@ async function dayTexts(env, list) {
   for (const msg of made.slice(0, DAY_TEXTS_NOW)) { try { if (await sendText(env, msg) === 'sent') sent++; } catch (e) { console.error('day text', e); } }
   return { queued: made.length, sent };
 }
-// One customer's day was set or changed: the email and the text. `gate` is for the notice that is new with this
-// change (a day saved on the customer card, which used to tell nobody). It stays off until texts are on: with no
-// Twilio settings the card tells nobody, as before. While test mode is on it only tells a customer whose mobile number
-// is on the test list. So no real customer hears from that screen until Joe takes test mode off.
-async function dayNotice(env, c, d1, d2, moved, gate) {
-  if (d1 == null || !c) return { mailed: false, text: 'none' };
-  if (gate && !smsOn(env)) return { mailed: false, text: 'none', off: true };
-  if (gate && testMode(env) && !smsMay(env, c.phone)) return { mailed: false, text: 'none', test: true };
-  const mailed = c.email ? await mail(env, c.email, (moved ? 'Your new service day is ' : 'Your service day is ') + DAYS[d1], dayMail(c.name, d1, d2, moved)) : false;
+const SCHED_FIELDS = 'id,name,email,phone,texts_visit,status,plan,eow_week,first_visit,service_day,service_day2';
+// One customer's day and time were set or changed: the confirmation, by email and by text, right away.
+// Answers what happened, for the note on the customer card.
+async function schedNotice(env, c, moved, again) {
+  if (!schedSet(c)) return { mailed: false, text: 'none', needTime: true };
+  const gate = tellGate(env, c);
+  if (gate) return { mailed: false, text: 'none', [gate]: true };
+  const mailed = c.email ? await mail(env, c.email, (moved ? 'Your new service day is ' : 'Your service day is ') + schedSay(c), dayMail(c, moved)) : false;
   let text = 'none';
-  try { const r = await dayTexts(env, [{ c, d1, d2, moved }]); text = r.sent ? 'sent' : r.queued ? 'queued' : 'none'; } catch (e) { console.error('day text', e); }
-  return { mailed, text };
+  try { const r = await dayTexts(env, [{ c, moved, again }]); text = r.sent ? 'sent' : r.queued ? 'queued' : 'none'; } catch (e) { console.error('day text', e); }
+  return { mailed, text, say: schedSay(c) };
+}
+// Many customers at once (Plan the week, Move yards for good). Only a customer whose day AND time are set is told,
+// and only one the gate lets through. movedIds: the customers whose day changed (the rest got a first day).
+async function schedNoticeMany(env, ids, movedIds) {
+  const out = { emailed: 0, texted: 0 };
+  if (!ids.length || !(await schedOn(env)) || !smsOn(env)) return out;
+  const moved = new Set(movedIds || []), who = [];
+  for (let i = 0; i < ids.length; i += 100) who.push(...await db(env, 'GET', 'customers?id=in.(' + ids.slice(i, i + 100).join(',') + ')&select=' + SCHED_FIELDS + ',service_time,service_time2'));
+  const tell = who.filter((c) => schedSet(c) && !tellGate(env, c) && (PAYING.includes(c.status) || c.status === 'paused'));
+  out.emailed = await mailMany(env, tell.filter((c) => c.email).map((c) => ({ to: c.email, subject: (moved.has(c.id) ? 'Your new service day is ' : 'Your service day is ') + schedSay(c), text: dayMail(c, moved.has(c.id)) })));
+  try { out.texted = (await dayTexts(env, tell.map((c) => ({ c, moved: moved.has(c.id) })))).queued; } catch (e) { console.error('day texts', e); }
+  return out;
+}
+// One visit was moved or given another time, for that visit only: tell the customer, by email and by text.
+// A night before text for that visit that has not gone out yet gets the new words.
+async function visitNotice(env, st, c, time) {
+  await nightFix(env, [st]).catch((e) => console.error('night fix', e));
+  if (!c || !isTime(time) || tellGate(env, c)) return false;
+  const opt = { day: st.day, time };
+  if (c.email) await mail(env, c.email, 'Your visit is now ' + dateSay(st.day) + ' around ' + timeSay(time), [hi(c.name), '',
+    'We changed one visit. It is now ' + dateSay(st.day) + ' around ' + timeSay(time) + '.',
+    'This change is for that visit only. Your usual day and time stay the same.', '',
+    'Questions? Call or text 623.309.6104.', '', 'Arizona Pet Waste'].join('\n'));
+  if (!c.texts_visit || digits(c.phone).length !== 10) return true;
+  // An older change text for this visit that is still waiting is dropped: only the newest one is news.
+  await db(env, 'PATCH', 'messages?stop_id=eq.' + st.id + '&kind=eq.visit_change&status=eq.queued', { status: 'skipped', sent_at: new Date().toISOString() }, 'return=minimal').catch(() => {});
+  const rows = await db(env, 'POST', 'messages', [{ customer_id: c.id, stop_id: st.id, kind: 'visit_change', channel: 'sms', to_addr: c.phone, body: textBody(env, 'visit_change', st.code, null, opt) }], 'return=representation');
+  if (rows && rows[0]) await sendText(env, rows[0]).catch((e) => console.error('change text', e));
+  return true;
+}
+// Night before texts that are still waiting get the words for the visit's time as it is now.
+async function nightFix(env, stops) {
+  if (!stops.length) return;
+  const wait = await db(env, 'GET', 'messages?kind=eq.night_before&channel=eq.sms&status=eq.queued&stop_id=in.(' + stops.map((x) => x.id).join(',') + ')&select=id,stop_id');
+  if (!wait.length) return;
+  const times = await timesOf(env, stops), by = Object.fromEntries(stops.map((x) => [x.id, x]));
+  for (const m of wait) {
+    const st = by[m.stop_id];
+    if (times[st.id]) await db(env, 'PATCH', 'messages?id=eq.' + m.id + '&status=eq.queued', { body: textBody(env, 'night_before', st.code, null, { day: st.day, time: times[st.id] }) }, 'return=minimal');
+    else await db(env, 'PATCH', 'messages?id=eq.' + m.id + '&status=eq.queued', { status: 'skipped', sent_at: new Date().toISOString() }, 'return=minimal');
+  }
 }
 // A STOP reply, or Twilio saying this number has opted out: no more texts to that number, and what was waiting is dropped.
 async function textsOff(env, phone) {
@@ -2409,7 +2513,8 @@ async function crewToday(s, env) {
   const stops = await db(env, 'GET', 'stops?route_id=eq.' + r.id + '&select=' + CREW_STOP + '&order=position,id');
   const ids = stops.map((x) => x.id);
   const texts = ids.length ? await db(env, 'GET', 'messages?status=eq.queued&stop_id=in.(' + ids.join(',') + ')&select=id,stop_id,kind,to_addr,body&order=created_at') : [];
-  return ok(Object.assign({ day, dayName: DAYS[weekday(day)], route: r, stops, texts, me: { name: s.name, role: s.role } }, env.GOOGLE_MAPS_BROWSER_KEY ? { mapsKey: env.GOOGLE_MAPS_BROWSER_KEY } : {}));
+  const times = await timesOf(env, stops.map((x) => ({ id: x.id, day, customer_id: x.customer && x.customer.id }))).catch(() => ({}));
+  return ok(Object.assign({ day, dayName: DAYS[weekday(day)], route: r, stops, texts, times, me: { name: s.name, role: s.role } }, env.GOOGLE_MAPS_BROWSER_KEY ? { mapsKey: env.GOOGLE_MAPS_BROWSER_KEY } : {}));
 }
 async function myStop(s, env, stopId) {
   const id = parseInt(stopId, 10);
@@ -2421,10 +2526,12 @@ async function myStop(s, env, stopId) {
 async function advance(env, routeId) {
   const busy = await db(env, 'GET', 'stops?route_id=eq.' + routeId + '&status=in.(on_the_way,here)&select=id');
   if (busy.length) return null;
-  const next = (await db(env, 'GET', 'stops?route_id=eq.' + routeId + '&status=eq.scheduled&order=position,id&limit=1&select=id,code,customer:customers(id,phone,texts_visit)'))[0];
+  const next = (await db(env, 'GET', 'stops?route_id=eq.' + routeId + '&status=eq.scheduled&order=position,id&limit=1&select=id,day,code,customer:customers(id,phone,texts_visit)'))[0];
   if (!next) return null;
   await db(env, 'PATCH', 'stops?id=eq.' + next.id, { status: 'on_the_way', on_way_at: new Date().toISOString() }, 'return=minimal');
-  await queueText(env, next.customer, next.id, 'on_the_way', next.code);
+  // "We are on our way" only goes for a visit whose day and time the office set.
+  const t = await timesOf(env, [next]).catch(() => ({}));
+  if (t[next.id]) await queueText(env, next.customer, next.id, 'on_the_way', next.code);
   return next.id;
 }
 async function crewStart(s, env, b) {
@@ -2579,8 +2686,8 @@ async function withSettings(env) {
   try {
     const rows = await db(env, 'GET', 'settings?select=key,value');
     const set = Object.fromEntries((rows || []).map((r) => [r.key, r.value]));
-    if (!set.stops_per_day && !set.work_days && !set.route_start && !set.first_yard_at) return env;
-    return Object.assign({}, env, set.stops_per_day ? { STOPS_PER_DAY: set.stops_per_day } : {}, set.work_days ? { WORK_DAYS: set.work_days } : {}, set.first_yard_at ? { FIRST_YARD_AT: set.first_yard_at } : {},
+    if (!set.stops_per_day && !set.work_days && !set.route_start) return env;
+    return Object.assign({}, env, set.stops_per_day ? { STOPS_PER_DAY: set.stops_per_day } : {}, set.work_days ? { WORK_DAYS: set.work_days } : {},
       set.route_start ? { ROUTE_START: set.route_start, ROUTE_START_LABEL: set.route_start_label || '' } : {});
   } catch (e) { return env; }
 }
@@ -2596,16 +2703,10 @@ async function officeSettings(env, b) {
       if (label && !pin) return fail(400, 'We could not find that address. Type the street, the city and the ZIP.');
       rows.push({ key: 'route_start', value: pin ? pin.lat + ',' + pin.lng : '', updated_at: new Date().toISOString() }, { key: 'route_start_label', value: label, updated_at: new Date().toISOString() });
     }
-    // When the first yard of the day is reached ("08:00"). The night before text uses it for the 30 minute window. Empty clears it.
-    if (b.firstAt != null) {
-      const t = String(b.firstAt).trim();
-      if (t && firstYardAt({ FIRST_YARD_AT: t }) == null) return fail(400, 'Pick a time.');
-      rows.push({ key: 'first_yard_at', value: t, updated_at: new Date().toISOString() });
-    }
     if (rows.length) await db(env, 'POST', 'settings?on_conflict=key', rows, 'resolution=merge-duplicates,return=minimal');
-    env = await withSettings(Object.assign({}, env, b.start != null ? { ROUTE_START: '', ROUTE_START_LABEL: '' } : {}, b.firstAt != null ? { FIRST_YARD_AT: '' } : {}));
+    env = await withSettings(Object.assign({}, env, b.start != null ? { ROUTE_START: '', ROUTE_START_LABEL: '' } : {}));
   }
-  return ok({ cap: dayCap(env), days: workDays(env).join(','), start: routeStart(env) ? env.ROUTE_START_LABEL || env.ROUTE_START : '', firstAt: firstYardAt(env) != null ? String(env.FIRST_YARD_AT).trim() : '' });
+  return ok({ cap: dayCap(env), days: workDays(env).join(','), start: routeStart(env) ? env.ROUTE_START_LABEL || env.ROUTE_START : '' });
 }
 function dayCap(env, v) { const n = Math.round(Number(v) || Number(env.STOPS_PER_DAY) || 30); return Math.min(80, Math.max(5, n)); }
 function workDays(env, v) {
@@ -2796,10 +2897,11 @@ function weekSummary(p, staffCount, rows) {
   return { cap: p.cap, days: p.days.map((d) => DAYS[d]), customers: rows, techsNeeded: p.techs, techsHave: staffCount, hire: Math.max(0, p.techs - staffCount),
     routes: p.slots.length, biggestDay: most, weekMiles: Math.round(p.slots.reduce((n, x) => n + x.miles, 0) * 10) / 10, noPin: p.noPin, slots: p.slots };
 }
-function dayMail(name, d1, d2, moved) {
-  return [hi(name), '',
-    (moved ? 'We changed our routes to save drive time. Your new service day is ' : 'Your service day is ') + DAYS[d1] + (d2 != null ? ' and ' + DAYS[d2] : '') + '.',
-    'We text you the night before each visit with a 30 minute window.',
+function dayMail(c, moved) {
+  const next = nextVisit(c);
+  return [hi(c.name), '',
+    (moved ? 'We changed your schedule. Your new service day is ' : 'Your service day is ') + schedSay(c) + '.' + (next ? ' Your next visit is ' + dateSay(next) + '.' : ''),
+    'The night before each visit we send you a reminder with a 30 minute window and a link to watch our truck.',
     'You can see your next visits any time in My Yard: https://arizonapetwaste.com/account/', '',
     'Questions? Call or text 623.309.6104.', '', 'Arizona Pet Waste'].join('\n');
 }
@@ -2863,16 +2965,10 @@ async function officeWeek(env, b) {
   }
   const movedIds = change.filter((x) => x[0].service_day != null).map((x) => x[0].id);
   for (let i = 0; i < movedIds.length; i += 100) await db(env, 'DELETE', 'stops?status=in.(scheduled,skipped)&day=gt.' + azToday() + '&customer_id=in.(' + movedIds.slice(i, i + 100).join(',') + ')', null, 'return=minimal').catch((e) => console.error('week cleanup', e));
-  out.emailed = await mailMany(env, change.filter((x) => x[0].email).map(([c, a]) => ({ to: c.email, subject: (c.service_day != null ? 'Your new service day is ' : 'Your service day is ') + DAYS[a.service_day], text: dayMail(c.name, a.service_day, a.service_day2, c.service_day != null) })));
-  try {
-    const tell = [];
-    for (let i = 0; i < change.length; i += 100) {
-      const who = await db(env, 'GET', 'customers?id=in.(' + change.slice(i, i + 100).map((x) => x[0].id).join(',') + ')&texts_visit=is.true&select=id,phone,texts_visit');
-      const by = Object.fromEntries(who.map((w) => [w.id, w]));
-      for (const [c, a] of change.slice(i, i + 100)) if (by[c.id]) tell.push({ c: by[c.id], d1: a.service_day, d2: a.service_day2 ?? null, moved: c.service_day != null });
-    }
-    out.texted = (await dayTexts(env, tell)).queued;
-  } catch (e) { console.error('week texts', e); out.texted = 0; }
+  // Joe, Nov 21, 2026: only a customer whose day AND time are set hears about it. A yard that just got its first day
+  // here has no time yet, so it hears nothing until the office sets one on the customer card.
+  try { const t = await schedNoticeMany(env, change.map((x) => x[0].id), movedIds); out.emailed = t.emailed; out.texted = t.texted; }
+  catch (e) { console.error('week notices', e); out.emailed = 0; out.texted = 0; }
   out.applied = true;
   return ok(out);
 }
@@ -2973,6 +3069,12 @@ async function planDay(env, day) {
   const fallback = await defaultScooper(env);
   const have = new Set((await db(env, 'GET', 'stops?day=eq.' + day + '&select=customer_id')).map((x) => x.customer_id));
   const todo = due.filter((c) => !have.has(c.id) && (c.scooper_id || fallback));
+  if (todo.length && await schedOn(env)) {
+    for (let i = 0; i < todo.length; i += 100) {
+      const tm = Object.fromEntries((await db(env, 'GET', 'customers?id=in.(' + todo.slice(i, i + 100).map((c) => c.id).join(',') + ')&select=id,service_day,service_day2,service_time,service_time2')).map((r) => [r.id, r]));
+      for (const c of todo.slice(i, i + 100)) c._t = timeOn(tm[c.id], wd);
+    }
+  }
   const staffIds = [...new Set(todo.map((c) => c.scooper_id || fallback))];
   if (staffIds.length) await db(env, 'POST', 'routes?on_conflict=day,staff_id', staffIds.map((id) => ({ day, staff_id: id })), 'resolution=ignore-duplicates,return=minimal');
   const routes = await db(env, 'GET', 'routes?day=eq.' + day + '&select=id,staff_id,status');
@@ -2983,15 +3085,17 @@ async function planDay(env, day) {
   for (const sid of staffIds) {
     const mine = todo.filter((c) => (c.scooper_id || fallback) === sid);
     const fixed = mine.filter((c) => c.stop_order != null).sort((a, b) => a.stop_order - b.stop_order);
-    const free = mine.filter((c) => c.stop_order == null).sort((a, b) => String(a.address).localeCompare(String(b.address)));
+    // A yard with a set time goes in time order. A yard with no time yet goes after, in the shortest driving order.
+    const timed = mine.filter((c) => c.stop_order == null && c._t).sort((a, b) => toMin(a._t) - toMin(b._t));
+    const free = mine.filter((c) => c.stop_order == null && !c._t).sort((a, b) => String(a.address).localeCompare(String(b.address)));
     const best = shortOrder(free, routeStart(env));
     milesSaved += pathMiles(free) - pathMiles(best);
-    routeMiles += pathMiles(fixed.concat(best));
-    sorted.push(...fixed, ...best);
+    routeMiles += pathMiles(fixed.concat(timed, best));
+    sorted.push(...fixed, ...timed, ...best);
   }
   if (sorted.length) {
     await db(env, 'POST', 'stops?on_conflict=day,customer_id', sorted.map((c, i) => ({
-      route_id: routeOf[c.scooper_id || fallback], customer_id: c.id, day, position: (c.stop_order ?? 9000 + i), code: newCode()
+      route_id: routeOf[c.scooper_id || fallback], customer_id: c.id, day, position: (c.stop_order ?? (c._t ? 5000 + toMin(c._t) : 9000 + i)), code: newCode()
     })), 'resolution=ignore-duplicates,return=minimal');
     // A new customer added to a route that already had yards: put the whole waiting route back in the best driving order,
     // so the new yard lands where it belongs and is not tacked on the end. A route that is already live is left alone.
@@ -3018,10 +3122,13 @@ async function officeDay(env, date) {
   const routes = await db(env, 'GET', 'routes?day=eq.' + day + '&select=*,staff:staff(id,name)&order=id');
   const stops = await db(env, 'GET', 'stops?day=eq.' + day + '&select=id,route_id,position,status,reason,note,photo_path,no_photo,code,on_way_at,arrived_at,done_at,' +
     'customer:customers(id,name,phone,address,zip,area,dogs,texts_visit)&order=position,id');
-  const needDay = await db(env, 'GET', 'customers?status=in.(' + PAYING.join(',') + ')&service_day=is.null&select=id,name,address,zip,area,plan,dogs,created_at&order=created_at');
+  // Booked houses the office still has to schedule: no day yet, or a day with no time. Nobody is told until both are set.
+  const timesOn = await schedOn(env);
+  const needDay = await db(env, 'GET', 'customers?status=in.(' + PAYING.join(',') + ')' + (timesOn ? '&or=(service_day.is.null,service_time.is.null)' : '&service_day=is.null') + '&select=id,name,address,zip,area,plan,dogs,service_day,created_at&order=created_at');
+  const times = await timesOf(env, stops.map((x) => ({ id: x.id, day, customer_id: x.customer && x.customer.id }))).catch(() => ({}));
   const queued = await db(env, 'GET', 'messages?status=eq.queued&select=id');
   const pings = await lastPings(env, routes.filter((r) => r.status === 'live').map((r) => r.id));
-  return ok({ day, dayName: DAYS[weekday(day)], today: azToday(), routes, stops, needDay, queuedTexts: queued.length, pings, cap: dayCap(await withSettings(env)) });
+  return ok({ day, dayName: DAYS[weekday(day)], today: azToday(), routes, stops, times, timesOn, needDay, queuedTexts: queued.length, pings, cap: dayCap(await withSettings(env)) });
 }
 async function renumber(env, routeId) {
   const list = await db(env, 'GET', 'stops?route_id=eq.' + routeId + '&select=id,position&order=position,id');
@@ -3035,8 +3142,11 @@ async function reorderRoute(env, routeId) {
   if (!wait.length) return;
   // A yard the office gave a set place (stop order) keeps it and goes first. Everything else is put in the shortest order.
   const set = wait.filter((x) => x.customer && x.customer.stop_order != null).sort((x, y) => x.customer.stop_order - y.customer.stop_order);
-  const free = wait.filter((x) => !(x.customer && x.customer.stop_order != null));
-  const order = set.map((x) => ({ row: x })).concat(shortOrder(free.map((x) => ({ row: x, lat: x.customer && x.customer.lat, lng: x.customer && x.customer.lng })), routeStart(env)));
+  // Then the yards with a set time, in time order. Then everything else in the shortest driving order.
+  const times = await timesOf(env, wait).catch(() => ({}));
+  const timed = wait.filter((x) => !(x.customer && x.customer.stop_order != null) && times[x.id]).sort((x, y) => toMin(times[x.id]) - toMin(times[y.id]) || x.id - y.id);
+  const free = wait.filter((x) => !(x.customer && x.customer.stop_order != null) && !times[x.id]);
+  const order = set.concat(timed).map((x) => ({ row: x })).concat(shortOrder(free.map((x) => ({ row: x, lat: x.customer && x.customer.lat, lng: x.customer && x.customer.lng })), routeStart(env)));
   const base = fixed.reduce((n, x) => Math.max(n, x.position < 9000 ? x.position : 0), 0);
   // One write for the whole route. A stop is found by its day and customer, which is unique.
   await db(env, 'POST', 'stops?on_conflict=day,customer_id', order.map((o, i) => ({ route_id: o.row.route_id, customer_id: o.row.customer_id, day: o.row.day, code: o.row.code, position: base + i + 1 })), 'resolution=merge-duplicates,return=minimal');
@@ -3090,6 +3200,7 @@ async function officeMoveDay(env, b) {
   if (!to || to < azToday()) return fail(400, 'Pick today or a later day.');
   const found = await db(env, 'GET', 'stops?id=in.(' + ids.join(',') + ')&select=id,day,status,customer_id,route:routes(id,staff_id,status),customer:customers(id,email,name,phone,texts_visit,plan,service_day,service_day2)');
   const from = (found[0] || {}).day;
+  const wasTimes = await timesOf(env, found.map((x) => ({ id: x.id, day: x.day, customer_id: x.customer_id }))).catch(() => ({}));
   const list = found.filter((x) => x.status === 'scheduled' && x.day === from && x.day !== to);
   if (!list.length) return fail(400, 'Only yards that have not started can move, and only to a different day.');
   await planDay(env, to); // build the whole target day first, so its own yards are all there
@@ -3114,8 +3225,19 @@ async function officeMoveDay(env, b) {
       }
       // Later visits already built on the old day are dropped. The day builder makes them on the new day.
       await db(env, 'DELETE', 'stops?status=eq.scheduled&day=gt.' + to + '&customer_id=in.(' + move.map((x) => x.customer_id).join(',') + ')', null, 'return=minimal').catch((e) => console.error('move cleanup', e));
-      await mailMany(env, move.filter((x) => x.customer.email).map((x) => ({ to: x.customer.email, subject: 'Your new service day is ' + label, text: dayMail(x.customer.name, weekday(to), null, true) })));
-      await dayTexts(env, move.map((x) => ({ c: x.customer, d1: weekday(to), d2: null, moved: true }))).catch((e) => console.error('move texts', e));
+      await schedNoticeMany(env, move.map((x) => x.customer_id), move.map((x) => x.customer_id)).catch((e) => console.error('move notices', e));
+    } else {
+      // Moved for this one visit: the customer hears the new day, at the time the visit had. Only when it had a time.
+      const made = await db(env, 'GET', 'stops?day=eq.' + to + '&customer_id=in.(' + move.map((x) => x.customer_id).join(',') + ')&select=id,day,code,customer_id');
+      for (const x of move) {
+        const st = made.find((m) => m.customer_id === x.customer_id), t = wasTimes[x.id];
+        if (!st || !t) continue;
+        try {
+          await db(env, 'PATCH', 'stops?id=eq.' + st.id, { visit_time: t }, 'return=minimal');
+          await visitNotice(env, st, x.customer, t);
+        } catch (e) { console.error('move notice', e); }
+      }
+      for (const id of staffIds) await reorderRoute(env, routeOf[id]).catch(() => {});
     }
     const after = await db(env, 'GET', 'stops?day=eq.' + to + '&status=neq.skipped&select=id,route:routes(staff_id)');
     over = staffIds.filter((id) => after.filter((x) => x.route && x.route.staff_id === id).length > dayCap(env));
@@ -3152,6 +3274,21 @@ async function officeStop(env, b) {
     await db(env, 'PATCH', 'stops?id=eq.' + st.id, { route_id: r.id, position: 9999, status: 'scheduled', on_way_at: null, code: newCode() }, 'return=minimal');
     await renumber(env, r.id);
     if (st.status === 'on_the_way' && st.route.status === 'live') await advance(env, st.route_id);
+  } else if (a === 'time') {
+    // Joe, Nov 21, 2026: a one time change in the Field App. This visit gets another time and the customer is told.
+    // An empty time puts the visit back on the customer's usual time.
+    if (st.status !== 'scheduled') return fail(400, 'Only a visit that has not started can get a new time.');
+    if (!(await schedOn(env))) return fail(409, 'Times are not switched on yet. The database patch has to be run first.');
+    const t = b.time === '' || b.time == null ? null : (isTime(b.time) ? String(b.time) : undefined);
+    if (t === undefined) return fail(400, 'Pick a time.');
+    const before = (await timesOf(env, [st]))[st.id] || null;
+    await db(env, 'PATCH', 'stops?id=eq.' + st.id, { visit_time: t }, 'return=minimal');
+    const now = (await timesOf(env, [st]))[st.id] || null;
+    if (!st.route.status || st.route.status === 'planned') await reorderRoute(env, st.route_id).catch((e) => console.error('reorder', e));
+    if (now !== before) {
+      const c = (await db(env, 'GET', 'customers?id=eq.' + st.customer_id + '&select=id,name,email,phone,texts_visit'))[0];
+      await visitNotice(env, st, c, now).catch((e) => console.error('visit notice', e));
+    }
   } else return fail(400, 'Unknown action.');
   return officeDay(env, st.day);
 }
@@ -3189,7 +3326,7 @@ async function officeCustomer(env, id, told) {
   let texts;
   try { texts = await db(env, 'GET', 'messages?customer_id=eq.' + id + '&select=id,kind,channel,body,status,error,sent_at,delivered_at,created_at&order=created_at.desc&limit=30'); }
   catch (e) { texts = await db(env, 'GET', 'messages?customer_id=eq.' + id + '&select=id,kind,channel,body,status,sent_at,created_at&order=created_at.desc&limit=30'); }
-  return ok(Object.assign({ customer: c, visits, texts, monthly: c.plan && c.dogs ? rowMonthly(c) : null, yard: await yardStatus(env, c, texts), twilio: smsOn(env), textsTest: testMode(env) }, told ? { told } : {}));
+  return ok(Object.assign({ customer: c, visits, texts, monthly: c.plan && c.dogs ? rowMonthly(c) : null, yard: await yardStatus(env, c, texts), twilio: smsOn(env), textsTest: testMode(env), timesOn: await schedOn(env) }, told ? { told } : {}));
 }
 // The office fixes the dog count when the yard has more or fewer dogs than the plan says. The Stripe plan changes
 // to match, with no charge today: the new price starts on the next bill. The customer gets an email.
@@ -3226,7 +3363,8 @@ async function setDogs(env, c, n) {
 async function officeCustomerSave(env, b, s) {
   if (!/^[0-9a-f-]{36}$/i.test(String(b.id || ''))) return fail(400, 'Bad customer.');
   const p = {};
-  const was = (await db(env, 'GET', 'customers?id=eq.' + b.id + '&select=id,name,email,phone,texts_visit,status,plan,service_day,service_day2'))[0];
+  const timesOn = await schedOn(env);
+  const was = (await db(env, 'GET', 'customers?id=eq.' + b.id + '&select=' + SCHED_FIELDS + (timesOn ? ',service_time,service_time2' : '')))[0];
   if (!was) return fail(404, 'Customer not found.');
   // The office can fix a name, for one typed last name first or misspelled. Emails greet people by their first name.
   if ('name' in b && clean(b.name, 120) !== (was.name || '')) { if (clean(b.name, 120).length < 2) return fail(400, 'Type the customer\'s name.'); p.name = clean(b.name, 120); }
@@ -3235,6 +3373,15 @@ async function officeCustomerSave(env, b, s) {
   const set = (k, v) => { if (v !== undefined) p[k] = v; };
   if ('service_day' in b) set('service_day', dayOrNull(b.service_day));
   if ('service_day2' in b) set('service_day2', dayOrNull(b.service_day2));
+  // The time of the visit ("10:30"). Day and time together are the schedule, and setting them is what tells the customer.
+  for (const k of ['service_time', 'service_time2']) {
+    if (!(k in b)) continue;
+    const t = b[k] === '' || b[k] == null ? null : (isTime(b[k]) ? String(b[k]) : undefined);
+    if (t === undefined) return fail(400, 'Pick a time.');
+    if (t === (was[k] ?? null)) continue;
+    if (!timesOn) return fail(409, 'Times are not switched on yet. The database patch has to be run first.');
+    p[k] = t;
+  }
   if ('eow_week' in b) set('eow_week', b.eow_week === '' || b.eow_week == null ? null : (Number(b.eow_week) ? 1 : 0));
   if ('stop_order' in b) set('stop_order', b.stop_order === '' || b.stop_order == null ? null : Math.max(0, Math.round(Number(b.stop_order)) || 0));
   if ('scooper_id' in b) set('scooper_id', b.scooper_id ? String(b.scooper_id) : null);
@@ -3264,17 +3411,36 @@ async function officeCustomerSave(env, b, s) {
     const g = await geocode(p.address, c && c.zip);
     if (g) Object.assign(p, g);
   }
-  if (!Object.keys(p).length) return fail(400, 'Nothing to save.');
-  p.updated_at = new Date().toISOString();
-  await db(env, 'PATCH', 'customers?id=eq.' + b.id, p, 'return=minimal');
-  // Joe, Nov 21, 2026: a day set or changed here tells the customer, by email and by text. Before this it told nobody.
-  // Only for a customer with a plan, and only when the day really changed.
+  // "Send their day and time again" on the card saves nothing: it sends the confirmation once more.
+  if (!Object.keys(p).length && !b.tell) return fail(400, 'Nothing to save.');
+  if (Object.keys(p).length) {
+    p.updated_at = new Date().toISOString();
+    await db(env, 'PATCH', 'customers?id=eq.' + b.id, p, 'return=minimal');
+  }
+  // Joe, Nov 21, 2026, the core rule: setting or changing the day and time is what tells the customer. With a day and
+  // no time, nothing goes out. Only for a booked house (a customer with a plan), and only when something really changed.
   let told = null;
-  const d1 = 'service_day' in p ? p.service_day : was.service_day, d2 = 'service_day2' in p ? p.service_day2 : was.service_day2;
-  const changed = d1 !== was.service_day || (d2 ?? null) !== (was.service_day2 ?? null);
-  if (changed && d1 != null && (PAYING.includes(was.status) || was.status === 'paused')) {
-    try { told = await dayNotice(env, Object.assign({}, was, p.name ? { name: p.name } : {}, p.phone ? { phone: p.phone } : {}), d1, was.plan === 'twice' ? d2 : null, was.service_day != null, true); }
-    catch (e) { console.error('day notice', e); told = { mailed: false, text: 'none', error: true }; }
+  const now = Object.assign({}, was, p), keys = ['service_day', 'service_day2', 'service_time', 'service_time2'];
+  const changed = keys.some((k) => (now[k] ?? null) !== (was[k] ?? null));
+  const booked = PAYING.includes(was.status) || was.status === 'paused';
+  if (booked && (changed || b.tell)) {
+    if (changed) {
+      // Visits already built for later days are dropped when the day moved: the day builder makes them on the new day.
+      // A time change keeps the visits and puts each waiting route back in time order.
+      try {
+        const dayMoved = (now.service_day ?? null) !== (was.service_day ?? null) || (now.service_day2 ?? null) !== (was.service_day2 ?? null);
+        if (dayMoved) await db(env, 'DELETE', 'stops?status=eq.scheduled&day=gt.' + azToday() + '&customer_id=eq.' + b.id, null, 'return=minimal');
+        else {
+          const later = await db(env, 'GET', 'stops?customer_id=eq.' + b.id + '&status=eq.scheduled&day=gte.' + azToday() + '&select=id,day,code,route_id,customer_id,route:routes(status)');
+          for (const st of later) if (!st.route || !st.route.status || st.route.status === 'planned') await reorderRoute(env, st.route_id);
+          await nightFix(env, later);
+        }
+      } catch (e) { console.error('schedule cleanup', e); }
+    }
+    if (now.service_day != null || b.tell) {
+      try { told = await schedNotice(env, now, schedSet(was) && changed, !!b.tell && !changed); }
+      catch (e) { console.error('day notice', e); told = { mailed: false, text: 'none', error: true }; }
+    }
   }
   return officeCustomer(env, b.id, told);
 }
@@ -3312,58 +3478,29 @@ async function officeTexts(env) {
   const allow = smsAllow(env);
   return ok({ texts, log, twilio: smsOn(env), test: allow ? allow.size : null, auto: AUTO_KINDS });
 }
-// When each yard on a day should be reached, as a 30 minute window ("9:30 and 10:00 AM"). It needs "First yard at"
-// from the Plan the week screen. With no time set there is no window and the text says only "tomorrow".
-// The first yard of each route is at that time. Each next yard is the time in a yard plus the drive from the one before.
-const clock12 = (min) => { const h = Math.floor(min / 60) % 24, m = min % 60; return { t: ((h + 11) % 12 + 1) + ':' + String(m).padStart(2, '0'), ap: h < 12 ? 'AM' : 'PM' }; };
-function windowText(arrive) {
-  const from = Math.max(0, Math.floor((arrive - 10) / 15) * 15), a = clock12(from), b = clock12(from + 30);
-  return a.t + (a.ap === b.ap ? '' : ' ' + a.ap) + ' and ' + b.t + ' ' + b.ap;
-}
-function firstYardAt(env) {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(String(env.FIRST_YARD_AT || '').trim());
-  return m && Number(m[1]) < 24 && Number(m[2]) < 60 ? Number(m[1]) * 60 + Number(m[2]) : null;
-}
-function visitWindows(env, stops) {
-  const start = firstYardAt(env), out = {};
-  if (start == null) return out;
-  const routes = {};
-  for (const st of stops) (routes[st.route_id] = routes[st.route_id] || []).push(st);
-  for (const list of Object.values(routes)) {
-    list.sort((x, y) => x.position - y.position || x.id - y.id);
-    let at = start, prev = null;
-    list.forEach((st, i) => {
-      const pin = st.customer && st.customer.lat != null ? st.customer : null;
-      if (i) at += YARD_MIN + (prev && pin ? driveMin(miles(prev, pin)) : 5);
-      out[st.id] = windowText(at);
-      if (pin) prev = pin;
-    });
-  }
-  return out;
-}
 // Builds tomorrow's routes and sends the night before texts (Joe, Nov 21, 2026: every evening, on its own). Each text
-// has the yard's 30 minute window, when "First yard at" is set, and the customer's truck link. The evening run also
-// sends any "your day is set" text that was held overnight. Also clears GPS points older than 30 days.
+// has the time the office set for the visit, the 30 minute window around it, and the customer's truck link. A visit
+// with no time set gets no text. The evening run also sends any day or change text that was held overnight. Also clears GPS points older than 30 days.
 // `cron` is true when the scheduler called it. Safe to run twice: a visit only ever gets one night before text.
 const NIGHT_BATCH = 10;
 async function nightBefore(env, date, cron) {
   env = await withSettings(env);
   const day = date || addDays(azToday(), 1);
   const plan = await planDay(env, day);
-  const stops = await db(env, 'GET', 'stops?day=eq.' + day + '&status=eq.scheduled&select=id,code,route_id,position,customer:customers(id,phone,texts_visit,lat,lng)&order=route_id,position,id');
-  const win = visitWindows(env, stops), ids = stops.map((x) => x.id);
+  const stops = await db(env, 'GET', 'stops?day=eq.' + day + '&status=eq.scheduled&select=id,day,code,route_id,position,customer:customers(id,phone,texts_visit,lat,lng)&order=route_id,position,id');
+  const times = await timesOf(env, stops), ids = stops.map((x) => x.id);
   // One look for the texts these visits already have, one write for the new ones. Then the sending, a few at a time:
   // each call sends up to NIGHT_BATCH texts and says how many are left, and the scheduler calls again until none are.
   const had = new Set((ids.length ? await db(env, 'GET', 'messages?kind=eq.night_before&channel=eq.sms&stop_id=in.(' + ids.join(',') + ')&select=stop_id') : []).map((x) => x.stop_id));
-  const fresh = stops.filter((st) => !had.has(st.id) && st.customer && st.customer.texts_visit && st.customer.phone)
-    .map((st) => ({ customer_id: st.customer.id, stop_id: st.id, kind: 'night_before', channel: 'sms', to_addr: st.customer.phone, body: textBody(env, 'night_before', st.code, null, { window: win[st.id] }) }));
+  const fresh = stops.filter((st) => !had.has(st.id) && times[st.id] && st.customer && st.customer.texts_visit && st.customer.phone)
+    .map((st) => ({ customer_id: st.customer.id, stop_id: st.id, kind: 'night_before', channel: 'sms', to_addr: st.customer.phone, body: textBody(env, 'night_before', st.code, null, { day, time: times[st.id] }) }));
   if (fresh.length) await db(env, 'POST', 'messages', fresh, 'return=minimal');
   let sent = 0, left = 0;
   if (smsOn(env)) {
     try {
       // What can go now: the night before texts for this day, and day texts from the last day and a half that were held overnight.
       const wait = (ids.length ? await db(env, 'GET', 'messages?status=eq.queued&channel=eq.sms&kind=eq.night_before&stop_id=in.(' + ids.join(',') + ')&select=*&order=id') : [])
-        .concat(await db(env, 'GET', 'messages?status=eq.queued&channel=eq.sms&kind=eq.day_set&created_at=gte.' + enc(new Date(Date.now() - 36 * 3600e3).toISOString()) + '&select=*&order=id&limit=200'))
+        .concat(await db(env, 'GET', 'messages?status=eq.queued&channel=eq.sms&kind=in.(day_set,visit_change)&created_at=gte.' + enc(new Date(Date.now() - 36 * 3600e3).toISOString()) + '&select=*&order=id&limit=200'))
         .filter((m) => smsMay(env, m.to_addr) && !quietNow(env));
       const batch = Math.min(40, Math.max(1, parseInt(env.SMS_BATCH, 10) || NIGHT_BATCH));
       for (const msg of wait.slice(0, batch)) if (await sendText(env, msg) === 'sent') sent++;
@@ -3378,7 +3515,7 @@ async function nightBefore(env, date, cron) {
     await db(env, 'DELETE', 'positions?at=lt.' + enc(new Date(Date.now() - 30 * 86400e3).toISOString()), null, 'return=minimal');
     try { await db(env, 'DELETE', 'auth_tries?at=lt.' + enc(new Date(Date.now() - 2 * 86400e3).toISOString()), null, 'return=minimal'); } catch (e) { }
   }
-  return ok({ ok: true, day, stops: stops.length, queued: fresh.length, sent, left, window: firstYardAt(env) != null, added: plan.added });
+  return ok({ ok: true, day, stops: stops.length, queued: fresh.length, sent, left, timed: stops.filter((st) => times[st.id]).length, added: plan.added });
 }
 async function officeMoney(env) {
   // stripe_subscription_id is read so a plan that keeps an older price is added up at that price (rowMonthly).
@@ -4049,7 +4186,7 @@ async function officeHealth(env) {
       signLock: lock,
       botCheck: !!env.TURNSTILE_SITE_KEY
     },
-    textsTest: smsAllow(env) ? smsAllow(env).size : null, nightRanAt: nightRan, firstAt: firstYardAt(await withSettings(env)) != null,
+    textsTest: smsAllow(env) ? smsAllow(env).size : null, nightRanAt: nightRan, timesOn: await schedOn(env),
     liveRoutes: live1.length, lastPing: pings[0] ? pings[0].at : null, queuedTexts: queued.length,
     errorsLastHour: errors.filter((e) => e.at >= hour).length, errors, cleared
   });

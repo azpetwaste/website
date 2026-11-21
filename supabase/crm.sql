@@ -215,3 +215,10 @@ end $$;
 
 -- When a customer replied STOP to a text. START only turns texts back on for someone who had stopped.
 alter table public.customers add column if not exists texts_stopped_at timestamptz;
+
+-- The schedule is a day AND a time (Joe, November 21, 2026). The office sets both in the Field App, and that is what
+-- tells the customer. service_time is the time on the service day ("10:30"), service_time2 the time on the second day
+-- of a twice a week plan (empty means the same time). visit_time is a change for that one visit.
+alter table public.customers add column if not exists service_time text check (service_time is null or service_time ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$');
+alter table public.customers add column if not exists service_time2 text check (service_time2 is null or service_time2 ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$');
+alter table public.stops add column if not exists visit_time text check (visit_time is null or visit_time ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$');

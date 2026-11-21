@@ -32,6 +32,12 @@ await db.query(`create schema auth; create schema storage;
 await db.query(fs.readFileSync(path.join(ROOT, 'supabase/schema.sql'), 'utf8'));
 await db.query(fs.readFileSync(path.join(ROOT, 'supabase/crm.sql'), 'utf8'));
 await db.query(fs.readFileSync(path.join(ROOT, 'supabase/crm.sql'), 'utf8')); // safe to run twice
+// OLD_DB=1: the database as it is before supabase/patch-2026-11-21.sql is run. The new code must still run on it:
+// nothing breaks, nobody has a time, so no day, night before or "on our way" text is made. The texts block is skipped.
+const OLD = process.env.OLD_DB === '1';
+if (OLD) await db.query(`alter table public.customers drop column if exists service_time, drop column if exists service_time2, drop column if exists texts_stopped_at;
+  alter table public.stops drop column if exists visit_time;
+  alter table public.messages drop column if exists provider_id, drop column if exists error, drop column if exists delivered_at;`);
 
 /* ---------- a small PostgREST stand in ---------- */
 const cols = {};
@@ -227,9 +233,13 @@ await worker.fetch(new Request('https://arizonapetwaste.com/api/stripe-webhook',
 await Promise.all(waits);
 let c = (await db.query('select * from public.customers where id = $1', [cid])).rows[0];
 ok('status trialing, pinned on the map, area day set', c.status === 'trialing' && c.lat && c.service_day === wd, { status: c.status, lat: c.lat, day: c.service_day });
+// Joe, Nov 21, 2026: a sign up tells the customer no day. They hear their day and time when the office sets both.
+ok('the sign up put the yard on a day and told the customer nothing about it: no day email, no day text', !mailBodies.some((x) => /Your service day is/.test(x)) && (await db.query(`select 1 from public.messages where customer_id = $1 and kind = 'day_set'`, [cid])).rows.length === 0);
+if (!OLD) await db.query(`update public.customers set service_time = '09:00' where id = $1`, [cid]);
 const cid2 = await authUser('pat@example.com');
 await db.query(`insert into public.customers (id, email, name, phone, address, zip, area, plan, dogs, status, texts_visit, service_day, scooper_id, stop_order, lat, lng) values ($1,'pat@example.com','Pat Lee','6235550111','9 N Second Ave','85396','buckeye','eow',3,'active',false,$2,$3,1,33.5,-112.56)`, [cid2, wd, maria.id]);
 await db.query(`update public.customers set eow_week = $1 where id = $2`, [((Math.floor((Date.parse(today + 'T19:00:00Z') - Date.parse('2026-01-05T19:00:00Z')) / (7 * 864e5)) % 2) + 2) % 2, cid2]);
+if (!OLD) await db.query(`update public.customers set service_time = '09:30' where id = $1`, [cid2]);
 
 console.log('\nLeads');
 r = await call('/api/waitlist', 'POST', { name: 'Wendy Wait', phone: '(623) 555-0122', address: '1 W Main St', zip: '85301', texts: true });
@@ -271,7 +281,7 @@ r = await call('/api/crew/start', 'POST', {}, mt);
 ok('first start asks for location consent', r.status === 428 && r.d.code === 'location_consent', r.d);
 r = await call('/api/crew/start', 'POST', { locationOk: true }, mt);
 ok('start route: first stop on the way', r.d.route.status === 'live' && r.d.stops[0].status === 'on_the_way');
-ok('on the way text queued for Sam (opted in)', r.d.texts.some((x) => x.kind === 'on_the_way' && /arizonapetwaste\.com\/t\//.test(x.body)), r.d.texts);
+ok(OLD ? 'before the patch nobody has a time, so no on the way text is made' : 'on the way text queued for Sam (opted in)', OLD ? !r.d.texts.some((x) => x.kind === 'on_the_way') : r.d.texts.some((x) => x.kind === 'on_the_way' && /arizonapetwaste\.com\/t\//.test(x.body)), r.d.texts);
 r = await call('/api/crew/ping', 'POST', { lat: 33.47, lng: -112.53, accuracy: 8 }, mt);
 ok('GPS ping saved', r.d.ok === true);
 r = await call('/api/track/' + samStop.code, 'GET');
@@ -390,13 +400,13 @@ ok('route closed', r.d.route.status === 'done');
 
 console.log('\nTexts and office');
 r = await call('/api/office/texts', 'GET', null, owner);
-ok('with no Twilio settings the texts wait for the business phone: the day text and the done text. The unsent on the way text left the list when the yard was done', r.d.texts.map((x) => x.kind).sort().join() === 'day_set,done' && r.d.twilio === false && r.d.test === null, r.d.texts.map((x) => x.kind));
-{ const old = await db.query("select status from public.messages where kind = 'on_the_way' and stop_id = $1", [samStop.id]); ok('that on the way text is kept as skipped, not deleted', old.rows.length === 1 && old.rows[0].status === 'skipped', old.rows); }
+ok('with no Twilio settings the texts wait for the business phone: the done text. The unsent on the way text left the list when the yard was done', r.d.texts.map((x) => x.kind).sort().join() === 'done' && r.d.twilio === false && r.d.test === null, r.d.texts.map((x) => x.kind));
+{ const old = await db.query("select status from public.messages where kind = 'on_the_way' and stop_id = $1", [samStop.id]); ok('that on the way text is kept as skipped, not deleted', OLD ? old.rows.length === 0 : old.rows.length === 1 && old.rows[0].status === 'skipped', old.rows); }
 for (const x of r.d.texts) await call('/api/office/text', 'POST', { id: x.id, status: 'sent' }, owner);
 r = await call('/api/office/texts', 'GET', null, owner);
-ok('mark sent: nothing waits, and the log has them', r.d.texts.length === 0 && r.d.log.filter((x) => x.status === 'sent').length >= 2, { waiting: r.d.texts.length, log: r.d.log.length });
+ok('mark sent: nothing waits, and the log has them', r.d.texts.length === 0 && r.d.log.filter((x) => x.status === 'sent').length >= 1, { waiting: r.d.texts.length, log: r.d.log.length });
 r = await call('/api/office/customer?id=' + cid, 'GET', null, owner);
-ok('customer page shows visit and texts', r.d.visits.length === 1 && r.d.texts.filter((x) => x.kind === 'done' || x.kind === 'on_the_way').length === 2 && r.d.monthly === 9900, { v: r.d.visits.length, t: r.d.texts.length, m: r.d.monthly });
+ok('customer page shows visit and texts', r.d.visits.length === 1 && r.d.texts.filter((x) => x.kind === 'done' || x.kind === 'on_the_way').length === (OLD ? 1 : 2) && r.d.monthly === 9900, { v: r.d.visits.length, t: r.d.texts.length, m: r.d.monthly });
 r = await call('/api/office/customer', 'POST', { id: cid, gate_code: '4471#', pause_from: '2026-12-20', pause_until: '2027-01-03', office_notes: 'Side gate' }, owner);
 ok('office saves gate code and pause', r.d.customer.gate_code === '4471#' && r.d.customer.pause_from === '2026-12-20');
 r = await call('/api/office/customers?show=current&q=rivera', 'GET', null, owner);
@@ -654,7 +664,8 @@ console.log('\nNov 18, 2026: an owner who scoops, how fast a lead was reached, a
 
 /* ---------- texts that send on their own (Twilio), November 21, 2026 ---------- */
 console.log('\nTexts send on their own');
-{
+if (OLD) console.log('  skipped: this run is the database before the patch');
+else {
   Object.assign(env, { TWILIO_ACCOUNT_SID: 'ACtest', TWILIO_AUTH_TOKEN: 'twilio_token_test', TWILIO_MESSAGING_SERVICE_SID: 'MGtest', RESEND_API_KEY: 're_test', CRON_SECRET: 'cron-secret-for-tests-1234', SMS_HOURS: '0-24' });
   const settle = async () => { while (waits.length) await Promise.all(waits.splice(0)); };
   const mailsTo = (to) => mailBodies.map((b) => { try { return JSON.parse(b); } catch (e) { return null; } }).flat().filter((m) => m && [].concat(m.to).includes(to));
@@ -665,13 +676,15 @@ console.log('\nTexts send on their own');
     const res = await worker.fetch(new Request(url, { method: 'POST', body: new URLSearchParams(params).toString(), headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-twilio-signature': sig === undefined ? twSign(url, params) : sig } }), env, ctx);
     return { status: res.status, text: await res.text() };
   };
+  const DAYN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const sRealId = (d) => d.stops.find((x) => x.customer.name === 'Dana Real').id;
   const tomorrow = new Date(Date.parse(today + 'T19:00:00Z') + 864e5).toISOString().slice(0, 10), wd2 = (wd + 1) % 7, otherDay = (wd + 3) % 7;
   r = await call('/api/office/team', 'POST', { name: 'Tess Truck', email: 'tess@example.com', phone: '623-555-0190', role: 'scooper' }, owner);
   const tess = r.d.team.find((t) => t.email === 'tess@example.com');
   const mk = async (email, name, phone, texts, extra) => {
     const id = await authUser(email);
     await db.query(`insert into public.customers (id, email, name, phone, address, zip, area, plan, dogs, status, texts_visit, lat, lng, scooper_id) values ($1,$2,$3,$4,'1 Test Way','85338','goodyear','week',2,'trialing',$5,33.44,-112.36,$6)`, [id, email, name, phone, texts, tess.id]);
-    if (extra) await db.query('update public.customers set service_day = $1 where id = $2', [extra, id]);
+    if (extra != null) await db.query(`update public.customers set service_day = $1, service_time = '09:00' where id = $2`, [extra, id]);
     return id;
   };
   const joe = await mk('joe-test@example.com', 'Lopez, Joseph', '6235550201', true);
@@ -681,20 +694,27 @@ console.log('\nTexts send on their own');
   // Test mode: only the listed number hears anything new.
   env.SMS_TEST_ALLOWLIST = '(623) 555-0201';
   let m0 = mailBodies.length, t0 = TW.sent.length;
-  r = await call('/api/office/customer', 'POST', { id: real, service_day: wd2 }, owner);
-  ok('test mode: a day set for a customer who is not on the test list tells nobody (no text, no email, nothing waiting)', r.status === 200 && r.d.told && r.d.told.test === true && TW.sent.length === t0 && mailsTo('real@example.com').length === 0 && (await msgs(real)).length === 0, r.d.told);
+  // The core rule (Joe, Nov 21, 2026): a day AND a time. Nothing goes out until both are set.
   r = await call('/api/office/customer', 'POST', { id: joe, service_day: wd2 }, owner);
+  ok('a day with no time tells nobody, even the test customer: the card says to pick a time', r.status === 200 && r.d.told && r.d.told.needTime === true && TW.sent.length === t0 && mailsTo('joe-test@example.com').length === 0 && (await msgs(joe)).length === 0 && r.d.timesOn === true, r.d.told);
+  r = await call('/api/office/customer', 'POST', { id: joe, service_time: '25:99' }, owner);
+  ok('a time that is not a time is refused', r.status === 400, r.d);
+  r = await call('/api/office/day?date=' + today, 'GET', null, owner);
+  ok('a booked house with a day and no time is on the "no day and time yet" list', r.d.timesOn === true && r.d.needDay.some((x) => x.id === joe && x.service_day === wd2) && r.d.needDay.some((x) => x.id === real && x.service_day === null), r.d.needDay.length);
+  r = await call('/api/office/customer', 'POST', { id: real, service_day: wd2, service_time: '11:00' }, owner);
+  ok('test mode: a day and time set for a customer who is not on the test list tells nobody (no text, no email, nothing waiting)', r.status === 200 && r.d.told && r.d.told.test === true && TW.sent.length === t0 && mailsTo('real@example.com').length === 0 && (await msgs(real)).length === 0, r.d.told);
+  r = await call('/api/office/customer', 'POST', { id: joe, service_time: '10:30' }, owner);
   const dayTxt = TW.sent[TW.sent.length - 1] || {};
-  ok('test mode: the test customer gets the "your day is set" text through the Messaging Service', TW.sent.length === t0 + 1 && dayTxt.to === '+16235550201' && dayTxt.service === 'MGtest' && dayTxt.account === 'ACtest' && dayTxt.callback === 'https://arizonapetwaste.com/api/twilio/status'
-    && new RegExp('^Arizona Pet Waste: Your service day is ' + ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][wd2] + '\\. .*Reply STOP to opt out\\.$').test(dayTxt.body), dayTxt);
+  ok('test mode: setting the time is what sends the test customer the day and time text, through the Messaging Service', TW.sent.length === t0 + 1 && dayTxt.to === '+16235550201' && dayTxt.service === 'MGtest' && dayTxt.account === 'ACtest' && dayTxt.callback === 'https://arizonapetwaste.com/api/twilio/status'
+    && new RegExp('^Arizona Pet Waste: Your service day is ' + DAYN[wd2] + ' around 10:30 AM\\. Your next visit is ' + DAYN[wd2] + ', [A-Z][a-z]{2} \\d{1,2}\\. We text you the night before each visit\\. Reply STOP to opt out\\.$').test(dayTxt.body), dayTxt);
   ok('the Twilio call is signed in with the account id and token, and the token is nowhere in the text', dayTxt.auth === 'Basic ' + Buffer.from('ACtest:twilio_token_test').toString('base64') && !/twilio_token_test/.test(JSON.stringify([dayTxt.body, dayTxt.callback])));
   const joeMail = mailsTo('joe-test@example.com');
-  ok('and the "your day is set" email, which says Hi Joseph for a name typed "Lopez, Joseph"', joeMail.length === 1 && /^Your service day is /.test(joeMail[0].subject) && /^Hi Joseph,/.test(joeMail[0].text), joeMail.map((x) => x.subject));
-  ok('the office is told who was told', r.d.told && r.d.told.mailed === true && r.d.told.text === 'sent', r.d.told);
+  ok('and the "your day is set" email, which says Hi Joseph for a name typed "Lopez, Joseph"', joeMail.length === 1 && joeMail[0].subject === 'Your service day is ' + DAYN[wd2] + ' around 10:30 AM' && /^Hi Joseph,\n\nYour service day is \w+ around 10:30 AM\. Your next visit is /.test(joeMail[0].text) && /30 minute window and a link to watch our truck/.test(joeMail[0].text), joeMail.map((x) => x.subject));
+  ok('the office is told who was told, and what', r.d.told && r.d.told.mailed === true && r.d.told.text === 'sent' && r.d.told.say === DAYN[wd2] + ' around 10:30 AM', r.d.told);
   let rows = await msgs(joe);
   ok('the text is in the log as sent, with Twilio\'s id', rows.length === 1 && rows[0].kind === 'day_set' && rows[0].status === 'sent' && rows[0].provider_id === dayTxt.sid && rows[0].sent_at, rows.map((x) => [x.kind, x.status]));
-  r = await call('/api/office/customer', 'POST', { id: joe, service_day: wd2, gate_code: '1234' }, owner);
-  ok('saving the card again with the same day sends nothing', TW.sent.length === t0 + 1 && mailsTo('joe-test@example.com').length === 1 && !r.d.told);
+  r = await call('/api/office/customer', 'POST', { id: joe, service_day: wd2, service_time: '10:30', gate_code: '1234' }, owner);
+  ok('saving the card again with the same day and time sends nothing', TW.sent.length === t0 + 1 && mailsTo('joe-test@example.com').length === 1 && !r.d.told);
 
   // Delivery news from Twilio.
   let w = await tw('/api/twilio/status', { MessageSid: dayTxt.sid, MessageStatus: 'delivered' }, 'bm90IGEgcmVhbCBzaWduYXR1cmU=');
@@ -707,13 +727,21 @@ console.log('\nTexts send on their own');
   r = await call('/api/office/customer', 'POST', { id: joe, service_day: otherDay }, owner);
   ok('a changed day sends "Your new service day" by text and email', /Your new service day is /.test((TW.sent[TW.sent.length - 1] || {}).body) && mailsTo('joe-test@example.com').some((x) => /^Your new service day is /.test(x.subject)));
   await call('/api/office/customer', 'POST', { id: joe, service_day: wd2 }, owner);
+  // The office changes only the time: that is a change too.
+  let tA = TW.sent.length, mA = mailsTo('joe-test@example.com').length;
+  r = await call('/api/office/customer', 'POST', { id: joe, service_time: '14:00' }, owner);
+  ok('a changed time sends the new day and time by text and email', TW.sent.length === tA + 1 && TW.sent[tA].body.startsWith('Arizona Pet Waste: Your new service day is ' + DAYN[wd2] + ' around 2:00 PM.') && mailsTo('joe-test@example.com').length === mA + 1 && r.d.customer.service_time === '14:00', TW.sent.slice(tA));
+  tA = TW.sent.length; mA = mailsTo('joe-test@example.com').length;
+  r = await call('/api/office/customer', 'POST', { id: joe, tell: true }, owner);
+  ok('"Send their day and time again" sends the same schedule once more and saves nothing', r.status === 200 && TW.sent.length === tA + 1 && /^Arizona Pet Waste: Your service day is \w+ around 2:00 PM\./.test(TW.sent[tA].body) && mailsTo('joe-test@example.com').length === mA + 1, TW.sent.slice(tA));
+  await call('/api/office/customer', 'POST', { id: joe, service_time: '10:30' }, owner);
 
   // Test mode off: everyone who said yes to texts.
   delete env.SMS_TEST_ALLOWLIST;
   t0 = TW.sent.length;
   r = await call('/api/office/customer', 'POST', { id: real, service_day: otherDay }, owner);
   ok('with test mode off a real customer gets the day text and email', TW.sent.length === t0 + 1 && TW.sent[t0].to === '+16235550202' && mailsTo('real@example.com').length === 1 && r.d.told.text === 'sent');
-  r = await call('/api/office/customer', 'POST', { id: quiet, service_day: wd2 }, owner);
+  r = await call('/api/office/customer', 'POST', { id: quiet, service_day: wd2, service_time: '12:00' }, owner);
   ok('a customer who said no to texts gets the email only, greeted "Hi No" from "NO TEXTS"', TW.sent.length === t0 + 1 && mailsTo('quiet@example.com').length === 1 && /^Hi No,/.test(mailsTo('quiet@example.com')[0].text) && r.d.told.mailed && r.d.told.text === 'none', r.d.told);
   await call('/api/office/customer', 'POST', { id: real, service_day: wd2 }, owner);
 
@@ -770,7 +798,7 @@ console.log('\nTexts send on their own');
   r = await call('/api/office/customer/welcome', 'POST', { id: joe }, owner);
   const wel = mailsTo('joe-test@example.com').slice(m0);
   ok('"Resend welcome email" sends it with a fresh My Yard link, says Hi Dan and what happens next', r.status === 200 && wel.length === 1 && wel[0].subject === 'You are booked with Arizona Pet Waste' && /^Hi Dan,/.test(wel[0].text)
-    && /What happens next:\n1\. We set your service day and send it to you by text and email\.\n2\. The night before each visit, we text you a reminder\.\n3\. On visit day, we text you when we are on the way\./.test(wel[0].text)
+    && /What happens next:\n1\. We set your service day and time and send them to you by text and email\.\n2\. The night before each visit, we text you a reminder\.\n3\. On visit day, we text you when we are on the way\./.test(wel[0].text)
     && /https:\/\/arizonapetwaste\.com\/account\/\?k=[0-9a-f-]{36}\.\d{10}\./.test(wel[0].text), wel.map((x) => x.text.slice(0, 300)));
   TW.seen[joe] = '2026-11-21T20:15:00Z';
   r = await call('/api/office/customer?id=' + joe, 'GET', null, owner);
@@ -779,16 +807,20 @@ console.log('\nTexts send on their own');
   ok('a scooper cannot resend the welcome email', r.status === 403);
 
   // The night before run.
-  r = await call('/api/office/settings', 'POST', { firstAt: '08:00' }, owner);
-  ok('the office sets when the first yard is reached', r.status === 200 && r.d.firstAt === '08:00', r.d);
   await db.query('update public.customers set service_day = $1, stop_order = null where id = any($2)', [wd2, [joe, real, quiet]]);
-  await db.query('update public.customers set lat = 33.47, lng = -112.36 where id = $1', [real]); // about 2 miles from the first yard
+  await db.query(`update public.customers set service_time = '10:30' where id = $1`, [joe]);
+  await db.query(`update public.customers set service_time = '09:15' where id = $1`, [real]);
+  await db.query(`update public.customers set service_time = '12:00' where id = $1`, [quiet]);
+  await db.query('delete from public.stops where day = $1 and customer_id = any($2)', [tomorrow, [joe, real, quiet]]);
+  // A booked house whose time the office has not set yet: it is on the route and gets no text.
+  const noTime = await mk('notime@example.com', 'Nia Notime', '6235550206', true);
+  await db.query('update public.customers set service_day = $1 where id = $2', [wd2, noTime]);
   r = await call('/api/office/night-before', 'POST', {}, null, { 'x-cron-secret': 'wrong-secret-wrong-secret' });
   ok('the evening run needs the right secret', r.status === 401);
   await db.query(`update public.messages set status = 'skipped' where status = 'queued'`); // texts the older tests left waiting
   env.SMS_BATCH = '1'; t0 = TW.sent.length;
   r = await call('/api/office/night-before', 'POST', {}, null, { 'x-cron-secret': env.CRON_SECRET });
-  ok('the evening run builds tomorrow, writes a text for each customer with texts on, and sends them a few at a time', r.status === 200 && r.d.day === tomorrow && r.d.stops === 3 && r.d.queued === 2 && r.d.sent === 1 && r.d.left === 1 && r.d.window === true, r.d);
+  ok('the evening run builds tomorrow, writes a text for each customer with texts on and a time set, and sends them a few at a time', r.status === 200 && r.d.day === tomorrow && r.d.stops === 4 && r.d.timed === 3 && r.d.queued === 2 && r.d.sent === 1 && r.d.left === 1, r.d);
   r = await call('/api/office/night-before', 'POST', {}, null, { 'x-cron-secret': env.CRON_SECRET });
   ok('the next call sends the rest and writes no second text', r.d.queued === 0 && r.d.sent === 1 && r.d.left === 0 && TW.sent.length === t0 + 2, r.d);
   r = await call('/api/office/night-before', 'POST', {}, null, { 'x-cron-secret': env.CRON_SECRET });
@@ -797,14 +829,42 @@ console.log('\nTexts send on their own');
   const night = TW.sent.slice(t0);
   const codeOf = async (id) => (await db.query('select code from public.stops where customer_id = $1 and day = $2', [id, tomorrow])).rows[0].code;
   const nJoe = night.find((x) => x.to === '+16235550201'), nReal = night.find((x) => x.to === '+16235550202');
-  ok('the night before text has a 30 minute window and the truck link for that visit', !!nJoe && !!nReal && /^Arizona Pet Waste comes tomorrow between \d{1,2}:\d{2}( AM)? and \d{1,2}:\d{2} (AM|PM)\. Please unlock the gate and keep your dogs inside\. See your visit: arizonapetwaste\.com\/t\/[0-9A-Z]{6} Reply STOP to opt out\.$/.test(nJoe.body)
-    && nJoe.body.includes('/t/' + await codeOf(joe)) && nReal.body.includes('/t/' + await codeOf(real)), night.map((x) => x.body));
-  const winOf = (b) => /between (.*?)\. Please/.exec(b)[1];
-  ok('the first yard is at 8:00 (window 7:45 and 8:15 AM) and the next one is later', [winOf(nJoe.body), winOf(nReal.body)].includes('7:45 and 8:15 AM') && winOf(nJoe.body) !== winOf(nReal.body), [winOf(nJoe.body), winOf(nReal.body)]);
+  ok('the night before text says the day, the time the office set, the 30 minute window around it, and has the truck link for that visit', !!nJoe && !!nReal
+    && nJoe.body === 'Arizona Pet Waste: We will be there tomorrow (' + DAYN[wd2] + ') around 10:30 AM, between 10:15 and 10:45 AM. Please unlock the gate and keep your dogs inside. Watch the truck on the way: arizonapetwaste.com/t/' + await codeOf(joe) + ' Reply STOP to opt out.'
+    && nReal.body.includes('around 9:15 AM, between 9:00 and 9:30 AM') && nReal.body.includes('/t/' + await codeOf(real)), night.map((x) => x.body));
+  ok('a house with a day and no time gets no night before text', !night.some((x) => x.to === '+16235550206') && (await msgs(noTime)).length === 0);
+  const posOf = async (id) => (await db.query('select position from public.stops where customer_id = $1 and day = $2', [id, tomorrow])).rows[0].position;
+  ok('the route is in time order: 9:15, then 10:30, then 12:00, then the house with no time', (await posOf(real)) < (await posOf(joe)) && (await posOf(joe)) < (await posOf(quiet)) && (await posOf(quiet)) < (await posOf(noTime)), [await posOf(real), await posOf(joe), await posOf(quiet), await posOf(noTime)]);
+  r = await call('/api/office/day?date=' + tomorrow, 'GET', null, owner);
+  const sJoe = r.d.stops.find((x) => x.customer.id === joe), sNo = r.d.stops.find((x) => x.customer.id === noTime);
+  ok('the Schedule shows each visit\'s time', r.d.times[sJoe.id] === '10:30' && r.d.times[sNo.id] === null, r.d.times);
+
+  // A one time change in the Field App: this visit gets another time, and the customer hears it.
+  t0 = TW.sent.length; m0 = mailsTo('joe-test@example.com').length;
+  r = await call('/api/office/stop', 'POST', { id: sJoe.id, action: 'time', time: '15:00' }, owner);
+  const chg = TW.sent[t0] || {};
+  ok('a new time for one visit texts and emails the customer that visit\'s day and time', r.status === 200 && r.d.times[sJoe.id] === '15:00' && TW.sent.length === t0 + 1 && chg.to === '+16235550201'
+    && new RegExp('^Arizona Pet Waste: Your visit is now ' + DAYN[wd2] + ', [A-Z][a-z]{2} \\d{1,2} around 3:00 PM\\. This change is for that visit only\\. Reply STOP to opt out\\.$').test(chg.body)
+    && mailsTo('joe-test@example.com').slice(m0).some((x) => /^Your visit is now .* around 3:00 PM$/.test(x.subject)), chg);
+  ok('the usual time did not change, and the route went back into time order', (await db.query('select service_time from public.customers where id = $1', [joe])).rows[0].service_time === '10:30' && (await posOf(joe)) > (await posOf(quiet)), [await posOf(joe), await posOf(quiet)]);
+  r = await call('/api/office/stop', 'POST', { id: sJoe.id, action: 'time', time: '15:00' }, owner);
+  ok('saving the same time again tells nobody', TW.sent.length === t0 + 1);
+  // A night before text that has not gone out yet gets the new time.
+  await db.query(`update public.messages set status = 'queued', sent_at = null where stop_id = $1 and kind = 'night_before'`, [sRealId(r.d)]);
+  env.SMS_HOURS = '0-0';
+  r = await call('/api/office/stop', 'POST', { id: sRealId(r.d), action: 'time', time: '13:30' }, owner);
+  env.SMS_HOURS = '0-24';
+  const qRows = (await msgs(real)).filter((x) => x.status === 'queued');
+  ok('a waiting night before text gets the new time, and at night the change text waits too', qRows.filter((x) => x.kind === 'night_before').length === 1 && qRows.filter((x) => x.kind === 'night_before').every((x) => /around 1:30 PM, between 1:15 and 1:45 PM/.test(x.body)) && qRows.some((x) => x.kind === 'visit_change'), qRows.map((x) => [x.kind, x.status, x.body.slice(20, 70)]));
+  await db.query(`update public.messages set status = 'skipped' where customer_id = $1 and status = 'queued'`, [real]);
+  r = await call('/api/office/stop', 'POST', { id: sJoe.id, action: 'time', time: '' }, owner);
+  ok('clearing the one time change puts the visit back on the usual time and says so', r.d.times[sJoe.id] === '10:30' && /around 10:30 AM\. This change/.test((TW.sent[TW.sent.length - 1] || {}).body), TW.sent.slice(-1));
+  r = await call('/api/office/stop', 'POST', { id: sJoe.id, action: 'time', time: '09:00' }, mt);
+  ok('a scooper cannot change a visit\'s time', r.status === 403);
   r = await call('/api/track/' + await codeOf(joe), 'GET');
   ok('that link opens the night before', r.status === 200 && r.d.status === 'scheduled' && !r.d.expired, r.d);
   r = await call('/api/office/health', 'GET', null, owner);
-  ok('Health shows texts are on and when the evening run last called in', r.d.checks.texts === true && r.d.textsTest === null && !!r.d.nightRanAt && r.d.firstAt === true, { texts: r.d.checks.texts, ran: r.d.nightRanAt });
+  ok('Health shows texts are on and when the evening run last called in', r.d.checks.texts === true && r.d.textsTest === null && !!r.d.nightRanAt && r.d.timesOn === true, { texts: r.d.checks.texts, ran: r.d.nightRanAt });
 
   // Quiet hours: a day text set late at night waits, and the evening run sends it.
   env.SMS_HOURS = '0-0'; t0 = TW.sent.length;
@@ -817,6 +877,9 @@ console.log('\nTexts send on their own');
 
   // Visit day: on the way and done go out right away.
   const todayC = await mk('today@example.com', 'Tia Today', '6235550204', true, wd);
+  // The next yard on the same route has no time set: it is served, and it gets no "on our way" text.
+  const laterC = await mk('later@example.com', 'Lou Later', '6235550207', true);
+  await db.query('update public.customers set service_day = $1 where id = $2', [wd, laterC]);
   codes['tess@example.com'] = '123456';
   await call('/api/staff/code', 'POST', { email: 'tess@example.com' });
   r = await call('/api/staff/verify', 'POST', { email: 'tess@example.com', code: '123456' });
@@ -825,13 +888,15 @@ console.log('\nTexts send on their own');
   const stop = r.d.stops.find((x) => x.customer.id === todayC);
   t0 = TW.sent.length;
   r = await call('/api/crew/start', 'POST', { locationOk: true }, tt);
-  ok('Start route sends the on the way text right away, with the truck link', TW.sent.length === t0 + 1 && TW.sent[t0].to === '+16235550204' && TW.sent[t0].body === 'Arizona Pet Waste: We are on the way. See our truck: arizonapetwaste.com/t/' + stop.code && r.d.texts.length === 0, TW.sent.slice(t0));
+  ok('Start route sends the "on our way" text right away, with the truck link', TW.sent.length === t0 + 1 && TW.sent[t0].to === '+16235550204' && TW.sent[t0].body === 'Arizona Pet Waste: We are on our way! Here is the truck: arizonapetwaste.com/t/' + stop.code && r.d.texts.length === 0, TW.sent.slice(t0));
   await call('/api/crew/arrive', 'POST', { stopId: stop.id }, tt);
   await call('/api/crew/photo', 'POST', { stopId: stop.id, image: jpg }, tt);
   m0 = mailsTo('today@example.com').length;
   r = await call('/api/crew/done', 'POST', { stopId: stop.id }, tt);
   const doneTxt = TW.sent[TW.sent.length - 1];
   ok('Done sends the gate photo text right away, and no email while the text is on its way', TW.sent.length === t0 + 2 && /^Arizona Pet Waste: Your yard is done\. See your latched gate: arizonapetwaste\.com\/t\//.test(doneTxt.body) && mailsTo('today@example.com').length === m0, doneTxt);
+  const nextUp = r.d.stops.find((x) => x.customer.id === laterC);
+  ok('the next yard has no time set: the truck heads there and no "on our way" text goes out', !!nextUp && nextUp.status === 'on_the_way' && (await msgs(laterC)).length === 0, nextUp && nextUp.status);
   w = await tw('/api/twilio/status', { MessageSid: doneTxt.sid, MessageStatus: 'undelivered', ErrorCode: '30003' });
   w = await tw('/api/twilio/status', { MessageSid: doneTxt.sid, MessageStatus: 'undelivered', ErrorCode: '30003' });
   const fb = mailsTo('today@example.com').slice(m0);
@@ -858,12 +923,43 @@ console.log('\nTexts send on their own');
   r = await call('/api/office/health', 'GET', null, owner);
   ok('a failed text shows on the Health screen', r.d.errors.some((e) => e.message === 'A text did not send'));
 
+  // Moving a visit to another day. One time: the customer hears that visit's new day, at their usual time.
+  const mover = await mk('mover@example.com', 'Mo Mover', '6235550208', true);
+  await db.query(`update public.customers set service_day = $1, service_time = '08:00' where id = $2`, [wd2, mover]);
+  await call('/api/office/plan', 'POST', { date: tomorrow }, owner);
+  const day3 = new Date(Date.parse(tomorrow + 'T19:00:00Z') + 864e5).toISOString().slice(0, 10), day4 = new Date(Date.parse(tomorrow + 'T19:00:00Z') + 2 * 864e5).toISOString().slice(0, 10);
+  let ms = (await db.query('select id from public.stops where customer_id = $1 and day = $2', [mover, tomorrow])).rows[0];
+  t0 = TW.sent.length; m0 = mailsTo('mover@example.com').length;
+  r = await call('/api/office/move-day', 'POST', { ids: [ms.id], to: day3 }, owner);
+  ok('a visit moved to another day, just this once: the customer is told that visit\'s new day at their usual time', r.status === 200 && r.d.moved === 1 && TW.sent.length === t0 + 1 && TW.sent[t0].to === '+16235550208'
+    && new RegExp('^Arizona Pet Waste: Your visit is now ' + DAYN[(wd2 + 1) % 7] + ', [A-Z][a-z]{2} \\d{1,2} around 8:00 AM\\. This change is for that visit only\\.').test(TW.sent[t0].body) && mailsTo('mover@example.com').length === m0 + 1, TW.sent.slice(t0));
+  ms = (await db.query('select id, visit_time from public.stops where customer_id = $1 and day = $2', [mover, day3])).rows[0];
+  ok('the moved visit keeps the time', ms && ms.visit_time === '08:00', ms);
+  // For good: the usual day changes, the time stays, and the customer gets the new schedule.
+  t0 = TW.sent.length;
+  r = await call('/api/office/move-day', 'POST', { ids: [ms.id], to: day4, forever: true }, owner);
+  let mv = (await db.query('select service_day, service_time from public.customers where id = $1', [mover])).rows[0];
+  ok('a visit moved for good: the customer gets "Your new service day" with the day and the time', r.status === 200 && mv.service_day === (wd2 + 2) % 7 && mv.service_time === '08:00' && TW.sent.length === t0 + 1
+    && TW.sent[t0].body.startsWith('Arizona Pet Waste: Your new service day is ' + DAYN[(wd2 + 2) % 7] + ' around 8:00 AM.'), TW.sent.slice(t0));
+  // The same move for a house with no time set: the day moves and nobody is told.
+  await call('/api/office/plan', 'POST', { date: tomorrow }, owner);
+  const ns = (await db.query('select id from public.stops where customer_id = $1 and day = $2', [noTime, tomorrow])).rows[0];
+  t0 = TW.sent.length; m0 = mailsTo('notime@example.com').length;
+  r = await call('/api/office/move-day', 'POST', { ids: [ns.id], to: day3, forever: true }, owner);
+  ok('moving a house that has no time set tells nobody', r.status === 200 && r.d.moved === 1 && TW.sent.length === t0 && mailsTo('notime@example.com').length === m0 && (await msgs(noTime)).length === 0);
+  // A whole week rebuilt: only houses with a day and a time hear about a new day.
+  t0 = TW.sent.length; m0 = mailBodies.length;
+  r = await call('/api/office/week', 'POST', { mode: 'all', apply: true }, owner);
+  await settle();
+  const timedPhones = new Set((await db.query(`select phone from public.customers where service_time is not null`)).rows.map((x) => '+1' + x.phone));
+  ok('a rebuilt week only texts houses whose day and time are set (' + (TW.sent.length - t0) + ' told)', r.status === 200 && TW.sent.slice(t0).every((x) => timedPhones.has(x.to) && /service day is \w+ around \d/.test(x.body)) && (await msgs(noTime)).length === 0, TW.sent.slice(t0).map((x) => x.to));
+
   // Twilio settings gone: everything waits for a person, as before.
   const keep = { a: env.TWILIO_ACCOUNT_SID };
   const mBefore0 = mailsTo('joe-test@example.com').length;
   delete env.TWILIO_ACCOUNT_SID; t0 = TW.sent.length;
   r = await call('/api/office/customer', 'POST', { id: joe, service_day: otherDay }, owner);
-  ok('with no Twilio settings the customer card tells nobody about a day, as before this change', TW.sent.length === t0 && r.d.told.off === true && r.d.told.mailed === false && mailsTo('joe-test@example.com').length === mBefore0, r.d.told);
+  ok('with no Twilio settings the customer card tells nobody about a day and time', TW.sent.length === t0 && r.d.told.off === true && r.d.told.mailed === false && mailsTo('joe-test@example.com').length === mBefore0, r.d.told);
   r = await call('/api/office/text/send', 'POST', { id: first1.id }, owner);
   ok('and "Resend text" says to send it by hand', r.status === 400 && /by hand/.test(r.d.error), r.d);
   r = await call('/api/health', 'GET');
