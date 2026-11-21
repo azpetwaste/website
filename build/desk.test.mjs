@@ -798,7 +798,8 @@ else {
   r = await call('/api/office/customer/welcome', 'POST', { id: joe }, owner);
   const wel = mailsTo('joe-test@example.com').slice(m0);
   ok('"Resend welcome email" sends it with a fresh My Yard link, says Hi Dan and what happens next', r.status === 200 && wel.length === 1 && wel[0].subject === 'You are booked with Arizona Pet Waste' && /^Hi Dan,/.test(wel[0].text)
-    && /What happens next:\n1\. We set your service day and time and send them to you by text and email\.\n2\. The night before each visit, we text you a reminder\.\n3\. On visit day, we text you when we are on the way\./.test(wel[0].text)
+    && /You are booked with Arizona Pet Waste\. Thank you\.\n\nWe will reach out with your start date\. If you booked over the weekend, you will hear from us on Monday\./.test(wel[0].text)
+    && /What happens next:\n1\. We send your start date, with your service day and time, by text and email\.\n2\. The night before each visit, we text you a reminder\.\n3\. On visit day, we text you when we are on the way\./.test(wel[0].text)
     && /https:\/\/arizonapetwaste\.com\/account\/\?k=[0-9a-f-]{36}\.\d{10}\./.test(wel[0].text), wel.map((x) => x.text.slice(0, 300)));
   TW.seen[joe] = '2026-11-21T20:15:00Z';
   r = await call('/api/office/customer?id=' + joe, 'GET', null, owner);

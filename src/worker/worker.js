@@ -1023,10 +1023,12 @@ function welcomeText(env, c, link, money) {
   const texts = !!(c.texts_visit && c.phone);
   return [
     hi(c.name), '',
-    'You are booked.', '',
+    'You are booked with Arizona Pet Waste. Thank you.', '',
+    // Joe, Nov 21, 2026: "say that we'll be reaching out with a start date", and "Over the weekends, you'll hear from us on Monday."
+    'We will reach out with your start date. If you booked over the weekend, you will hear from us on Monday.', '',
     ...(money && money.length ? money.flatMap((x) => [x, '']) : []),
     'What happens next:',
-    '1. We set your service day and time and send them to you by ' + (texts ? 'text and email.' : 'email.'),
+    '1. We send your start date, with your service day and time, by ' + (texts ? 'text and email.' : 'email.'),
     texts ? '2. The night before each visit, we text you a reminder.' : '2. We come on your service day. You do not need to be home.',
     texts ? '3. On visit day, we text you when we are on the way. When we are done, we text you a photo of your latched gate.' : '3. When we are done, we email you a photo of your latched gate.', '',
     'Next, set up My Yard: add your gate code, your dogs’ names and any problem spots. This link signs you in, no code needed. It works for ' + LINK_DAYS + ' days:',
