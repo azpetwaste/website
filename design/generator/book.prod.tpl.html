@@ -255,7 +255,6 @@
     @@DEODOR@@
     <sc-if value="{{ isPlan }}" hint-placeholder-val="{{ true }}"><p class="bk-note">We bill once a month. [[bf:Your first month is free. No long term contract.||No contract.]]</p></sc-if>
     <sc-if value="{{ isOnce }}" hint-placeholder-val="{{ false }}"><p class="bk-note">One visit, no plan. It starts at {{ onceFrom }}, depending on job size. A big job gets a custom quote. We text or call you with your price before we come. Nothing is charged today.</p></sc-if>
-    <sc-if value="{{ isMonth }}" hint-placeholder-val="{{ false }}"><p class="bk-note">One visit a month. We text or call you with your price before the first visit. Nothing is charged today.</p></sc-if>
   </sc-if>
 
   <sc-if value="{{ sLast }}" hint-placeholder-val="{{ false }}">
@@ -431,7 +430,7 @@ class Component extends DCLogic {
     super(props);
     this.state = Object.assign({
       // Steps: 0 who is this for, then the city (two faces of one step, told apart by `who`), 1 dogs and how often,
-      // 7 when the yard was last cleaned (Just once and Monthly only), 2 about you, 3 the email code, 4 the card, 5 done,
+      // 7 when the yard was last cleaned (Just once only), 2 about you, 3 the email code, 4 the card, 5 done,
       // 6 the community form. The numbers 0 to 5 are the ones the form always had, so 6 and 7 came after.
       dark: this._themeFromProps(), step: 0, who: '', zip: '', city: '', zipSet: true, zipAll: false, other: false, dogs: 2, plan: 'week', last: '',
       name: '', phone: '', email: '', addr: '', txtVisit: false, tried: false, sugs: [], addrNote: '',
@@ -465,8 +464,9 @@ class Component extends DCLogic {
   _cfg() { const a = this._apw(); return (a && a.cfg) || {}; }
   _demo() { const a = this._apw(); return !a || !a.live; }
   _closed() { const a = this._apw(); return !!(a && a.closed); }
-  // Just once and Monthly take no card on the website: the office sends the price first (Joe, Nov 18 and 19, 2026).
-  _quote(plan) { return plan === 'once' || plan === 'month'; }
+  // Just once takes no card on the website: the office sends the price first (Joe, Nov 18, 2026).
+  // Monthly came off the form on November 21, 2026 (Joe: "the monthly 'We send your price, custom quote' needs to be removed immediately").
+  _quote(plan) { return plan === 'once'; }
   // Every ZIP code we scoop (the same six as ZIPS in the server), and the city button each one belongs to first.
   _zips() { return { '85326': 'Buckeye', '85396': 'Buckeye', '85338': 'Goodyear', '85395': 'Goodyear', '85340': 'Litchfield Park', '85355': 'Citrus Park' }; }
   _zipCity(zip) { return { '85326': 'buckeye', '85396': 'buckeye', '85338': 'goodyear', '85395': 'goodyear', '85340': 'litchfield', '85355': 'citrus' }[zip] || ''; }
@@ -495,7 +495,7 @@ class Component extends DCLogic {
       // /book/?zip=85338, /book/?for=home. /book/?for=community opens the community form.
       const q = new URLSearchParams(location.search);
       if (/^\d{5}$/.test(q.get('zip') || '')) { out.zip = q.get('zip'); out.city = ''; out.zipSet = true; out.who = 'home'; }
-      if (['week', 'twice', 'eow', 'month', 'once'].indexOf(q.get('plan')) >= 0) { out.plan = q.get('plan'); out.who = 'home'; }
+      if (['week', 'twice', 'eow', 'once'].indexOf(q.get('plan')) >= 0) { out.plan = q.get('plan'); out.who = 'home'; }
       const n = parseInt(q.get('dogs'), 10);
       if (n >= 1 && n <= 6) { out.dogs = n; out.who = 'home'; }
       if (q.get('for') === 'home') out.who = 'home';
@@ -507,7 +507,7 @@ class Component extends DCLogic {
     if (out.city === 'verrado') out.city = 'buckeye';
     if (out.city && !this._city(out.city)) out.city = '';
     if (out.who !== 'home' && out.who !== 'community') out.who = '';
-    if (['week', 'twice', 'eow', 'month', 'once'].indexOf(out.plan) < 0) delete out.plan;
+    if (['week', 'twice', 'eow', 'once'].indexOf(out.plan) < 0) delete out.plan;
     if (['lt2', '2to6', 'gt6'].indexOf(out.last) < 0) delete out.last;
     // A saved sign up comes back to the step it was on, as far as about you (2). Never to the code or the card.
     if ([0, 1, 2, 6, 7].indexOf(out.step) < 0) out.step = 0;
@@ -654,7 +654,7 @@ class Component extends DCLogic {
     if (s.busy) return;
     // The first step and the "last cleaned" step have no Continue button: tapping an answer moves on.
     if (s.step === 0 || s.step === 7) return;
-    // Just once and Monthly ask one more thing, so we can give a fair price: when the yard was last cleaned.
+    // Just once asks one more thing, so we can give a fair price: when the yard was last cleaned.
     if (s.step === 1) return this._go(this._quote(s.plan) ? 7 : 2);
     if (s.step === 2) {
       const e = this._errs();
@@ -823,10 +823,11 @@ class Component extends DCLogic {
     const s = this.state;
     const zips = this._zips();
     const cities = { '85326': 'Buckeye, AZ 85326', '85396': 'Buckeye, AZ 85396', '85338': 'Goodyear, AZ 85338', '85395': 'Goodyear, AZ 85395', '85340': 'Litchfield Park, AZ 85340', '85355': 'Waddell, AZ 85355' };
-    // The five choices, in Joe's words and order (Nov 19, 2026): "Twice weekly, Weekly, Every other week, Monthly, Just once".
+    // The four choices, in Joe's words and order: Twice weekly, Weekly, Every other week, Just once. Monthly came off on
+    // November 21, 2026 after a customer complained that it was confusing. Do not bring it back without Joe.
     // My Yard, the emails and the crew app still say Every week, Twice a week and Every other week for the same plans.
-    const names = { twice: 'Twice weekly', week: 'Weekly', eow: 'Every other week', month: 'Monthly', once: 'Just once' };
-    const once = s.plan === 'once', monthly = s.plan === 'month';
+    const names = { twice: 'Twice weekly', week: 'Weekly', eow: 'Every other week', once: 'Just once' };
+    const once = s.plan === 'once';
     const quote = this._quote(s.plan);
     const zipOk = !!zips[s.zip];
     const price = this._price(s.plan, s.dogs);
@@ -837,8 +838,8 @@ class Component extends DCLogic {
     const com = s.step === 6;
     // Back is on every screen after the first one, until the sign up is done.
     const inFlow = (s.step === 0 && !whoFace) || s.step === 1 || s.step === 2 || s.step === 3 || s.step === 4 || s.step === 6 || s.step === 7;
-    // Where each screen sits in "Step 1 of 4": the city, dogs and how often, about you, the card. Just once and Monthly
-    // have no card step, and ask when the yard was last cleaned in its place: the city, dogs and how often, last cleaned, about you.
+    // Where each screen sits in "Step 1 of 4": the city, dogs and how often, about you, the card. Just once
+    // has no card step, and asks when the yard was last cleaned in its place: the city, dogs and how often, last cleaned, about you.
     const at = s.step === 7 ? 2 : s.step === 2 ? (quote ? 3 : 2) : s.step >= 3 ? 3 : s.step;
     const cErrs = s.cTried ? this._cErrs() : { kind: '', org: '', city: '', name: '', phone: '', email: '' };
     const lasts = [['lt2', 'Under 2 weeks ago', 'A quick job.'], ['2to6', '2 to 6 weeks ago', 'Some piles to find.'], ['gt6', 'Over 6 weeks ago', 'A big job. That is what we do.']];
@@ -878,7 +879,7 @@ class Component extends DCLogic {
       showProgress: (s.step < 5 || s.step === 7) && !whoFace,
       // Four steps: where, plan, about you, card. The email code (step 3) only shows for an email we already know,
       // and it counts as part of the card step.
-      // Just once and Monthly have four steps too: where, dogs and how often, when the yard was last cleaned, about you.
+      // Just once has four steps too: where, dogs and how often, when the yard was last cleaned, about you.
       // No card step: we send the price first.
       segs: [0, 1, 2, 3].map((i) => ({ bg: i <= at ? 'var(--accent)' : 'var(--line)' })),
       stepLabel: 'Step ' + (at + 1) + ' of 4',
@@ -889,7 +890,7 @@ class Component extends DCLogic {
       // The bar under the plan step and the about you step. With a free month it leads with the free month (Joe, Nov 19,
       // 2026: "emphasize free, first month free"), in the order the pay step says it: free first, then the month price.
       // With no free month, or for a request with no card, it reads as before: the price, then the plan and the dogs.
-      priceShort: monthly ? 'Custom quote' : once ? 'From $' + price : free ? 'First month free' : '$' + price + ' a month',
+      priceShort: once ? 'From $' + price : free ? 'First month free' : '$' + price + ' a month',
       planShort: free && !quote ? 'Then $' + price + ' a month' : names[s.plan] + ', ' + dogsLabel,
       sumPlan: names[s.plan] + ', ' + dogsLabel,
       sumPrice: '$' + price + ' a month',
@@ -924,7 +925,6 @@ class Component extends DCLogic {
       doneLead: !s.req ? 'Next, we reach out to let you know your day and time.'
         : s.reqKind === 'community' ? 'We will call or email you soon to set up your free site walk. Then you get a written quote.'
         : s.reqKind === 'once' ? 'We will text or call you soon with your price and a time. A one time cleanup starts at $' + this._price('once') + ', depending on job size.'
-        : s.reqKind === 'month' ? 'We will text or call you soon with your price and your day.'
         : 'We will call you soon to finish your sign up and set your day and time.' + (free ? ' Your first month is free.' : ''),
       showYard: !s.req, req: !!s.req,
       // A new customer is not signed in here. Their My Yard link is in the welcome email. A customer who typed a code is.
@@ -946,15 +946,14 @@ class Component extends DCLogic {
       }),
       dogsMore: s.dogs >= 4,
       dogMoreOpts: [4, 5, 6].map((n) => ({ label: n + ' dogs', on: yes(s.dogs === n), pick: () => this.setState({ dogs: n }) })),
-      // How often: five rows. A plan shows its week price big, with what we bill a month. Just once shows where it
-      // starts. Monthly has no set price yet, so it says we send one. Weekly is the one we point people to.
-      plans: ['twice', 'week', 'eow', 'month', 'once'].map((id) => {
+      // How often: four rows. A plan shows its week price big, with what we bill a month. Just once shows where it
+      // starts. Weekly is the one we point people to.
+      plans: ['twice', 'week', 'eow', 'once'].map((id) => {
         const row = { name: names[id], on: yes(s.plan === id), pick: () => this.setState({ plan: id }), tag: id === 'week' ? 'block' : 'none' };
-        if (id === 'month') return Object.assign(row, { month: 'We send your price.', week: '', unit: 'Custom quote' });
         if (id === 'once') return Object.assign(row, { month: 'No plan. Price depends on job size.', week: '$' + this._price('once'), unit: 'starts at' });
         return Object.assign(row, { month: '$' + this._price(id, s.dogs) + ' a month', week: '$' + this._week(id, s.dogs), unit: 'a week' });
       }),
-      isOnce: once, isMonth: monthly, isPlan: !quote, onceFrom: '$' + this._price('once'),
+      isOnce: once, isPlan: !quote, onceFrom: '$' + this._price('once'),
       hasTown: !!cityNow, townLine: cityNow ? 'Good news. We scoop in ' + cityNow.label + '.' : '',
       lastOpts: lasts.map((l) => ({ label: l[1], sub: l[2], on: yes(s.last === l[0]), pick: () => this.setState({ last: l[0], step: 2, err: '', busy: false }) })),
       lastNote: once ? 'A one time cleanup starts at $' + this._price('once') + ', depending on job size. We text or call you with your price before we come.' : 'We text or call you with your price before the first visit.',

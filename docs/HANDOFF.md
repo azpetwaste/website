@@ -1203,3 +1203,7 @@ Joe: "please list this under apaws and link back to it: https://apaws.org/search
 - **All three logos are bigger.** On a phone they fill the row from edge to edge: aPaws 113 by 95, the West Valley badge 80 by 128, Buckeye Valley 106 by 93 on a 390 wide phone (they were 81 by 68, 63 by 101 and 73 by 64). On a computer the footer row is 162 by 137, 115 by 185 and 152 by 134 (they were 101 by 85, 79 by 127 and 91 by 81), and the row under the hero is a touch smaller. The heights are `"h"` in the settings file, the computer sizes are `--k` on `.fmem` and `.fmem-top` in `look.py`.
 - **Full strength.** The logos were shown at 92 percent. That fade is off.
 - The two white files are 228 px tall, so on a sharp screen they are stretched a little at the new size. It reads fine. Bigger source files from Joe would make them crisper (`brands/README.txt` says how).
+
+## Nov 21, 2026, noon (website session): Monthly is off Book now
+- Joe, after a customer complained: "the monthly 'We send your price, custom quote' needs to be removed immediately." How often now has four rows: Twice weekly, Weekly, Every other week, Just once. Just once still reads "No plan. Price depends on job size."
+- Changed: `design/generator/book.prod.tpl.html` and the board it writes (`src/boards/book.json`). Nothing in the server, the crew app or `crm.sql` changed. `/api/request` still takes `plan: 'month'` so an old open tab does not fail, but no screen sends it. A "Monthly cleanup request" lead from before that day is still a real request.
