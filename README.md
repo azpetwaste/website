@@ -89,6 +89,6 @@ Setup: run `supabase/crm.sql` once in Supabase > SQL Editor (after `schema.sql`)
 
 Live map: add `GOOGLE_MAPS_BROWSER_KEY` (Maps JavaScript API, HTTP referrer locked to arizonapetwaste.com) and `GOOGLE_MAPS_SERVER_KEY` (Routes API only, type Secret) in Cloudflare. Without them the link shows the arrival time and a simple progress line.
 
-Optional: `CRON_SECRET` (16+ characters) lets an outside scheduler call `POST /api/office/night-before` with header `x-cron-secret`. Until then, press "Queue tomorrow's texts" on Today.
+`CRON_SECRET` (16+ characters, the same value in Cloudflare and in the repo's Actions secrets) lets `.github/workflows/night-before.yml` call `POST /api/office/night-before` every evening with header `x-cron-secret`. Texts send through Twilio when its three settings are in Cloudflare. See `docs/TEST_AUTO_TEXTS.md`.
 
 Test: `node build/worker.test.mjs` (site server). `DATABASE_URL=postgres://... node build/desk.test.mjs` runs the field desk end to end against a real Postgres (needs the `pg` package).

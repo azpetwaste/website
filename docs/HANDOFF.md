@@ -1232,3 +1232,18 @@ Joe: "please list this under apaws and link back to it: https://apaws.org/search
 ## Nov 21, 2026, noon (website session): Monthly is off Book now
 - Joe, after a customer complained: "the monthly 'We send your price, custom quote' needs to be removed immediately." How often now has four rows: Twice weekly, Weekly, Every other week, Just once. Just once still reads "No plan. Price depends on job size."
 - Changed: `design/generator/book.prod.tpl.html` and the board it writes (`src/boards/book.json`). Nothing in the server, the crew app or `crm.sql` changed. `/api/request` still takes `plan: 'month'` so an old open tab does not fail, but no screen sends it. A "Monthly cleanup request" lead from before that day is still a real request.
+
+### Nov 21, 2026 (field desk session). Texts and emails that send on their own. On a branch, in a pull request, not deployed.
+Joe: three live customers (so nothing can break), Twilio approved the A2P campaign on November 19, make the flow after a booking automatic, every action doable from the Field App, open a pull request and do not deploy, he tests on himself first.
+- Branch `field-app/auto-texts`. Nothing was pushed to `main`, nothing was run on the live database, no text or email was sent to anyone.
+- Server (`src/worker/worker.js`): `sendText`, `queueText` (now sends), `dayTexts`, `dayNotice`, `twilioStatus`, `twilioInbound`, `doneFallback`, `doneNotice`, `visitWindows`, `nightBefore` (batches, held texts), `sendWelcome`, `officeTextSend`, `officeWelcome`, `yardStatus`, a better `first()`.
+- New addresses: `POST /api/twilio/status`, `POST /api/twilio/inbound` (both signed by Twilio), `POST /api/office/text/send`, `POST /api/office/customer/welcome`. `/api/office/settings` takes `firstAt`. `/api/health` answers `texts` and `textsTest`.
+- New settings: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_MESSAGING_SERVICE_SID`, `SMS_TEST_ALLOWLIST`, optional `SMS_HOURS` and `SMS_BATCH`. `CRON_SECRET` was already there.
+- Safe by default: with no Twilio settings the site behaves as it did, with two differences a customer can see. The welcome email has a "What happens next" list. A new sign up that gets a day also gets a day text queued for the business phone.
+- The code works on the database as it is today (the tests were also run against the old columns), but run `supabase/patch-2026-11-21.sql` before the Twilio settings go in.
+- A fix along the way: a visit finished from the office by uploading a gate photo now sends the done text when it is today's visit. Before, a customer with texts on got nothing from that path.
+- Tests: `desk.test.mjs` 199 (49 new, with a pretend Twilio), `worker.test.mjs` 542, `week.test.mjs` 76, `signup10` 40, `nav.test.py` 68. `signup50` 130 pass and 1 fails, "only Monday to Friday is used": it fails the same way on `main` when the tests run on a Saturday, because the test sets an area's day to today.
+- Not run: anything against the real Twilio, the real database or a real phone. That is Joe's test, `docs/TEST_AUTO_TEXTS.md`.
+- After Joe approves: take out `SMS_TEST_ALLOWLIST`, then rebuild the training video and the training page (line 17 of `docs/video/lines.json` and two steps on the page say a text is sent with one tap).
+- Open questions for Joe are in the pull request.
+

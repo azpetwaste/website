@@ -128,6 +128,7 @@ const codes = {}; // email -> code
 const files = {};
 let otpSent = [];
 let routesCalls = 0;
+const TW = { sent: [], refused: [], fail: 0, seen: {} }; // the pretend Twilio: every text it took, the ones it refused, and a code to refuse the next one with
 async function authUser(email) {
   const r = await db.query('select id from auth.users where email = $1', [email]);
   if (r.rows[0]) return r.rows[0].id;
@@ -160,6 +161,15 @@ globalThis.fetch = async (u, init = {}) => {
   if (u === 'https://routes.googleapis.com/directions/v2:computeRoutes') { routesCalls++; return reply({ routes: [{ duration: '420s', distanceMeters: 2500, polyline: { encodedPolyline: '_p~iF~ps|U_ulLnnqC' } }] }); }
   if (u.startsWith('https://geocoding.geo.census.gov/')) return reply({ result: { addressMatches: [{ coordinates: { x: -112.5501, y: 33.4801 } }] } });
   if (u.startsWith('https://api.resend.com/')) { mailBodies.push(String(init.body || '')); return reply({ id: 'm1' }); }
+  if (u.startsWith('https://api.twilio.com/2010-04-01/Accounts/')) {
+    const f = new URLSearchParams(String(init.body || ''));
+    const call = { to: f.get('To'), body: f.get('Body'), service: f.get('MessagingServiceSid'), callback: f.get('StatusCallback'), auth: String((init.headers || {}).authorization || ''), account: u.split('/Accounts/')[1].split('/')[0] };
+    if (TW.fail) { const code = TW.fail; TW.fail = 0; TW.refused.push(call); return reply({ code, message: 'refused' }, 400); }
+    call.sid = 'SM' + String(TW.sent.length + 1).padStart(32, '0');
+    TW.sent.push(call);
+    return reply({ sid: call.sid, status: 'accepted' }, 201);
+  }
+  if (u.startsWith(SB + '/auth/v1/admin/users/')) { const id = u.split('/users/')[1]; return reply({ id, last_sign_in_at: TW.seen[id] || null }); }
   return reply({ error: 'unmocked ' + u }, 500);
 };
 
@@ -380,13 +390,13 @@ ok('route closed', r.d.route.status === 'done');
 
 console.log('\nTexts and office');
 r = await call('/api/office/texts', 'GET', null, owner);
-ok('one text waiting for the business phone: the unsent on the way text left the list when the yard was done', r.d.texts.length === 1 && r.d.texts[0].kind === 'done' && r.d.twilio === false, r.d.texts.map((x) => x.kind));
+ok('with no Twilio settings the texts wait for the business phone: the day text and the done text. The unsent on the way text left the list when the yard was done', r.d.texts.map((x) => x.kind).sort().join() === 'day_set,done' && r.d.twilio === false && r.d.test === null, r.d.texts.map((x) => x.kind));
 { const old = await db.query("select status from public.messages where kind = 'on_the_way' and stop_id = $1", [samStop.id]); ok('that on the way text is kept as skipped, not deleted', old.rows.length === 1 && old.rows[0].status === 'skipped', old.rows); }
-r = await call('/api/office/text', 'POST', { id: r.d.texts[0].id, status: 'sent' }, owner);
+for (const x of r.d.texts) await call('/api/office/text', 'POST', { id: x.id, status: 'sent' }, owner);
 r = await call('/api/office/texts', 'GET', null, owner);
-ok('mark sent', r.d.texts.length === 0);
+ok('mark sent: nothing waits, and the log has them', r.d.texts.length === 0 && r.d.log.filter((x) => x.status === 'sent').length >= 2, { waiting: r.d.texts.length, log: r.d.log.length });
 r = await call('/api/office/customer?id=' + cid, 'GET', null, owner);
-ok('customer page shows visit and texts', r.d.visits.length === 1 && r.d.texts.length === 2 && r.d.monthly === 9900, { v: r.d.visits.length, t: r.d.texts.length, m: r.d.monthly });
+ok('customer page shows visit and texts', r.d.visits.length === 1 && r.d.texts.filter((x) => x.kind === 'done' || x.kind === 'on_the_way').length === 2 && r.d.monthly === 9900, { v: r.d.visits.length, t: r.d.texts.length, m: r.d.monthly });
 r = await call('/api/office/customer', 'POST', { id: cid, gate_code: '4471#', pause_from: '2026-12-20', pause_until: '2027-01-03', office_notes: 'Side gate' }, owner);
 ok('office saves gate code and pause', r.d.customer.gate_code === '4471#' && r.d.customer.pause_from === '2026-12-20');
 r = await call('/api/office/customers?show=current&q=rivera', 'GET', null, owner);
@@ -639,6 +649,226 @@ console.log('\nNov 18, 2026: an owner who scoops, how fast a lead was reached, a
   // Money: names behind the numbers.
   const mm = await call('/api/office/money', 'GET', null, owner);
   ok('Money lists who is in a free month and who stopped at the card step', Array.isArray(mm.d.freeMonth.list) && mm.d.freeMonth.list.length === mm.d.freeMonth.count && Array.isArray(mm.d.startedList) && mm.d.startedList.length === mm.d.started, mm.d);
+}
+
+
+/* ---------- texts that send on their own (Twilio), November 21, 2026 ---------- */
+console.log('\nTexts send on their own');
+{
+  Object.assign(env, { TWILIO_ACCOUNT_SID: 'ACtest', TWILIO_AUTH_TOKEN: 'twilio_token_test', TWILIO_MESSAGING_SERVICE_SID: 'MGtest', RESEND_API_KEY: 're_test', CRON_SECRET: 'cron-secret-for-tests-1234', SMS_HOURS: '0-24' });
+  const settle = async () => { while (waits.length) await Promise.all(waits.splice(0)); };
+  const mailsTo = (to) => mailBodies.map((b) => { try { return JSON.parse(b); } catch (e) { return null; } }).flat().filter((m) => m && [].concat(m.to).includes(to));
+  const msgs = async (cidX) => (await db.query('select * from public.messages where customer_id = $1 order by id', [cidX])).rows;
+  const twSign = (url, params) => crypto.createHmac('sha1', env.TWILIO_AUTH_TOKEN).update(url + Object.keys(params).sort().map((k) => k + params[k]).join('')).digest('base64');
+  const tw = async (pathname, params, sig) => {
+    const url = 'https://arizonapetwaste.com' + pathname;
+    const res = await worker.fetch(new Request(url, { method: 'POST', body: new URLSearchParams(params).toString(), headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-twilio-signature': sig === undefined ? twSign(url, params) : sig } }), env, ctx);
+    return { status: res.status, text: await res.text() };
+  };
+  const tomorrow = new Date(Date.parse(today + 'T19:00:00Z') + 864e5).toISOString().slice(0, 10), wd2 = (wd + 1) % 7, otherDay = (wd + 3) % 7;
+  r = await call('/api/office/team', 'POST', { name: 'Tess Truck', email: 'tess@example.com', phone: '623-555-0190', role: 'scooper' }, owner);
+  const tess = r.d.team.find((t) => t.email === 'tess@example.com');
+  const mk = async (email, name, phone, texts, extra) => {
+    const id = await authUser(email);
+    await db.query(`insert into public.customers (id, email, name, phone, address, zip, area, plan, dogs, status, texts_visit, lat, lng, scooper_id) values ($1,$2,$3,$4,'1 Test Way','85338','goodyear','week',2,'trialing',$5,33.44,-112.36,$6)`, [id, email, name, phone, texts, tess.id]);
+    if (extra) await db.query('update public.customers set service_day = $1 where id = $2', [extra, id]);
+    return id;
+  };
+  const joe = await mk('joe-test@example.com', 'Lopez, Joseph', '6235550201', true);
+  const real = await mk('real@example.com', 'Dana Real', '6235550202', true);
+  const quiet = await mk('quiet@example.com', 'NO TEXTS', '6235550203', false);
+
+  // Test mode: only the listed number hears anything new.
+  env.SMS_TEST_ALLOWLIST = '(623) 555-0201';
+  let m0 = mailBodies.length, t0 = TW.sent.length;
+  r = await call('/api/office/customer', 'POST', { id: real, service_day: wd2 }, owner);
+  ok('test mode: a day set for a customer who is not on the test list tells nobody (no text, no email, nothing waiting)', r.status === 200 && r.d.told && r.d.told.test === true && TW.sent.length === t0 && mailsTo('real@example.com').length === 0 && (await msgs(real)).length === 0, r.d.told);
+  r = await call('/api/office/customer', 'POST', { id: joe, service_day: wd2 }, owner);
+  const dayTxt = TW.sent[TW.sent.length - 1] || {};
+  ok('test mode: the test customer gets the "your day is set" text through the Messaging Service', TW.sent.length === t0 + 1 && dayTxt.to === '+16235550201' && dayTxt.service === 'MGtest' && dayTxt.account === 'ACtest' && dayTxt.callback === 'https://arizonapetwaste.com/api/twilio/status'
+    && new RegExp('^Arizona Pet Waste: Your service day is ' + ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][wd2] + '\\. .*Reply STOP to opt out\\.$').test(dayTxt.body), dayTxt);
+  ok('the Twilio call is signed in with the account id and token, and the token is nowhere in the text', dayTxt.auth === 'Basic ' + Buffer.from('ACtest:twilio_token_test').toString('base64') && !/twilio_token_test/.test(JSON.stringify([dayTxt.body, dayTxt.callback])));
+  const joeMail = mailsTo('joe-test@example.com');
+  ok('and the "your day is set" email, which says Hi Joseph for a name typed "Lopez, Joseph"', joeMail.length === 1 && /^Your service day is /.test(joeMail[0].subject) && /^Hi Joseph,/.test(joeMail[0].text), joeMail.map((x) => x.subject));
+  ok('the office is told who was told', r.d.told && r.d.told.mailed === true && r.d.told.text === 'sent', r.d.told);
+  let rows = await msgs(joe);
+  ok('the text is in the log as sent, with Twilio\'s id', rows.length === 1 && rows[0].kind === 'day_set' && rows[0].status === 'sent' && rows[0].provider_id === dayTxt.sid && rows[0].sent_at, rows.map((x) => [x.kind, x.status]));
+  r = await call('/api/office/customer', 'POST', { id: joe, service_day: wd2, gate_code: '1234' }, owner);
+  ok('saving the card again with the same day sends nothing', TW.sent.length === t0 + 1 && mailsTo('joe-test@example.com').length === 1 && !r.d.told);
+
+  // Delivery news from Twilio.
+  let w = await tw('/api/twilio/status', { MessageSid: dayTxt.sid, MessageStatus: 'delivered' }, 'bm90IGEgcmVhbCBzaWduYXR1cmU=');
+  ok('a "delivered" that Twilio did not sign is refused', w.status === 403 && (await msgs(joe))[0].status === 'sent', w);
+  w = await tw('/api/twilio/status', { MessageSid: dayTxt.sid, MessageStatus: 'delivered', To: '+16235550201' });
+  rows = await msgs(joe);
+  ok('a signed "delivered" marks the text delivered', w.status === 200 && rows[0].status === 'delivered' && rows[0].delivered_at, [w.status, rows[0].status]);
+
+  // The office changes the day: a "new service day" text and email.
+  r = await call('/api/office/customer', 'POST', { id: joe, service_day: otherDay }, owner);
+  ok('a changed day sends "Your new service day" by text and email', /Your new service day is /.test((TW.sent[TW.sent.length - 1] || {}).body) && mailsTo('joe-test@example.com').some((x) => /^Your new service day is /.test(x.subject)));
+  await call('/api/office/customer', 'POST', { id: joe, service_day: wd2 }, owner);
+
+  // Test mode off: everyone who said yes to texts.
+  delete env.SMS_TEST_ALLOWLIST;
+  t0 = TW.sent.length;
+  r = await call('/api/office/customer', 'POST', { id: real, service_day: otherDay }, owner);
+  ok('with test mode off a real customer gets the day text and email', TW.sent.length === t0 + 1 && TW.sent[t0].to === '+16235550202' && mailsTo('real@example.com').length === 1 && r.d.told.text === 'sent');
+  r = await call('/api/office/customer', 'POST', { id: quiet, service_day: wd2 }, owner);
+  ok('a customer who said no to texts gets the email only, greeted "Hi No" from "NO TEXTS"', TW.sent.length === t0 + 1 && mailsTo('quiet@example.com').length === 1 && /^Hi No,/.test(mailsTo('quiet@example.com')[0].text) && r.d.told.mailed && r.d.told.text === 'none', r.d.told);
+  await call('/api/office/customer', 'POST', { id: real, service_day: wd2 }, owner);
+
+  // A customer texts us.
+  await settle(); m0 = mailBodies.length;
+  w = await tw('/api/twilio/inbound', { From: '+16235550202', Body: 'Stop', MessageSid: 'SMin1' }, 'AAAA');
+  ok('an unsigned STOP is refused', w.status === 403 && (await db.query('select texts_visit from public.customers where id = $1', [real])).rows[0].texts_visit === true);
+  await db.query(`insert into public.messages (customer_id, kind, channel, to_addr, body) values ($1, 'day_set', 'sms', '6235550202', 'waiting text')`, [real]);
+  w = await tw('/api/twilio/inbound', { From: '+16235550202', Body: ' Stop ', MessageSid: 'SMin1' });
+  await settle();
+  let cr = (await db.query('select texts_visit, texts_stopped_at from public.customers where id = $1', [real])).rows[0];
+  ok('a signed STOP turns visit texts off, drops what was waiting, and we send no reply of our own (Twilio answers STOP)', w.status === 200 && /<Response><\/Response>/.test(w.text) && cr.texts_visit === false && cr.texts_stopped_at
+    && (await msgs(real)).filter((x) => x.body === 'waiting text')[0].status === 'skipped', cr);
+  ok('the office gets an email about the STOP, and it is written to the consent log', mailsTo('info@arizonapetwaste.com').some((x) => x.subject === 'Texts stopped: Dana Real')
+    && (await db.query(`select granted from public.consent_log where phone = '6235550202' order by id desc limit 1`)).rows[0].granted === false);
+  t0 = TW.sent.length;
+  r = await call('/api/office/customer', 'POST', { id: real, service_day: otherDay }, owner);
+  ok('after STOP a day change sends the email and no text', TW.sent.length === t0 && r.d.told.mailed === true && r.d.told.text === 'none', r.d.told);
+  const sentRow = (await msgs(real)).find((x) => x.status === 'sent' || x.status === 'delivered');
+  r = await call('/api/office/text/send', 'POST', { id: sentRow.id }, owner);
+  ok('"Resend text" is refused for a customer who said STOP', r.status === 400 && /said no to texts/.test(r.d.error) && TW.sent.length === t0, r.d);
+  w = await tw('/api/twilio/inbound', { From: '+16235550202', Body: 'START', MessageSid: 'SMin2' });
+  cr = (await db.query('select texts_visit, texts_stopped_at from public.customers where id = $1', [real])).rows[0];
+  ok('START turns texts back on for someone who had stopped', cr.texts_visit === true && cr.texts_stopped_at === null, cr);
+  w = await tw('/api/twilio/inbound', { From: '+16235550203', Body: 'start', MessageSid: 'SMin3' });
+  ok('START from someone who never agreed to texts turns nothing on', (await db.query('select texts_visit from public.customers where id = $1', [quiet])).rows[0].texts_visit === false);
+  await settle(); m0 = mailBodies.length;
+  w = await tw('/api/twilio/inbound', { From: '+16235550201', Body: 'You missed a pile by the shed', MessageSid: 'SMin4' });
+  w = await tw('/api/twilio/inbound', { From: '+16235550201', Body: 'You missed a pile by the shed', MessageSid: 'SMin4' });
+  await settle();
+  const got = (await msgs(joe)).filter((x) => x.kind === 'reply');
+  ok('a real reply is saved once and emailed to the office once, even when Twilio calls twice', got.length === 1 && got[0].status === 'received' && got[0].body === 'You missed a pile by the shed'
+    && mailsTo('info@arizonapetwaste.com').filter((x) => /^Text from Lopez, Joseph: You missed a pile/.test(x.subject)).length === 1, got.length);
+
+  // Resend from the customer card.
+  t0 = TW.sent.length;
+  const first1 = (await msgs(joe))[0];
+  r = await call('/api/office/text/send', 'POST', { id: first1.id }, owner);
+  ok('"Resend text" sends a new copy and keeps the first in the log', r.status === 200 && TW.sent.length === t0 + 1 && TW.sent[t0].body === first1.body && (await msgs(joe)).filter((x) => x.body === first1.body).length === 2, r.d);
+  r = await call('/api/office/text/send', 'POST', { id: first1.id }, mt);
+  ok('a scooper cannot resend texts', r.status === 403);
+  env.SMS_TEST_ALLOWLIST = '6235559999';
+  r = await call('/api/office/text/send', 'POST', { id: first1.id }, owner);
+  ok('test mode also holds "Resend text": a number that is not on the list gets nothing', r.status === 409 && TW.sent.length === t0 + 1, r.d);
+  delete env.SMS_TEST_ALLOWLIST;
+
+  // Welcome email again, and My Yard status.
+  await db.query(`update public.customers set name = 'Besserer Dan' where id = $1`, [joe]);
+  r = await call('/api/office/customer?id=' + joe, 'GET', null, owner);
+  ok('My Yard status: invited, not signed in yet', r.d.yard && r.d.yard.invited === true && r.d.yard.lastSeenAt === null && r.d.yard.resent === false, r.d.yard);
+  r = await call('/api/office/customer', 'POST', { id: joe, name: 'Dan Besserer' }, owner);
+  ok('the office can fix a name typed last name first', r.status === 200 && r.d.customer.name === 'Dan Besserer' && !r.d.told);
+  m0 = mailsTo('joe-test@example.com').length;
+  r = await call('/api/office/customer/welcome', 'POST', { id: joe }, owner);
+  const wel = mailsTo('joe-test@example.com').slice(m0);
+  ok('"Resend welcome email" sends it with a fresh My Yard link, says Hi Dan and what happens next', r.status === 200 && wel.length === 1 && wel[0].subject === 'You are booked with Arizona Pet Waste' && /^Hi Dan,/.test(wel[0].text)
+    && /What happens next:\n1\. We set your service day and send it to you by text and email\.\n2\. The night before each visit, we text you a reminder\.\n3\. On visit day, we text you when we are on the way\./.test(wel[0].text)
+    && /https:\/\/arizonapetwaste\.com\/account\/\?k=[0-9a-f-]{36}\.\d{10}\./.test(wel[0].text), wel.map((x) => x.text.slice(0, 300)));
+  TW.seen[joe] = '2026-11-21T20:15:00Z';
+  r = await call('/api/office/customer?id=' + joe, 'GET', null, owner);
+  ok('My Yard status: invited again, and the last sign in shows', r.d.yard.resent === true && r.d.yard.lastSeenAt === '2026-11-21T20:15:00Z' && r.d.texts.some((x) => x.kind === 'welcome' && x.channel === 'email' && x.status === 'sent'), r.d.yard);
+  r = await call('/api/office/customer/welcome', 'POST', { id: joe }, mt);
+  ok('a scooper cannot resend the welcome email', r.status === 403);
+
+  // The night before run.
+  r = await call('/api/office/settings', 'POST', { firstAt: '08:00' }, owner);
+  ok('the office sets when the first yard is reached', r.status === 200 && r.d.firstAt === '08:00', r.d);
+  await db.query('update public.customers set service_day = $1, stop_order = null where id = any($2)', [wd2, [joe, real, quiet]]);
+  await db.query('update public.customers set lat = 33.47, lng = -112.36 where id = $1', [real]); // about 2 miles from the first yard
+  r = await call('/api/office/night-before', 'POST', {}, null, { 'x-cron-secret': 'wrong-secret-wrong-secret' });
+  ok('the evening run needs the right secret', r.status === 401);
+  await db.query(`update public.messages set status = 'skipped' where status = 'queued'`); // texts the older tests left waiting
+  env.SMS_BATCH = '1'; t0 = TW.sent.length;
+  r = await call('/api/office/night-before', 'POST', {}, null, { 'x-cron-secret': env.CRON_SECRET });
+  ok('the evening run builds tomorrow, writes a text for each customer with texts on, and sends them a few at a time', r.status === 200 && r.d.day === tomorrow && r.d.stops === 3 && r.d.queued === 2 && r.d.sent === 1 && r.d.left === 1 && r.d.window === true, r.d);
+  r = await call('/api/office/night-before', 'POST', {}, null, { 'x-cron-secret': env.CRON_SECRET });
+  ok('the next call sends the rest and writes no second text', r.d.queued === 0 && r.d.sent === 1 && r.d.left === 0 && TW.sent.length === t0 + 2, r.d);
+  r = await call('/api/office/night-before', 'POST', {}, null, { 'x-cron-secret': env.CRON_SECRET });
+  ok('running it again sends nothing', r.d.sent === 0 && TW.sent.length === t0 + 2, r.d);
+  delete env.SMS_BATCH;
+  const night = TW.sent.slice(t0);
+  const codeOf = async (id) => (await db.query('select code from public.stops where customer_id = $1 and day = $2', [id, tomorrow])).rows[0].code;
+  const nJoe = night.find((x) => x.to === '+16235550201'), nReal = night.find((x) => x.to === '+16235550202');
+  ok('the night before text has a 30 minute window and the truck link for that visit', !!nJoe && !!nReal && /^Arizona Pet Waste comes tomorrow between \d{1,2}:\d{2}( AM)? and \d{1,2}:\d{2} (AM|PM)\. Please unlock the gate and keep your dogs inside\. See your visit: arizonapetwaste\.com\/t\/[0-9A-Z]{6} Reply STOP to opt out\.$/.test(nJoe.body)
+    && nJoe.body.includes('/t/' + await codeOf(joe)) && nReal.body.includes('/t/' + await codeOf(real)), night.map((x) => x.body));
+  const winOf = (b) => /between (.*?)\. Please/.exec(b)[1];
+  ok('the first yard is at 8:00 (window 7:45 and 8:15 AM) and the next one is later', [winOf(nJoe.body), winOf(nReal.body)].includes('7:45 and 8:15 AM') && winOf(nJoe.body) !== winOf(nReal.body), [winOf(nJoe.body), winOf(nReal.body)]);
+  r = await call('/api/track/' + await codeOf(joe), 'GET');
+  ok('that link opens the night before', r.status === 200 && r.d.status === 'scheduled' && !r.d.expired, r.d);
+  r = await call('/api/office/health', 'GET', null, owner);
+  ok('Health shows texts are on and when the evening run last called in', r.d.checks.texts === true && r.d.textsTest === null && !!r.d.nightRanAt && r.d.firstAt === true, { texts: r.d.checks.texts, ran: r.d.nightRanAt });
+
+  // Quiet hours: a day text set late at night waits, and the evening run sends it.
+  env.SMS_HOURS = '0-0'; t0 = TW.sent.length;
+  r = await call('/api/office/customer', 'POST', { id: joe, service_day: otherDay }, owner);
+  ok('outside 8 am to 9 pm a day text waits in the Texts tab', TW.sent.length === t0 && r.d.told.text === 'queued', r.d.told);
+  env.SMS_HOURS = '0-24';
+  await call('/api/office/customer', 'POST', { id: joe, service_day: wd2 }, owner);
+  r = await call('/api/office/night-before', 'POST', {}, null, { 'x-cron-secret': env.CRON_SECRET });
+  ok('the evening run sends the day text that waited', TW.sent.slice(t0).some((x) => x.to === '+16235550201' && /Your new service day is /.test(x.body)), TW.sent.slice(t0).map((x) => x.body.slice(0, 50)));
+
+  // Visit day: on the way and done go out right away.
+  const todayC = await mk('today@example.com', 'Tia Today', '6235550204', true, wd);
+  codes['tess@example.com'] = '123456';
+  await call('/api/staff/code', 'POST', { email: 'tess@example.com' });
+  r = await call('/api/staff/verify', 'POST', { email: 'tess@example.com', code: '123456' });
+  const tt = r.d.session.access_token;
+  r = await call('/api/crew/today', 'GET', null, tt);
+  const stop = r.d.stops.find((x) => x.customer.id === todayC);
+  t0 = TW.sent.length;
+  r = await call('/api/crew/start', 'POST', { locationOk: true }, tt);
+  ok('Start route sends the on the way text right away, with the truck link', TW.sent.length === t0 + 1 && TW.sent[t0].to === '+16235550204' && TW.sent[t0].body === 'Arizona Pet Waste: We are on the way. See our truck: arizonapetwaste.com/t/' + stop.code && r.d.texts.length === 0, TW.sent.slice(t0));
+  await call('/api/crew/arrive', 'POST', { stopId: stop.id }, tt);
+  await call('/api/crew/photo', 'POST', { stopId: stop.id, image: jpg }, tt);
+  m0 = mailsTo('today@example.com').length;
+  r = await call('/api/crew/done', 'POST', { stopId: stop.id }, tt);
+  const doneTxt = TW.sent[TW.sent.length - 1];
+  ok('Done sends the gate photo text right away, and no email while the text is on its way', TW.sent.length === t0 + 2 && /^Arizona Pet Waste: Your yard is done\. See your latched gate: arizonapetwaste\.com\/t\//.test(doneTxt.body) && mailsTo('today@example.com').length === m0, doneTxt);
+  w = await tw('/api/twilio/status', { MessageSid: doneTxt.sid, MessageStatus: 'undelivered', ErrorCode: '30003' });
+  w = await tw('/api/twilio/status', { MessageSid: doneTxt.sid, MessageStatus: 'undelivered', ErrorCode: '30003' });
+  const fb = mailsTo('today@example.com').slice(m0);
+  rows = await msgs(todayC);
+  ok('the done text did not reach the phone: the gate photo goes by email, once', fb.length === 1 && fb[0].subject === 'Your yard is done. Here is your gate photo.' && fb[0].text.includes('https://arizonapetwaste.com/t/' + stop.code)
+    && rows.filter((x) => x.kind === 'done' && x.channel === 'email' && x.status === 'sent').length === 1, fb.map((x) => x.subject));
+  const failedRow = rows.find((x) => x.kind === 'done' && x.channel === 'sms');
+  ok('the log says the text did not send and why, in plain words', failedRow.status === 'failed' && /phone was off or out of reach/.test(failedRow.error), [failedRow.status, failedRow.error]);
+  r = await call('/api/office/texts', 'GET', null, owner);
+  ok('the Texts screen is the log: on, not in test mode, with the failed text and its reason', r.d.twilio === true && r.d.test === null && r.d.log.some((x) => x.id === failedRow.id && x.status === 'failed' && x.error) && r.d.log.some((x) => x.kind === 'reply'), { n: r.d.log.length });
+
+  // Twilio refuses a text outright (the number opted out at the carrier): email, and texts off.
+  const refC = await mk('refused@example.com', 'Rae Refused', '6235550205', true, wd);
+  await call('/api/office/plan', 'POST', { date: today }, owner);
+  const rs = (await db.query('select id, code from public.stops where customer_id = $1 and day = $2', [refC, today])).rows[0];
+  await db.query(`update public.stops set status = 'here', photo_path = 'x/y.jpg' where id = $1`, [rs.id]);
+  files['gate-photos/x/y.jpg'] = 10;
+  TW.fail = 21610; m0 = mailsTo('refused@example.com').length;
+  r = await call('/api/crew/done', 'POST', { stopId: rs.id }, tt);
+  await settle();
+  rows = await msgs(refC);
+  ok('a done text Twilio refuses (they replied STOP to Twilio): the photo goes by email and texts turn off', r.status === 200 && mailsTo('refused@example.com').length === m0 + 1 && rows.some((x) => x.kind === 'done' && x.channel === 'sms' && x.status === 'failed' && /replied STOP/.test(x.error))
+    && (await db.query('select texts_visit from public.customers where id = $1', [refC])).rows[0].texts_visit === false, rows.map((x) => [x.kind, x.channel, x.status]));
+  r = await call('/api/office/health', 'GET', null, owner);
+  ok('a failed text shows on the Health screen', r.d.errors.some((e) => e.message === 'A text did not send'));
+
+  // Twilio settings gone: everything waits for a person, as before.
+  const keep = { a: env.TWILIO_ACCOUNT_SID };
+  const mBefore0 = mailsTo('joe-test@example.com').length;
+  delete env.TWILIO_ACCOUNT_SID; t0 = TW.sent.length;
+  r = await call('/api/office/customer', 'POST', { id: joe, service_day: otherDay }, owner);
+  ok('with no Twilio settings the customer card tells nobody about a day, as before this change', TW.sent.length === t0 && r.d.told.off === true && r.d.told.mailed === false && mailsTo('joe-test@example.com').length === mBefore0, r.d.told);
+  r = await call('/api/office/text/send', 'POST', { id: first1.id }, owner);
+  ok('and "Resend text" says to send it by hand', r.status === 400 && /by hand/.test(r.d.error), r.d);
+  r = await call('/api/health', 'GET');
+  ok('/api/health says texts are off', r.d.texts === false && r.d.textsTest === false, r.d);
+  env.TWILIO_ACCOUNT_SID = keep.a;
 }
 
 console.log('\n' + pass + ' passed, ' + failN + ' failed');

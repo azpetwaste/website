@@ -102,12 +102,17 @@ create table if not exists public.messages (
   channel text not null default 'sms' check (channel in ('sms', 'email')),
   to_addr text not null,
   body text not null,
-  status text not null default 'queued' check (status in ('queued', 'sent', 'skipped', 'failed')),
+  status text not null default 'queued' check (status in ('queued', 'sent', 'delivered', 'skipped', 'failed', 'received')),
   sent_by uuid references public.staff (id) on delete set null,
   sent_at timestamptz,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  provider_id text,        -- what Twilio calls the message
+  error text,              -- why a text failed, in plain words
+  delivered_at timestamptz -- when the phone got it
 );
 create index if not exists messages_status_idx on public.messages (status, created_at);
+create index if not exists messages_provider_idx on public.messages (provider_id);
+create index if not exists messages_customer_idx on public.messages (customer_id, created_at desc);
 alter table public.messages enable row level security;
 
 -- Waitlist, sign up requests and commercial quote requests in one list.
@@ -207,3 +212,6 @@ begin
   end if;
 end $$;
 
+
+-- When a customer replied STOP to a text. START only turns texts back on for someone who had stopped.
+alter table public.customers add column if not exists texts_stopped_at timestamptz;

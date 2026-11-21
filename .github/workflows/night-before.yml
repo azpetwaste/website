@@ -1,0 +1,33 @@
+# Every evening this asks the site to build tomorrow's routes and send the night before texts.
+# Arizona is always seven hours behind UTC (no daylight saving), so 00:30 UTC is 5:30 PM in Phoenix.
+# The second time is a second try. It is safe: a visit only ever gets one night before text.
+# The site sends a few texts on each call and says how many are left, so this calls until none are left.
+# It needs one secret in this repo (Settings, Secrets and variables, Actions): CRON_SECRET, the same value as
+# CRON_SECRET in Cloudflare Pages. With no secret it does nothing. If a call fails, GitHub emails the repo owner.
+name: Night before texts
+on:
+  schedule:
+    - cron: '30 0 * * *'
+    - cron: '30 1 * * *'
+  workflow_dispatch:
+permissions: {}
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Ask the site to send tomorrow's texts
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then echo "CRON_SECRET is not set for this repo. Nothing was sent."; exit 0; fi
+          for i in $(seq 1 30); do
+            out=$(curl -sS -m 90 -X POST https://arizonapetwaste.com/api/office/night-before -H "x-cron-secret: $CRON_SECRET" -H 'content-type: application/json' -d '{}' -w '\n%{http_code}')
+            code=$(echo "$out" | tail -n1); body=$(echo "$out" | sed '$d')
+            echo "call $i: $code $body"
+            if [ "$code" != "200" ]; then echo "The site did not answer 200."; exit 1; fi
+            left=$(echo "$body" | sed -n 's/.*"left":\([0-9]*\).*/\1/p')
+            if [ -z "$left" ] || [ "$left" = "0" ]; then exit 0; fi
+            sleep 2
+          done
+          echo "Texts were still left after 30 calls."; exit 1

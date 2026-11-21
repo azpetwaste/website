@@ -264,7 +264,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     return { day: dd, cap: (S.wk && S.wk.cap) || 30, today: D.today, stops: ds, routes: dd === D.today ? D.routes : D.routes.filter(function (r) { return ds.some(function (x) { return x.route_id === r.id; }); }), pings: pings, needDay: D.customers.filter(function (c) { return c.service_day == null && c.status !== 'canceled'; }), queuedTexts: D.texts.filter(function (t) { return t.status === 'queued'; }).length };
   }
   function demoToday() { return { mapsKey: D.mapsKey || null, day: D.today, dayName: DAYS[D.wd], route: D.route, stops: mine(), texts: D.texts.filter(function (t) { return t.status === 'queued' && t.stop_id; }) }; }
-  function demoCust(id) { var c = D.customers.filter(function (x) { return x.id === id; })[0]; return { customer: c, monthly: 8000, visits: D.stops.filter(function (s) { return s.customer.id === id && s.status !== 'scheduled'; }), texts: D.texts.filter(function (t) { return t.customer && t.customer.name === c.name; }) }; }
+  function demoCust(id) { var c = D.customers.filter(function (x) { return x.id === id; })[0]; return { yard: { invited: true, invitedAt: new Date(Date.now() - 3 * 864e5).toISOString(), lastSeenAt: +String(id).replace(/\D/g, '') % 3 ? new Date(Date.now() - 864e5).toISOString() : null }, twilio: false, customer: c, monthly: 8000, visits: D.stops.filter(function (s) { return s.customer.id === id && s.status !== 'scheduled'; }), texts: D.texts.filter(function (t) { return t.customer && t.customer.name === c.name; }) }; }
   async function demoApi(method, path, b) {
     if (!D) demoSeed();
     await new Promise(function (r) { setTimeout(r, 120); });
@@ -328,7 +328,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (p === '/api/office/customer' && method === 'GET') return demoCust(q.get('id'));
     if (p === '/api/office/customer') {
       var c = D.customers.filter(function (x) { return x.id === b.id; })[0];
-      ['gate_code', 'dog_names', 'gate_notes', 'problem_spots', 'office_notes', 'skip_spray'].forEach(function (k) { if (k in b) c[k] = b[k]; });
+      ['name', 'gate_code', 'dog_names', 'gate_notes', 'problem_spots', 'office_notes', 'skip_spray'].forEach(function (k) { if (k in b) c[k] = b[k]; });
       ['service_day', 'service_day2', 'stop_order'].forEach(function (k) { if (k in b) c[k] = b[k] === '' || b[k] == null ? null : +b[k]; });
       ['pause_from', 'pause_until', 'scooper_id'].forEach(function (k) { if (k in b) c[k] = b[k] || null; });
       return demoCust(b.id);
@@ -341,7 +341,9 @@ table.t tr.click:hover td{background:var(--bg2)}
       else D.leads.unshift({ id: ++D.n + 100, kind: b.kind, name: b.name, phone: b.phone, email: '', address: '', zip: '', details: b.details, status: 'new', notes: '', created_at: new Date().toISOString() });
       return { leads: D.leads };
     }
-    if (p === '/api/office/texts') return { texts: queued() };
+    if (p === '/api/office/texts') return { texts: queued(), log: D.texts.filter(function (t) { return t.status !== 'queued'; }).slice(-40).reverse(), twilio: false, test: null, auto: [] };
+    if (p === '/api/office/text/send') throw new Error('This is the demo. No text is sent.');
+    if (p === '/api/office/customer/welcome') { toast('This is the demo. No email is sent.'); return demoCust(b.id); }
     if (p === '/api/office/team') {
       if (method === 'POST') { if (b.id) D.team.forEach(function (m) { if (m.id === b.id) { if (b.role) m.role = b.role; if (b.name) m.name = b.name; if ('phone' in b) m.phone = String(b.phone || '').replace(/\D/g, ''); if ('scoops' in b) m.scoops = !!b.scoops; if ('active' in b) m.active = b.active; } }); else D.team.push({ id: 's' + (++D.n + 5), name: b.name, email: b.email, phone: String(b.phone || '').replace(/\D/g, ''), role: b.role, scoops: b.role === 'scooper' || !!b.scoops, signedIn: false, active: true }); }
       return { team: D.team };
@@ -652,6 +654,21 @@ table.t tr.click:hover td{background:var(--bg2)}
     }
     document.body.appendChild(el); draw();
   }
+  // "Are you sure?" for anything that sends something to a customer. One question, two big buttons.
+  function sure(title, text, yes, fn) {
+    var el = document.createElement('div'); el.className = 'sheet';
+    el.innerHTML = '<div class="pane"><p class="big" style="font-size:24px">' + h(title) + '</p><p style="color:var(--mute);font-size:16px;line-height:1.5;margin:10px 0 18px">' + h(text) + '</p>' +
+      '<button class="btn" data-k="go">' + h(yes) + '</button><button class="btn ghost" data-k="x" style="margin-top:8px">Cancel</button></div>';
+    document.body.appendChild(el);
+    el.addEventListener('click', function (e) {
+      if (e.target === el) return el.remove();
+      var k = e.target && e.target.dataset && e.target.dataset.k; if (!k) return;
+      el.remove(); if (k === 'go') fn();
+    });
+  }
+  var TEXT_KIND = { day_set: 'Your day is set', night_before: 'Night before', on_the_way: 'On the way', done: 'Yard is done', cant: 'Could not service', card_failed: 'Card did not work', welcome: 'Welcome email', reply: 'They texted us' };
+  var TEXT_STATE = { queued: ['Waiting', 'warn'], sent: ['Sent', 'dim'], delivered: ['Delivered', 'ok'], failed: ['Did not send', 'bad'], skipped: ['Skipped', 'dim'], received: ['Reply', 'acc'] };
+  function textState(t) { var x = TEXT_STATE[t.status] || [t.status, 'dim']; return '<span class="tag ' + x[1] + '">' + x[0] + '</span>'; }
   function bindSend(root, crew, after) {
     root.querySelectorAll('[data-send]').forEach(function (a) {
       a.addEventListener('click', function () {
@@ -900,13 +917,28 @@ table.t tr.click:hover td{background:var(--bg2)}
     }).join('') + '</div>';
   }
   function officeTexts(d) {
-    var out = '<div class="daynav"><h2>Texts to send</h2></div><p style="color:var(--mute);font-size:15px;line-height:1.5;max-width:640px">Texts do not send on their own yet. Use the business phone, 623.309.6104. Tap Send. The text opens ready to go. Hit send in Messages and it is marked sent here.</p>';
+    var out = '<div class="daynav"><h2>Texts</h2></div>';
     if (!d) return out + '<p class="empty">Loading…</p>';
-    if (!d.texts.length) return out + '<p class="empty">All caught up.</p>';
-    return out + d.texts.map(function (t) {
-      return '<div class="tcard"><div class="lbl">' + h(t.kind.replace(/_/g, ' ')) + ' · ' + h(t.customer ? t.customer.name : '') + ' · ' + h(phone(t.to_addr)) + '</div><p>' + h(t.body) + '</p>' +
-        '<div class="acts"><a class="btn sm" style="width:100%" href="' + h(sms(t.to_addr, t.body)) + '" data-send="' + t.id + '">Send</a><button class="btn ghost sm" style="width:100%" data-text="' + t.id + '" data-st="skipped">Skip</button></div></div>';
-    }).join('');
+    var on = !!d.twilio, auto = d.auto || [];
+    out += '<p style="color:var(--mute);font-size:15px;line-height:1.5;max-width:640px">' +
+      (on ? (d.test != null ? 'Test mode is on. Texts send on their own to ' + d.test + ' test ' + (d.test === 1 ? 'number' : 'numbers') + ' only. Every other text waits here, and you can still send it by hand from the business phone, 623.309.6104.'
+        : 'Texts send on their own. Anything waiting here did not go out: send it now, or send it by hand from the business phone, 623.309.6104.')
+        : 'Texts do not send on their own yet. Use the business phone, 623.309.6104. Tap Send by hand. The text opens ready to go. Hit send in Messages and it is marked sent here.') + '</p>';
+    out += '<div class="sec"><h3>Waiting <span class="tag ' + (d.texts.length ? 'warn' : 'dim') + '">' + d.texts.length + '</span></h3>';
+    out += d.texts.length ? d.texts.map(function (t) {
+      var now = on && d.test == null && auto.indexOf(t.kind) >= 0;
+      return '<div class="tcard"><div class="lbl">' + h(TEXT_KIND[t.kind] || t.kind.replace(/_/g, ' ')) + ' · ' + h(t.customer ? t.customer.name : '') + ' · ' + h(phone(t.to_addr)) + '</div><p>' + h(t.body) + '</p>' +
+        '<div class="acts"' + (now ? ' style="grid-template-columns:1fr 1fr 1fr;max-width:560px"' : '') + '>' + (now ? '<button class="btn sm" style="width:100%" data-tnow="' + t.id + '" data-who="' + h(t.customer ? t.customer.name : phone(t.to_addr)) + '">Send now</button>' : '') +
+        '<a class="btn ' + (now ? 'ghost ' : '') + 'sm" style="width:100%" href="' + h(sms(t.to_addr, t.body)) + '" data-send="' + t.id + '">Send by hand</a><button class="btn ghost sm" style="width:100%" data-text="' + t.id + '" data-st="skipped">Skip</button></div></div>';
+    }).join('') : '<p class="empty">All caught up.</p>';
+    out += '</div><div class="sec"><h3>Sent and received</h3>';
+    var log = d.log || [];
+    out += log.length ? log.map(function (t) {
+      return '<div class="tcard"><div style="display:flex;gap:10px;justify-content:space-between;align-items:flex-start"><div class="lbl">' + h(TEXT_KIND[t.kind] || t.kind.replace(/_/g, ' ')) + (t.channel === 'email' ? ' · email' : '') + ' · ' + h(t.customer ? t.customer.name : '') + ' · ' + h(t.channel === 'email' ? t.to_addr : phone(t.to_addr)) + '</div>' + textState(t) + '</div>' +
+        '<p style="margin-bottom:4px">' + h(t.body) + '</p><div class="mono" style="font-size:12px;color:var(--mute)">' + h(stamp(t.delivered_at || t.sent_at || t.created_at)) + '</div>' +
+        (t.error ? '<p style="color:var(--bad);font-size:14px;margin:6px 0 0">' + h(t.error) + '</p>' : '') + '</div>';
+    }).join('') : '<p class="empty">Nothing yet. Every text and email the app sends shows here.</p>';
+    return out + '</div>';
   }
   var ROLES = { owner: 'Owner', office: 'Office', scooper: 'Scooper' };
   function officeTeam(d, a) {
@@ -1003,7 +1035,9 @@ table.t tr.click:hover td{background:var(--bg2)}
       '<ol style="color:var(--mute);font-size:14px;max-width:70ch;padding-left:20px;margin:8px 0 0;line-height:1.6"><li>Pick how many yards one scooper does in a day. No day goes over that.</li><li>Tap the plan button. Yards are grouped by town, so a day stays in one area and the truck drives less.</li><li>Read the table. Each box is one scooper\'s day: yards, miles and towns.</li><li>Save. Each customer gets an email with their day.</li></ol>' +
       '<span class="lbl" style="display:block;margin-top:18px">Yards one scooper does in a day</span><div class="chips" style="margin-top:8px">' + caps.sort(function (x, y) { return x - y; }).map(function (n) { return '<button class="chip' + (o.cap === n ? ' on' : '') + '" data-cap="' + n + '" style="min-width:56px;font-size:15px">' + n + '</button>'; }).join('') + '</div>' +
       '<span class="lbl" style="display:block;margin-top:18px">Days we scoop</span><div class="chips" style="margin-top:8px">' + [['1,2,3,4,5', 'Monday to Friday'], ['1,2,3,4,5,6', 'Monday to Saturday']].map(function (x) { return '<button class="chip' + (o.days === x[0] ? ' on' : '') + '" data-wdays="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>' +
-      (DEMO ? '' : '<label class="fl" style="max-width:640px"><span class="lbl">Where the truck starts each day</span><input class="f" id="wk_start" autocomplete="off" placeholder="Street, city, ZIP" value="' + h(o.start || '') + '"></label><div style="max-width:320px"><button class="btn ghost" data-wkstart="1">Save the start</button></div>') +
+      (DEMO ? '' : '<label class="fl" style="max-width:640px"><span class="lbl">Where the truck starts each day</span><input class="f" id="wk_start" autocomplete="off" placeholder="Street, city, ZIP" value="' + h(o.start || '') + '"></label><div style="max-width:320px"><button class="btn ghost" data-wkstart="1">Save the start</button></div>' +
+        '<label class="fl" style="max-width:320px"><span class="lbl">First yard at (for the 30 minute window in the night before text)</span><select class="f" id="wk_first"><option value="">Not set: no window in the text</option>' +
+        ['06:00', '06:30', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '12:00'].map(function (t) { var hh = +t.slice(0, 2); return '<option value="' + t + '"' + (o.firstAt === t ? ' selected' : '') + '>' + ((hh + 11) % 12 + 1) + ':' + t.slice(3) + (hh < 12 ? ' AM' : ' PM') + '</option>'; }).join('') + '</select></label>') +
       (DEMO ? '<label class="fl" style="max-width:310px"><span class="lbl">Sample customers (made up, across our ZIP codes)</span><select class="f" id="wk_n">' + [100, 250, 500, 1000].map(function (n) { return '<option' + (o.n === n ? ' selected' : '') + '>' + n + '</option>'; }).join('') + '</select></label>' : '') +
       '<div class="row2" style="max-width:640px;margin-top:14px">' + (DEMO ? '' : '<button class="btn ghost" data-wk="new">Place new yards only</button>') + '<button class="btn" data-wk="all">' + (DEMO ? 'Plan the sample week' : 'Rebuild the whole week') + '</button></div>' +
       (DEMO ? '' : '<p style="color:var(--mute);font-size:13px;max-width:70ch">Place new yards only moves nobody. Rebuild the whole week can move customers to a new day. You see the plan first. Nothing is saved until you press Save.</p>');
@@ -1052,6 +1086,7 @@ table.t tr.click:hover td{background:var(--bg2)}
   var WHERE = { '/api/checkout': 'Sign up, card step', '/api/checkout/done': 'Sign up, last step', '/api/address': 'Sign up, address box', '/api/address/pick': 'Sign up, address box', '/api/stripe-webhook': 'Stripe to the site', '/api/meta/leadgen': 'Facebook and Instagram leads', '/api/card': 'Fix my card link', '/api/crew/photo': 'Gate photo' };
   function plainErr(e) {
     var m = e.message || '';
+    if (/A text did not send/i.test(m)) return ['look', 'A text to a customer did not go through.', 'Open the Texts tab. The text is in the list with the reason. If it was a gate photo text, the photo went by email.'];
     if (/No such customer/i.test(m)) return ['fixed', 'The card step did not load for a sign up. Its saved Stripe customer had been deleted in Stripe.', 'Fixed on Nov 17. The site now makes a new one on its own.'];
     if (/saved Stripe customer was gone/i.test(m)) return ['note', 'A sign up pointed at a Stripe customer that was deleted in Stripe. The site made a new one and the sign up went on.', 'Nothing to do.'];
     if (/Address suggestions are off/i.test(m)) return ['todo', 'Address suggestions on the sign up form are off. Google refused the call. People can still type their address.', 'Atlas: turn on Places API (New) for the Google server key.'];
@@ -1079,7 +1114,8 @@ table.t tr.click:hover td{background:var(--bg2)}
       row('Field desk', c.desk, 'Crew app, office and truck links work.', '') +
       row('Online sign up', c.booking, 'New customers can pay on the site and land here.', 'The Stripe keys are not in Cloudflare yet. The site takes requests as leads until then.') +
       row('Live truck map', c.map, 'Customers see the truck on a Google map.', 'The Google Maps keys are not in Cloudflare. Customers see a simple progress line.') +
-      row('Texts send on their own', c.texts, '', 'Twilio is not approved yet. Staff send each text by hand from the Texts tab.') +
+      row('Texts send on their own', c.texts, x.textsTest != null ? 'Test mode: only ' + x.textsTest + ' test ' + (x.textsTest === 1 ? 'number gets' : 'numbers get') + ' texts. Everyone else waits in the Texts tab.' : 'Visit texts go out through Twilio. The Texts tab is the log.', 'The Twilio settings are not in Cloudflare yet. Staff send each text by hand from the Texts tab.') +
+      row('Night before texts every evening', !!x.nightRanAt, 'Last ran ' + h(stamp(x.nightRanAt)) + '.' + (x.firstAt ? '' : ' No 30 minute window yet: set "First yard at" in Plan the week.'), 'The evening run has not called in yet. It needs CRON_SECRET in Cloudflare and in GitHub.') +
       row('Lock on wrong sign in codes', c.signLock, '5 wrong codes and that email waits 15 minutes.', 'A weaker lock is on in its place. The full one needs one step in the database: run supabase/patch-2026-11-16.sql in the Supabase SQL Editor.') +
       row('Bot check on sign in screens', c.botCheck, 'The check runs on our sign in screens. It only stops robots once Captcha is also on in Supabase (Authentication, Attack Protection). On Nov 16, 2026 that switch was off.', 'Not set up yet. It needs TURNSTILE_SITE_KEY in Cloudflare and the Turnstile secret in Supabase.') +
       '</tbody></table></div></div>' +
@@ -1092,6 +1128,18 @@ table.t tr.click:hover td{background:var(--bg2)}
       }).join('') : '<p class="empty">Nothing went wrong' + (x.cleared ? ' since the list was cleared' : '') + '.</p>') + '</div>';
     return out;
   }
+  function yardLine(y) {
+    if (!y) return 'not known';
+    if (y.lastSeenAt) return 'signed in ' + stamp(y.lastSeenAt);
+    if (y.invited) return (y.resent ? 'invited again ' : 'invited ') + stamp(y.invitedAt) + '. Not signed in yet';
+    return 'not invited yet. The welcome email goes out when they finish sign up';
+  }
+  function toldLine(t, c) {
+    if (t.off) return 'Day saved. Texts are not on yet, so the customer was not told. Call or text them their day.';
+    if (t.test) return 'Day saved. Test mode is on, so ' + (c.name || 'the customer') + ' was not told.';
+    var how = [t.mailed ? 'email' : '', t.text === 'sent' ? 'text' : ''].filter(Boolean).join(' and ');
+    return 'Day saved. ' + (how ? (c.name || 'The customer') + ' was told by ' + how + '.' : 'The customer was not told: no email went out.') + (t.text === 'queued' ? ' The text is waiting in the Texts tab.' : '');
+  }
   async function openCustomer(id) {
     try { S.sel = await api('GET', '/api/office/customer?id=' + id); } catch (e) { return toast(e.message); }
     drawCustomer();
@@ -1103,11 +1151,13 @@ table.t tr.click:hover td{background:var(--bg2)}
     var daySel = function (id, v) { return '<select class="f" id="' + id + '"><option value="">None</option>' + DAYS.map(function (d, i) { return '<option value="' + i + '"' + (v === i ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select>'; };
     var el = document.createElement('div'); el.className = 'drawer';
     el.innerHTML = '<div style="display:flex;gap:14px;align-items:center"><button class="bk" id="dx">‹ Back</button><span class="lbl">Customer</span></div>' +
-      '<p class="big" style="font-size:28px">' + h(c.name || c.email) + '</p><div style="margin-top:8px">' + tag(c.status) + ' <span class="mono" style="color:var(--mute);font-size:12px;margin-left:6px">' + h(PLAN[c.plan] || '') + (c.dogs ? ' · ' + c.dogs + ' dogs' : '') + (S.sel.monthly ? ' · ' + money(S.sel.monthly) + '/mo' : '') + '</span></div>' +
+      '<p class="big" style="font-size:28px">' + h(c.name || c.email) + '</p>' + (S.sel.told ? '<p class="tag ok" style="display:block;margin:8px 0 0;padding:10px;line-height:1.4;text-transform:none;letter-spacing:0;font-size:14px">' + h(toldLine(S.sel.told, c)) + '</p>' : '') + '<div style="margin-top:8px">' + tag(c.status) + ' <span class="mono" style="color:var(--mute);font-size:12px;margin-left:6px">' + h(PLAN[c.plan] || '') + (c.dogs ? ' · ' + c.dogs + ' dogs' : '') + (S.sel.monthly ? ' · ' + money(S.sel.monthly) + '/mo' : '') + '</span></div>' +
       '<p style="margin:14px 0 0;line-height:1.6">' + h(c.address) + ', ' + h(c.zip) + (c.lat == null ? ' <span class="tag dim">No pin</span> <button class="ib" id="pin">Find on map</button>' : ' <span class="tag ok">Pinned</span>') + '<br><a href="tel:+1' + h(c.phone) + '">' + h(phone(c.phone)) + '</a> · ' + h(c.email) +
-      '<br><span style="color:var(--mute);font-size:14px">Visit texts: ' + (c.texts_visit ? 'yes' : 'no') + ' · Deals texts: ' + (c.texts_deals ? 'yes' : 'no') + '</span>' +
+      '<br><span style="color:var(--mute);font-size:14px">Visit texts: ' + (c.texts_visit ? 'yes' : c.texts_stopped_at ? 'no, they replied STOP' : 'no') + '</span>' +
+      '<br><span style="color:var(--mute);font-size:14px">My Yard: ' + h(yardLine(S.sel.yard)) + '</span>' +
       (c.stripe_customer_id ? '<br><a href="https://dashboard.stripe.com/customers/' + h(c.stripe_customer_id) + '" target="_blank" rel="noopener" style="font-size:14px">Open in Stripe ›</a>' : '') + '</p>' +
-      '<div class="hr" style="margin:20px 0 4px"></div><span class="lbl">Route</span><div class="grid2"><label class="fl"><span class="lbl">Service day</span>' + daySel('f_sd', c.service_day) + '</label>' +
+      (S.sel.yard && S.sel.yard.invited ? '<div style="margin-top:14px;max-width:320px"><button class="btn ghost sm" style="width:100%" id="rewel">Resend welcome email</button></div>' : '') +
+      '<div class="hr" style="margin:20px 0 4px"></div><span class="lbl">Route</span>' + (S.sel.twilio ? '<p style="color:var(--mute);font-size:14px;line-height:1.45;margin:6px 0 0">' + (S.sel.textsTest ? 'Test mode is on. Saving a new service day only tells a customer on the test list.' : 'Saving a new service day tells the customer by email' + (c.texts_visit ? ' and text' : '') + '.') + '</p>' : '') + '<div class="grid2"><label class="fl"><span class="lbl">Service day</span>' + daySel('f_sd', c.service_day) + '</label>' +
       (c.plan === 'twice' ? '<label class="fl"><span class="lbl">Second day</span>' + daySel('f_sd2', c.service_day2) + '</label>' : '') +
       (c.plan === 'eow' ? '<label class="fl"><span class="lbl">Every other week</span><select class="f" id="f_eow"><option value="0"' + (c.eow_week ? '' : ' selected') + '>Week A</option><option value="1"' + (c.eow_week ? ' selected' : '') + '>Week B</option></select></label>' : '') +
       '<label class="fl"><span class="lbl">Stop order</span><input class="f" id="f_so" inputmode="numeric" value="' + h(c.stop_order == null ? '' : c.stop_order) + '" placeholder="1, 2, 3…"></label>' +
@@ -1115,6 +1165,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       '<label class="fl"><span class="lbl">Pause from</span><input class="f" id="f_pf" type="date" value="' + h(c.pause_from || '') + '"></label><label class="fl"><span class="lbl">Pause until</span><input class="f" id="f_pu" type="date" value="' + h(c.pause_until || '') + '"></label></div>' +
       '<div class="hr" style="margin:20px 0 4px"></div><span class="lbl">Yard</span><div class="grid2"><label class="fl"><span class="lbl">Gate code</span><input class="f mono" id="f_gc" value="' + h(c.gate_code || '') + '"></label><label class="fl"><span class="lbl">Dog names</span><input class="f" id="f_dn" value="' + h(c.dog_names || '') + '"></label></div>' +
       '<label class="fl"><span class="lbl">Gate notes</span><textarea class="f" id="f_gn">' + h(c.gate_notes || '') + '</textarea></label><label class="fl"><span class="lbl">Problem spots</span><textarea class="f" id="f_ps">' + h(c.problem_spots || '') + '</textarea></label>' +
+      '<label class="fl"><span class="lbl">Customer name (emails say Hi and the first name)</span><input class="f" id="f_nm" value="' + h(c.name || '') + '"></label>' +
       '<label class="fl"><span class="lbl">Dogs on the plan (1 to 6). Changing this changes the bill and emails the customer.</span><input class="f" id="f_dg" inputmode="numeric" value="' + h(c.dogs == null ? '' : c.dogs) + '"></label>' +
       '<label class="fl" style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="f_ss"' + (c.skip_spray ? ' checked' : '') + '> <span>Skip the spray</span></label>' +
       '<label class="fl"><span class="lbl">Office notes (crew sees these)</span><textarea class="f" id="f_on">' + h(c.office_notes || '') + '</textarea></label>' +
@@ -1122,19 +1173,25 @@ table.t tr.click:hover td{background:var(--bg2)}
       '<div class="hr" style="margin:26px 0 4px"></div><span class="lbl">Visits</span>' + (S.sel.visits.length ? '<table class="t"><tbody>' + S.sel.visits.map(function (v) {
         return '<tr><td class="mono" style="font-size:12px">' + h(dayLabel(v.day)) + '</td><td>' + tag(v.status) + (v.no_photo ? ' <span class="tag bad">No photo</span>' : '') + (v.note ? '<div style="font-size:13px;color:var(--mute)">' + h(v.note) + '</div>' : '') + '</td><td style="text-align:right">' + (v.photo_path ? '<button class="ib" data-photo="' + v.id + '">Photo</button>' : '') + '</td></tr>';
       }).join('') + '</tbody></table>' : '<p class="empty">No visits yet.</p>') +
-      '<span class="lbl" style="display:block;margin-top:22px">Texts</span>' + (S.sel.texts.length ? '<table class="t"><tbody>' + S.sel.texts.map(function (t) {
-        return '<tr><td class="lbl" style="white-space:nowrap">' + h(t.kind.replace(/_/g, ' ')) + '</td><td style="font-size:13px">' + h(t.body) + '</td><td>' + h(t.status) + '</td></tr>';
-      }).join('') + '</tbody></table>' : '<p class="empty">No texts yet.</p>');
+      '<span class="lbl" style="display:block;margin-top:22px">Texts and emails</span>' + (S.sel.texts.length ? S.sel.texts.map(function (t) {
+        var again = S.sel.twilio && t.channel !== 'email' && ['day_set', 'night_before', 'on_the_way', 'done', 'cant'].indexOf(t.kind) >= 0 && c.texts_visit;
+        return '<div class="tcard"><div style="display:flex;gap:10px;justify-content:space-between;align-items:flex-start"><div class="lbl">' + h(TEXT_KIND[t.kind] || t.kind.replace(/_/g, ' ')) + (t.channel === 'email' ? ' · email' : '') + ' · ' + h(stamp(t.delivered_at || t.sent_at || t.created_at)) + '</div>' + textState(t) + '</div>' +
+          '<p style="font-size:14px;margin-bottom:6px">' + h(t.body) + '</p>' + (t.error ? '<p style="color:var(--bad);font-size:14px;margin:0 0 6px">' + h(t.error) + '</p>' : '') +
+          (again ? '<button class="ib" style="min-height:44px;padding:0 14px" data-again="' + t.id + '">' + (t.status === 'queued' ? 'Send now' : 'Resend text') + '</button>' : '') + '</div>';
+      }).join('') : '<p class="empty">No texts yet.</p>');
     document.body.appendChild(el);
     el.querySelector('#dx').onclick = function () { S.sel = null; el.remove(); };
     var val = function (id) { var x = el.querySelector('#' + id); return x ? x.value : undefined; };
     el.querySelector('#fsave').onclick = async function () {
-      var b = { id: c.id, service_day: val('f_sd'), stop_order: val('f_so'), scooper_id: val('f_sc'), pause_from: val('f_pf'), pause_until: val('f_pu'), gate_code: val('f_gc'), dog_names: val('f_dn'), gate_notes: val('f_gn'), problem_spots: val('f_ps'), office_notes: val('f_on'), skip_spray: el.querySelector('#f_ss').checked };
+      var b = { id: c.id, name: val('f_nm'), service_day: val('f_sd'), stop_order: val('f_so'), scooper_id: val('f_sc'), pause_from: val('f_pf'), pause_until: val('f_pu'), gate_code: val('f_gc'), dog_names: val('f_dn'), gate_notes: val('f_gn'), problem_spots: val('f_ps'), office_notes: val('f_on'), skip_spray: el.querySelector('#f_ss').checked };
       if (String(val('f_dg') || '') !== String(c.dogs == null ? '' : c.dogs)) b.dogs = val('f_dg');
       if (el.querySelector('#f_sd2')) b.service_day2 = val('f_sd2');
       if (el.querySelector('#f_eow')) b.eow_week = val('f_eow');
       try { S.sel = await api('POST', '/api/office/customer', b); toast('Saved'); drawCustomer(); loadTab(); } catch (e) { toast(e.message); }
     };
+    var rw = el.querySelector('#rewel');
+    if (rw) rw.onclick = function () { sure('Send the welcome email again?', 'It goes to ' + c.email + ' with a new My Yard link that works for 7 days.', 'Send email', async function () { try { S.sel = await api('POST', '/api/office/customer/welcome', { id: c.id }); toast('Welcome email sent'); drawCustomer(); } catch (e) { toast(e.message); } }); };
+    el.querySelectorAll('[data-again]').forEach(function (bt) { bt.onclick = function () { sure('Send this text to ' + (c.name || 'the customer') + '?', 'It goes to ' + phone(c.phone) + ' right away.', 'Send text', async function () { try { await api('POST', '/api/office/text/send', { id: bt.dataset.again }); toast('Text sent'); } catch (e) { toast(e.message); } openCustomer(c.id); }); }; });
     var pin = el.querySelector('#pin');
     if (pin) pin.onclick = async function () { try { S.sel = await api('POST', '/api/office/customer', { id: c.id, pin: true }); toast('On the map'); drawCustomer(); } catch (e) { toast(e.message); } };
     bindPhotos(el);
@@ -1146,13 +1203,15 @@ table.t tr.click:hover td{background:var(--bg2)}
     app.querySelectorAll('[data-plan]').forEach(function (b) { b.onclick = async function () {
       var open = b.dataset.plan === '1'; S.wk = S.wk || { cap: 30, days: '1,2,3,4,5', n: DEMO ? 100 : 500 };
       if (!open) return goHome(true);
-      if (!DEMO && !S.wk.loaded) { try { var st = await api('GET', '/api/office/settings'); S.wk.cap = st.cap; S.wk.days = st.days; S.wk.start = st.start || ''; S.wk.loaded = true; } catch (e) { } }
+      if (!DEMO && !S.wk.loaded) { try { var st = await api('GET', '/api/office/settings'); S.wk.cap = st.cap; S.wk.days = st.days; S.wk.start = st.start || ''; S.wk.firstAt = st.firstAt || ''; S.wk.loaded = true; } catch (e) { } }
       nav('today', true);
     }; });
     var saveSet = function () { if (!DEMO) api('POST', '/api/office/settings', { cap: S.wk.cap, days: S.wk.days }).then(function () { toast('Saved'); }).catch(function (e) { toast(e.message); }); S.data.week = null; render(); };
     app.querySelectorAll('[data-slot]').forEach(function (b) { b.onclick = function () { var n = +b.dataset.slot; S.wk.sel = n < 0 || S.wk.sel === n ? null : n; render(); var m = document.getElementById('wkmap'); if (m && S.wk.sel != null) m.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }; });
     if (S.plan && S.data.week && S.data.week.slots && S.data.week.mapsKey) keepMap('wkmap', [S.wk.sel, S.data.week.routes, S.data.week.weekMiles, S.data.week.cap, S.data.week.customers].join('|'), function (el) { wkMap(S.data.week, el); });
     app.querySelectorAll('[data-wkstart]').forEach(function (b) { b.onclick = function () { var v = (document.getElementById('wk_start') || {}).value || ''; api('POST', '/api/office/settings', { start: v }).then(function (r) { S.wk.start = r.start || ''; S.data.week = null; toast(r.start ? 'Start saved' : 'Start cleared'); render(); }).catch(function (e) { toast(e.message); }); }; });
+    var wf = document.getElementById('wk_first');
+    if (wf) wf.onchange = function () { api('POST', '/api/office/settings', { firstAt: wf.value }).then(function (r) { S.wk.firstAt = r.firstAt || ''; toast(r.firstAt ? 'First yard time saved' : 'First yard time cleared'); }).catch(function (e) { toast(e.message); }); };
     app.querySelectorAll('[data-cap]').forEach(function (b) { b.onclick = function () { S.wk.cap = +b.dataset.cap; saveSet(); }; });
     app.querySelectorAll('[data-wdays]').forEach(function (b) { b.onclick = function () { S.wk.days = b.dataset.wdays; saveSet(); }; });
     app.querySelectorAll('[data-wk]').forEach(function (b) { b.onclick = async function () {
@@ -1186,6 +1245,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     app.querySelectorAll('[data-leadnote]').forEach(function (b) { b.onclick = async function () { var l = S.data.leads.leads.filter(function (x) { return String(x.id) === b.dataset.leadnote; })[0]; sheetForm('Note', [{ id: 'n', label: 'Note', value: (l && l.notes) || '', area: true }], 'Save', async function (v) { try { S.data.leads = await api('POST', '/api/office/lead', { id: b.dataset.leadnote, notes: v.n }); render(); } catch (e) { toast(e.message); } }); }; });
     bindSend(app, false, loadTab);
     app.querySelectorAll('[data-text]').forEach(function (b) { b.onclick = async function () { try { await api('POST', '/api/office/text', { id: b.dataset.text, status: b.dataset.st }); loadTab(); } catch (e) { toast(e.message); } }; });
+    app.querySelectorAll('[data-tnow]').forEach(function (b) { b.onclick = function () { sure('Send this text now?', 'It goes to ' + b.dataset.who + ' right away.', 'Send now', async function () { try { await api('POST', '/api/office/text/send', { id: b.dataset.tnow }); toast('Sent'); loadTab(); } catch (e) { toast(e.message); loadTab(); } }); }; });
     app.querySelectorAll('[data-role]').forEach(function (s) { s.onchange = async function () { try { S.data.team = await api('POST', '/api/office/team', { id: s.dataset.role, role: s.value }); toast('Saved'); render(); } catch (e) { toast(e.message); loadTab(); } }; });
     app.querySelectorAll('[data-scoops]').forEach(function (b) { b.onclick = async function () { try { S.data.team = await api('POST', '/api/office/team', { id: b.dataset.scoops, scoops: b.dataset.on === '1' }); toast(b.dataset.on === '1' ? 'They get yards now' : 'Off routes'); render(); } catch (e) { toast(e.message); } }; });
     app.querySelectorAll('[data-editstaff]').forEach(function (b) { b.onclick = function () {

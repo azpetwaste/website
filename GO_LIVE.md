@@ -141,6 +141,23 @@ Sample messages (changed November 17, 2026: they now read like the texts the ser
 
 The old sample 4 ("Guests coming over? ... from $99") was a deals text. With no deals box there is nobody who agreed to get it, so it must come out of the campaign. If it was already sent to Twilio, swap it on the next edit.
 
+### Turning on texts that send on their own (built November 21, 2026)
+The step by step, with Joe's test on himself, is `docs/TEST_AUTO_TEXTS.md`. In short:
+1. Run `supabase/patch-2026-11-21.sql` in the Supabase SQL Editor. It only adds columns.
+2. Cloudflare Pages, Production: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` (the account's main Auth Token, because Twilio signs its calls to us with it), `TWILIO_MESSAGING_SERVICE_SID`, and `SMS_TEST_ALLOWLIST` with Joe's mobile number while he tests. `CRON_SECRET` (16 or more characters) for the evening run.
+3. GitHub, repo Settings, Secrets and variables, Actions: `CRON_SECRET`, the same value. The workflow "Night before texts" calls the site at 5:30 PM and 6:30 PM Arizona time.
+4. Twilio Console, the Messaging Service, Integration, Incoming Messages: "Send a webhook" to `https://arizonapetwaste.com/api/twilio/inbound`. Leave Twilio's own opt out handling on. Delivery news needs no setting: every text carries its own status address (`/api/twilio/status`).
+5. `/api/health` reads `"texts":true`. `"textsTest":true` means test mode is on.
+6. To go live for every customer, delete `SMS_TEST_ALLOWLIST` and redeploy. To stop all automatic texts, delete `TWILIO_MESSAGING_SERVICE_SID` and redeploy.
+Optional settings: `SMS_HOURS` (default `8-21`, the Arizona hours when a day text or a night before text may go), `SMS_BATCH` (default 10 texts for each call of the evening run).
+
+The texts the server writes now (update the campaign samples to these when the campaign is next edited):
+1. Arizona Pet Waste comes tomorrow between 9:30 and 10:00 AM. Please unlock the gate and keep your dogs inside. See your visit: arizonapetwaste.com/t/AB12CD Reply STOP to opt out.
+2. Arizona Pet Waste: We are on the way. See our truck: arizonapetwaste.com/t/AB12CD
+3. Arizona Pet Waste: Your yard is done. See your latched gate: arizonapetwaste.com/t/AB12CD Missed a pile? Reply and we come back within 24 hours.
+4. Arizona Pet Waste: We could not service your yard today because the gate was locked. Reply and we will set a time.
+5. Arizona Pet Waste: Your service day is Tuesday. We text you the night before each visit. Reply STOP to opt out.
+
 ## 11. Facebook and Instagram lead forms (Meta lead ads)
 A lead form on Facebook or Instagram (an Instant Form) never touches the website. Meta keeps the answers. To get each lead to info@arizonapetwaste.com and into the office app, Meta has to send the site a notice for every new lead, and the site has to be allowed to read the lead. The site side is built (`/api/meta/leadgen` in `src/worker/worker.js`). The Meta side below needs a person who is an admin of the Arizona Pet Waste business portfolio. Nobody pastes a token into chat, email or GitHub: tokens go from Meta straight into Cloudflare.
 

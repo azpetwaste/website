@@ -121,8 +121,10 @@ async function route(path, request, env, ctx) {
   if (path === '/api/me/pause' && m === 'POST') return mePause(request, env, ctx);
   if (path === '/api/me/resume' && m === 'POST') return meResume(request, env, ctx);
   if (path === '/api/demo/week' && m === 'GET') return demoWeek(env, new URL(request.url).searchParams);
-  if (path === '/api/health' && m === 'GET') return ok({ ok: true, live: live(env), desk: sbLive(env), keys: keyMode(env), hook: !!env.STRIPE_WEBHOOK_SECRET, mail: !!env.RESEND_API_KEY, meta: metaOn(env), leads: metaLeadsOn(env) });
+  if (path === '/api/health' && m === 'GET') return ok({ ok: true, live: live(env), desk: sbLive(env), keys: keyMode(env), hook: !!env.STRIPE_WEBHOOK_SECRET, mail: !!env.RESEND_API_KEY, meta: metaOn(env), leads: metaLeadsOn(env), texts: smsOn(env), textsTest: testMode(env) });
   if (path === '/api/log' && m === 'POST') return clientLog(request, env);
+  if (path === '/api/twilio/status' && m === 'POST') return twilioStatus(request, env, ctx);
+  if (path === '/api/twilio/inbound' && m === 'POST') return twilioInbound(request, env, ctx);
   if (path === '/api/meta/leadgen' && m === 'GET') return metaVerify(request, env, ctx);
   if (path === '/api/meta/leadgen' && m === 'POST') return metaLeads(request, env, ctx);
   if (/^\/api\/(staff|crew|office|track)\//.test(path)) return desk(path, request, env, ctx);
@@ -1004,19 +1006,42 @@ async function booked(env, ctx, uid, sub, customer, card, s) {
     'To do: reach out to set their day and time.', 'Billing: ' + billLine, 'Visit texts: ' + (c.texts_visit ? 'yes' : 'no') + '. Deals texts: ' + (c.texts_deals ? 'yes' : 'no'),
     'Stripe customer: ' + customer
   ].join('\n')));
-  ctx.waitUntil(mail(env, c.email, 'You are booked with Arizona Pet Waste', [
-    'Hi ' + first(c.name) + ',', '',
-    'You are booked. We will reach out to let you know your day and time.', '',
-    (paidToday ? 'Your card was charged. ' : 'Your card is saved. ') + billLine, '',
-    (selfOn(env) ? 'You can cancel anytime in My Yard.' : 'You can cancel anytime. Call or text 623.309.6104.') + (meta.min_end && !paidToday ? ' ' + freeRule(meta.min_label) : ''), '',
-    'Next, set up My Yard: add your gate code, your dogs’ names and any problem spots. This link signs you in, no code needed. It works for ' + LINK_DAYS + ' days:',
-    await yardLink(env, c.id), '',
-    'After that, sign in at https://' + siteHost(env) + '/account/ with your email.', '',
-    'Questions? Call or text 623.309.6104.', '', 'Arizona Pet Waste'
-  ].join('\n')));
+  ctx.waitUntil(sendWelcome(env, c, [
+    (paidToday ? 'Your card was charged. ' : 'Your card is saved. ') + billLine,
+    (selfOn(env) ? 'You can cancel anytime in My Yard.' : 'You can cancel anytime. Call or text 623.309.6104.') + (meta.min_end && !paidToday ? ' ' + freeRule(meta.min_label) : '')
+  ]));
   // The booking, sent to Meta once (this is the one call that moved the row), with the page's event id.
   if (metaOn(env)) ctx.waitUntil(metaBooked(env, c, total, meta.session || (s && s.id) || '', s && s.metadata, sub.id));
   return true;
+}
+
+// The welcome email. A new booking sends it, and the office can send it again from the customer card with a fresh
+// My Yard link (the link in the first one stops working after LINK_DAYS days). `money` is the lines about the card
+// and canceling, which only the first email has. Every send is written to `messages`, so the customer card shows
+// when someone was invited to My Yard.
+function welcomeText(env, c, link, money) {
+  const texts = !!(c.texts_visit && c.phone);
+  return [
+    hi(c.name), '',
+    'You are booked.', '',
+    ...(money && money.length ? money.flatMap((x) => [x, '']) : []),
+    'What happens next:',
+    '1. We set your service day and send it to you by ' + (texts ? 'text and email.' : 'email.'),
+    texts ? '2. The night before each visit, we text you a reminder.' : '2. We come on your service day. You do not need to be home.',
+    texts ? '3. On visit day, we text you when we are on the way. When we are done, we text you a photo of your latched gate.' : '3. When we are done, we email you a photo of your latched gate.', '',
+    'Next, set up My Yard: add your gate code, your dogs’ names and any problem spots. This link signs you in, no code needed. It works for ' + LINK_DAYS + ' days:',
+    link, '',
+    'After that, sign in at https://' + siteHost(env) + '/account/ with your email.', '',
+    'Questions? Call or text 623.309.6104.', '', 'Arizona Pet Waste'
+  ].join('\n');
+}
+async function sendWelcome(env, c, money, by) {
+  if (!c || !c.email) return false;
+  const sent = await mail(env, c.email, 'You are booked with Arizona Pet Waste', welcomeText(env, c, await yardLink(env, c.id), money));
+  try {
+    await db(env, 'POST', 'messages', [Object.assign({ customer_id: c.id, stop_id: null, kind: 'welcome', channel: 'email', to_addr: c.email, body: 'Welcome email with a My Yard link', status: sent ? 'sent' : 'failed', sent_at: new Date().toISOString() }, by ? { sent_by: by } : {})], 'return=minimal');
+  } catch (e) { console.error('welcome log', e); }
+  return sent;
 }
 
 // A saved card with no plan is the one failure that must not sit quiet: the customer thinks they are booked.
@@ -1829,7 +1854,17 @@ const addDays = (d, n) => new Date(noonAZ(d).getTime() + n * 86400e3).toISOStrin
 // Every other week customers go on even or odd weeks, counted from Monday January 5, 2026.
 const weekParity = (d) => ((Math.floor((noonAZ(d) - noonAZ('2026-01-05')) / (7 * 86400e3)) % 2) + 2) % 2;
 const siteHost = (env) => String(env.SITE_URL || 'https://arizonapetwaste.com').replace(/^https?:\/\//, '').replace(/\/$/, '');
-const first = (name) => String(name || '').trim().split(/\s+/)[0] || '';
+// The first name to greet someone by. "Lopez, Joseph" is Joseph. A title is left out. ALL CAPS and all small letters
+// are tidied ("DAN" is Dan). A name typed last name first with no comma ("Besserer Dan") cannot be told apart from a
+// real first name, so the office fixes that one on the customer card (Customer name) and sends the welcome email again.
+const first = (name) => {
+  let n = String(name || '').trim().replace(/\s+/g, ' ');
+  if (n.includes(',')) { const after = n.split(',')[1].trim(); if (after) n = after; }
+  let w = n.split(' ').filter((x) => !/^(mr|mrs|ms|miss|dr|mx)\.?$/i.test(x))[0] || '';
+  if (w.length > 1 && /[a-z]/i.test(w) && (w === w.toUpperCase() || w === w.toLowerCase())) w = w[0].toUpperCase() + w.slice(1).toLowerCase();
+  return w;
+};
+const hi = (name) => (first(name) ? 'Hi ' + first(name) + ',' : 'Hi,');
 function newCode() { return Array.from(crypto.getRandomValues(new Uint8Array(6)), (x) => CODE_ABC[x % CODE_ABC.length]).join(''); }
 function miles(a, b) {
   const r = (x) => x * Math.PI / 180, R = 3958.8;
@@ -1897,6 +1932,7 @@ async function placeCustomer(env, c) {
       }
     }
     if (patch.service_day != null && c.email) await mail(env, c.email, 'Your service day is ' + DAYS[patch.service_day], dayMail(c.name, patch.service_day, patch.service_day2, false));
+    if (patch.service_day != null) await dayTexts(env, [{ c, d1: patch.service_day, d2: patch.service_day2, moved: false }]).catch((e) => console.error('day text', e));
     if (c.phone) await db(env, 'PATCH', 'leads?phone=eq.' + enc(c.phone) + '&status=in.(new,contacted,quoted)', { status: 'won', updated_at: new Date().toISOString() }, 'return=minimal');
   } catch (e) { console.error('place customer', e); }
 }
@@ -2002,7 +2038,7 @@ async function desk(path, request, env, ctx) {
   if (path === '/api/staff/verify' && m === 'POST') return staffVerify(request, env);
   if (path === '/api/staff/refresh' && m === 'POST') return staffRefresh(request, env);
   if (path === '/api/office/night-before' && m === 'POST' && env.CRON_SECRET && String(env.CRON_SECRET).length >= 16 &&
-    sameSecret(request.headers.get('x-cron-secret'), env.CRON_SECRET)) return nightBefore(env, null);
+    sameSecret(request.headers.get('x-cron-secret'), env.CRON_SECRET)) return nightBefore(env, null, true);
 
   const s = await staffFor(env, await signedIn(request, env));
   if (!s) return fail(401, 'Please sign in again.');
@@ -2034,13 +2070,15 @@ async function desk(path, request, env, ctx) {
   if (path === '/api/office/move-day' && m === 'POST') return officeMoveDay(env, b);
   if (path === '/api/office/customers' && m === 'GET') return officeCustomers(env, q);
   if (path === '/api/office/customer' && m === 'GET') return officeCustomer(env, q.get('id'));
-  if (path === '/api/office/customer' && m === 'POST') return officeCustomerSave(env, b);
+  if (path === '/api/office/customer' && m === 'POST') return officeCustomerSave(env, b, s);
   if (path === '/api/office/photo' && m === 'GET') return officePhoto(env, q.get('stop'));
   if (path === '/api/office/photo' && m === 'POST') return officePhotoUpload(env, b);
   if (path === '/api/office/leads' && m === 'GET') return ok({ leads: await db(env, 'GET', 'leads?select=*&order=created_at.desc&limit=500') });
   if (path === '/api/office/lead' && m === 'POST') return officeLead(env, b);
   if (path === '/api/office/texts' && m === 'GET') return officeTexts(env);
   if (path === '/api/office/text' && m === 'POST') return markText(s, env, b, false);
+  if (path === '/api/office/text/send' && m === 'POST') return officeTextSend(s, env, b);
+  if (path === '/api/office/customer/welcome' && m === 'POST') return officeWelcome(s, env, b);
   if (path === '/api/office/night-before' && m === 'POST') return nightBefore(env, isDay(b.date) ? b.date : null);
   if (path === '/api/office/money' && m === 'GET') return officeMoney(env);
   if (path === '/api/office/health' && m === 'GET') return officeHealth(env);
@@ -2052,41 +2090,264 @@ async function desk(path, request, env, ctx) {
   return fail(404, 'Not found.');
 }
 
-/* ---------- texts (queued until Twilio is approved) ---------- */
-function textBody(env, kind, code, reason) {
+/* ---------- texts: sent through Twilio when it is set up. Every text is kept in `messages` ---------- */
+// Joe, Nov 21, 2026: Twilio approved the campaign on November 19, so visit texts send on their own.
+// How it works:
+// - A text is always written to `messages` first (status queued). That table is the log and the backup.
+// - With the three Twilio settings in Cloudflare (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_MESSAGING_SERVICE_SID)
+//   a visit text is sent right away through the Messaging Service. Without them it waits in the Texts tab and a
+//   person sends it by hand, as before.
+// - Only a customer who said yes to visit texts gets one (`texts_visit`). A STOP reply turns that off.
+// - Test mode: SMS_TEST_ALLOWLIST is a list of mobile numbers. When it is set, texts go to those numbers and no others.
+//   Everyone else's texts wait in the Texts tab, as they did before Twilio.
+// - Deals texts do not exist. The card problem text (`card_failed`) is not a visit text and is still sent by hand.
+const AUTO_KINDS = ['day_set', 'night_before', 'on_the_way', 'done', 'cant'];
+function smsOn(env) { return !!(env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_MESSAGING_SERVICE_SID); }
+function smsAllow(env) {
+  const raw = String(env.SMS_TEST_ALLOWLIST || '').trim();
+  if (!raw) return null;
+  // Numbers are split by commas (or semicolons, or new lines), so "(623) 555-0100, 623-555-0101" reads as two numbers.
+  return new Set(raw.split(/[,;\n]+/).map(digits).filter((x) => x.length === 10));
+}
+const testMode = (env) => smsAllow(env) !== null;
+const smsMay = (env, phone) => { const a = smsAllow(env); return !a || a.has(digits(phone)); };
+// Arizona has no daylight saving time, so its clock is always seven hours behind UTC.
+const azMinutes = () => { const d = new Date(Date.now() - 7 * 3600e3); return d.getUTCHours() * 60 + d.getUTCMinutes(); };
+// A text nobody is waiting for (the day we set, the night before reminder) only goes out from 8 in the morning to 9 at night.
+const QUIET_KINDS = ['day_set', 'night_before'];
+// SMS_HOURS (optional, "8-21") moves those hours.
+const quietNow = (env) => {
+  const h = /^(\d{1,2})-(\d{1,2})$/.exec(String((env && env.SMS_HOURS) || '').trim()), from = h ? Number(h[1]) : 8, to = h ? Number(h[2]) : 21, m = azMinutes();
+  return m < from * 60 || m >= to * 60;
+};
+const TWILIO_WHY = { 21610: 'They replied STOP, so Twilio will not text them.', 21211: 'That is not a real phone number.', 21614: 'That number cannot get texts.', 30003: 'The phone was off or out of reach.',
+  30005: 'The number is not in service.', 30006: 'That is a landline or cannot get texts.', 30007: 'The carrier blocked the text.', 30034: 'The number is not on an approved campaign yet.' };
+const twilioWhy = (code) => (TWILIO_WHY[code] || 'Twilio could not deliver it.') + ' (Twilio ' + code + ')';
+
+function textBody(env, kind, code, reason, opt) {
   const link = siteHost(env) + '/t/' + code;
-  if (kind === 'night_before') return 'Arizona Pet Waste comes tomorrow. Please unlock the gate and keep your dogs inside. Reply STOP to opt out.';
+  if (kind === 'night_before') return 'Arizona Pet Waste comes tomorrow' + (opt && opt.window ? ' between ' + opt.window : '') + '. Please unlock the gate and keep your dogs inside. See your visit: ' + link + ' Reply STOP to opt out.';
   if (kind === 'on_the_way') return 'Arizona Pet Waste: We are on the way. See our truck: ' + link;
   if (kind === 'done') return 'Arizona Pet Waste: Your yard is done. See your latched gate: ' + link + ' Missed a pile? Reply and we come back within 24 hours.';
   if (kind === 'cant') return 'Arizona Pet Waste: We could not service your yard today because ' + (REASONS[reason] || REASONS.other) + '. Reply and we will set a time.';
   return '';
 }
-async function queueText(env, customer, stopId, kind, code, reason) {
-  if (!customer || !customer.texts_visit || !customer.phone) return false;
-  const had = await db(env, 'GET', 'messages?stop_id=eq.' + stopId + '&kind=eq.' + kind + '&select=id');
-  if (had && had.length) return false;
-  await db(env, 'POST', 'messages', [{ customer_id: customer.id, stop_id: stopId, kind, channel: 'sms', to_addr: customer.phone, body: textBody(env, kind, code, reason) }], 'return=minimal');
-  return true;
+function dayText(d1, d2, moved) {
+  return 'Arizona Pet Waste: Your ' + (moved ? 'new ' : '') + 'service day is ' + DAYS[d1] + (d2 != null ? ' and ' + DAYS[d2] : '') + '. We text you the night before each visit. Reply STOP to opt out.';
 }
+// Sends one row of `messages` through Twilio. Answers: sent, failed, held (test mode, or too late at night),
+// off (Twilio is not set up) or taken (another request is already sending it). A row is claimed before Twilio is
+// called, so the same text can never go out twice.
+async function sendText(env, msg, by, force) {
+  if (!smsOn(env)) return 'off';
+  if (!msg || msg.channel === 'email' || !smsMay(env, msg.to_addr)) return 'held';
+  if (!force && QUIET_KINDS.includes(msg.kind) && quietNow(env)) return 'held';
+  const to = digits(msg.to_addr), now = new Date().toISOString();
+  const claim = await db(env, 'PATCH', 'messages?id=eq.' + msg.id + '&status=eq.queued', Object.assign({ status: 'sent', sent_at: now }, by ? { sent_by: by } : {}), 'return=representation');
+  if (!claim || !claim.length) return 'taken';
+  let sid = '', code = 0, err = '';
+  if (to.length !== 10) { code = 21211; err = twilioWhy(21211); }
+  else {
+    try {
+      const r = await fetch('https://api.twilio.com/2010-04-01/Accounts/' + enc(env.TWILIO_ACCOUNT_SID) + '/Messages.json', {
+        method: 'POST',
+        headers: { authorization: 'Basic ' + btoa(env.TWILIO_ACCOUNT_SID + ':' + env.TWILIO_AUTH_TOKEN), 'content-type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ To: '+1' + to, MessagingServiceSid: env.TWILIO_MESSAGING_SERVICE_SID, Body: msg.body, StatusCallback: 'https://' + siteHost(env) + '/api/twilio/status' }).toString()
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && d && d.sid) sid = String(d.sid);
+      else { code = Number(d && d.code) || r.status; err = twilioWhy(code); }
+    } catch (e) { err = 'Twilio did not answer. The text was not sent.'; }
+  }
+  // The extra columns come with supabase/patch-2026-11-21.sql. If that has not been run yet, the plain status is still saved.
+  const patch = sid ? { provider_id: sid, error: null } : { status: 'failed', error: err };
+  try { await db(env, 'PATCH', 'messages?id=eq.' + msg.id, patch, 'return=minimal'); }
+  catch (e) { if (!sid) await db(env, 'PATCH', 'messages?id=eq.' + msg.id, { status: 'failed' }, 'return=minimal').catch(() => {}); }
+  if (sid) return 'sent';
+  if (code === 21610) await textsOff(env, to).catch(() => {});
+  await logError(env, 'server', '/texts', 'A text did not send', (msg.kind || '') + ': ' + err).catch(() => {});
+  return 'failed';
+}
+// Queues a visit text and, when texts send on their own, sends it. Answers false when no text is due
+// (no yes to texts, no mobile number, or this visit already has this text), else { id, state }.
+async function queueText(env, customer, stopId, kind, code, reason, opt) {
+  if (!customer || !customer.texts_visit || !customer.phone) return false;
+  const had = await db(env, 'GET', 'messages?stop_id=eq.' + stopId + '&kind=eq.' + kind + '&channel=eq.sms&select=id');
+  if (had && had.length) return false;
+  const rows = await db(env, 'POST', 'messages', [{ customer_id: customer.id, stop_id: stopId, kind, channel: 'sms', to_addr: customer.phone, body: textBody(env, kind, code, reason, opt) }], 'return=representation');
+  const msg = rows && rows[0];
+  let state = 'queued';
+  if (msg && msg.id) { try { state = await sendText(env, msg); } catch (e) { console.error('send text', e); } }
+  return { id: msg && msg.id, state };
+}
+// "Your day is set" texts. list: [{ c: { id, phone, texts_visit }, d1, d2, moved }]. All rows are written in one go.
+// The first few are sent right away. The rest wait as queued and the evening run sends them, so a week plan that
+// moves hundreds of yards cannot run this server out of time.
+const DAY_TEXTS_NOW = 15;
+async function dayTexts(env, list) {
+  const want = list.filter((x) => x.c && x.c.texts_visit && digits(x.c.phone).length === 10 && x.d1 != null);
+  if (!want.length) return { queued: 0, sent: 0 };
+  // The same words as the last day text to that customer, inside ten minutes: one text is enough (a double tap on Save).
+  const since = new Date(Date.now() - 10 * 60e3).toISOString();
+  let recent = [];
+  try { recent = await db(env, 'GET', 'messages?kind=eq.day_set&created_at=gte.' + enc(since) + '&select=customer_id,body&order=id.desc'); } catch (e) { recent = []; }
+  // Only the newest day text for a customer counts: a day moved away and back again is real news both times.
+  const newest = new Map();
+  for (const r of recent) if (!newest.has(r.customer_id)) newest.set(r.customer_id, r.body);
+  const seen = new Set([...newest].map(([id, body]) => id + '|' + body));
+  const rows = [];
+  for (const x of want) {
+    const body = dayText(x.d1, x.d2, x.moved), key = x.c.id + '|' + body;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rows.push({ customer_id: x.c.id, stop_id: null, kind: 'day_set', channel: 'sms', to_addr: x.c.phone, body });
+  }
+  let made = [], sent = 0;
+  for (let i = 0; i < rows.length; i += 200) made = made.concat(await db(env, 'POST', 'messages', rows.slice(i, i + 200), 'return=representation') || []);
+  for (const msg of made.slice(0, DAY_TEXTS_NOW)) { try { if (await sendText(env, msg) === 'sent') sent++; } catch (e) { console.error('day text', e); } }
+  return { queued: made.length, sent };
+}
+// One customer's day was set or changed: the email and the text. `gate` is for the notice that is new with this
+// change (a day saved on the customer card, which used to tell nobody). It stays off until texts are on: with no
+// Twilio settings the card tells nobody, as before. While test mode is on it only tells a customer whose mobile number
+// is on the test list. So no real customer hears from that screen until Joe takes test mode off.
+async function dayNotice(env, c, d1, d2, moved, gate) {
+  if (d1 == null || !c) return { mailed: false, text: 'none' };
+  if (gate && !smsOn(env)) return { mailed: false, text: 'none', off: true };
+  if (gate && testMode(env) && !smsMay(env, c.phone)) return { mailed: false, text: 'none', test: true };
+  const mailed = c.email ? await mail(env, c.email, (moved ? 'Your new service day is ' : 'Your service day is ') + DAYS[d1], dayMail(c.name, d1, d2, moved)) : false;
+  let text = 'none';
+  try { const r = await dayTexts(env, [{ c, d1, d2, moved }]); text = r.sent ? 'sent' : r.queued ? 'queued' : 'none'; } catch (e) { console.error('day text', e); }
+  return { mailed, text };
+}
+// A STOP reply, or Twilio saying this number has opted out: no more texts to that number, and what was waiting is dropped.
+async function textsOff(env, phone) {
+  const now = new Date().toISOString();
+  try { await db(env, 'PATCH', 'customers?phone=eq.' + enc(phone), { texts_visit: false, texts_stopped_at: now, updated_at: now }, 'return=minimal'); }
+  catch (e) { await db(env, 'PATCH', 'customers?phone=eq.' + enc(phone), { texts_visit: false, updated_at: now }, 'return=minimal'); }
+  await db(env, 'PATCH', 'messages?to_addr=eq.' + enc(phone) + '&channel=eq.sms&status=eq.queued', { status: 'skipped', sent_at: now }, 'return=minimal').catch(() => {});
+}
+
+/* ---------- Twilio calls us: what happened to a text, and what a customer texted back ---------- */
+// Twilio signs every call with the account's auth token: HMAC-SHA1 over the address it called, then every form
+// field's name and value in name order. A call that is not signed right is refused, so nobody can fake a STOP,
+// a reply or a "delivered".
+async function twilioSigned(request, env, params) {
+  const sig = request.headers.get('x-twilio-signature') || '';
+  if (!env.TWILIO_AUTH_TOKEN || !sig) return false;
+  const tail = [...params.keys()].filter((k, i, a) => a.indexOf(k) === i).sort().map((k) => params.getAll(k).map((v) => k + v).join('')).join('');
+  const u = new URL(request.url);
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.TWILIO_AUTH_TOKEN), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+  for (const url of [request.url, 'https://' + siteHost(env) + u.pathname + u.search]) {
+    const mac = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(url + tail)));
+    if (sameSecret(btoa(String.fromCharCode(...mac)), sig)) return true;
+  }
+  return false;
+}
+async function twilioForm(request, env) {
+  const raw = await readText(request);
+  if (raw == null) return null;
+  const params = new URLSearchParams(raw);
+  return (await twilioSigned(request, env, params)) ? params : null;
+}
+const TWIML = () => new Response('<?xml version="1.0" encoding="UTF-8"?><Response></Response>', { status: 200, headers: { 'content-type': 'text/xml; charset=utf-8' } });
+// Delivery news for a text we sent. "delivered" is saved. "failed" or "undelivered" is saved with the reason, the
+// Health tab gets a line, and if it was the gate photo text the photo goes by email instead.
+async function twilioStatus(request, env, ctx) {
+  if (!sbLive(env)) return fail(503, 'Not set up.');
+  const f = await twilioForm(request, env);
+  if (!f) return fail(403, 'Bad signature.');
+  const sid = clean(f.get('MessageSid') || f.get('SmsSid'), 64), st = String(f.get('MessageStatus') || f.get('SmsStatus') || '').toLowerCase();
+  if (!/^[A-Za-z0-9]{10,64}$/.test(sid) || !['delivered', 'failed', 'undelivered'].includes(st)) return ok({ ok: true });
+  const now = new Date().toISOString(), code = Number(f.get('ErrorCode')) || 0;
+  const patch = st === 'delivered' ? { status: 'delivered', delivered_at: now } : { status: 'failed', error: twilioWhy(code || 30008) };
+  let rows = [];
+  for (let i = 0; i < 2 && !rows.length; i++) {
+    // Twilio can call before our own save of the message id has landed. Look once more after a moment.
+    if (i) await new Promise((r) => setTimeout(r, Number(env.TRY_WAIT_MS) || 1500));
+    rows = await db(env, 'PATCH', 'messages?provider_id=eq.' + enc(sid) + '&status=eq.sent', patch, 'return=representation').catch(() => []) || [];
+  }
+  const msg = rows[0];
+  if (msg && st !== 'delivered') {
+    if (code === 21610) await textsOff(env, digits(msg.to_addr)).catch(() => {});
+    await logError(env, 'server', '/texts', 'A text did not send', (msg.kind || '') + ': ' + twilioWhy(code || 30008)).catch(() => {});
+    if (msg.kind === 'done' && msg.stop_id) await doneFallback(env, msg.stop_id).catch((e) => console.error('done fallback', e));
+  }
+  return ok({ ok: true });
+}
+// A customer texted our number. STOP turns their texts off here too (Twilio itself answers STOP, START and HELP, so we
+// send no reply of our own). START turns them back on for someone who had stopped. Anything else is a real reply:
+// it is saved, and the office gets an email so a person can answer.
+const STOP_WORDS = ['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT', 'REVOKE', 'OPTOUT'], START_WORDS = ['START', 'YES', 'UNSTOP'], HELP_WORDS = ['HELP', 'INFO'];
+async function twilioInbound(request, env, ctx) {
+  if (!sbLive(env)) return fail(503, 'Not set up.');
+  const f = await twilioForm(request, env);
+  if (!f) return fail(403, 'Bad signature.');
+  const from = digits(f.get('From')), text = clean(f.get('Body'), 1000), sid = clean(f.get('MessageSid') || f.get('SmsSid'), 64);
+  if (from.length !== 10) return TWIML();
+  const word = text.toUpperCase().replace(/[^A-Z]/g, ''), opt = String(f.get('OptOutType') || '').toUpperCase();
+  const kind = opt === 'STOP' || STOP_WORDS.includes(word) ? 'stop' : opt === 'START' || START_WORDS.includes(word) ? 'start' : opt === 'HELP' || HELP_WORDS.includes(word) ? 'help' : 'reply';
+  const who = await db(env, 'GET', 'customers?phone=eq.' + enc(from) + '&select=id,name,email,status&order=created_at.desc&limit=5').catch(() => []);
+  const c = who.find((x) => PAYING.includes(x.status) || x.status === 'paused') || who[0] || null;
+  const name = c ? c.name : 'A number we do not know', pretty = '(' + from.slice(0, 3) + ') ' + from.slice(3, 6) + '-' + from.slice(6);
+  if (kind === 'stop') {
+    await textsOff(env, from);
+    await db(env, 'POST', 'consent_log', [{ user_id: c ? c.id : null, email: c ? c.email : null, phone: from, kind: 'visit', granted: false, text_shown: 'Replied ' + (word || 'STOP') + ' by text', page: 'sms' }], 'return=minimal').catch(() => {});
+    ctx.waitUntil(mail(env, owner(env), 'Texts stopped: ' + name, name + ' replied STOP. Visit texts are off for ' + pretty + '.\n\nTheir gate photo now goes by email. They can turn texts back on by texting START to our number.'));
+  } else if (kind === 'start') {
+    let back = [];
+    try { back = await db(env, 'PATCH', 'customers?phone=eq.' + enc(from) + '&texts_stopped_at=not.is.null', { texts_visit: true, texts_stopped_at: null, updated_at: new Date().toISOString() }, 'return=representation') || []; } catch (e) { back = []; }
+    if (back.length) {
+      await db(env, 'POST', 'consent_log', [{ user_id: back[0].id, email: back[0].email, phone: from, kind: 'visit', granted: true, text_shown: 'Replied ' + (word || 'START') + ' by text', page: 'sms' }], 'return=minimal').catch(() => {});
+      ctx.waitUntil(mail(env, owner(env), 'Texts back on: ' + name, name + ' replied START. Visit texts are on again for ' + pretty + '.'));
+    }
+  } else if (kind === 'reply' && text) {
+    // Twilio sends a call again when it gets no answer. One reply is saved and emailed once.
+    const had = sid ? await db(env, 'GET', 'messages?provider_id=eq.' + enc(sid) + '&select=id').catch(() => []) : [];
+    if (!had.length) {
+      await db(env, 'POST', 'messages', [{ customer_id: c ? c.id : null, stop_id: null, kind: 'reply', channel: 'sms', to_addr: from, body: text, status: 'received', provider_id: sid || null, sent_at: new Date().toISOString() }], 'return=minimal').catch((e) => console.error('reply save', e));
+      ctx.waitUntil(mail(env, owner(env), 'Text from ' + name + ': ' + text.slice(0, 60), name + ' texted us back.\n\n"' + text + '"\n\nFrom: ' + pretty + '\n\nCall or text them from the business phone, 623.309.6104. A reply to this email does not reach them.'));
+    }
+  }
+  return TWIML();
+}
+
 // Joe, Nov 16, 2026: the gate photo must always reach the customer, or that visit is free. A customer who did not say yes to
 // visit texts (or has no mobile number) gets the done note by email instead, with the same link to the photo of the latched gate.
-// A customer with visit texts gets the queued text, as before. Sent once: both callers only reach this when the visit first turns done.
-async function doneMail(env, customer, code) {
-  if (!customer || !customer.email || (customer.texts_visit && customer.phone)) return false;
-  const first = String(customer.name || '').trim().split(/\s+/)[0];
+// A customer with visit texts gets the text. `force` is for a text that failed: then the email goes anyway.
+// Sent once: both callers only reach this when the visit first turns done.
+async function doneMail(env, customer, code, force) {
+  if (!customer || !customer.email || (!force && customer.texts_visit && customer.phone)) return false;
   return mail(env, customer.email, 'Your yard is done. Here is your gate photo.', [
-    (first ? 'Hi ' + first + ',' : 'Hi,'),
+    hi(customer.name),
     '',
     'We picked up your yard today. See the photo of your latched gate here:',
     'https://' + siteHost(env) + '/t/' + code,
     '',
     'Missed a pile? Reply to this email and we come back within 24 hours.',
     'Every gate photo is also in My Yard: https://' + siteHost(env) + '/account/',
-    'Want these by text? Turn on texts in My Yard.',
+    force ? '' : 'Want these by text? Turn on texts in My Yard.',
     '',
     'Arizona Pet Waste',
     '623.309.6104'
-  ].join('\n'));
+  ].filter((x, i, a) => !(x === '' && a[i - 1] === '')).join('\n'));
+}
+// The gate photo text did not reach the phone (Joe, Nov 21, 2026): send the photo by email. Once for a visit.
+async function doneFallback(env, stopId) {
+  const st = (await db(env, 'GET', 'stops?id=eq.' + parseInt(stopId, 10) + '&select=id,code,status,photo_path,customer:customers(id,name,email,phone,texts_visit)'))[0];
+  if (!st || st.status !== 'done' || !st.photo_path || !st.customer || !st.customer.email) return false;
+  const had = await db(env, 'GET', 'messages?stop_id=eq.' + st.id + '&kind=eq.done&channel=eq.email&select=id');
+  if (had && had.length) return false;
+  const sent = await doneMail(env, st.customer, st.code, true);
+  await db(env, 'POST', 'messages', [{ customer_id: st.customer.id, stop_id: st.id, kind: 'done', channel: 'email', to_addr: st.customer.email, body: 'Gate photo by email, because the text did not go through', status: sent ? 'sent' : 'failed', sent_at: new Date().toISOString() }], 'return=minimal').catch(() => {});
+  return sent;
+}
+// The done notice for a visit that just finished: the text, and the email when there is no text or the text failed.
+async function doneNotice(env, st) {
+  const t = await queueText(env, st.customer, st.id, 'done', st.code);
+  if (!st.photo_path) return;
+  if (t && t.state === 'failed') await doneFallback(env, st.id).catch(() => false);
+  else await doneMail(env, st.customer, st.code).catch(() => false);
 }
 // The yard is finished. An "on the way" text nobody sent is old news now, so it leaves the list. A sent one is left alone.
 async function dropOnWayText(env, stopId) {
@@ -2100,8 +2361,36 @@ async function markText(s, env, b, crewOnly) {
     const st = mine && mine[0] && mine[0].stop;
     if (!st || st.day !== azToday() || st.route.staff_id !== s.id) return fail(403, 'That text is not on your route.');
   }
-  await db(env, 'PATCH', 'messages?id=eq.' + id, { status: b.status, sent_by: s.id, sent_at: new Date().toISOString() }, 'return=minimal');
+  await db(env, 'PATCH', 'messages?id=eq.' + id + '&status=eq.queued', { status: b.status, sent_by: s.id, sent_at: new Date().toISOString() }, 'return=minimal');
   return ok({ ok: true });
+}
+// Office: "Send now" on a waiting text, or "Send again" on one that already went (a new copy is made, so the log
+// keeps both). It goes through Twilio. The customer must still have texts on, and test mode still holds.
+async function officeTextSend(s, env, b) {
+  const id = parseInt(b.id, 10);
+  const msg = id && (await db(env, 'GET', 'messages?id=eq.' + id + '&select=*,customer:customers(id,phone,texts_visit)'))[0];
+  if (!msg || msg.channel !== 'sms' || !AUTO_KINDS.includes(msg.kind)) return fail(400, 'That text cannot be sent from here.');
+  if (!smsOn(env)) return fail(400, 'Texts do not send on their own yet. Tap Send by hand on the Texts screen.');
+  if (!msg.customer || !msg.customer.texts_visit) return fail(400, 'This customer said no to texts. Call or email them.');
+  if (!smsMay(env, msg.to_addr)) return fail(409, 'Test mode is on. Texts only go to the test numbers.');
+  let row = msg;
+  if (msg.status !== 'queued') {
+    const made = await db(env, 'POST', 'messages', [{ customer_id: msg.customer_id, stop_id: null, kind: msg.kind, channel: 'sms', to_addr: msg.customer.phone || msg.to_addr, body: msg.body }], 'return=representation');
+    row = made && made[0];
+  }
+  const state = row ? await sendText(env, row, s.id, true) : 'failed';
+  if (state === 'failed') return fail(502, 'Twilio did not take the text. Look at the Texts screen for the reason.');
+  return ok({ ok: true, state });
+}
+// Office: send the welcome email again, with a fresh My Yard link.
+async function officeWelcome(s, env, b) {
+  if (!uuid(b.id)) return fail(400, 'Bad customer.');
+  const c = (await db(env, 'GET', 'customers?id=eq.' + b.id + '&select=id,name,email,phone,status,texts_visit'))[0];
+  if (!c) return fail(404, 'Customer not found.');
+  if (!c.email) return fail(400, 'This customer has no email.');
+  if (!PAYING.includes(c.status) && c.status !== 'paused') return fail(400, 'Only a customer with a plan gets the welcome email.');
+  if (!(await sendWelcome(env, c, null, s.id))) return fail(502, 'The email did not send. Try again.');
+  return officeCustomer(env, c.id);
 }
 
 /* ---------- crew ---------- */
@@ -2240,7 +2529,11 @@ async function officePhotoUpload(env, b) {
   if (['scheduled', 'on_the_way', 'here'].includes(st.status)) {
     const at = JSON.parse(await res.text()).photoAt;
     await db(env, 'PATCH', 'stops?id=eq.' + st.id, { status: 'done', done_at: at, arrived_at: st.arrived_at || at, no_photo: false }, 'return=minimal');
-    await doneMail(env, st.customer, st.code).catch(() => false);
+    await dropOnWayText(env, st.id);
+    // A photo added today finishes today's visit, so the customer hears right away. For an older visit the truck link
+    // has ended, so only a customer with no texts gets the email, as before.
+    if (st.day === azToday()) await doneNotice(env, Object.assign({}, st, { photo_path: 'saved' })).catch((e) => console.error('done notice', e));
+    else await doneMail(env, st.customer, st.code).catch(() => false);
     if (st.route && st.route.status === 'live') await advance(env, st.route.id);
   }
   return officeDay(env, st.day);
@@ -2255,8 +2548,7 @@ async function crewDone(s, env, b) {
     note: clean(b.note, 500) || st.note, no_photo: !st.photo_path
   }, 'return=minimal');
   await dropOnWayText(env, st.id);
-  await queueText(env, st.customer, st.id, 'done', st.code);
-  if (st.photo_path) await doneMail(env, st.customer, st.code).catch(() => false);
+  await doneNotice(env, st).catch((e) => console.error('done notice', e));
   await advance(env, st.route.id);
   return crewToday(s, env);
 }
@@ -2287,8 +2579,8 @@ async function withSettings(env) {
   try {
     const rows = await db(env, 'GET', 'settings?select=key,value');
     const set = Object.fromEntries((rows || []).map((r) => [r.key, r.value]));
-    if (!set.stops_per_day && !set.work_days && !set.route_start) return env;
-    return Object.assign({}, env, set.stops_per_day ? { STOPS_PER_DAY: set.stops_per_day } : {}, set.work_days ? { WORK_DAYS: set.work_days } : {},
+    if (!set.stops_per_day && !set.work_days && !set.route_start && !set.first_yard_at) return env;
+    return Object.assign({}, env, set.stops_per_day ? { STOPS_PER_DAY: set.stops_per_day } : {}, set.work_days ? { WORK_DAYS: set.work_days } : {}, set.first_yard_at ? { FIRST_YARD_AT: set.first_yard_at } : {},
       set.route_start ? { ROUTE_START: set.route_start, ROUTE_START_LABEL: set.route_start_label || '' } : {});
   } catch (e) { return env; }
 }
@@ -2304,10 +2596,16 @@ async function officeSettings(env, b) {
       if (label && !pin) return fail(400, 'We could not find that address. Type the street, the city and the ZIP.');
       rows.push({ key: 'route_start', value: pin ? pin.lat + ',' + pin.lng : '', updated_at: new Date().toISOString() }, { key: 'route_start_label', value: label, updated_at: new Date().toISOString() });
     }
+    // When the first yard of the day is reached ("08:00"). The night before text uses it for the 30 minute window. Empty clears it.
+    if (b.firstAt != null) {
+      const t = String(b.firstAt).trim();
+      if (t && firstYardAt({ FIRST_YARD_AT: t }) == null) return fail(400, 'Pick a time.');
+      rows.push({ key: 'first_yard_at', value: t, updated_at: new Date().toISOString() });
+    }
     if (rows.length) await db(env, 'POST', 'settings?on_conflict=key', rows, 'resolution=merge-duplicates,return=minimal');
-    env = await withSettings(Object.assign({}, env, b.start != null ? { ROUTE_START: '', ROUTE_START_LABEL: '' } : {}));
+    env = await withSettings(Object.assign({}, env, b.start != null ? { ROUTE_START: '', ROUTE_START_LABEL: '' } : {}, b.firstAt != null ? { FIRST_YARD_AT: '' } : {}));
   }
-  return ok({ cap: dayCap(env), days: workDays(env).join(','), start: routeStart(env) ? env.ROUTE_START_LABEL || env.ROUTE_START : '' });
+  return ok({ cap: dayCap(env), days: workDays(env).join(','), start: routeStart(env) ? env.ROUTE_START_LABEL || env.ROUTE_START : '', firstAt: firstYardAt(env) != null ? String(env.FIRST_YARD_AT).trim() : '' });
 }
 function dayCap(env, v) { const n = Math.round(Number(v) || Number(env.STOPS_PER_DAY) || 30); return Math.min(80, Math.max(5, n)); }
 function workDays(env, v) {
@@ -2499,7 +2797,7 @@ function weekSummary(p, staffCount, rows) {
     routes: p.slots.length, biggestDay: most, weekMiles: Math.round(p.slots.reduce((n, x) => n + x.miles, 0) * 10) / 10, noPin: p.noPin, slots: p.slots };
 }
 function dayMail(name, d1, d2, moved) {
-  return ['Hi ' + first(name) + ',', '',
+  return [hi(name), '',
     (moved ? 'We changed our routes to save drive time. Your new service day is ' : 'Your service day is ') + DAYS[d1] + (d2 != null ? ' and ' + DAYS[d2] : '') + '.',
     'We text you the night before each visit with a 30 minute window.',
     'You can see your next visits any time in My Yard: https://arizonapetwaste.com/account/', '',
@@ -2566,6 +2864,15 @@ async function officeWeek(env, b) {
   const movedIds = change.filter((x) => x[0].service_day != null).map((x) => x[0].id);
   for (let i = 0; i < movedIds.length; i += 100) await db(env, 'DELETE', 'stops?status=in.(scheduled,skipped)&day=gt.' + azToday() + '&customer_id=in.(' + movedIds.slice(i, i + 100).join(',') + ')', null, 'return=minimal').catch((e) => console.error('week cleanup', e));
   out.emailed = await mailMany(env, change.filter((x) => x[0].email).map(([c, a]) => ({ to: c.email, subject: (c.service_day != null ? 'Your new service day is ' : 'Your service day is ') + DAYS[a.service_day], text: dayMail(c.name, a.service_day, a.service_day2, c.service_day != null) })));
+  try {
+    const tell = [];
+    for (let i = 0; i < change.length; i += 100) {
+      const who = await db(env, 'GET', 'customers?id=in.(' + change.slice(i, i + 100).map((x) => x[0].id).join(',') + ')&texts_visit=is.true&select=id,phone,texts_visit');
+      const by = Object.fromEntries(who.map((w) => [w.id, w]));
+      for (const [c, a] of change.slice(i, i + 100)) if (by[c.id]) tell.push({ c: by[c.id], d1: a.service_day, d2: a.service_day2 ?? null, moved: c.service_day != null });
+    }
+    out.texted = (await dayTexts(env, tell)).queued;
+  } catch (e) { console.error('week texts', e); out.texted = 0; }
   out.applied = true;
   return ok(out);
 }
@@ -2781,7 +3088,7 @@ async function officeMoveDay(env, b) {
   const to = isDay(b.to) ? b.to : null;
   if (!ids.length) return fail(400, 'Pick the yards to move.');
   if (!to || to < azToday()) return fail(400, 'Pick today or a later day.');
-  const found = await db(env, 'GET', 'stops?id=in.(' + ids.join(',') + ')&select=id,day,status,customer_id,route:routes(id,staff_id,status),customer:customers(id,email,name,plan,service_day,service_day2)');
+  const found = await db(env, 'GET', 'stops?id=in.(' + ids.join(',') + ')&select=id,day,status,customer_id,route:routes(id,staff_id,status),customer:customers(id,email,name,phone,texts_visit,plan,service_day,service_day2)');
   const from = (found[0] || {}).day;
   const list = found.filter((x) => x.status === 'scheduled' && x.day === from && x.day !== to);
   if (!list.length) return fail(400, 'Only yards that have not started can move, and only to a different day.');
@@ -2808,6 +3115,7 @@ async function officeMoveDay(env, b) {
       // Later visits already built on the old day are dropped. The day builder makes them on the new day.
       await db(env, 'DELETE', 'stops?status=eq.scheduled&day=gt.' + to + '&customer_id=in.(' + move.map((x) => x.customer_id).join(',') + ')', null, 'return=minimal').catch((e) => console.error('move cleanup', e));
       await mailMany(env, move.filter((x) => x.customer.email).map((x) => ({ to: x.customer.email, subject: 'Your new service day is ' + label, text: dayMail(x.customer.name, weekday(to), null, true) })));
+      await dayTexts(env, move.map((x) => ({ c: x.customer, d1: weekday(to), d2: null, moved: true }))).catch((e) => console.error('move texts', e));
     }
     const after = await db(env, 'GET', 'stops?day=eq.' + to + '&status=neq.skipped&select=id,route:routes(staff_id)');
     over = staffIds.filter((id) => after.filter((x) => x.route && x.route.staff_id === id).length > dayCap(env));
@@ -2859,13 +3167,29 @@ async function officeCustomers(env, q) {
   const customers = await dbAll(env, 'customers?select=' + LIST_FIELDS + filter + '&order=service_day.nullsfirst,stop_order.nullslast,name,id');
   return ok({ customers });
 }
-async function officeCustomer(env, id) {
+// My Yard for one customer: when they were invited (the welcome email) and when they last signed in. The sign in
+// time is Supabase's own. It moves when a person signs in with the link or a code, not on every visit to the page.
+async function yardStatus(env, c, notes) {
+  const hasPlan = PAYING.includes(c.status) || c.status === 'paused' || c.status === 'canceled';
+  const again = (notes || []).find((t) => t.kind === 'welcome' && t.status !== 'failed');
+  const out = { invited: hasPlan, invitedAt: again ? again.sent_at || again.created_at : hasPlan ? c.created_at : null, resent: !!again, lastSeenAt: null };
+  try {
+    const r = await fetch(base(env) + '/auth/v1/admin/users/' + c.id, { headers: sbHeaders(env.SUPABASE_SERVICE_ROLE_KEY) });
+    const u = r.ok ? await r.json() : null;
+    if (u && u.last_sign_in_at) out.lastSeenAt = u.last_sign_in_at;
+  } catch (e) { out.lastSeenAt = null; }
+  return out;
+}
+async function officeCustomer(env, id, told) {
   if (!/^[0-9a-f-]{36}$/i.test(String(id || ''))) return fail(400, 'Bad customer.');
   const c = (await db(env, 'GET', 'customers?id=eq.' + id + '&select=*'))[0];
   if (!c) return fail(404, 'Customer not found.');
   const visits = await db(env, 'GET', 'stops?customer_id=eq.' + id + '&select=id,day,status,reason,note,photo_path,no_photo,done_at&order=day.desc&limit=30');
-  const texts = await db(env, 'GET', 'messages?customer_id=eq.' + id + '&select=id,kind,body,status,sent_at,created_at&order=created_at.desc&limit=30');
-  return ok({ customer: c, visits, texts, monthly: c.plan && c.dogs ? rowMonthly(c) : null });
+  // The newer columns come with supabase/patch-2026-11-21.sql. Before it is run, the list still loads without them.
+  let texts;
+  try { texts = await db(env, 'GET', 'messages?customer_id=eq.' + id + '&select=id,kind,channel,body,status,error,sent_at,delivered_at,created_at&order=created_at.desc&limit=30'); }
+  catch (e) { texts = await db(env, 'GET', 'messages?customer_id=eq.' + id + '&select=id,kind,channel,body,status,sent_at,created_at&order=created_at.desc&limit=30'); }
+  return ok(Object.assign({ customer: c, visits, texts, monthly: c.plan && c.dogs ? rowMonthly(c) : null, yard: await yardStatus(env, c, texts), twilio: smsOn(env), textsTest: testMode(env) }, told ? { told } : {}));
 }
 // The office fixes the dog count when the yard has more or fewer dogs than the plan says. The Stripe plan changes
 // to match, with no charge today: the new price starts on the next bill. The customer gets an email.
@@ -2899,9 +3223,13 @@ async function setDogs(env, c, n) {
     'Questions? Call or text 623.309.6104.', '', 'Arizona Pet Waste'
   ].join('\n'));
 }
-async function officeCustomerSave(env, b) {
+async function officeCustomerSave(env, b, s) {
   if (!/^[0-9a-f-]{36}$/i.test(String(b.id || ''))) return fail(400, 'Bad customer.');
   const p = {};
+  const was = (await db(env, 'GET', 'customers?id=eq.' + b.id + '&select=id,name,email,phone,texts_visit,status,plan,service_day,service_day2'))[0];
+  if (!was) return fail(404, 'Customer not found.');
+  // The office can fix a name, for one typed last name first or misspelled. Emails greet people by their first name.
+  if ('name' in b && clean(b.name, 120) !== (was.name || '')) { if (clean(b.name, 120).length < 2) return fail(400, 'Type the customer\'s name.'); p.name = clean(b.name, 120); }
   const dayOrNull = (v) => (v === '' || v == null ? null : (Number(v) >= 0 && Number(v) <= 6 ? Math.round(Number(v)) : undefined));
   const dateOrNull = (v) => (v === '' || v == null ? null : (isDay(v) ? v : undefined));
   const set = (k, v) => { if (v !== undefined) p[k] = v; };
@@ -2939,7 +3267,16 @@ async function officeCustomerSave(env, b) {
   if (!Object.keys(p).length) return fail(400, 'Nothing to save.');
   p.updated_at = new Date().toISOString();
   await db(env, 'PATCH', 'customers?id=eq.' + b.id, p, 'return=minimal');
-  return officeCustomer(env, b.id);
+  // Joe, Nov 21, 2026: a day set or changed here tells the customer, by email and by text. Before this it told nobody.
+  // Only for a customer with a plan, and only when the day really changed.
+  let told = null;
+  const d1 = 'service_day' in p ? p.service_day : was.service_day, d2 = 'service_day2' in p ? p.service_day2 : was.service_day2;
+  const changed = d1 !== was.service_day || (d2 ?? null) !== (was.service_day2 ?? null);
+  if (changed && d1 != null && (PAYING.includes(was.status) || was.status === 'paused')) {
+    try { told = await dayNotice(env, Object.assign({}, was, p.name ? { name: p.name } : {}, p.phone ? { phone: p.phone } : {}), d1, was.plan === 'twice' ? d2 : null, was.service_day != null, true); }
+    catch (e) { console.error('day notice', e); told = { mailed: false, text: 'none', error: true }; }
+  }
+  return officeCustomer(env, b.id, told);
 }
 async function officePhoto(env, stopId) {
   const id = parseInt(stopId, 10);
@@ -2966,20 +3303,82 @@ async function officeLead(env, b) {
   }
   return ok({ leads: await db(env, 'GET', 'leads?select=*&order=created_at.desc&limit=500') });
 }
+// The Texts screen: what is waiting for a person, and the log of everything that went out or came in.
 async function officeTexts(env) {
-  const texts = await db(env, 'GET', 'messages?status=eq.queued&select=id,kind,to_addr,body,created_at,customer:customers(name),stop:stops(day)&order=created_at&limit=300');
-  return ok({ texts, twilio: false });
+  const texts = await db(env, 'GET', 'messages?status=eq.queued&channel=eq.sms&select=id,kind,to_addr,body,created_at,customer:customers(name,texts_visit),stop:stops(day)&order=created_at&limit=300');
+  let log = [];
+  try { log = await db(env, 'GET', 'messages?status=neq.queued&select=id,kind,channel,to_addr,body,status,error,sent_at,delivered_at,created_at,customer:customers(name)&order=created_at.desc&limit=80'); }
+  catch (e) { try { log = await db(env, 'GET', 'messages?status=neq.queued&select=id,kind,channel,to_addr,body,status,sent_at,created_at,customer:customers(name)&order=created_at.desc&limit=80'); } catch (e2) { log = []; } }
+  const allow = smsAllow(env);
+  return ok({ texts, log, twilio: smsOn(env), test: allow ? allow.size : null, auto: AUTO_KINDS });
 }
-// Builds tomorrow's routes and queues the night before texts. Also clears GPS points older than 30 days.
-async function nightBefore(env, date) {
+// When each yard on a day should be reached, as a 30 minute window ("9:30 and 10:00 AM"). It needs "First yard at"
+// from the Plan the week screen. With no time set there is no window and the text says only "tomorrow".
+// The first yard of each route is at that time. Each next yard is the time in a yard plus the drive from the one before.
+const clock12 = (min) => { const h = Math.floor(min / 60) % 24, m = min % 60; return { t: ((h + 11) % 12 + 1) + ':' + String(m).padStart(2, '0'), ap: h < 12 ? 'AM' : 'PM' }; };
+function windowText(arrive) {
+  const from = Math.max(0, Math.floor((arrive - 10) / 15) * 15), a = clock12(from), b = clock12(from + 30);
+  return a.t + (a.ap === b.ap ? '' : ' ' + a.ap) + ' and ' + b.t + ' ' + b.ap;
+}
+function firstYardAt(env) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(env.FIRST_YARD_AT || '').trim());
+  return m && Number(m[1]) < 24 && Number(m[2]) < 60 ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+function visitWindows(env, stops) {
+  const start = firstYardAt(env), out = {};
+  if (start == null) return out;
+  const routes = {};
+  for (const st of stops) (routes[st.route_id] = routes[st.route_id] || []).push(st);
+  for (const list of Object.values(routes)) {
+    list.sort((x, y) => x.position - y.position || x.id - y.id);
+    let at = start, prev = null;
+    list.forEach((st, i) => {
+      const pin = st.customer && st.customer.lat != null ? st.customer : null;
+      if (i) at += YARD_MIN + (prev && pin ? driveMin(miles(prev, pin)) : 5);
+      out[st.id] = windowText(at);
+      if (pin) prev = pin;
+    });
+  }
+  return out;
+}
+// Builds tomorrow's routes and sends the night before texts (Joe, Nov 21, 2026: every evening, on its own). Each text
+// has the yard's 30 minute window, when "First yard at" is set, and the customer's truck link. The evening run also
+// sends any "your day is set" text that was held overnight. Also clears GPS points older than 30 days.
+// `cron` is true when the scheduler called it. Safe to run twice: a visit only ever gets one night before text.
+const NIGHT_BATCH = 10;
+async function nightBefore(env, date, cron) {
+  env = await withSettings(env);
   const day = date || addDays(azToday(), 1);
   const plan = await planDay(env, day);
-  const stops = await db(env, 'GET', 'stops?day=eq.' + day + '&status=eq.scheduled&select=id,code,customer:customers(id,phone,texts_visit)');
-  let queued = 0;
-  for (const st of stops) if (await queueText(env, st.customer, st.id, 'night_before', st.code)) queued++;
-  await db(env, 'DELETE', 'positions?at=lt.' + enc(new Date(Date.now() - 30 * 86400e3).toISOString()), null, 'return=minimal');
-  try { await db(env, 'DELETE', 'auth_tries?at=lt.' + enc(new Date(Date.now() - 2 * 86400e3).toISOString()), null, 'return=minimal'); } catch (e) { }
-  return ok({ ok: true, day, stops: stops.length, queued, added: plan.added });
+  const stops = await db(env, 'GET', 'stops?day=eq.' + day + '&status=eq.scheduled&select=id,code,route_id,position,customer:customers(id,phone,texts_visit,lat,lng)&order=route_id,position,id');
+  const win = visitWindows(env, stops), ids = stops.map((x) => x.id);
+  // One look for the texts these visits already have, one write for the new ones. Then the sending, a few at a time:
+  // each call sends up to NIGHT_BATCH texts and says how many are left, and the scheduler calls again until none are.
+  const had = new Set((ids.length ? await db(env, 'GET', 'messages?kind=eq.night_before&channel=eq.sms&stop_id=in.(' + ids.join(',') + ')&select=stop_id') : []).map((x) => x.stop_id));
+  const fresh = stops.filter((st) => !had.has(st.id) && st.customer && st.customer.texts_visit && st.customer.phone)
+    .map((st) => ({ customer_id: st.customer.id, stop_id: st.id, kind: 'night_before', channel: 'sms', to_addr: st.customer.phone, body: textBody(env, 'night_before', st.code, null, { window: win[st.id] }) }));
+  if (fresh.length) await db(env, 'POST', 'messages', fresh, 'return=minimal');
+  let sent = 0, left = 0;
+  if (smsOn(env)) {
+    try {
+      // What can go now: the night before texts for this day, and day texts from the last day and a half that were held overnight.
+      const wait = (ids.length ? await db(env, 'GET', 'messages?status=eq.queued&channel=eq.sms&kind=eq.night_before&stop_id=in.(' + ids.join(',') + ')&select=*&order=id') : [])
+        .concat(await db(env, 'GET', 'messages?status=eq.queued&channel=eq.sms&kind=eq.day_set&created_at=gte.' + enc(new Date(Date.now() - 36 * 3600e3).toISOString()) + '&select=*&order=id&limit=200'))
+        .filter((m) => smsMay(env, m.to_addr) && !quietNow(env));
+      const batch = Math.min(40, Math.max(1, parseInt(env.SMS_BATCH, 10) || NIGHT_BATCH));
+      for (const msg of wait.slice(0, batch)) if (await sendText(env, msg) === 'sent') sent++;
+      left = Math.max(0, wait.length - batch);
+    } catch (e) { console.error('night texts', e); }
+  }
+  if (cron) {
+    await db(env, 'DELETE', 'positions?at=lt.' + enc(new Date(Date.now() - 30 * 86400e3).toISOString()), null, 'return=minimal').catch(() => {});
+    await db(env, 'DELETE', 'auth_tries?at=lt.' + enc(new Date(Date.now() - 2 * 86400e3).toISOString()), null, 'return=minimal').catch(() => {});
+    await db(env, 'POST', 'settings?on_conflict=key', [{ key: 'night_before_ran_at', value: new Date().toISOString(), updated_at: new Date().toISOString() }], 'resolution=merge-duplicates,return=minimal').catch(() => {});
+  } else {
+    await db(env, 'DELETE', 'positions?at=lt.' + enc(new Date(Date.now() - 30 * 86400e3).toISOString()), null, 'return=minimal');
+    try { await db(env, 'DELETE', 'auth_tries?at=lt.' + enc(new Date(Date.now() - 2 * 86400e3).toISOString()), null, 'return=minimal'); } catch (e) { }
+  }
+  return ok({ ok: true, day, stops: stops.length, queued: fresh.length, sent, left, window: firstYardAt(env) != null, added: plan.added });
 }
 async function officeMoney(env) {
   // stripe_subscription_id is read so a plan that keeps an older price is added up at that price (rowMonthly).
@@ -3632,6 +4031,8 @@ async function officeHealth(env) {
   const hour = new Date(Date.now() - 3600e3).toISOString();
   let cleared = null;
   try { const c = (await db(env, 'GET', 'settings?key=eq.health_cleared_at&select=value'))[0]; if (c && Date.parse(c.value)) cleared = new Date(Date.parse(c.value)).toISOString(); } catch (e) { cleared = null; }
+  let nightRan = null;
+  try { const n = (await db(env, 'GET', 'settings?key=eq.night_before_ran_at&select=value'))[0]; if (n && Date.parse(n.value)) nightRan = n.value; } catch (e) { nightRan = null; }
   const [errors, pings, live1, queued, lock] = await Promise.all([
     db(env, 'GET', 'errors?select=id,at,source,path,message&order=at.desc&limit=200' + (cleared ? '&at=gt.' + enc(cleared) : '')),
     db(env, 'GET', 'positions?select=at&order=at.desc&limit=1'),
@@ -3644,10 +4045,11 @@ async function officeHealth(env) {
       desk: true,
       booking: live(env),
       map: !!(env.GOOGLE_MAPS_BROWSER_KEY && env.GOOGLE_MAPS_SERVER_KEY),
-      texts: false,
+      texts: smsOn(env),
       signLock: lock,
       botCheck: !!env.TURNSTILE_SITE_KEY
     },
+    textsTest: smsAllow(env) ? smsAllow(env).size : null, nightRanAt: nightRan, firstAt: firstYardAt(await withSettings(env)) != null,
     liveRoutes: live1.length, lastPing: pings[0] ? pings[0].at : null, queuedTexts: queued.length,
     errorsLastHour: errors.filter((e) => e.at >= hour).length, errors, cleared
   });
