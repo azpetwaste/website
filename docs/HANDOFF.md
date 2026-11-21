@@ -1096,6 +1096,31 @@ The 12th press, `/blog/is-dog-poop-good-fertilizer/`, got "Quota Exceeded". So t
 
 **Left, 6 pages:** `/blog/is-dog-poop-good-fertilizer/`, `/blog/can-dog-poop-make-you-sick/`, `/blog/heat-stroke-in-dogs/`, `/blog/scorpion-sting-toad-poisoning-dogs/`, `/blog/why-does-my-dog-eat-poop/` and `/texts/`. One more follow up is set for November 21 at 12:30 pm. After that every page in the sitemap has been asked for once, and there is nothing more to press.
 
+### Search Console, day 3 (Nov 21, 12:30 pm to 12:50 pm), from Joe's Chrome. The job is done.
+The follow up set on November 20 ran by itself. Same Chrome, account slot 2, and the account name on the page read info@arizonapetwaste.com before anything was pressed. No password was typed. The tab was closed at the end. No further follow up is set.
+
+**Request indexing, the last 6 pages.** Each one answered "Indexing requested", and the daily limit was not hit:
+1. `/blog/is-dog-poop-good-fertilizer/`
+2. `/blog/can-dog-poop-make-you-sick/`
+3. `/blog/heat-stroke-in-dogs/` (this one read "URL is unknown to Google" with no sitemap named, though it is in `sitemap.xml`. On November 19 the report had it under Discovered. Google took the request.)
+4. `/blog/scorpion-sting-toad-poisoning-dogs/`
+5. `/blog/why-does-my-dog-eat-poop/`
+6. `/texts/`
+
+All six were "not on Google" before the request (Discovered, currently not indexed). Whether Google lists a blog post is Google's call, and a new site often waits weeks for that.
+
+**What Google has read since the requests** (Last crawl in URL inspection):
+- `/` : November 19, 11:50 am
+- `/terms/` : November 19, 11:52 am
+- `/pricing/` : November 19, 11:39 am, and `/faq/` : November 19, 11:50 am (looked at on day 2)
+- `/one-time-dog-poop-cleanup/` : November 20, 12:44 pm
+- `/contact/` : November 20, 12:45 pm
+So Google reads a page within minutes of a request. Every page that had an old price in Google's copy has been read again but one.
+
+**The one that has not moved: `/same-day-dog-poop-pickup/`.** It still reads "URL is on Google", last crawl November 11, with the old "$49" copy. It was asked for on November 20 and Google has not come back to it. It forwards to `/one-time-dog-poop-cleanup/` on the live site, so the day Google reads it again it drops out by itself. A faster way exists: Search Console, Removals, "Temporarily remove URL" for that one address hides it from Google in about a day, for six months. That was NOT done. It is a different kind of request than the ones Joe handed over, so he was asked.
+
+**Nothing more to press.** All 45 pages in the sitemap have been asked for once, less the Litchfield Park page, which Google had read after the price change by itself. Asking again does not move a page up. Two Search Console screens showed "Sitemaps: Temporary processing error" on a page's details. That is Google's side and it passed on other pages the same minute.
+
 ## Nov 19, 2026, midday (website chat): Book now rebuilt after the DoodyCalls sign up, Joe's ask
 
 Joe, 9:20 am: "research Duty Calls. They actually have something pretty set up... I like residential community. I actually like that option... How often do you need your yard cleaned? Twice weekly, Weekly, Every other week, Monthly, Just once. I like those options, and we can have those. Really dissect the get a quote and the checkout... it needs to be easy as well for the consumer."
