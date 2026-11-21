@@ -3301,8 +3301,9 @@ async function officeCustomers(env, q) {
   if (f === 'canceled') filter = '&status=eq.canceled';
   const term = clean(q.get('q'), 60).replace(/[^A-Za-z0-9 @.\-]/g, '');
   if (term) filter += '&or=(name.ilike.*' + enc(term) + '*,address.ilike.*' + enc(term) + '*,phone.ilike.*' + enc(term.replace(/\D/g, '') || term) + '*,email.ilike.*' + enc(term) + '*)';
-  const customers = await dbAll(env, 'customers?select=' + LIST_FIELDS + filter + '&order=service_day.nullsfirst,stop_order.nullslast,name,id');
-  return ok({ customers });
+  const timesOn = await schedOn(env);
+  const customers = await dbAll(env, 'customers?select=' + LIST_FIELDS + (timesOn ? ',service_time' : '') + filter + '&order=service_day.nullsfirst,stop_order.nullslast,name,id');
+  return ok({ customers, timesOn });
 }
 // My Yard for one customer: when they were invited (the welcome email) and when they last signed in. The sign in
 // time is Supabase's own. It moves when a person signs in with the link or a code, not on every visit to the page.

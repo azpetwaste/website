@@ -331,7 +331,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     }
     if (p === '/api/office/customers') {
       var show = q.get('show') || 'current', qq = (q.get('q') || '').toLowerCase();
-      return { customers: D.customers.filter(function (c) { return (show === 'all' || (show === 'current' && c.status !== 'canceled' && c.status !== 'checkout') || c.status === show || (show === 'started' && c.status === 'checkout')) && (!qq || (c.name + ' ' + c.address + ' ' + c.phone).toLowerCase().indexOf(qq) >= 0); }) };
+      return { timesOn: true, customers: D.customers.filter(function (c) { return (show === 'all' || (show === 'current' && c.status !== 'canceled' && c.status !== 'checkout') || c.status === show || (show === 'started' && c.status === 'checkout')) && (!qq || (c.name + ' ' + c.address + ' ' + c.phone).toLowerCase().indexOf(qq) >= 0); }) };
     }
     if (p === '/api/office/customer' && method === 'GET') return demoCust(q.get('id'));
     if (p === '/api/office/customer') {
@@ -914,7 +914,8 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (!list.length) return out + '<p class="empty">No customers here yet. Everyone who signs up on the website shows up here on their own.</p>';
     var cap = 150;
     return out + '<ul class="list" style="margin-top:12px;border-top:1px solid var(--line)">' + list.slice(0, cap).map(function (c) {
-      var day = c.service_day == null ? '<span class="tag warn">Pick day</span>' : '<span class="lbl">' + h(DAYS[c.service_day].slice(0, 3)) + (c.service_day2 != null ? ' + ' + h(DAYS[c.service_day2].slice(0, 3)) : '') + '</span>';
+      var booked = ['trialing', 'active', 'past_due', 'paused'].indexOf(c.status) >= 0;
+      var day = c.service_day == null ? (booked ? '<span class="tag warn">Set day and time</span>' : '') : '<span class="lbl">' + h(DAYS[c.service_day].slice(0, 3)) + (c.service_day2 != null ? ' + ' + h(DAYS[c.service_day2].slice(0, 3)) : '') + (c.service_time ? ' · ' + h(t12(c.service_time)) : '') + '</span>' + (d.timesOn && booked && !c.service_time ? ' <span class="tag warn">Set time</span>' : '');
       return '<li class="tap" data-cust="' + c.id + '" style="grid-template-columns:1fr auto"><div><div class="a">' + h(c.name || c.email) + '</div><div class="s">' + h(c.address || '') + (c.lat == null && c.address ? ' · not on the map' : '') + '</div></div><div class="r">' + tag(c.status) + '<div style="margin-top:6px">' + day + '</div></div></li>';
     }).join('') + '</ul>' + (list.length > cap ? '<p class="empty">Showing ' + cap + ' of ' + list.length + '. Search to find anyone.</p>' : '');
   }
@@ -1167,6 +1168,30 @@ table.t tr.click:hover td{background:var(--bg2)}
     var how = [t.mailed ? 'email' : '', t.text === 'sent' ? 'text' : ''].filter(Boolean).join(' and ');
     return 'Saved. ' + (how ? who + ' was told ' + (t.say || 'their day and time') + ' by ' + how + '.' : who + ' was not told: no email went out.') + (t.text === 'queued' ? ' The text is waiting in the Texts tab.' : '');
   }
+  function isoPlus(n) { var d = new Date(Date.now() - 7 * 3600e3 + n * 864e5); return d.toISOString().slice(0, 10); }
+  function pauseLine(c) {
+    var today = isoPlus(0);
+    if (c.pause_from && c.pause_from > today) return 'Pause starts ' + dayLabel(c.pause_from) + (c.pause_until ? ' and runs through ' + dayLabel(c.pause_until) : '') + '.';
+    return c.pause_until ? 'Paused through ' + dayLabel(c.pause_until) + '. Visits start again after that.' : 'Paused until you end it.';
+  }
+  // One question: how long? The pause starts today. It only takes the yard off the route.
+  function pauseSheet(c, save) {
+    var el = document.createElement('div'); el.className = 'sheet';
+    el.innerHTML = '<div class="pane" role="dialog" aria-modal="true"><div class="lbl">' + h(c.name || '') + '</div><p class="big" style="font-size:26px">Pause visits for how long?</p>' +
+      '<p style="color:var(--mute);font-size:15px;line-height:1.5;margin:8px 0 12px">Starts today. This takes them off the route. It does not change their bill and it does not text them.</p>' +
+      [[7, '1 week'], [14, '2 weeks'], [30, '1 month']].map(function (x) { return '<button class="btn ghost" style="margin-top:8px" data-k="d' + x[0] + '">' + x[1] + '</button>'; }).join('') +
+      '<label class="fl"><span class="lbl">Or until this date</span><input class="f" type="date" id="pz_d" min="' + isoPlus(1) + '"></label><button class="btn ghost" style="margin-top:8px" data-k="date">Pause until that date</button>' +
+      '<button class="btn ghost" style="margin-top:8px" data-k="open">Until I end it</button><button class="btn" data-k="x" style="margin-top:16px">Back</button></div>';
+    document.body.appendChild(el);
+    el.addEventListener('click', function (e) {
+      if (e.target === el) return el.remove();
+      var k = e.target && e.target.dataset && e.target.dataset.k; if (!k) return;
+      if (k === 'x') return el.remove();
+      var until = k === 'open' ? '' : k === 'date' ? el.querySelector('#pz_d').value : isoPlus(+k.slice(1));
+      if (k === 'date' && !until) return toast('Pick a date first.');
+      el.remove(); save(isoPlus(0), until, 'Paused');
+    });
+  }
   async function openCustomer(id) {
     try { S.sel = await api('GET', '/api/office/customer?id=' + id); } catch (e) { return toast(e.message); }
     drawCustomer();
@@ -1184,22 +1209,29 @@ table.t tr.click:hover td{background:var(--bg2)}
       '<br><span style="color:var(--mute);font-size:14px">My Yard: ' + h(yardLine(S.sel.yard)) + '</span>' +
       (c.stripe_customer_id ? '<br><a href="https://dashboard.stripe.com/customers/' + h(c.stripe_customer_id) + '" target="_blank" rel="noopener" style="font-size:14px">Open in Stripe ›</a>' : '') + '</p>' +
       (S.sel.yard && S.sel.yard.invited ? '<div style="margin-top:14px;max-width:320px"><button class="btn ghost sm" style="width:100%" id="rewel">Resend welcome email</button></div>' : '') +
-      '<div class="hr" style="margin:20px 0 4px"></div><span class="lbl">Route</span>' + '<p style="color:var(--mute);font-size:15px;line-height:1.45;margin:6px 0 0">' + (!S.sel.timesOn ? 'Visit times are not switched on yet. The database patch has to be run first.' : 'Set the day and the time. Saving them is what tells the customer, by email' + (c.texts_visit ? ' and text' : '') + '. Nothing is sent until both are set.' + (!S.sel.twilio ? ' Texts are not on yet, so nobody is told for now.' : S.sel.textsTest ? ' Test mode is on: only a customer on the test list is told.' : '')) + '</p>' +
+      '<div class="hr" style="margin:20px 0 4px"></div><span class="lbl">Schedule</span>' +
+      '<p style="color:var(--mute);font-size:15px;line-height:1.45;margin:6px 0 0">' + (!S.sel.timesOn ? 'Visit times are not switched on yet.' : 'Pick the day and the time, then Save. That tells the customer by email' + (c.texts_visit ? ' and text' : '') + '. Nothing is sent until both are set.' + (!S.sel.twilio ? ' Texts are not on yet, so nobody is told for now.' : S.sel.textsTest ? ' Test mode is on: only a customer on the test list is told.' : '')) + '</p>' +
       '<div class="grid2"><label class="fl"><span class="lbl">Service day</span>' + daySel('f_sd', c.service_day) + '</label>' +
       (S.sel.timesOn ? '<label class="fl"><span class="lbl">Time</span>' + timeSel('f_st', c.service_time || '') + '</label>' : '') +
       (c.plan === 'twice' ? '<label class="fl"><span class="lbl">Second day</span>' + daySel('f_sd2', c.service_day2) + '</label>' + (S.sel.timesOn ? '<label class="fl"><span class="lbl">Second day time</span>' + timeSel('f_st2', c.service_time2 || '', 'Same time') + '</label>' : '') : '') +
       (c.plan === 'eow' ? '<label class="fl"><span class="lbl">Every other week</span><select class="f" id="f_eow"><option value="0"' + (c.eow_week ? '' : ' selected') + '>Week A</option><option value="1"' + (c.eow_week ? ' selected' : '') + '>Week B</option></select></label>' : '') +
-      '<label class="fl"><span class="lbl">Stop order (wins over the time)</span><input class="f" id="f_so" inputmode="numeric" value="' + h(c.stop_order == null ? '' : c.stop_order) + '" placeholder="1, 2, 3…"></label>' +
-      '<label class="fl"><span class="lbl">Scooper</span><select class="f" id="f_sc"><option value="">Default</option>' + team.filter(function (m) { return m.active; }).map(function (m) { return '<option value="' + m.id + '"' + (c.scooper_id === m.id ? ' selected' : '') + '>' + h(m.name) + '</option>'; }).join('') + '</select></label>' +
-      '<label class="fl"><span class="lbl">Pause from</span><input class="f" id="f_pf" type="date" value="' + h(c.pause_from || '') + '"></label><label class="fl"><span class="lbl">Pause until</span><input class="f" id="f_pu" type="date" value="' + h(c.pause_until || '') + '"></label></div>' +
-      '<div class="hr" style="margin:20px 0 4px"></div><span class="lbl">Yard</span><div class="grid2"><label class="fl"><span class="lbl">Gate code</span><input class="f mono" id="f_gc" value="' + h(c.gate_code || '') + '"></label><label class="fl"><span class="lbl">Dog names</span><input class="f" id="f_dn" value="' + h(c.dog_names || '') + '"></label></div>' +
+      '<label class="fl"><span class="lbl">Scooper</span><select class="f" id="f_sc"><option value="">Default</option>' + team.filter(function (m) { return m.active; }).map(function (m) { return '<option value="' + m.id + '"' + (c.scooper_id === m.id ? ' selected' : '') + '>' + h(m.name) + '</option>'; }).join('') + '</select></label></div>' +
+      '<div style="margin-top:16px"><button class="btn fsave">Save</button></div>' +
+      (S.sel.timesOn && S.sel.twilio && c.service_day != null && c.service_time ? '<div style="margin-top:8px"><button class="btn ghost" id="retell">Send their day and time again</button></div>' : '') +
+      '<div class="hr" style="margin:22px 0 4px"></div><span class="lbl">Pause</span>' +
+      (c.pause_from || c.pause_until
+        ? '<p style="font-size:16px;line-height:1.45;margin:8px 0 10px">' + h(pauseLine(c)) + '</p><button class="btn ghost" id="unpause">End the pause</button>'
+        : '<p style="color:var(--mute);font-size:15px;line-height:1.45;margin:6px 0 10px">Going out of town? Take them off the route for a while.</p><button class="btn ghost" id="pause">Pause visits</button>') +
+      '<div class="hr" style="margin:22px 0 4px"></div><span class="lbl">Yard</span><div class="grid2"><label class="fl"><span class="lbl">Gate code</span><input class="f mono" id="f_gc" placeholder="None" value="' + h(c.gate_code || '') + '"></label><label class="fl"><span class="lbl">Dog names</span><input class="f" id="f_dn" value="' + h(c.dog_names || '') + '"></label></div>' +
       '<label class="fl"><span class="lbl">Gate notes</span><textarea class="f" id="f_gn">' + h(c.gate_notes || '') + '</textarea></label><label class="fl"><span class="lbl">Problem spots</span><textarea class="f" id="f_ps">' + h(c.problem_spots || '') + '</textarea></label>' +
+      '<label class="fl"><span class="lbl">Notes for the crew</span><textarea class="f" id="f_on">' + h(c.office_notes || '') + '</textarea></label>' +
+      '<label class="fl" style="display:flex;gap:10px;align-items:center;min-height:48px"><input type="checkbox" id="f_ss" style="width:22px;height:22px"' + (c.skip_spray ? ' checked' : '') + '> <span>Skip the spray at this yard</span></label>' +
+      '<div style="margin-top:16px"><button class="btn fsave">Save</button></div>' +
+      '<details style="margin-top:22px"' + (S.moreOpen ? ' open' : '') + ' id="more"><summary class="lbl" style="cursor:pointer;min-height:48px;display:flex;align-items:center">More: name, dogs on the plan, place on the route ›</summary>' +
       '<label class="fl"><span class="lbl">Customer name (emails say Hi and the first name)</span><input class="f" id="f_nm" value="' + h(c.name || '') + '"></label>' +
       '<label class="fl"><span class="lbl">Dogs on the plan (1 to 6). Changing this changes the bill and emails the customer.</span><input class="f" id="f_dg" inputmode="numeric" value="' + h(c.dogs == null ? '' : c.dogs) + '"></label>' +
-      '<label class="fl" style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="f_ss"' + (c.skip_spray ? ' checked' : '') + '> <span>Skip the spray</span></label>' +
-      '<label class="fl"><span class="lbl">Office notes (crew sees these)</span><textarea class="f" id="f_on">' + h(c.office_notes || '') + '</textarea></label>' +
-      '<div style="margin-top:16px"><button class="btn" id="fsave">Save</button></div>' +
-      (S.sel.timesOn && S.sel.twilio && c.service_day != null && c.service_time ? '<div style="margin-top:8px"><button class="btn ghost" id="retell">Send their day and time again</button></div>' : '') +
+      '<label class="fl"><span class="lbl">Place on the route. 1 is the first yard of the day. Leave it empty and the time decides.</span><input class="f" id="f_so" inputmode="numeric" value="' + h(c.stop_order == null ? '' : c.stop_order) + '" placeholder="Empty"></label>' +
+      '<div style="margin-top:16px"><button class="btn fsave">Save</button></div></details>' +
       '<div class="hr" style="margin:26px 0 4px"></div><span class="lbl">Visits</span>' + (S.sel.visits.length ? '<table class="t"><tbody>' + S.sel.visits.map(function (v) {
         return '<tr><td class="mono" style="font-size:12px">' + h(dayLabel(v.day)) + '</td><td>' + tag(v.status) + (v.no_photo ? ' <span class="tag bad">No photo</span>' : '') + (v.note ? '<div style="font-size:13px;color:var(--mute)">' + h(v.note) + '</div>' : '') + '</td><td style="text-align:right">' + (v.photo_path ? '<button class="ib" data-photo="' + v.id + '">Photo</button>' : '') + '</td></tr>';
       }).join('') + '</tbody></table>' : '<p class="empty">No visits yet.</p>') +
@@ -1212,8 +1244,14 @@ table.t tr.click:hover td{background:var(--bg2)}
     document.body.appendChild(el);
     el.querySelector('#dx').onclick = function () { S.sel = null; el.remove(); };
     var val = function (id) { var x = el.querySelector('#' + id); return x ? x.value : undefined; };
-    el.querySelector('#fsave').onclick = async function () {
-      var b = { id: c.id, name: val('f_nm'), service_day: val('f_sd'), stop_order: val('f_so'), scooper_id: val('f_sc'), pause_from: val('f_pf'), pause_until: val('f_pu'), gate_code: val('f_gc'), dog_names: val('f_dn'), gate_notes: val('f_gn'), problem_spots: val('f_ps'), office_notes: val('f_on'), skip_spray: el.querySelector('#f_ss').checked };
+    var savePause = async function (from, until, msg) {
+      try { S.sel = await api('POST', '/api/office/customer', { id: c.id, pause_from: from, pause_until: until }); toast(msg); drawCustomer(); loadTab(); } catch (e) { toast(e.message); }
+    };
+    var pz = el.querySelector('#pause'); if (pz) pz.onclick = function () { pauseSheet(c, savePause); };
+    var up = el.querySelector('#unpause'); if (up) up.onclick = function () { sure('End the pause?', (c.name || 'This customer') + ' goes back on the route from their next service day.', 'End the pause', function () { savePause('', '', 'Pause ended'); }); };
+    var mo = el.querySelector('#more'); if (mo) mo.addEventListener('toggle', function () { S.moreOpen = mo.open; });
+    var doSave = async function () {
+      var b = { id: c.id, name: val('f_nm'), service_day: val('f_sd'), stop_order: val('f_so'), scooper_id: val('f_sc'), gate_code: val('f_gc'), dog_names: val('f_dn'), gate_notes: val('f_gn'), problem_spots: val('f_ps'), office_notes: val('f_on'), skip_spray: el.querySelector('#f_ss').checked };
       if (String(val('f_dg') || '') !== String(c.dogs == null ? '' : c.dogs)) b.dogs = val('f_dg');
       if (el.querySelector('#f_sd2')) b.service_day2 = val('f_sd2');
       if (el.querySelector('#f_st')) b.service_time = val('f_st');
@@ -1221,6 +1259,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       if (el.querySelector('#f_eow')) b.eow_week = val('f_eow');
       try { S.sel = await api('POST', '/api/office/customer', b); toast('Saved'); drawCustomer(); loadTab(); } catch (e) { toast(e.message); }
     };
+    el.querySelectorAll('.fsave').forEach(function (x) { x.onclick = doSave; });
     var rt = el.querySelector('#retell');
     if (rt) rt.onclick = function () {
       sure('Send their day and time again?', (c.name || 'This customer') + ' gets ' + DAYS[c.service_day] + ' around ' + t12(c.service_time) + ' by email' + (c.texts_visit ? ' and text' : '') + '.', 'Send it', async function () {

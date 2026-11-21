@@ -1269,3 +1269,9 @@ Joe: "The field app is where we schedule. In the field app, for any confirmed cu
   - Times set for a real customer while test mode is on tell nobody. After test mode is off, open the card and tap "Send their day and time again".
   - The training video and page still need the rebuild at go live, now also for the Time box and the yard menu.
 
+### Nov 21, 2026, 3:40 pm (field desk session). Joe: "kick this live, merge it", and make the customer card easy.
+Joe read the customer card out loud: he likes the service day, "I don't know what stop order means", "I don't want the pause from and the pause until. Needs to be easier", the yard boxes are fine, "All this needs to just be simplified".
+- The card now has four parts. **Schedule**: Service day, Time, Scooper, Save. **Pause**: one button, "Pause visits", that asks how long (1 week, 2 weeks, 1 month, a date, or until I end it), and "End the pause" when one is on. It writes the same `pause_from` and `pause_until` as the two date boxes did: it takes the yard off the route and does not touch the bill. **Yard**: gate code, dog names, gate notes, problem spots, notes for the crew, skip the spray, Save. **More** (closed until tapped): customer name, dogs on the plan, and stop order, now called "Place on the route".
+- The Customers list shows each house's day and time, or "Set day and time" / "Set time".
+- The database patch was run on the live database and the pull request was merged the same hour, on Joe's word. See the pull request for what was checked after.
+
