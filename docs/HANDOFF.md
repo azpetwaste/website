@@ -1275,3 +1275,12 @@ Joe read the customer card out loud: he likes the service day, "I don't know wha
 - The Customers list shows each house's day and time, or "Set day and time" / "Set time".
 - The database patch was run on the live database and the pull request was merged the same hour, on Joe's word. See the pull request for what was checked after.
 
+### Nov 21, 2026, 4:30 pm (field desk session). Atlas's list, on the branch `field-app/onway-tap`, in a pull request, NOT merged.
+Atlas put the Twilio settings and `SMS_TEST_ALLOWLIST` (Joe's mobile) in Cloudflare: `/api/health` reads `texts:true, textsTest:true`. `CRON_SECRET` is not set, so the evening run does nothing yet.
+- **On my way is a tap.** `advance` no longer sends the text. `/api/crew/today` answers `tap` (the yard waiting for it), the crew screen shows "On my way", and `/api/crew/onway` sends it. Until this is merged the live site still sends it when the yard becomes the next stop.
+- **Resend welcome email follows test mode.**
+- **Owner button "Send the night before text now"** on the customer card (`/api/office/customer/night`).
+- **Not built, waiting on Joe:** Atlas also asked to bring back the sign up "Your service day is" email and the Plan the week and Move yards emails for houses with no time, when Twilio is off. That goes against Joe's rule of the same day ("Nothing goes out until we set it") and the welcome email he approved an hour before ("We will reach out with your start date"). Twilio is on now, so that path would not run on the live site anyway.
+- Tests: `desk.test.mjs` 228, with `OLD_DB=1` 152, `worker.test.mjs` 542, `week.test.mjs` 76, `signup10` 40, `nav.test.py` 68, `npm run check` passes. `signup50` not rerun.
+- The training video does not show the On my way button. It needs a rebuild before scoopers use this.
+

@@ -281,7 +281,9 @@ r = await call('/api/crew/start', 'POST', {}, mt);
 ok('first start asks for location consent', r.status === 428 && r.d.code === 'location_consent', r.d);
 r = await call('/api/crew/start', 'POST', { locationOk: true }, mt);
 ok('start route: first stop on the way', r.d.route.status === 'live' && r.d.stops[0].status === 'on_the_way');
-ok(OLD ? 'before the patch nobody has a time, so no on the way text is made' : 'on the way text queued for Sam (opted in)', OLD ? !r.d.texts.some((x) => x.kind === 'on_the_way') : r.d.texts.some((x) => x.kind === 'on_the_way' && /arizonapetwaste\.com\/t\//.test(x.body)), r.d.texts);
+ok('Start route alone sends no text: the yard waits for the On my way tap' + (OLD ? ' (before the patch nobody has a time, so there is no tap)' : ''), !r.d.texts.some((x) => x.kind === 'on_the_way') && (OLD ? r.d.tap === null : r.d.tap === r.d.stops.find((x) => x.status === 'on_the_way').id), { tap: r.d.tap });
+r = await call('/api/crew/onway', 'POST', { stopId: r.d.stops.find((x) => x.status === 'on_the_way').id }, mt);
+ok(OLD ? 'before the patch nobody has a time, so no on the way text is made' : 'the On my way tap queues the text for Sam (opted in), and the tap is used up', OLD ? !r.d.texts.some((x) => x.kind === 'on_the_way') : r.d.texts.some((x) => x.kind === 'on_the_way' && /arizonapetwaste\.com\/t\//.test(x.body)) && r.d.tap === null, r.d.texts);
 r = await call('/api/crew/ping', 'POST', { lat: 33.47, lng: -112.53, accuracy: 8 }, mt);
 ok('GPS ping saved', r.d.ok === true);
 r = await call('/api/track/' + samStop.code, 'GET');
@@ -806,6 +808,13 @@ else {
   ok('My Yard status: invited again, and the last sign in shows', r.d.yard.resent === true && r.d.yard.lastSeenAt === '2026-11-21T20:15:00Z' && r.d.texts.some((x) => x.kind === 'welcome' && x.channel === 'email' && x.status === 'sent'), r.d.yard);
   r = await call('/api/office/customer/welcome', 'POST', { id: joe }, mt);
   ok('a scooper cannot resend the welcome email', r.status === 403);
+  env.SMS_TEST_ALLOWLIST = '6235559999'; m0 = mailsTo('joe-test@example.com').length;
+  r = await call('/api/office/customer/welcome', 'POST', { id: joe }, owner);
+  ok('test mode holds "Resend welcome email" too: a customer who is not on the test list gets no email', r.status === 409 && /Test mode is on/.test(r.d.error) && mailsTo('joe-test@example.com').length === m0, r.d);
+  env.SMS_TEST_ALLOWLIST = '+16235550201';
+  r = await call('/api/office/customer/welcome', 'POST', { id: joe }, owner);
+  ok('and a customer on the test list still gets it (the list may be written +1623...)', r.status === 200 && mailsTo('joe-test@example.com').length === m0 + 1);
+  delete env.SMS_TEST_ALLOWLIST;
 
   // The night before run.
   await db.query('update public.customers set service_day = $1, stop_order = null where id = any($2)', [wd2, [joe, real, quiet]]);
@@ -839,6 +848,25 @@ else {
   r = await call('/api/office/day?date=' + tomorrow, 'GET', null, owner);
   const sJoe = r.d.stops.find((x) => x.customer.id === joe), sNo = r.d.stops.find((x) => x.customer.id === noTime);
   ok('the Schedule shows each visit\'s time', r.d.times[sJoe.id] === '10:30' && r.d.times[sNo.id] === null, r.d.times);
+
+  // The owner sends one customer the night before text now, to test without waiting for the evening run.
+  t0 = TW.sent.length;
+  r = await call('/api/office/customer/night', 'POST', { id: joe }, mt);
+  ok('a scooper cannot send the night before text by hand', r.status === 403 && TW.sent.length === t0);
+  env.SMS_TEST_ALLOWLIST = '6235559999';
+  r = await call('/api/office/customer/night', 'POST', { id: joe }, owner);
+  ok('in test mode it is refused for a customer who is not on the test list', r.status === 409 && TW.sent.length === t0, r.d);
+  r = await call('/api/office/customer/night', 'POST', { id: noTime }, owner);
+  env.SMS_TEST_ALLOWLIST = '6235550201';
+  ok('it needs a day and a time', r.status === 400 && /day and time/.test(r.d.error), r.d);
+  env.SMS_HOURS = '0-0';
+  r = await call('/api/office/customer/night', 'POST', { id: joe }, owner);
+  env.SMS_HOURS = '0-24';
+  ok('the owner sends the night before text for one customer, right now, even late at night', r.status === 200 && r.d.night.state === 'sent' && r.d.night.day === tomorrow && r.d.night.linkOpens === true && TW.sent.length === t0 + 1 && TW.sent[t0].to === '+16235550201'
+    && TW.sent[t0].body === nJoe.body, r.d.night);
+  r = await call('/api/office/night-before', 'POST', {}, null, { 'x-cron-secret': env.CRON_SECRET });
+  ok('the evening run does not send that visit another one', r.d.queued === 0 && TW.sent.length === t0 + 1, r.d);
+  delete env.SMS_TEST_ALLOWLIST;
 
   // A one time change in the Field App: this visit gets another time, and the customer hears it.
   t0 = TW.sent.length; m0 = mailsTo('joe-test@example.com').length;
@@ -889,7 +917,12 @@ else {
   const stop = r.d.stops.find((x) => x.customer.id === todayC);
   t0 = TW.sent.length;
   r = await call('/api/crew/start', 'POST', { locationOk: true }, tt);
-  ok('Start route sends the "on our way" text right away, with the truck link', TW.sent.length === t0 + 1 && TW.sent[t0].to === '+16235550204' && TW.sent[t0].body === 'Arizona Pet Waste: We are on our way! Here is the truck: arizonapetwaste.com/t/' + stop.code && r.d.texts.length === 0, TW.sent.slice(t0));
+  ok('Start route sends nothing. The yard waits for the worker to tap On my way', TW.sent.length === t0 && r.d.tap === stop.id && (await msgs(todayC)).length === 0, { tap: r.d.tap });
+  r = await call('/api/crew/onway', 'POST', { stopId: stop.id }, mt);
+  ok('another worker cannot tap On my way for this yard', r.status === 404 && TW.sent.length === t0);
+  r = await call('/api/crew/onway', 'POST', { stopId: stop.id }, tt);
+  await call('/api/crew/onway', 'POST', { stopId: stop.id }, tt);
+  ok('the On my way tap sends the "on our way" text right away, with the truck link, once', TW.sent.length === t0 + 1 && TW.sent[t0].to === '+16235550204' && TW.sent[t0].body === 'Arizona Pet Waste: We are on our way! Here is the truck: arizonapetwaste.com/t/' + stop.code && r.d.texts.length === 0 && r.d.tap === null, TW.sent.slice(t0));
   await call('/api/crew/arrive', 'POST', { stopId: stop.id }, tt);
   await call('/api/crew/photo', 'POST', { stopId: stop.id, image: jpg }, tt);
   m0 = mailsTo('today@example.com').length;
@@ -897,7 +930,7 @@ else {
   const doneTxt = TW.sent[TW.sent.length - 1];
   ok('Done sends the gate photo text right away, and no email while the text is on its way', TW.sent.length === t0 + 2 && /^Arizona Pet Waste: Your yard is done\. See your latched gate: arizonapetwaste\.com\/t\//.test(doneTxt.body) && mailsTo('today@example.com').length === m0, doneTxt);
   const nextUp = r.d.stops.find((x) => x.customer.id === laterC);
-  ok('the next yard has no time set: the truck heads there and no "on our way" text goes out', !!nextUp && nextUp.status === 'on_the_way' && (await msgs(laterC)).length === 0, nextUp && nextUp.status);
+  ok('the next yard has no time set: the truck heads there, there is no tap to show and no "on our way" text goes out', !!nextUp && nextUp.status === 'on_the_way' && r.d.tap === null && (await call('/api/crew/onway', 'POST', { stopId: nextUp.id }, tt)).status === 200 && (await msgs(laterC)).length === 0, nextUp && nextUp.status);
   w = await tw('/api/twilio/status', { MessageSid: doneTxt.sid, MessageStatus: 'undelivered', ErrorCode: '30003' });
   w = await tw('/api/twilio/status', { MessageSid: doneTxt.sid, MessageStatus: 'undelivered', ErrorCode: '30003' });
   const fb = mailsTo('today@example.com').slice(m0);

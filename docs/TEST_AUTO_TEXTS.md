@@ -5,6 +5,7 @@ Written November 21, 2026 for the pull request "Automatic post booking flow". Jo
 ## What keeps real customers safe while you test
 - **Test mode.** `SMS_TEST_ALLOWLIST` in Cloudflare is a list of mobile numbers. While it is set, texts go to those numbers and to nobody else. Everyone else's texts wait in the Texts tab, the way they do today.
 - **Nothing goes out until you set a day AND a time.** A booked house hears nothing about its schedule until the office sets both on the customer card. A day with no time tells nobody.
+- **Resend welcome email follows the test list too.** In test mode it refuses for a customer who is not on the list.
 - **Schedule notices follow the test list.** Setting or changing a day and time sends an email and a text, but in test mode only to a customer whose mobile number is on the list. That covers the customer card, Plan the week, Move yards and a change for one visit.
 - **With no Twilio settings, nobody is told a schedule.** The card says so. The done text waits in the Texts tab for a person, as it does today.
 - **Off switch.** Delete `TWILIO_MESSAGING_SERVICE_SID` in Cloudflare and redeploy. Every text goes back to waiting in the Texts tab.
@@ -40,10 +41,11 @@ Use your own phone for the texts and a computer or the phone for the Field App a
 | 9 | Tap **Send their day and time again**, then **Send it**. | The same confirmation arrives once more. |
 | 10 | Open **Dan Besserer**. Change **Customer name** to "Dan Besserer". Save. | Saved. No green line, no text, no email: a name change tells nobody. |
 | 11 | Optional: set a day and time for a real customer now. | "Saved. Test mode is on, so ... was not told." Nothing reaches them. After test mode is off, tap "Send their day and time again" on their card. |
-| 12 | **Night before.** Wait for 5:30 PM, or in GitHub open Actions, "Night before texts", Run workflow. | A text: "Arizona Pet Waste: We will be there tomorrow (Monday) around 10:30 AM, between 10:15 and 10:45 AM. Please unlock the gate and keep your dogs inside. Watch the truck on the way: arizonapetwaste.com/t/XXXXXX Reply STOP to opt out." Health reads "Night before texts every evening: On. Last ran ...". |
+| 12 | **Night before.** Sign in as an owner. On your customer card tap **Send the night before text now**, then **Send it**. (Or wait for the 5:30 PM run, which needs `CRON_SECRET`.) The truck link in the text opens from the day before the visit, so set your service day to tomorrow's weekday to try the link today. | A text: "Arizona Pet Waste: We will be there tomorrow (Monday) around 10:30 AM, between 10:15 and 10:45 AM. Please unlock the gate and keep your dogs inside. Watch the truck on the way: arizonapetwaste.com/t/XXXXXX Reply STOP to opt out." Health reads "Night before texts every evening: On. Last ran ...". |
 | 13 | Tap the link in that text. | Your visit page: you are on tomorrow's route. |
 | 14 | **A change for one visit.** Schedule, tap tomorrow in the week strip, open Juan's route, tap your yard, **Change this visit's time**, pick 2:00 PM, **Save and tell the customer**. | A text: "Arizona Pet Waste: Your visit is now Monday, Nov 23 around 2:00 PM. This change is for that visit only. Reply STOP to opt out." An email that says the same. On the customer card the usual Time still reads 10:30 AM. |
-| 15 | **Visit day**: Juan opens /crew on his phone, My route today, **Start route**. Your yard is his stop, with "Around 2:00 PM" under it. (Do not turn on "Runs a route too" for Joe just for this test: a real sign up that day could land on Joe's route.) | Right away, a text: "Arizona Pet Waste: We are on our way! Here is the truck: ..." The link shows the truck on the map. No orange Send bar in the app: the text already went. |
+| 15 | **Visit day**: Juan opens /crew on his phone, My route today, **Start route**. Your yard is his stop, with "Set for around 2:00 PM" under it. (Do not turn on "Runs a route too" for Joe just for this test: a real sign up that day could land on Joe's route.) | No text yet. The screen shows one big button, **On my way**. |
+| 15b | Juan taps **On my way**. | Right away, a text: "Arizona Pet Waste: We are on our way! Here is the truck: ..." The link shows the truck on the map. The button changes to **I'm here**. |
 | 16 | Juan taps **I'm here**, ticks the boxes, **Take gate photo**. | Right away, a text: "Your yard is done. See your latched gate: ..." The link shows the photo. |
 | 17 | Reply to any of those texts with "test reply". | The office inbox gets "Text from Joseph Lopez: test reply". It shows in the Texts tab as Reply. |
 | 18 | Reply **STOP**. | Twilio's own "you are unsubscribed" text. The office inbox gets "Texts stopped: Joseph Lopez". The card reads "Visit texts: no, they replied STOP". |
@@ -52,7 +54,7 @@ Use your own phone for the texts and a computer or the phone for the Field App a
 | 21 | Open **Texts**. | Every text above is in "Sent and received" and reads Delivered. On the customer card, tap **Resend text** on one of them and confirm: the same text arrives again. |
 | 22 | **The week after.** Do nothing. | The evening before your next service day, the night before text comes again with 10:30 AM, your usual time. The one time change to 2:00 PM is gone. |
 
-If the "on our way" text comes early: it is sent when your yard becomes Juan's next stop, which is when he taps Start route or finishes the yard before yours. The time you set is when he aims to be there.
+The "on our way" text goes when the worker taps **On my way** for your yard, and at no other time. If he taps **I'm already here** in its place, that text is skipped and you get the done text.
 
 Not something you can test by hand: a gate photo text that fails. The automated tests cover it (the photo goes by email, once, and the Texts tab and Health show the reason).
 

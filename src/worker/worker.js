@@ -2053,6 +2053,7 @@ async function desk(path, request, env, ctx) {
   if (path === '/api/crew/today' && m === 'GET') return crewToday(s, env);
   if (path === '/api/crew/start' && m === 'POST') return crewStart(s, env, b);
   if (path === '/api/crew/ping' && m === 'POST') return crewPing(s, env, b);
+  if (path === '/api/crew/onway' && m === 'POST') return crewOnWay(s, env, b);
   if (path === '/api/crew/arrive' && m === 'POST') return crewArrive(s, env, b);
   if (path === '/api/crew/photo' && m === 'POST') return crewPhoto(s, env, b);
   if (path === '/api/crew/done' && m === 'POST') return crewDone(s, env, b);
@@ -2081,6 +2082,7 @@ async function desk(path, request, env, ctx) {
   if (path === '/api/office/text' && m === 'POST') return markText(s, env, b, false);
   if (path === '/api/office/text/send' && m === 'POST') return officeTextSend(s, env, b);
   if (path === '/api/office/customer/welcome' && m === 'POST') return officeWelcome(s, env, b);
+  if (path === '/api/office/customer/night' && m === 'POST') return officeNightNow(s, env, b);
   if (path === '/api/office/night-before' && m === 'POST') return nightBefore(env, isDay(b.date) ? b.date : null);
   if (path === '/api/office/money' && m === 'GET') return officeMoney(env);
   if (path === '/api/office/health' && m === 'GET') return officeHealth(env);
@@ -2489,12 +2491,39 @@ async function officeTextSend(s, env, b) {
   return ok({ ok: true, state });
 }
 // Office: send the welcome email again, with a fresh My Yard link.
+// Owner only: send one customer the night before text for their next visit, now. For testing the flow without
+// waiting for the evening run. It follows the test list, like every other text. It skips the 8 am to 9 pm rule,
+// because the owner asked for it by hand.
+async function officeNightNow(s, env, b) {
+  if (s.role !== 'owner') return fail(403, 'Only the owner can send this.');
+  if (!uuid(b.id)) return fail(400, 'Bad customer.');
+  if (!smsOn(env)) return fail(400, 'Texts are not on yet.');
+  if (!(await schedOn(env))) return fail(409, 'Times are not switched on yet. The database patch has to be run first.');
+  const c = (await db(env, 'GET', 'customers?id=eq.' + b.id + '&select=' + SCHED_FIELDS + ',service_time,service_time2'))[0];
+  if (!c) return fail(404, 'Customer not found.');
+  if (!schedSet(c)) return fail(400, 'Set their day and time first.');
+  if (!c.texts_visit || digits(c.phone).length !== 10) return fail(400, 'This customer said no to texts, or has no mobile number.');
+  if (!smsMay(env, c.phone)) return fail(409, 'Test mode is on. This customer is not on the test list, so nothing was sent.');
+  const day = nextVisit(c);
+  if (!day) return fail(400, 'They have no visit coming up.');
+  await planDay(await withSettings(env), day);
+  const st = (await db(env, 'GET', 'stops?customer_id=eq.' + c.id + '&day=eq.' + day + '&select=id,day,code,status,customer_id'))[0];
+  if (!st || st.status !== 'scheduled') return fail(400, 'Their next visit, ' + dateSay(day) + ', is not on a route. Check that they have a scooper and are not paused.');
+  const time = (await timesOf(env, [st]))[st.id];
+  const rows = await db(env, 'POST', 'messages', [{ customer_id: c.id, stop_id: st.id, kind: 'night_before', channel: 'sms', to_addr: c.phone, body: textBody(env, 'night_before', st.code, null, { day, time }) }], 'return=representation');
+  const state = rows && rows[0] ? await sendText(env, rows[0], s.id, true) : 'failed';
+  const out = JSON.parse(await (await officeCustomer(env, c.id)).text());
+  return ok(Object.assign(out, { night: { state, day, dayName: dateSay(day), linkOpens: day <= addDays(azToday(), 1) } }));
+}
 async function officeWelcome(s, env, b) {
   if (!uuid(b.id)) return fail(400, 'Bad customer.');
   const c = (await db(env, 'GET', 'customers?id=eq.' + b.id + '&select=id,name,email,phone,status,texts_visit'))[0];
   if (!c) return fail(404, 'Customer not found.');
   if (!c.email) return fail(400, 'This customer has no email.');
   if (!PAYING.includes(c.status) && c.status !== 'paused') return fail(400, 'Only a customer with a plan gets the welcome email.');
+  // Test mode holds this button too: only a customer whose mobile number is on the test list gets the email.
+  // A real booking still sends its welcome email on its own. That one is not a test.
+  if (testMode(env) && !smsMay(env, c.phone)) return fail(409, 'Test mode is on. This customer is not on the test list, so no email was sent.');
   if (!(await sendWelcome(env, c, null, s.id))) return fail(502, 'The email did not send. Try again.');
   return officeCustomer(env, c.id);
 }
@@ -2516,7 +2545,15 @@ async function crewToday(s, env) {
   const ids = stops.map((x) => x.id);
   const texts = ids.length ? await db(env, 'GET', 'messages?status=eq.queued&stop_id=in.(' + ids.join(',') + ')&select=id,stop_id,kind,to_addr,body&order=created_at') : [];
   const times = await timesOf(env, stops.map((x) => ({ id: x.id, day, customer_id: x.customer && x.customer.id }))).catch(() => ({}));
-  return ok(Object.assign({ day, dayName: DAYS[weekday(day)], route: r, stops, texts, times, me: { name: s.name, role: s.role } }, env.GOOGLE_MAPS_BROWSER_KEY ? { mapsKey: env.GOOGLE_MAPS_BROWSER_KEY } : {}));
+  // The yard that waits for the "On my way" tap: the one he is driving to, when it has a set time, the customer said
+  // yes to texts, and that text has not been made yet.
+  let tap = null;
+  const go = stops.find((x) => x.status === 'on_the_way');
+  if (go && times[go.id] && go.customer && go.customer.texts_visit && go.customer.phone) {
+    const had = await db(env, 'GET', 'messages?stop_id=eq.' + go.id + '&kind=eq.on_the_way&channel=eq.sms&select=id&limit=1');
+    if (!had.length) tap = go.id;
+  }
+  return ok(Object.assign({ day, dayName: DAYS[weekday(day)], route: r, stops, texts, times, tap, me: { name: s.name, role: s.role } }, env.GOOGLE_MAPS_BROWSER_KEY ? { mapsKey: env.GOOGLE_MAPS_BROWSER_KEY } : {}));
 }
 async function myStop(s, env, stopId) {
   const id = parseInt(stopId, 10);
@@ -2531,10 +2568,22 @@ async function advance(env, routeId) {
   const next = (await db(env, 'GET', 'stops?route_id=eq.' + routeId + '&status=eq.scheduled&order=position,id&limit=1&select=id,day,code,customer:customers(id,phone,texts_visit)'))[0];
   if (!next) return null;
   await db(env, 'PATCH', 'stops?id=eq.' + next.id, { status: 'on_the_way', on_way_at: new Date().toISOString() }, 'return=minimal');
-  // "We are on our way" only goes for a visit whose day and time the office set.
-  const t = await timesOf(env, [next]).catch(() => ({}));
-  if (t[next.id]) await queueText(env, next.customer, next.id, 'on_the_way', next.code);
+  // Joe's spec (Nov 21, 2026): "when the worker taps On my way in the field app". The yard is now the next stop, and
+  // the text waits for that tap (crewOnWay). Nothing is sent here.
   return next.id;
+}
+// The worker taps "On my way" for the yard he is driving to. That tap sends "We are on our way!" with the truck link.
+// Only for a visit whose day and time the office set, and only once for a visit.
+async function crewOnWay(s, env, b) {
+  const st = await myStop(s, env, b.stopId);
+  if (!st) return fail(404, 'That stop is not on your route today.');
+  if (st.status !== 'on_the_way') return crewToday(s, env);
+  const t = await timesOf(env, [st]).catch(() => ({}));
+  if (t[st.id]) {
+    await db(env, 'PATCH', 'stops?id=eq.' + st.id, { on_way_at: new Date().toISOString() }, 'return=minimal');
+    await queueText(env, st.customer, st.id, 'on_the_way', st.code);
+  }
+  return crewToday(s, env);
 }
 async function crewStart(s, env, b) {
   const r = await myRoute(s, env);
