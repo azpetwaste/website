@@ -1284,3 +1284,12 @@ Atlas put the Twilio settings and `SMS_TEST_ALLOWLIST` (Joe's mobile) in Cloudfl
 - Tests: `desk.test.mjs` 228, with `OLD_DB=1` 152, `worker.test.mjs` 542, `week.test.mjs` 76, `signup10` 40, `nav.test.py` 68, `npm run check` passes. `signup50` not rerun.
 - The training video does not show the On my way button. It needs a rebuild before scoopers use this.
 
+### Nov 21, 2026, 5:10 pm (field desk session). Every house gets its own start tap. Branch `field-app/per-house-start`, in a pull request, NOT merged.
+Joe, through Atlas: "when I say start route, we need to hit start route for every single new house. Once we're done with the house, we hit start route, start route, start route, so they can get their texts and all this stuff. I don't want them to see us going from house to house to house."
+- Pull request 4 was merged at 5:00 pm on Joe's go (on my way tap, welcome resend follows test mode, owner night before button). After it, finishing a yard still put the next yard "on the way" on its own, and that customer's link could show the truck before the worker tapped for them. This branch fixes that.
+- `advance` does nothing now. `startStop` starts one house: Start route for the first, "Start next house" (`/api/crew/onway`) for each one after. The text and the truck on the link both hang on that tap.
+- `track`: a waiting visit answers its set time (`around`) and no longer answers `stopsAway` or an arrival guess. A visit on the way only uses truck positions sent after its tap.
+- An older copy of the app that is still open shows "Show my next yard" between houses. That button calls Start route, which now starts the next house, so an old screen keeps working.
+- Tests: `desk.test.mjs` 231, with `OLD_DB=1` 155, `worker.test.mjs` 542, `signup10` 40, `nav.test.py` 68, `npm run check` passes, two houses walked in the demo in a real browser. Not run: `week.test.mjs` (no change there), `signup50`, a real phone.
+- `CRON_SECRET`: Atlas put it in Cloudflare. It is still missing in the GitHub Actions secrets, which Claude cannot set, so the evening run does nothing yet.
+

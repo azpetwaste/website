@@ -97,9 +97,9 @@ h1{font-size:40px;line-height:1;letter-spacing:-.045em;font-weight:800;margin:56
     v.classList.remove('live');
     if (d.expired) { v.innerHTML = top() + '<h1>This link has ended.</h1><p class="sub">' + h(d.message) + '</p>' + foot('<a class="btn acc" href="/account/">Open My Yard</a>'); return; }
     if (d.status === 'scheduled') {
-      v.innerHTML = top() + '<h1>' + (d.routeLive ? 'We are on our route.' : 'You are on today\'s route.') + '</h1>' +
-        (d.eta ? '<div class="eta">~' + h(t(d.eta)) + '</div>' : '') +
-        '<p class="sub">' + (d.stopsAway === 1 ? 'You are next.' : 'You are ' + h(d.stopsAway) + ' stops away.') + ' ' + who + ' is scooping today. We text you when we head your way.</p>' + steps(0) + foot();
+      v.innerHTML = top() + '<h1>You are on ' + (d.dayName ? h(d.dayName) + '\'s' : 'our') + ' route.</h1>' +
+        (d.around ? '<div class="eta">Around ' + h(d.around) + '</div>' : '') +
+        '<p class="sub">' + who + ' is your scooper. We text you when we head your way. This page shows our truck then.</p>' + steps(0) + foot();
     } else if (d.status === 'on_the_way') {
       var p = typeof d.progress === 'number' ? d.progress : 0.15;
       v.innerHTML = top() + '<h1>' + who + ' is on the way.</h1><div class="eta">' + h(t(d.eta)) + '</div>' +

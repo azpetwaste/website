@@ -2545,14 +2545,8 @@ async function crewToday(s, env) {
   const ids = stops.map((x) => x.id);
   const texts = ids.length ? await db(env, 'GET', 'messages?status=eq.queued&stop_id=in.(' + ids.join(',') + ')&select=id,stop_id,kind,to_addr,body&order=created_at') : [];
   const times = await timesOf(env, stops.map((x) => ({ id: x.id, day, customer_id: x.customer && x.customer.id }))).catch(() => ({}));
-  // The yard that waits for the "On my way" tap: the one he is driving to, when it has a set time, the customer said
-  // yes to texts, and that text has not been made yet.
-  let tap = null;
-  const go = stops.find((x) => x.status === 'on_the_way');
-  if (go && times[go.id] && go.customer && go.customer.texts_visit && go.customer.phone) {
-    const had = await db(env, 'GET', 'messages?stop_id=eq.' + go.id + '&kind=eq.on_the_way&channel=eq.sms&select=id&limit=1');
-    if (!had.length) tap = go.id;
-  }
+  // The yard that waits for its tap ("Start next house"): the next one, when the route is live and no yard is open.
+  const tap = r.status === 'live' && !stops.some((x) => x.status === 'on_the_way' || x.status === 'here') ? ((stops.find((x) => x.status === 'scheduled') || {}).id || null) : null;
   return ok(Object.assign({ day, dayName: DAYS[weekday(day)], route: r, stops, texts, times, tap, me: { name: s.name, role: s.role } }, env.GOOGLE_MAPS_BROWSER_KEY ? { mapsKey: env.GOOGLE_MAPS_BROWSER_KEY } : {}));
 }
 async function myStop(s, env, stopId) {
@@ -2562,27 +2556,30 @@ async function myStop(s, env, stopId) {
   if (!st || st.route.staff_id !== s.id || st.day !== azToday()) return null;
   return st;
 }
-async function advance(env, routeId) {
+// Joe, Nov 21, 2026: "we need to hit start route for every single new house... I don't want them to see us going
+// from house to house to house." A yard only becomes "on the way" when the worker taps for it: Start route for the
+// first house, Start next house for each one after. That tap sends that customer "We are on our way!" and is the only
+// thing that lets their truck link show the truck. Finishing a yard starts nothing.
+async function advance(env, routeId) { return null; }
+// The worker starts the drive to a yard. With no stop id it is the next yard on the route. Answers the stop id, or null
+// when another yard is still open or none is left. The text only goes for a visit whose day and time the office set.
+async function startStop(env, routeId, stopId) {
   const busy = await db(env, 'GET', 'stops?route_id=eq.' + routeId + '&status=in.(on_the_way,here)&select=id');
   if (busy.length) return null;
-  const next = (await db(env, 'GET', 'stops?route_id=eq.' + routeId + '&status=eq.scheduled&order=position,id&limit=1&select=id,day,code,customer:customers(id,phone,texts_visit)'))[0];
+  const next = (await db(env, 'GET', 'stops?route_id=eq.' + routeId + '&status=eq.scheduled' + (stopId ? '&id=eq.' + parseInt(stopId, 10) : '') + '&order=position,id&limit=1&select=id,day,code,customer:customers(id,phone,texts_visit)'))[0];
   if (!next) return null;
-  await db(env, 'PATCH', 'stops?id=eq.' + next.id, { status: 'on_the_way', on_way_at: new Date().toISOString() }, 'return=minimal');
-  // Joe's spec (Nov 21, 2026): "when the worker taps On my way in the field app". The yard is now the next stop, and
-  // the text waits for that tap (crewOnWay). Nothing is sent here.
+  await db(env, 'PATCH', 'stops?id=eq.' + next.id + '&status=eq.scheduled', { status: 'on_the_way', on_way_at: new Date().toISOString() }, 'return=minimal');
+  const t = await timesOf(env, [next]).catch(() => ({}));
+  if (t[next.id]) await queueText(env, next.customer, next.id, 'on_the_way', next.code);
   return next.id;
 }
-// The worker taps "On my way" for the yard he is driving to. That tap sends "We are on our way!" with the truck link.
-// Only for a visit whose day and time the office set, and only once for a visit.
+// "Start next house": the tap for one yard.
 async function crewOnWay(s, env, b) {
   const st = await myStop(s, env, b.stopId);
   if (!st) return fail(404, 'That stop is not on your route today.');
-  if (st.status !== 'on_the_way') return crewToday(s, env);
-  const t = await timesOf(env, [st]).catch(() => ({}));
-  if (t[st.id]) {
-    await db(env, 'PATCH', 'stops?id=eq.' + st.id, { on_way_at: new Date().toISOString() }, 'return=minimal');
-    await queueText(env, st.customer, st.id, 'on_the_way', st.code);
-  }
+  if (st.status !== 'scheduled') return crewToday(s, env);
+  if (!st.route || st.route.status !== 'live') return fail(400, 'Tap Start route first.');
+  await startStop(env, st.route.id, st.id);
   return crewToday(s, env);
 }
 async function crewStart(s, env, b) {
@@ -2593,7 +2590,9 @@ async function crewStart(s, env, b) {
     await db(env, 'PATCH', 'staff?id=eq.' + s.id, { location_ok_at: new Date().toISOString() }, 'return=minimal');
   }
   if (r.status !== 'live') await db(env, 'PATCH', 'routes?id=eq.' + r.id, { status: 'live', started_at: r.started_at || new Date().toISOString(), ended_at: null }, 'return=minimal');
-  await advance(env, r.id);
+  // Start route is the tap for the first house. Tapped again on a live route (an older copy of the app does that), it
+  // starts the next house.
+  await startStop(env, r.id);
   return crewToday(s, env);
 }
 async function crewPing(s, env, b) {
@@ -3655,7 +3654,7 @@ async function roadRoute(env, st, p, home) {
 async function track(raw, env) {
   const code = String(raw || '').toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 8);
   if (code.length !== 6) return fail(404, 'This link is not active.');
-  const st = (await db(env, 'GET', 'stops?code=eq.' + code + '&select=id,route_id,day,position,status,reason,photo_path,no_photo,on_way_at,arrived_at,done_at,eta_at,route_polyline,route_at,route_meters,' +
+  const st = (await db(env, 'GET', 'stops?code=eq.' + code + '&select=id,customer_id,route_id,day,position,status,reason,photo_path,no_photo,on_way_at,arrived_at,done_at,eta_at,route_polyline,route_at,route_meters,' +
     'customer:customers(lat,lng),route:routes(status,started_at,staff:staff(name))'))[0];
   if (!st) return fail(404, 'This link is not active.');
   const now = Date.now(), today = azToday();
@@ -3665,14 +3664,17 @@ async function track(raw, env) {
   }
   const out = { status: st.status, day: st.day, dayName: DAYS[weekday(st.day)], scooper: first(st.route && st.route.staff && st.route.staff.name), routeLive: st.route.status === 'live' };
   if (st.status === 'scheduled') {
-    const ahead = await db(env, 'GET', 'stops?route_id=eq.' + st.route_id + '&status=in.(scheduled,on_the_way,here)&position=lt.' + st.position + '&select=id');
-    out.stopsAway = ahead.length + 1;
-    if (out.routeLive) out.eta = new Date(now + out.stopsAway * 20 * 60e3).toISOString();
+    // Before the worker taps for this house the customer sees their own visit and nothing about the route: no truck,
+    // no count of houses before theirs, no arrival guess worked out from where the truck is.
+    const tm = (await timesOf(env, [{ id: st.id, day: st.day, customer_id: st.customer_id }]).catch(() => ({})))[st.id];
+    if (tm) out.around = timeSay(tm);
   }
   if (st.status === 'on_the_way') {
     out.stopsAway = 1;
     const home = st.customer && st.customer.lat != null ? { lat: st.customer.lat, lng: st.customer.lng } : null;
-    const p = (await db(env, 'GET', 'positions?route_id=eq.' + st.route_id + '&select=lat,lng,heading,at&order=at.desc&limit=1'))[0];
+    // Only a truck position from this leg, after the tap for this house. One from before it was taken at or near
+    // another customer's house.
+    const p = (await db(env, 'GET', 'positions?route_id=eq.' + st.route_id + (st.on_way_at ? '&at=gte.' + enc(st.on_way_at) : '') + '&select=lat,lng,heading,at&order=at.desc&limit=1'))[0];
     if (home && p && now - Date.parse(p.at) < 10 * 60e3) {
       const mi = miles(p, home);
       out.miles = Math.round(mi * 10) / 10;
