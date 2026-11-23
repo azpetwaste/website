@@ -310,6 +310,13 @@ table.t tr.click:hover td{background:var(--bg2)}
     var near = function (list, from) { var left = list.slice(), out = [], at = from;
       while (left.length) { var bi = 0, bd = Infinity; left.forEach(function (c, i) { var dd = at ? meters(at, c) : c.lng; if (dd < bd) { bd = dd; bi = i; } }); at = left.splice(bi, 1)[0]; out.push(at); }
       return out; };
+    // A day of up to 8 houses gets the true shortest drive: every order is tried, like the real planner does.
+    var shortest = function (list, from) {
+      var first = near(list, from); if (list.length < 3 || list.length > 8) return first;
+      var far = function (l) { var n = 0, at = from; l.forEach(function (c) { if (at) n += meters(at, c); at = c; }); return n; }, best = first, bd = far(first);
+      var go = function (left, done) { if (!left.length) { var d = far(done); if (d < bd - 1e-6) { bd = d; best = done; } return; } left.forEach(function (c, i) { go(left.filter(function (_, j) { return j !== i; }), done.concat([c])); }); };
+      go(list, []); return best;
+    };
     var by = {}, days = dates.map(function (x) { return (by[x] = { date: x, list: [] }); }), none = [], free = [];
     news.forEach(function (c) { var a = (b.assign || {})[c.id]; if (a === 'none') none.push(c); else if (a && by[a]) by[a].list.push(c); else free.push(c); });
     if (free.length) {
@@ -322,7 +329,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     days.forEach(function (d) {
       var wd = demoWd(d.date), had = D.customers.filter(function (c) { return c.service_day === wd && c.service_time && (c.scooper_id || me) === me && ['trialing', 'active'].indexOf(c.status) >= 0; }).sort(function (x, y) { return demoMin(x.service_time) - demoMin(y.service_time); });
       var last = had[had.length - 1], at = last || null, t = last ? demoMin(last.service_time) + 10 : null, road = 0, work = 0;
-      d.yards = near(d.list, at).map(function (c) {
+      d.yards = shortest(d.list, at).map(function (c) {
         var leg = at ? meters(at, c) / 1609.34 * 1.35 : 0;
         t = t == null ? demoMin(start) : Math.max(t + (leg ? Math.max(1, Math.round(leg / 30 * 60)) : 0), demoMin(start));
         var tm = demoClock(t); road += leg; work += 20; t = demoMin(tm) + 20; at = c;

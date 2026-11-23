@@ -177,5 +177,33 @@ console.log('\nPreplan my days');
   ok('1,000 houses plan in under 5 seconds (' + (Date.now() - t0) + ' ms)', Date.now() - t0 < 5000);
 }
 
+// The shortest drive (Joe, Nov 22, 2026: "make sure we are optimizing the addresses to get to the best place possible fastest").
+console.log('\nThe shortest drive');
+{
+  const far = (l, s) => { let n = 0, at = s; for (const c of l) { if (at) n += W.miles(at, c); at = c; } return n; };
+  const best = (list, start) => { let b = Infinity; const go = (left, at, d) => { if (d >= b) return; if (!left.length) { b = d; return; } for (let i = 0; i < left.length; i++) go(left.filter((_, j) => j !== i), left[i], d + (at ? W.miles(at, left[i]) : 0)); }; go(list, start, 0); return b; };
+  const spot = () => ({ lat: 33.40 + rnd() * 0.18, lng: -112.60 + rnd() * 0.28 });
+  let off = 0, lost = 0, runs = 0;
+  for (let t = 0; t < 200; t++) {
+    const n = 3 + Math.floor(rnd() * 6), l = Array.from({ length: n }, (_, i) => Object.assign({ id: 's' + t + '_' + i }, spot())), start = t % 2 ? spot() : null;
+    const got = W.shortOrder(l, start);
+    runs++; if (new Set(got.map((c) => c.id)).size !== n) lost++;
+    if (far(got, start) > best(l, start) + 1e-6) off++;
+  }
+  ok('a day of 3 to 8 houses is the true shortest drive, every time (' + runs + ' made up days, with and without a truck start)', off === 0 && lost === 0, { off, lost });
+  const twelve = Array.from({ length: 12 }, (_, i) => Object.assign({ id: 't' + i }, spot())), home = spot(), t0 = Date.now(), g12 = W.shortOrder(twelve, home);
+  ok('twelve houses from the truck start: true shortest, worked out in under a second (' + (Date.now() - t0) + ' ms)', Date.now() - t0 < 1000 && Math.abs(far(g12, home) - best(twelve, home)) < 1e-6);
+  let longer = 0, missing = 0;
+  for (const n of [13, 20, 40, 80]) for (let t = 0; t < 5; t++) {
+    const l = Array.from({ length: n }, (_, i) => Object.assign({ id: 'b' + n + '_' + t + '_' + i }, spot())), start = spot(), got = W.shortOrder(l, start);
+    if (new Set(got.map((c) => c.id)).size !== n) missing++;
+    // Closest next from the start is the plain way to drive it. The planned order must never be longer than that.
+    const left = l.slice(), plain = []; let at = start;
+    while (left.length) { let b = 0; left.forEach((c, i) => { if (W.miles(at, c) < W.miles(at, left[b])) b = i; }); at = left.splice(b, 1)[0]; plain.push(at); }
+    if (far(got, start) > far(plain, start) + 1e-9) longer++;
+  }
+  ok('a big day (13 to 80 houses) keeps every house and is never longer than driving to the closest house next', longer === 0 && missing === 0, { longer, missing });
+}
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

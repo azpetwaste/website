@@ -3069,6 +3069,30 @@ function pathMiles(list) {
   for (let i = 1; i < p.length; i++) n += miles(p[i - 1], p[i]);
   return n * 1.35;
 }
+// The true shortest way through a small group of stops: every subset of stops and where it ends is worked out once
+// (Held and Karp). D is the distance table, n the number of points. fixed: point 0 is where the truck starts and must
+// be first. Otherwise the drive may begin at any stop. Answers the order as indexes into the table.
+const EXACT_MAX = 12, OR_MAX = 400;
+function exactOrder(D, n, fixed) {
+  if (n < 2 || n > EXACT_MAX + 1) return null;
+  const full = 1 << n, cost = new Float64Array(full * n).fill(Infinity), back = new Int8Array(full * n).fill(-1);
+  if (fixed) cost[1 * n + 0] = 0; else for (let i = 0; i < n; i++) cost[(1 << i) * n + i] = 0;
+  for (let set = 1; set < full; set++) for (let last = 0; last < n; last++) {
+    const here = cost[set * n + last];
+    if (here === Infinity) continue;
+    for (let next = 0; next < n; next++) {
+      if (set & (1 << next)) continue;
+      const to = (set | (1 << next)) * n + next, c = here + D[last * n + next];
+      if (c < cost[to] - 1e-12) { cost[to] = c; back[to] = last; }
+    }
+  }
+  let end = 0;
+  for (let i = 1; i < n; i++) if (cost[(full - 1) * n + i] < cost[(full - 1) * n + end]) end = i;
+  if (fixed && n > 1 && end === 0) return null;
+  const order = [];
+  for (let set = full - 1, at = end; at >= 0;) { order.push(at); const from = back[set * n + at]; set &= ~(1 << at); at = from; }
+  return order.reverse();
+}
 function shortOrder(list, start) {
   const pins = list.filter(pinned), rest = list.filter((c) => !pinned(c));
   if (pins.length < 3 && !start) return pins.concat(rest);
@@ -3090,15 +3114,51 @@ function shortOrder(list, start) {
     used[best] = 1;
     tour.push(best);
   }
-  // 2-opt: flip a stretch of the route when that makes it shorter. The start stays first and the route does not loop back.
-  for (let again = true, pass = 0; again && pass < 60; pass++) {
-    again = false;
-    for (let i = 1; i < n - 1; i++) for (let j = i + 1; j < n; j++) {
-      const a = tour[i - 1], b = tour[i], c = tour[j], d = j + 1 < n ? tour[j + 1] : -1;
-      const gain = D[a * n + b] + (d < 0 ? 0 : D[c * n + d]) - D[a * n + c] - (d < 0 ? 0 : D[b * n + d]);
-      if (gain > 1e-9) { for (let x = i, y = j; x < y; x++, y--) { const t = tour[x]; tour[x] = tour[y]; tour[y] = t; } again = true; }
+  // A small day gets the true shortest drive (Joe, Nov 22, 2026: "make sure we are optimizing the addresses to get to
+  // the best place possible fastest"): every order is weighed, so no shorter one exists. Up to EXACT_MAX houses.
+  if (n <= EXACT_MAX + 1) {
+    const exact = exactOrder(D, n, !!start);
+    if (exact) {
+      let out = exact.map((k) => pts[k]);
+      // With no start the drive can run either way. Keep the old habit: begin at the end farthest from the middle.
+      if (!start && out.length > 1 && out[out.length - 1] === from) out.reverse();
+      return (start ? out.slice(1) : out).concat(rest);
     }
   }
+  // A big day: start from closest next, then keep making it shorter until nothing helps. Two moves:
+  // 2-opt flips a stretch of the route. Or-opt lifts one, two or three stops out and sets them down in a better place.
+  // The start stays first and the route does not loop back.
+  const legs = (t) => { let x = 0; for (let i = 1; i < t.length; i++) x += D[t[i - 1] * n + t[i]]; return x; };
+  const twoOpt = () => {
+    for (let again = true, pass = 0; again && pass < 60; pass++) {
+      again = false;
+      for (let i = 1; i < n - 1; i++) for (let j = i + 1; j < n; j++) {
+        const a = tour[i - 1], b = tour[i], c = tour[j], d = j + 1 < n ? tour[j + 1] : -1;
+        const gain = D[a * n + b] + (d < 0 ? 0 : D[c * n + d]) - D[a * n + c] - (d < 0 ? 0 : D[b * n + d]);
+        if (gain > 1e-9) { for (let x = i, y = j; x < y; x++, y--) { const t = tour[x]; tour[x] = tour[y]; tour[y] = t; } again = true; }
+      }
+    }
+  };
+  const orOpt = () => {
+    let moved = false;
+    for (let len = 1; len <= 3; len++) for (let i = 1; i + len <= n; i++) {
+      const seg = tour.slice(i, i + len), left = tour.slice(0, i).concat(tour.slice(i + len)), base = legs(tour);
+      let bestAt = -1, bestRev = false, bestLen = base - 1e-9;
+      // Only the legs that change are added up: the gap that closes where the stops were, and the two new legs.
+      const cut = D[tour[i - 1] * n + seg[0]] + (i + len < n ? D[seg[len - 1] * n + tour[i + len]] - D[tour[i - 1] * n + tour[i + len]] : 0);
+      for (let at = 1; at <= left.length; at++) for (const rev of [false, true]) {
+        if (at === i && !rev) continue;
+        const first = rev ? seg[len - 1] : seg[0], lastOne = rev ? seg[0] : seg[len - 1], prev = left[at - 1], next = at < left.length ? left[at] : -1;
+        const total = base - cut + D[prev * n + first] + (next < 0 ? 0 : D[lastOne * n + next] - D[prev * n + next]);
+        if (total < bestLen) { bestLen = total; bestAt = at; bestRev = rev; }
+      }
+      if (bestAt >= 0) { left.splice(bestAt, 0, ...(bestRev ? seg.slice().reverse() : seg)); for (let x = 0; x < n; x++) tour[x] = left[x]; moved = true; }
+    }
+    return moved;
+  };
+  // Every move makes the drive shorter, so the answer is never longer than the flips alone would give.
+  twoOpt();
+  if (n <= OR_MAX) for (let round = 0; round < 30 && orOpt(); round++) twoOpt();
   const out = tour.map((k) => pts[k]);
   return (start ? out.slice(1) : out).concat(rest);
 }
