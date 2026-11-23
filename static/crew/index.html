@@ -445,6 +445,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (p === '/api/office/area') { D.areas.forEach(function (a) { if (a.area === b.area) a.day = b.day === '' ? null : +b.day; }); return { areas: D.areas }; }
     if (p === '/api/office/money') { var act = D.customers.filter(function (c) { return c.status === 'active'; }).length, tri = D.customers.filter(function (c) { return c.status === 'trialing'; }).length; return { paying: { count: act, monthly: act * 8000 }, freeMonth: { count: tri, monthly: tri * 8000, list: D.customers.filter(function (c) { return c.status === 'trialing'; }).slice(0, 5).map(function (c) { return { name: c.name, monthly: 8000 }; }) }, pastDue: D.customers.filter(function (c) { return c.status === 'past_due'; }).map(function (c) { return { name: c.name, phone: c.phone, monthly: 8000 }; }), paused: 0, started: 2, startedList: [{ name: 'Pat Sample', phone: '6235550140' }, { name: 'Lee Example', phone: '6235550141' }] }; }
     if (p === '/api/office/health/clear') { D.cleared = new Date().toISOString(); p = '/api/office/health'; }
+    if (p.indexOf('/api/office/prepaid') === 0) return { prepaid: [{ id: D.customers[2].id, name: D.customers[2].name, status: 'active', brand: 'visa', last4: '4242', kept: false }], checked: D.customers.length, unread: 0, next: null };
     if (p === '/api/office/health') return { cleared: D.cleared || null, checks: { desk: true, booking: true, map: true, texts: false, signLock: true, botCheck: true }, liveRoutes: D.route.status === 'live' ? 1 : 0, lastPing: D.ping, queuedTexts: queued().length, errorsLastHour: 0, errors: [] };
     return {};
   }
@@ -1270,6 +1271,8 @@ table.t tr.click:hover td{background:var(--bg2)}
   function plainErr(e) {
     var m = e.message || '';
     if (/A text did not send/i.test(m)) return ['look', 'A text to a customer did not go through.', 'Open the Texts tab. The text is in the list with the reason. If it was a gate photo text, the photo went by email.'];
+    if (/paid with a prepaid card/i.test(m)) return ['look', 'A new sign up paid with a prepaid or gift card. We do not take those, so they were not booked. Their card was charged.', 'In Stripe, refund the first payment and cancel the plan. Or call them for a credit or debit card.'];
+    if (/prepaid card was turned away/i.test(m)) return ['look', 'A prepaid card was turned away at sign up, but it is still saved on the Stripe customer.', 'Remove that card in Stripe. Nothing was charged.'];
     if (/No such customer/i.test(m)) return ['fixed', 'The card step did not load for a sign up. Its saved Stripe customer had been deleted in Stripe.', 'Fixed on Nov 17. The site now makes a new one on its own.'];
     if (/saved Stripe customer was gone/i.test(m)) return ['note', 'A sign up pointed at a Stripe customer that was deleted in Stripe. The site made a new one and the sign up went on.', 'Nothing to do.'];
     if (/Address suggestions are off/i.test(m)) return ['todo', 'Address suggestions on the sign up form are off. Google refused the call. People can still type their address.', 'Atlas: turn on Places API (New) for the Google server key.'];
@@ -1302,6 +1305,14 @@ table.t tr.click:hover td{background:var(--bg2)}
       row('Lock on wrong sign in codes', c.signLock, '5 wrong codes and that email waits 15 minutes.', 'A weaker lock is on in its place. The full one needs one step in the database: run supabase/patch-2026-11-16.sql in the Supabase SQL Editor.') +
       row('Bot check on sign in screens', c.botCheck, 'The check runs on our sign in screens. It only stops robots once Captcha is also on in Supabase (Authentication, Attack Protection). On Nov 16, 2026 that switch was off.', 'Not set up yet. It needs TURNSTILE_SITE_KEY in Cloudflare and the Turnstile secret in Supabase.') +
       '</tbody></table></div></div>' +
+      '<div class="sec"><h3>Prepaid cards</h3>' +
+      '<p style="color:var(--mute);font-size:15px;line-height:1.5;margin:0 0 10px;max-width:640px">We do not take prepaid or gift cards. A new sign up with one is turned away on its own. This button looks at the card on file of every customer who has a plan. It only looks. It changes nothing.</p>' +
+      (S.prepaid ? (S.prepaid.list.filter(function (c) { return !c.kept; }).length
+          ? '<p class="tag warn" style="display:block;line-height:1.5;margin:0 0 8px">These customers have a prepaid card on file. Call them for a credit or debit card. Nothing was canceled.</p>'
+          : '<p class="tag ok" style="display:block;line-height:1.5;margin:0 0 8px">Checked ' + S.prepaid.checked + (S.prepaid.checked === 1 ? ' customer' : ' customers') + '. Nobody has a prepaid card that we do not allow.</p>') +
+        (S.prepaid.unread ? '<p style="color:var(--mute);font-size:14px;margin:0 0 8px">' + S.prepaid.unread + ' could not be read from Stripe. Try again in a minute.</p>' : '') +
+        '<ul class="list">' + S.prepaid.list.map(function (c) { return '<li class="row" data-cust="' + c.id + '"><div style="flex:1"><div class="a">' + h(c.name || 'No name') + '</div><div class="s">' + h((c.brand || 'card') + (c.last4 ? ' ending in ' + c.last4 : '')) + '</div></div>' + (c.kept ? '<span class="lbl">Allowed to stay</span>' : '<span class="tag warn">Prepaid</span>') + '</li>'; }).join('') + '</ul>' : '') +
+      '<button class="ib" style="min-height:48px;margin-top:8px" data-o="prepaid">' + (S.prepaid ? 'Check again' : 'Check the cards on file') + '</button></div>' +
       '<div class="sec"><h3>What went wrong' + (groups.length ? ' <span style="flex:1"></span><button class="ib" style="min-height:44px" data-o="clearhealth">Clear the list</button>' : '') + '</h3>' +
       '<p style="color:var(--mute);font-size:14px;line-height:1.5;margin:0 0 6px;max-width:640px">Every time the site, the crew app or a truck link hits a problem, it lands here in plain words. The same problem shows once, with how many times it happened.' + (x.cleared ? ' Cleared ' + h(stamp(x.cleared)) + '.' : '') + '</p>' +
       (groups.length ? groups.map(function (g) {
@@ -1531,6 +1542,11 @@ table.t tr.click:hover td{background:var(--bg2)}
           if (o === 'plan') { var r = await api('POST', '/api/office/plan', { date: S.data.day.day }); toast(r.added ? 'Added ' + r.added + ' yards' : 'Routes are up to date'); }
           if (o === 'night') { var n = await api('POST', '/api/office/night-before', {}); toast(n.queued + ' night before texts ready for ' + dayLabel(n.day) + (n.timed != null && n.timed < n.stops ? '. ' + (n.stops - n.timed) + ' yards have no time set and get none' : '')); }
           if (o === 'addstaff') { S.data.team = await api('POST', '/api/office/team', { name: val('tn'), email: val('te'), phone: val('tp'), role: val('tr'), scoops: !!(document.getElementById('ts') || {}).checked }); toast('Added'); }
+          if (o === 'prepaid') {
+            var got = { list: [], checked: 0, unread: 0 }, from = 0, turns = 0;
+            while (from != null && turns++ < 50) { var pr = await api('GET', '/api/office/prepaid?from=' + from); got.list = got.list.concat(pr.prepaid || []); got.checked += pr.checked || 0; got.unread += pr.unread || 0; from = pr.next; }
+            S.prepaid = got; toast('Checked ' + got.checked + (got.checked === 1 ? ' card' : ' cards'));
+          }
           if (o === 'clearhealth') {
             b.disabled = false;
             return sheetAsk('Clear the list?', 'Nothing is deleted. The list starts fresh from now, so you only see what goes wrong after this.', 'Clear the list', async function () { try { S.data.health = await api('POST', '/api/office/health/clear', {}); toast('Cleared'); render(); } catch (e) { toast(e.message); } }, 'Keep it');

@@ -1284,6 +1284,15 @@ Atlas put the Twilio settings and `SMS_TEST_ALLOWLIST` (Joe's mobile) in Cloudfl
 - Tests: `desk.test.mjs` 228, with `OLD_DB=1` 152, `worker.test.mjs` 542, `week.test.mjs` 76, `signup10` 40, `nav.test.py` 68, `npm run check` passes. `signup50` not rerun.
 - The training video does not show the On my way button. It needs a rebuild before scoopers use this.
 
+### Nov 23, 2026 (field desk session). No prepaid cards. Branch `field-app/no-prepaid`, in a pull request, NOT merged.
+Joe, through Atlas: "APW does not accept prepaid cards." New sign ups only. Latawnya Cunningham is kept (`PREPAID_OK`, her Stripe customer id). Other customers with a prepaid card are flagged, never canceled. No Stripe settings are changed.
+- Touches the sign up server path (`checkoutDone`, `startPlan`, `paidPlan`, `booked`, the plan events branch of the webhook) and the pay step of `book.prod.tpl.html` (`_paid` now waits for the server's answer). `src/boards/book.json` was rebuilt from the template.
+- New: `prepaidFree`, `prepaidPaid`, `officePrepaid` (`/api/office/prepaid`), a "Prepaid cards" block on the Health tab, two `plainErr` lines.
+- The pay step also says "Credit or debit cards only. No prepaid or gift cards." before the card form.
+- The free month path is fully blocked. The pay today path cannot be blocked before the charge by the app: see CLAUDE.md, Still open 22.
+- Tests: `worker.test.mjs` 557, `signup50` 131, `signup10` 40, `week.test.mjs` 100, `nav.test.py` 68, `npm run check` passes. `desk.test.mjs` 260 pass and 1 fails ("the plan for one day has every waiting house on it"), which fails the same way on `main` today and is not from this change.
+- Not run: the real Stripe. Nobody has put a real prepaid card through the live form.
+
 ### Nov 21, 2026, 5:10 pm (field desk session). Every house gets its own start tap. Branch `field-app/per-house-start`, in a pull request, NOT merged.
 Joe, through Atlas: "when I say start route, we need to hit start route for every single new house. Once we're done with the house, we hit start route, start route, start route, so they can get their texts and all this stuff. I don't want them to see us going from house to house to house."
 - Pull request 4 was merged at 5:00 pm on Joe's go (on my way tap, welcome resend follows test mode, owner night before button). After it, finishing a yard still put the next yard "on the way" on its own, and that customer's link could show the truck before the worker tapped for them. This branch fixes that.
