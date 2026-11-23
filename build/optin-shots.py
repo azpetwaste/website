@@ -59,6 +59,10 @@ with sync_playwright() as p:
     page.wait_for_timeout(300)
     page.get_by_role('button', name='Continue').click()
     page.wait_for_timeout(500)
+    # Since November 23, 2026 every home is asked "How long has it been since the last cleanup?" before about you.
+    # Tapping an answer moves on. About you is still step 3 of 4 and looks the same, so the proof picture did not change.
+    page.get_by_role('radio', name='Within the last week').click()
+    page.wait_for_timeout(500)
     assert 'Step 3 of 4' in page.inner_text('#app'), 'the text box is no longer on step 3 of 4: fix /texts/ too'
     assert page.evaluate("[document.querySelector('#b-tv').checked, !!document.querySelector('#b-td')]") == [False, False], 'the text box starts checked, or there are two boxes again'
     assert page.evaluate("(() => { const b = document.querySelector('.bk-body'); return b.scrollHeight - b.clientHeight; })()") <= 0, 'the step no longer fits: make the screen taller'

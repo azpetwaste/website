@@ -38,6 +38,9 @@ alter table public.customers add column if not exists scooper_id uuid references
 alter table public.customers add column if not exists pause_from date;
 alter table public.customers add column if not exists pause_until date;
 alter table public.customers add column if not exists office_notes text;
+-- How long it had been since the last cleanup when they signed up (Joe, Nov 23, 2026). Book now asks every home.
+-- The owner reads it in the New booking email and the crew on the stop card of the first visit. No fee hangs on it.
+alter table public.customers add column if not exists last_cleanup text check (last_cleanup is null or last_cleanup in ('week', '1to4w', '1to3m', '3mplus', 'unsure'));
 -- Dates the customer skipped from My Yard (4 free skips a year).
 alter table public.customers add column if not exists skips date[] not null default '{}';
 create index if not exists customers_service_day_idx on public.customers (service_day);

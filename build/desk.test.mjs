@@ -275,6 +275,29 @@ r = await call('/api/office/day', 'GET', null, mt);
 ok('scooper cannot open the office', r.status === 403);
 r = await call('/api/crew/today', 'GET', null, mt);
 ok('Maria sees 2 stops with gate fields', r.d.stops.length === 2 && 'gate_code' in r.d.stops[0].customer, r.d.stops.map((s) => s.status));
+{ // How long since the last cleanup (Joe, Nov 23, 2026): the scooper sees it on the stop card of the first visit.
+  const [a1, a2] = r.d.stops.map((s) => s.customer.id), day0 = r.d.day, noteWas = r.d.stops[0].customer.office_notes;
+  ok('with no answer on file the card is as it was', r.d.stops.every((s) => !/FIRST VISIT/.test(s.customer.office_notes || '')));
+  await db.query("update customers set last_cleanup = '3mplus', office_notes = 'Dog is shy.' where id = $1", [a1]);
+  await db.query("update customers set last_cleanup = 'week', office_notes = null where id = $1", [a2]);
+  r = await call('/api/crew/today', 'GET', null, mt);
+  const n1 = r.d.stops.find((s) => s.customer.id === a1).customer.office_notes, n2 = r.d.stops.find((s) => s.customer.id === a2).customer.office_notes;
+  ok('first visit, 3+ months: "From the office" leads with it and says to plan extra time, and the office note is still there', n1 === 'FIRST VISIT. Last cleanup: 3+ months. Plan extra time. Dog is shy.', n1);
+  ok('first visit, within the last week: it says so, with no "extra time"', n2 === 'FIRST VISIT. Last cleanup: Within the last week.', n2);
+  ok('nothing was saved over the office note', (await db.query('select office_notes from customers where id = $1', [a1])).rows[0].office_notes === 'Dog is shy.');
+  // A finished visit on an earlier day: it is no longer a first visit.
+  const old = (await db.query("insert into routes (day, staff_id, status) select ($1::date - 7), staff_id, 'done' from routes where day = $1 limit 1 returning id", [day0])).rows[0].id;
+  await db.query("insert into stops (route_id, customer_id, day, status, code, done_at) values ($1, $2, ($3::date - 7), 'done', 'OLDV01', now())", [old, a1, day0]);
+  r = await call('/api/crew/today', 'GET', null, mt);
+  ok('from the second visit on the line is gone, for that yard only', r.d.stops.find((s) => s.customer.id === a1).customer.office_notes === 'Dog is shy.' && /^FIRST VISIT/.test(r.d.stops.find((s) => s.customer.id === a2).customer.office_notes), r.d.stops.map((s) => s.customer.office_notes));
+  // A finished visit long ago (back from a long pause) counts too.
+  await db.query("update stops set day = ($1::date - 200) where code = 'OLDV01'", [day0]); await db.query("update routes set day = ($1::date - 200) where id = $2", [day0, old]);
+  r = await call('/api/crew/today', 'GET', null, mt);
+  ok('a visit from long ago counts as well', r.d.stops.find((s) => s.customer.id === a1).customer.office_notes === 'Dog is shy.', r.d.stops.map((s) => s.customer.office_notes));
+  await db.query('delete from routes where id = $1', [old]);
+  await db.query('update customers set last_cleanup = null, office_notes = $2 where id = $1', [a1, noteWas || null]); await db.query('update customers set last_cleanup = null where id = $1', [a2]);
+  r = await call('/api/crew/today', 'GET', null, mt);
+}
 r = await call('/api/track/' + samStop.code, 'GET');
 ok('truck link before start: on the route, with the set time and nothing about the route order', r.status === 200 && r.d.status === 'scheduled' && r.d.stopsAway === undefined && r.d.eta === undefined && r.d.truck === undefined && (OLD || r.d.around === '9:00 AM') && r.d.scooper === 'Maria', r.d);
 r = await call('/api/crew/start', 'POST', {}, mt);

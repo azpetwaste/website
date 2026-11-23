@@ -88,6 +88,8 @@ function rest(method, rel, body, prefer) {
   if (method === 'GET') return reply(restRows(table, qs).map((r) => Object.assign({}, r)));
   if (method === 'POST') {
     const rows = Array.isArray(body) ? body : [body], saved = [];
+    // DBX.noLast: a customers table from before the "last cleanup" column, the way Supabase answers a column it does not have.
+    if (table === 'customers' && DBX.noLast && rows.some((r) => 'last_cleanup' in r)) return reply({ code: 'PGRST204', message: "Could not find the 'last_cleanup' column of 'customers' in the schema cache" }, 400);
     for (const r of rows) {
       const old = /on_conflict=id/.test(qs || '') && T[table].find((x) => x.id === r.id);
       if (old) Object.assign(old, r);
@@ -2158,6 +2160,42 @@ head('Prices (Joe, Nov 18, 2026): one file, the numbers he set, new Stripe price
   ok('one dog for a new customer: $89', r.status === 200 && r.d.monthly === 8900 && S.subs.sub_new1.items.data[0].price.id === 'price_apw_week_1_8900' && /Your price is now \$89 a month/.test((sent(/^We updated your plan to 1 dog$/)[0] || {}).text || ''), r.d.monthly);
   ok('no request in all of this asked Stripe for a part month or a billing day', !S.all.some((x) => x.m !== 'GET' && ((x.f.has('proration_behavior') && x.f.get('proration_behavior') !== 'none') || x.f.has('billing_cycle_anchor') || x.f.has('proration_date'))));
   T.staff.length = 0; delete tokens.boss; T.customers.length = 0; for (const k of Object.keys(S.subs)) delete S.subs[k]; env = Object.assign({}, baseEnv); reset();
+}
+
+/* ---------- how long since the last cleanup (Joe, Nov 23, 2026) ---------- */
+head('Book now asks how long it has been since the last cleanup, and the owner is told');
+{
+  const fresh = () => { T.customers.length = 0; T.errors.length = 0; T.leads.length = 0; for (const k of Object.keys(S.subs)) delete S.subs[k]; for (const k of Object.keys(S.sessions)) delete S.sessions[k]; S.charges.length = 0; reset(); };
+  const says = { week: 'Within the last week', '1to4w': '1 to 4 weeks', '1to3m': '1 to 3 months', '3mplus': '3+ months', unsure: 'Never / not sure' };
+  let r, s, m;
+  for (const k of Object.keys(says)) {
+    fresh(); env = Object.assign({}, baseEnv);
+    r = await call('/api/checkout', 'POST', Object.assign({}, good, { plan: 'week', dogs: 2, last: k }), 'good'); s = S.sessions[r.d.session];
+    const saved = row(U1).last_cleanup, atCard = row(U1).status;
+    await hook(sessionEvt(s.id)); m = sent(/^New booking: Test Person/)[0];
+    const heavy = ['1to3m', '3mplus', 'unsure'].includes(k);
+    ok('"' + says[k] + '" is saved on the customer and is in the owner’s New booking email' + (heavy ? ', with "Plan extra time for the first visit."' : ''), r.status === 200 && saved === k && atCard === 'checkout' && row(U1).last_cleanup === k && !!m
+      && m.text.includes('Last cleanup: ' + says[k] + '.' + (heavy ? ' Plan extra time for the first visit.' : '\n')) && (heavy || !/Plan extra time/.test(m.text)), [saved, m && m.text]);
+  }
+  fresh(); r = await call('/api/checkout', 'POST', Object.assign({}, good, { plan: 'week', dogs: 2, last: '3mplus' }), 'good'); s = S.sessions[r.d.session];
+  ok('the answer changes no price and adds no fee: the card form has the one plan price and says $0 today, as before', s.form.get('mode') === 'setup' && s.metadata.first_charge === '9900' && /^\$0 today\. Then \$99 a month starting /.test(r.d.line)
+    && !S.calls.some((c) => c.p === 'invoiceitems') && ![...s.form.keys()].some((k) => /line_items\[1\]|add_invoice_items/.test(k)), [s.metadata, r.d.line]);
+  env = Object.assign({}, baseEnv, SALE_OVER); fresh();
+  r = await call('/api/checkout', 'POST', Object.assign({}, good, { plan: 'week', dogs: 2, last: '3mplus' }), 'good'); s = S.sessions[r.d.session];
+  ok('with no free month too: one line, the month price, nothing added for a heavy yard', s.form.get('mode') === 'subscription' && !!s.form.get('line_items[0][price]') && !s.form.has('line_items[1][price]') && /^\$99 today\./.test(r.d.line)
+    && ![...s.form.keys()].some((k) => /add_invoice_items/.test(k)), [String(s.form), r.d.line]);
+  env = Object.assign({}, baseEnv); fresh();
+  r = await call('/api/checkout', 'POST', Object.assign({}, good, { plan: 'week', dogs: 2 }), 'good'); s = S.sessions[r.d.session];
+  await hook(sessionEvt(s.id));
+  ok('a page that was opened before the question was added still signs up: no answer is saved and the email has no line for it', r.status === 200 && row(U1).last_cleanup == null && row(U1).status === 'trialing' && !/Last cleanup/.test(sent(/^New booking/)[0].text), row(U1));
+  fresh(); r = await call('/api/checkout', 'POST', Object.assign({}, good, { plan: 'week', dogs: 2, last: 'constructor' }), 'good');
+  ok('an answer the form does not have is not saved', r.status === 200 && row(U1).last_cleanup == null, row(U1));
+  fresh(); DBX.noLast = true; r = await call('/api/checkout', 'POST', Object.assign({}, good, { plan: 'week', dogs: 2, last: '3mplus' }), 'good'); await settle(); DBX.noLast = false;
+  ok('if the table does not have the column yet, the sign up still goes through and the Health tab says the answer was not saved', r.status === 200 && !!r.d.clientSecret && row(U1).status === 'checkout' && row(U1).last_cleanup == null
+    && T.errors.some((e) => /saved without its "last cleanup" answer/.test(e.message) && /3\+ months/.test(e.detail)), [r, T.errors]);
+  fresh(); r = await call('/api/request', 'POST', Object.assign({}, good, { plan: 'once', dogs: 2, last: '3mplus', email: 'once9@example.com', name: 'Olive Once' })); m = sent(/^One time cleanup request: Olive Once/)[0];
+  ok('a Just once request carries the same answer to the office, in the email and on the lead', r.status === 200 && !!m && m.text.includes('Last cleanup: 3+ months. Plan extra time for the visit.') && T.leads.some((l) => /Last cleanup: 3\+ months\./.test(l.details || '')), [m && m.text, T.leads]);
+  fresh();
 }
 
 /* ---------- no prepaid cards (Joe, Nov 23, 2026) ---------- */

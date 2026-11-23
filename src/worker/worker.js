@@ -64,6 +64,15 @@ const CALL_BILLING = 'To change your card, see a bill or cancel, call or text 62
 // PREPAID_OK is the one customer who keeps a prepaid card, by her Stripe customer id (Latawnya Cunningham, a customer
 // from before the rule). Do not add an id without Joe. A customer from before the rule is never turned away, canceled
 // or stopped from paying by this: prepaidSweep only tells the owner about them.
+// How long since the last cleanup (Joe, Nov 23, 2026): Book now asks every home this, so the owner and the crew know
+// when a first visit is a heavy backlog ("today one took 1.5 hours"). The answer is saved on the customer row
+// (`last_cleanup`, one of these keys). It changes no price and adds no fee: Joe, "No fee for now... Just the question."
+// The owner reads it in the "New booking" email. The crew reads it on the stop card of the first visit (firstVisitNotes).
+// The words are the ones on the form. Joe wrote "1-4 weeks", "1-3 months" and "Never / not sure": the site has no
+// dashes in copy, so those read "1 to 4 weeks" and "1 to 3 months".
+const LAST_CLEANUP = { week: 'Within the last week', '1to4w': '1 to 4 weeks', '1to3m': '1 to 3 months', '3mplus': '3+ months', unsure: 'Never / not sure' };
+const HEAVY_YARD = ['1to3m', '3mplus', 'unsure'];
+const lastCleanupLine = (k) => (own(LAST_CLEANUP, k) ? 'Last cleanup: ' + LAST_CLEANUP[k] + '.' + (HEAVY_YARD.includes(k) ? ' Plan extra time.' : '') : '');
 const NO_PREPAID = 'Credit or debit card required. Prepaid and gift cards aren\u2019t accepted.';
 const PREPAID_OK = ['cus_VfcvBMqaFWKvi3'];
 const isPrepaid = (card) => !!(card && card.card && card.card.funding === 'prepaid');
@@ -724,10 +733,20 @@ async function checkout(request, env, ctx) {
     goneNote(was);
   };
 
-  await db(env, 'POST', 'customers?on_conflict=id', [{
+  // How long since the last cleanup. The form makes it a must. A page that was opened before the question was added
+  // does not send it, and that sign up still goes through with no answer.
+  const lastCleanup = own(LAST_CLEANUP, b.last) ? { last_cleanup: String(b.last) } : {};
+  const signUp = {
     id: u.id, email: u.email, name, phone, address, zip, area: z.area, plan: b.plan, dogs, first_visit: null,
     texts_visit: !!b.textsVisit, texts_deals: false, status: 'checkout', stripe_customer_id: customer, updated_at: new Date().toISOString()
-  }], 'resolution=merge-duplicates,return=minimal');
+  };
+  try { await db(env, 'POST', 'customers?on_conflict=id', [Object.assign({}, signUp, lastCleanup)], 'resolution=merge-duplicates,return=minimal'); } catch (e) {
+    // The answer must never cost a sign up. If the row will not save with it (the column is in supabase/crm.sql),
+    // the row is saved without it and the Health tab says so.
+    if (!lastCleanup.last_cleanup) throw e;
+    await db(env, 'POST', 'customers?on_conflict=id', [signUp], 'resolution=merge-duplicates,return=minimal');
+    ctx.waitUntil(logError(env, 'server', '/api/checkout', 'A sign up was saved without its "last cleanup" answer', 'Answer: ' + LAST_CLEANUP[lastCleanup.last_cleanup] + '. Run supabase/crm.sql again so the customers table has last_cleanup. ' + clean(e && e.message, 200)));
+  }
 
   const ip = request.headers.get('cf-connecting-ip') || '';
   const ua = clean(request.headers.get('user-agent'), 300);
@@ -1037,6 +1056,7 @@ async function booked(env, ctx, uid, sub, customer, card, s) {
     'New customer booked online.', '',
     'Name: ' + c.name, 'Email: ' + c.email, 'Mobile: ' + c.phone, 'Address: ' + c.address + ', ' + c.zip,
     'Plan: ' + PLANS[c.plan].name + ', ' + c.dogs + ' dogs, ' + money(total) + ' a month',
+    ...(lastCleanupLine(c.last_cleanup) ? [lastCleanupLine(c.last_cleanup).replace('Plan extra time.', 'Plan extra time for the first visit.')] : []),
     'To do: reach out to set their day and time.', 'Billing: ' + billLine, 'Visit texts: ' + (c.texts_visit ? 'yes' : 'no') + '. Deals texts: ' + (c.texts_deals ? 'yes' : 'no'),
     'Stripe customer: ' + customer
   ].join('\n')));
@@ -1863,7 +1883,8 @@ async function quoteRequest(request, env, ctx, b, zip, z) {
   const what = once
     ? 'One time cleanup, ' + count + '. Starts at ' + money(PRICES.once * 100) + ', depending on job size. Give them the price before the visit.'
     : 'Monthly cleanup, ' + count + '. One visit a month. Monthly has no set price yet. Give them the price before the first visit.';
-  const last = own(LAST_CLEANED, b.last) ? 'Yard last cleaned: ' + own(LAST_CLEANED, b.last) + '.' : '';
+  // The five answers the form has since November 23, 2026, or one of the three it had before (a page left open).
+  const last = lastCleanupLine(b.last).replace('Plan extra time.', 'Plan extra time for the visit.') || (own(LAST_CLEANED, b.last) ? 'Yard last cleaned: ' + own(LAST_CLEANED, b.last) + '.' : '');
   const sent = await mail(env, owner(env), own(QUOTE_PLANS, b.plan) + ' request: ' + name + ', ' + z.name, [
     once ? 'Someone booked a one time cleanup on the website. No card was taken. Text or call them with the price and a time.'
       : 'Someone asked for a monthly cleanup on the website. No card was taken. Text or call them with the price and a day.', '',
@@ -2684,6 +2705,30 @@ const CREW_STOP = 'id,position,status,reason,note,photo_path,no_photo,code,on_wa
 async function myRoute(s, env) {
   return (await db(env, 'GET', 'routes?day=eq.' + azToday() + '&staff_id=eq.' + s.id + '&select=*'))[0] || null;
 }
+// The first visit to a yard: the scooper sees how long it has been since the last cleanup (Joe, Nov 23, 2026), so a
+// heavy yard is no surprise. The line goes on top of "From the office" on that stop's card, which the crew app
+// already shows, so the app itself did not change. It is added to what is sent to the phone only: nothing is saved,
+// and the office's own notes for the crew are not touched. A first visit is a yard with no finished visit before
+// today. From the second visit on the line is gone. This never stops a route from loading.
+async function firstVisitNotes(env, stops, day) {
+  try {
+    const ids = [...new Set(stops.map((x) => x.customer && x.customer.id).filter(Boolean))];
+    if (!ids.length) return;
+    const asked = await db(env, 'GET', 'customers?id=in.(' + ids.join(',') + ')&last_cleanup=not.is.null&select=id,last_cleanup');
+    if (!asked.length) return;
+    // Who has had a finished visit before today. Looked up in two goes so a long history never crowds the answer:
+    // the last 30 days first, then all time for the few who had none in those days (new yards, or back from a pause).
+    const been = new Set();
+    const done = (list, more) => db(env, 'GET', 'stops?customer_id=in.(' + list.join(',') + ')&status=eq.done&day=lt.' + day + (more || '') + '&select=customer_id&limit=1000');
+    for (const r of await done(asked.map((c) => c.id), '&day=gte.' + addDays(day, -30))) been.add(r.customer_id);
+    const rest = asked.map((c) => c.id).filter((id) => !been.has(id));
+    if (rest.length) for (const r of await done(rest)) been.add(r.customer_id);
+    const line = Object.fromEntries(asked.filter((c) => !been.has(c.id) && own(LAST_CLEANUP, c.last_cleanup)).map((c) => [c.id, 'FIRST VISIT. ' + lastCleanupLine(c.last_cleanup)]));
+    for (const st of stops) {
+      if (st.customer && line[st.customer.id]) st.customer.office_notes = line[st.customer.id] + (st.customer.office_notes ? ' ' + st.customer.office_notes : '');
+    }
+  } catch (e) { console.error('first visit notes', e && e.message); }
+}
 async function crewToday(s, env) {
   const day = azToday();
   let r = await myRoute(s, env);
@@ -2692,6 +2737,7 @@ async function crewToday(s, env) {
   if (!r || r.status === 'planned') { try { await planDay(env, day); r = await myRoute(s, env); } catch (e) { console.error('auto plan', e); } }
   if (!r) return ok({ day, dayName: DAYS[weekday(day)], route: null, stops: [], texts: [], me: { name: s.name, role: s.role } });
   const stops = await db(env, 'GET', 'stops?route_id=eq.' + r.id + '&select=' + CREW_STOP + '&order=position,id');
+  await firstVisitNotes(env, stops, day);
   const ids = stops.map((x) => x.id);
   const texts = ids.length ? await db(env, 'GET', 'messages?status=eq.queued&stop_id=in.(' + ids.join(',') + ')&select=id,stop_id,kind,to_addr,body&order=created_at') : [];
   const times = await timesOf(env, stops.map((x) => ({ id: x.id, day, customer_id: x.customer && x.customer.id }))).catch(() => ({}));
