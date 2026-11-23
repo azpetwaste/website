@@ -1293,3 +1293,7 @@ Joe, through Atlas: "when I say start route, we need to hit start route for ever
 - Tests: `desk.test.mjs` 231, with `OLD_DB=1` 155, `worker.test.mjs` 542, `signup10` 40, `nav.test.py` 68, `npm run check` passes, two houses walked in the demo in a real browser. Not run: `week.test.mjs` (no change there), `signup50`, a real phone.
 - `CRON_SECRET`: Atlas put it in Cloudflare. It is still missing in the GitHub Actions secrets, which Claude cannot set, so the evening run does nothing yet.
 
+### Nov 22, 2026, night (Field App chat): Preplan my days, on the branch `field-app/pre-plan`
+- Not on `main`. It is a pull request until Joe has tried it. Read the Nov 22 section of `docs/FIELD_APP.md` for what it does, what was tested and what is still open (the training video).
+- It changes `src/worker/worker.js` (`prePlan`, `officePrePlan`, `nightRun`, `nightMails`, `officeDay` with `build`), `static/crew/index.html` (the Preplan screen, the day strip, the demo) and the tests. No database change, no price or money rule touched, nothing on the public site.
+- `build/signup50.test.mjs` has one check that fails on `main` too ("only Monday to Friday is used"). It was run on a Sunday. Somebody should look at it.

@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const tmp = path.join(os.tmpdir(), 'apw-week-' + process.pid + '.mjs');
-fs.writeFileSync(tmp, fs.readFileSync(path.join(ROOT, 'src/worker/worker.js'), 'utf8') + '\nexport { weekPlan, nearSlot, shortOrder, pathMiles, miles, ZIPS };\n');
+fs.writeFileSync(tmp, fs.readFileSync(path.join(ROOT, 'src/worker/worker.js'), 'utf8') + '\nexport { weekPlan, nearSlot, shortOrder, pathMiles, miles, ZIPS, prePlan };\n');
 const W = await import(tmp);
 fs.unlinkSync(tmp);
 let pass = 0, fail = 0;
@@ -127,5 +127,45 @@ console.log('\nA new sign up joins close yards only while the day has room');
   const slot = W.nearSlot(full.slice(0, 29), pin, 'week', 30, WEEK);
   ok('a day with room (29 of 30) is offered', slot && slot.service_day === 2 && slot.scooper_id === 's1');
 }
+// Preplan my days (Joe, Nov 22, 2026): the houses with no day and time are put on the days the office picked.
+console.log('\nPreplan my days');
+{
+  const six = [['Lopez', 33.5212, -112.4766], ['Means', 33.4444, -112.3962], ['Cunningham', 33.4748, -112.3415], ['Dan', 33.5169, -112.4396], ['Wyche', 33.4308, -112.5542], ['Arbo', 33.5646, -112.4507]]
+    .map((x, i) => ({ id: 'p' + i, name: x[0], lat: x[1], lng: x[2], first: true }));
+  const mins = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+  const rising = (d) => d.yards.every((y, i) => i === 0 || mins(y.time) > mins(d.yards[i - 1].time));
+  let p = W.prePlan(six, ['2026-11-23'], {});
+  ok('one day: all six houses are on it', p.days.length === 1 && p.days[0].yards.length === 6 && !p.none.length && !p.noPin.length);
+  ok('the first house is at 8:00 AM and every time after is later', p.days[0].yards[0].time === '08:00' && rising(p.days[0]), p.days[0].yards.map((y) => y.time).join(' '));
+  ok('times are on the five minutes, and a first visit gets its 20 minutes plus the drive', p.days[0].yards.every((y) => mins(y.time) % 5 === 0) && mins(p.days[0].yards[1].time) - mins(p.days[0].yards[0].time) >= 21);
+  ok('the day is in a short driving order (under 40 miles for these six)', p.days[0].miles > 0 && p.days[0].miles < 40, p.days[0].miles);
+  p = W.prePlan(six, ['2026-11-23'], { start: '10:30' });
+  ok('the office picks the first time', p.days[0].yards[0].time === '10:30');
+  p = W.prePlan(six, ['2026-11-24', '2026-11-23'], {});
+  ok('two days: every house is on one of them, and each day starts at 8:00 AM', p.days.map((d) => d.date).join() === '2026-11-23,2026-11-24' && p.days[0].yards.length + p.days[1].yards.length === 6 && p.days.every((d) => d.yards.length >= 2 && d.yards[0].time === '08:00' && rising(d)), p.days.map((d) => d.yards.length));
+  const one = W.prePlan(six, ['2026-11-23'], {}).days[0].miles;
+  ok('two days keep neighbors together: the two routes add up to fewer miles than the one long day', p.days[0].miles + p.days[1].miles < one, [p.days[0].miles, p.days[1].miles, one]);
+  p = W.prePlan(six, ['2026-11-23', '2026-11-24'], { assign: { p0: '2026-11-24', p1: '2026-11-24', p2: '2026-11-24', p3: '2026-11-24', p4: '2026-11-23', p5: 'none' } });
+  ok('the office moves houses and that wins: four on Tuesday, one on Monday, one left out', p.days[0].yards.map((y) => y.c.id).join() === 'p4' && p.days[1].yards.length === 4 && p.none.map((c) => c.id).join() === 'p5');
+  p = W.prePlan(six.concat([{ id: 'nopin', name: 'No Pin', lat: null, lng: null }]), ['2026-11-23'], {});
+  ok('a house that is not on the map is not planned, and is listed', p.noPin.length === 1 && p.days[0].yards.length === 6);
+  p = W.prePlan(six, ['2026-11-23'], { busy: { '2026-11-23': [{ lat: 33.5, lng: -112.4, time: '09:00' }, { lat: 33.5, lng: -112.41, time: '13:15' }] } });
+  ok('a day that already has yards: they keep their times and the new houses go after the last one', p.days[0].had === 2 && mins(p.days[0].yards[0].time) >= 13 * 60 + 25 && rising(p.days[0]), p.days[0].yards.map((y) => y.time).join(' '));
+  p = W.prePlan(six, ['2026-11-23'], { cap: 4 });
+  ok('a day over the daily limit is flagged, not hidden', p.days[0].over === true);
+  p = W.prePlan(six, ['2026-11-23'], { start: '17:00' });
+  ok('a day that runs past 6 PM is flagged', p.days[0].late === true, p.days[0].ends);
+  p = W.prePlan([], ['2026-11-23'], {});
+  ok('no houses to plan is an empty day, not a crash', p.days[0].yards.length === 0 && p.days[0].ends === null);
+  const big = mix(200).map((c) => Object.assign(c, { first: false }));
+  p = W.prePlan(big, ['2026-11-23', '2026-11-24', '2026-11-25', '2026-11-26', '2026-11-27'], { cap: 45 });
+  const sizes = p.days.map((d) => d.yards.length);
+  ok('200 houses over five days: all placed, no day over the limit of 45 and none under 24 (' + sizes.join(', ') + ')', sizes.reduce((a, b) => a + b, 0) === big.length && Math.max(...sizes) <= 45 && Math.min(...sizes) >= 24 && p.days.every((d) => rising(d) && !d.over));
+  p = W.prePlan(big, ['2026-11-23', '2026-11-24'], { cap: 30 });
+  ok('more houses than the days can hold: every house is still placed and the days say they are over', p.days[0].yards.length + p.days[1].yards.length === big.length && p.days.every((d) => d.over));
+  const t0 = Date.now(); W.prePlan(mix(1000), ['2026-11-23', '2026-11-24', '2026-11-25', '2026-11-26', '2026-11-27', '2026-11-28', '2026-11-29'], { cap: 150 });
+  ok('1,000 houses plan in under 5 seconds (' + (Date.now() - t0) + ' ms)', Date.now() - t0 < 5000);
+}
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);

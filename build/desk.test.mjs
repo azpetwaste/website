@@ -892,7 +892,7 @@ else {
   r = await call('/api/office/stop', 'POST', { id: sJoe.id, action: 'time', time: '15:00' }, owner);
   ok('saving the same time again tells nobody', TW.sent.length === t0 + 1);
   // A night before text that has not gone out yet gets the new time.
-  await db.query(`update public.messages set status = 'queued', sent_at = null where stop_id = $1 and kind = 'night_before'`, [sRealId(r.d)]);
+  await db.query(`update public.messages set status = 'queued', sent_at = null where stop_id = $1 and kind = 'night_before' and channel = 'sms'`, [sRealId(r.d)]);
   env.SMS_HOURS = '0-0';
   r = await call('/api/office/stop', 'POST', { id: sRealId(r.d), action: 'time', time: '13:30' }, owner);
   env.SMS_HOURS = '0-24';
@@ -1012,6 +1012,106 @@ else {
   r = await call('/api/health', 'GET');
   ok('/api/health says texts are off', r.d.texts === false && r.d.textsTest === false, r.d);
   env.TWILIO_ACCOUNT_SID = keep.a;
+
+  // Preplan my days (Joe, Nov 22, 2026): the app plans the booked houses with no day and time. Nothing is saved or sent
+  // until the office confirms. Then the confirmation goes out, and tomorrow's customers get their night before email and text.
+  console.log('\nPreplan my days');
+  {
+  const day2 = new Date(Date.parse(today + 'T19:00:00Z') + 2 * 864e5).toISOString().slice(0, 10);
+  const wdOf = (d) => new Date(d + 'T19:00:00Z').getUTCDay();
+  const parity = (d) => ((Math.floor((Date.parse(d + 'T19:00:00Z') - Date.parse('2026-01-05T19:00:00Z')) / (7 * 864e5)) % 2) + 2) % 2;
+  const mins = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+  const row = async (id) => (await db.query('select service_day, service_time, first_visit, eow_week, plan from public.customers where id = $1', [id])).rows[0];
+  const pA = await mk('pre-a@example.com', 'Ann Alpha', '6235550301', true), pB = await mk('pre-b@example.com', 'Bob Bravo', '6235550302', true);
+  const pC = await mk('pre-c@example.com', 'Cy Charlie', '6235550303', true), pD = await mk('pre-d@example.com', 'Di Delta', '6235550304', false), pN = await mk('pre-n@example.com', 'Ned Nopin', '6235550305', true);
+  await db.query(`update public.customers set lat = 33.430, lng = -112.554 where id = $1`, [pA]);
+  await db.query(`update public.customers set lat = 33.521, lng = -112.476 where id = $1`, [pB]);
+  await db.query(`update public.customers set lat = 33.444, lng = -112.396, plan = 'eow' where id = $1`, [pC]);
+  await db.query(`update public.customers set lat = 33.474, lng = -112.341 where id = $1`, [pD]);
+  await db.query(`update public.customers set lat = null, lng = null where id = $1`, [pN]);
+  const mine4 = [pA, pB, pC, pD], pMails = ['pre-a@example.com', 'pre-b@example.com', 'pre-c@example.com', 'pre-d@example.com'], pPhones = ['+16235550301', '+16235550302', '+16235550303', '+16235550304'];
+  const mailCount = () => pMails.reduce((n, e) => n + mailsTo(e).length, 0), textCount = () => TW.sent.filter((x) => pPhones.includes(x.to)).length;
+  const msgCount = async () => Number((await db.query('select count(*) n from public.messages where customer_id = any($1)', [mine4])).rows[0].n);
+  delete env.SMS_TEST_ALLOWLIST; env.NIGHT_RUN_AT = '00:00';
+  let mc = mailCount(), tc = textCount();
+  r = await call('/api/office/preplan', 'POST', { dates: [] }, owner);
+  ok('with no day picked it asks for one', r.status === 400 && /Pick at least one day/.test(r.d.error), r.d);
+  r = await call('/api/office/preplan', 'POST', { dates: [tomorrow] }, mt);
+  ok('a scooper cannot plan the days', r.status === 403, r.status);
+  r = await call('/api/office/preplan', 'POST', { dates: ['2020-01-01', '2099-01-01'] }, owner);
+  ok('a day in the past or far off is not a day to plan', r.status === 400, r.d);
+  r = await call('/api/office/preplan', 'POST', { dates: [tomorrow] }, owner);
+  let yards = r.d.days[0].yards, got = mine4.map((id) => yards.find((y) => y.id === id));
+  ok('the plan for one day has every waiting house on it, with a time for each', r.status === 200 && r.d.days.length === 1 && got.every(Boolean) && yards.every((y, i) => /^\d\d:\d\d$/.test(y.time) && (i === 0 || mins(y.time) > mins(yards[i - 1].time))), yards.map((y) => y.time + ' ' + y.name));
+  ok('with nothing on that day yet the first house is at 8:00 AM', r.d.days[0].had > 0 || yards[0].time === '08:00', [r.d.days[0].had, yards[0].time]);
+  ok('the house with no map pin is listed apart and not planned', r.d.noPin.some((y) => y.id === pN) && !yards.some((y) => y.id === pN));
+  ok('it says who would be told: an email for each, and a text for the ones who said yes', r.d.tell.gate === '' && r.d.tell.email >= 4 && r.d.tell.text >= 3 && r.d.tell.tomorrow >= 4 && r.d.tell.nightNow === true, r.d.tell);
+  ok('looking at a plan saves nothing and tells nobody', (await row(pA)).service_day === null && (await row(pA)).service_time === null && mailCount() === mc && textCount() === tc && await msgCount() === 0
+    && Number((await db.query('select count(*) n from public.stops where customer_id = any($1)', [mine4])).rows[0].n) === 0);
+  r = await call('/api/office/preplan', 'POST', { dates: [tomorrow, day2], assign: { [pA]: day2, [pB]: day2, [pC]: tomorrow, [pD]: 'none' } }, owner);
+  const d1 = r.d.days.find((d) => d.date === tomorrow), d2 = r.d.days.find((d) => d.date === day2);
+  ok('the office moves houses between the days and leaves one out: the plan follows', d2.yards.some((y) => y.id === pA) && d2.yards.some((y) => y.id === pB) && d1.yards.some((y) => y.id === pC) && r.d.none.some((y) => y.id === pD) && !d1.yards.concat(d2.yards).some((y) => y.id === pD));
+  // Test mode: confirm it. Only the customer on the test list hears a thing.
+  env.SMS_TEST_ALLOWLIST = '623-555-0301';
+  mc = mailCount(); tc = textCount();
+  r = await call('/api/office/preplan', 'POST', { dates: [tomorrow, day2], start: '09:00', assign: { [pA]: tomorrow, [pB]: day2, [pC]: tomorrow, [pD]: 'none' }, apply: true }, owner);
+  await settle();
+  const ra = await row(pA), rb = await row(pB), rc = await row(pC), rd = await row(pD);
+  ok('confirming saves the day and the time for each house on the plan', r.status === 200 && r.d.applied === true && r.d.done.saved >= 3 && ra.service_day === wdOf(tomorrow) && /^\d\d:\d\d/.test(ra.service_time || '') && rb.service_day === wdOf(day2) && !!rb.service_time && rc.service_day === wdOf(tomorrow), [ra, rb, r.d.done]);
+  ok('the first visit is that day, and an every other week house is put on that week', ra.first_visit === tomorrow && rb.first_visit === day2 && rc.eow_week === parity(tomorrow), [ra.first_visit, rc.eow_week]);
+  ok('the house that was left out stays unplanned', rd.service_day === null && rd.service_time === null);
+  const st1 = (await db.query('select s.customer_id, s.position, s.status from public.stops s where s.day = $1 and s.customer_id = any($2) order by s.position, s.id', [tomorrow, mine4])).rows;
+  const st2 = (await db.query('select s.customer_id from public.stops s where s.day = $1 and s.customer_id = any($2)', [day2, mine4])).rows;
+  ok('the visits are on the Schedule for those days, with no button to press', st1.length === 2 && st2.length === 1 && st2[0].customer_id === pB, [st1.length, st2.length]);
+  const tA = (ra.service_time || '').slice(0, 5), tC = (rc.service_time || '').slice(0, 5);
+  ok('the route for that day runs in time order', (mins(tA) < mins(tC)) === (st1[0].customer_id === pA), [tA, tC, st1.map((x) => x.position)]);
+  const aTexts = TW.sent.filter((x) => x.to === '+16235550301').slice(-2).map((x) => x.body), aMsgs = await msgs(pA);
+  ok('test mode: the customer on the test list gets the day and time by text and by email', aTexts.some((b) => /Your service day is \w+ around \d/.test(b)) && mailsTo('pre-a@example.com').some((m) => /Your service day is/.test(m.subject)), aTexts);
+  ok('and, since the evening run has gone by, the night before text and email for tomorrow', aTexts.some((b) => /We will be there tomorrow/.test(b)) && mailsTo('pre-a@example.com').some((m) => /^We will be there tomorrow around/.test(m.subject) && /between/.test(m.text) && /arizonapetwaste\.com\/t\//.test(m.text)) && r.d.done.night && r.d.done.night.emailed >= 1, r.d.done.night);
+  ok('the night before email is in the log, once', aMsgs.filter((m) => m.kind === 'night_before' && m.channel === 'email' && m.status === 'sent').length === 1 && aMsgs.filter((m) => m.kind === 'night_before' && m.channel === 'sms').length === 1, aMsgs.map((m) => m.kind + ' ' + m.channel));
+  ok('test mode: the customers who are not on the test list get nothing at all', textCount() - tc === 2 && mailCount() - mc === 2 && (await msgs(pB)).length === 0 && (await msgs(pC)).every((m) => m.kind === 'night_before' && m.channel === 'sms' && m.status === 'queued'), [textCount() - tc, mailCount() - mc, (await msgs(pC)).map((m) => m.kind + ' ' + m.channel + ' ' + m.status)]);
+  const nMail = mailsTo('pre-a@example.com').length, nText = textCount();
+  r = await call('/api/office/night-before', 'POST', {}, null, { 'x-cron-secret': env.CRON_SECRET });
+  ok('the evening run after that sends tomorrow\'s customers no second email and no second text', r.status === 200 && mailsTo('pre-a@example.com').length === nMail && textCount() === nText && r.d.emailed === 0, r.d);
+  // Test mode off. The house left out is planned now, for tomorrow, with the evening run still ahead.
+  delete env.SMS_TEST_ALLOWLIST; env.NIGHT_RUN_AT = '23:59';
+  mc = mailsTo('pre-d@example.com').length; tc = TW.sent.filter((x) => x.to === '+16235550304').length;
+  r = await call('/api/office/preplan', 'POST', { dates: [tomorrow], apply: true }, owner);
+  await settle();
+  ok('a house added to a day that has yards goes after the last one, and nobody already set is moved', r.status === 200 && (await row(pA)).service_time.slice(0, 5) === tA && mins((await row(pD)).service_time.slice(0, 5)) > Math.max(mins(tA), mins(tC)), [(await row(pD)).service_time, tA, tC]);
+  ok('a customer who said no to texts gets the email and no text', mailsTo('pre-d@example.com').length - mc === 1 && TW.sent.filter((x) => x.to === '+16235550304').length === tc && !(await msgs(pD)).some((m) => m.channel === 'sms'));
+  ok('before the evening run, confirming sends no night before message: the evening run does that', r.d.done.night === null && !(await msgs(pD)).some((m) => m.kind === 'night_before'), r.d.done);
+  r = await call('/api/office/night-before', 'POST', {}, null, { 'x-cron-secret': env.CRON_SECRET });
+  const dMsgs = await msgs(pD);
+  ok('the evening run sends the night before email to a customer with no texts too', r.status === 200 && r.d.emailed >= 1 && dMsgs.filter((m) => m.kind === 'night_before' && m.channel === 'email').length === 1 && mailsTo('pre-d@example.com').some((m) => /^We will be there tomorrow/.test(m.subject)), r.d);
+  r = await call('/api/office/preplan', 'POST', { dates: [tomorrow] }, owner);
+  ok('a planned house is off the waiting list, so a second plan does not touch it', !r.d.days[0].yards.some((y) => mine4.includes(y.id)));
+  // Twilio off: the plan is still saved and nobody is told.
+  const pE = await mk('pre-e@example.com', 'Eve Echo', '6235550306', true);
+  delete env.TWILIO_ACCOUNT_SID; tc = TW.sent.length;
+  r = await call('/api/office/preplan', 'POST', { dates: [day2], apply: true }, owner);
+  await settle();
+  ok('with texts not switched on the plan is saved and no customer is told', r.status === 200 && r.d.tell.gate === 'off' && (await row(pE)).service_day === wdOf(day2) && TW.sent.length === tc && mailsTo('pre-e@example.com').length === 0, r.d.tell);
+  env.TWILIO_ACCOUNT_SID = keep.a;
+
+  // The Schedule builds a day when it is opened, so a house shows on its day with no button to press.
+  console.log('\nThe Schedule builds itself');
+  const day4 = new Date(Date.parse(today + 'T19:00:00Z') + 4 * 864e5).toISOString().slice(0, 10), past = new Date(Date.parse(today + 'T19:00:00Z') - 3 * 864e5).toISOString().slice(0, 10);
+  const pF = await mk('pre-f@example.com', 'Flo Foxtrot', '6235550307', true);
+  await db.query(`update public.customers set service_day = $1, service_time = '10:15' where id = $2`, [wdOf(day4), pF]);
+  tc = TW.sent.length; mc = mailBodies.length;
+  r = await call('/api/office/day?date=' + day4, 'GET', null, owner);
+  ok('a plain look at a day builds nothing (the screen refresh)', !r.d.stops.some((x) => x.customer.id === pF));
+  r = await call('/api/office/day?build=1&date=' + day4, 'GET', null, owner);
+  ok('opening a day on the Schedule shows the house set for that weekday, with its time', r.status === 200 && r.d.stops.some((x) => x.customer.id === pF && r.d.times[x.id] === '10:15'), r.d.stops.length);
+  r = await call('/api/office/day?build=1&date=' + day4, 'GET', null, owner);
+  ok('opening it again adds nothing twice', r.d.stops.filter((x) => x.customer.id === pF).length === 1);
+  ok('building a day emails and texts nobody', TW.sent.length === tc && mailBodies.length === mc && (await msgs(pF)).length === 0);
+  await db.query(`update public.customers set service_day = $1 where id = $2`, [wdOf(past), pF]);
+  r = await call('/api/office/day?build=1&date=' + past, 'GET', null, owner);
+  ok('a day that is over is never built', !r.d.stops.some((x) => x.customer.id === pF));
+  delete env.NIGHT_RUN_AT;
+  }
 }
 
 console.log('\n' + pass + ' passed, ' + failN + ' failed');
