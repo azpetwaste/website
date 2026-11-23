@@ -477,6 +477,92 @@ console.log('\nOffice uploads a gate photo by hand (the backup when the app was 
   await db.query('delete from public.stops where id = $1', [old.id]);
 }
 
+console.log('\nA yard marked Not done: the note, going back, and the office finishing it (Joe, Nov 23, 2026)');
+{
+  // Pat's yard was marked "can't" above and the route was ended. Everything here is put back at the end.
+  const was = (await db.query('select * from public.stops where id = $1', [patStop.id])).rows[0];
+  const routeWas = (await db.query('select status, ended_at from public.routes where id = $1', [was.route_id])).rows[0];
+  const msgWas = (await db.query('select coalesce(max(id), 0)::int as n from public.messages')).rows[0].n;
+  const mailsWas = mailBodies.length;
+  const row = async () => (await db.query('select status, reason, note, done_at, photo_path, no_photo from public.stops where id = $1', [patStop.id])).rows[0];
+  const doneTexts = async () => (await db.query("select count(*)::int as n from public.messages where stop_id = $1 and kind = 'done' and channel = 'sms'", [patStop.id])).rows[0].n;
+  await db.query('update public.customers set texts_visit = true where id = $1', [was.customer_id]); // Pat said yes to visit texts for this part
+  ok('the test starts from a yard marked Not done on today\'s route', was.status === 'cant' && was.day === today, { status: was.status, day: was.day });
+
+  // The note
+  r = await call('/api/crew/note', 'POST', { stopId: patStop.id, note: 'Gate was open after all. Two dogs out back.' }, mt);
+  ok('the scooper changes his note on a finished yard', r.status === 200 && r.d.stops.find((x) => x.id === patStop.id).note === 'Gate was open after all. Two dogs out back.' && (await row()).status === 'cant', r.d.error);
+  r = await call('/api/crew/note', 'POST', { stopId: patStop.id, note: '   ' }, mt);
+  ok('an empty note takes the note off', r.status === 200 && (await row()).note === null);
+  r = await call('/api/crew/note', 'POST', { stopId: 99999999, note: 'x' }, mt);
+  ok('a note on a yard that is not his is refused', r.status === 404);
+  r = await call('/api/office/stop', 'POST', { id: patStop.id, action: 'note', note: 'Office note' }, owner);
+  ok('the office changes the note from the Schedule', r.status === 200 && (await row()).note === 'Office note', r.d.error);
+
+  // The office cannot call a visit done with no gate photo
+  r = await call('/api/office/stop', 'POST', { id: patStop.id, action: 'done' }, owner);
+  ok('mark done with no gate photo is refused', r.status === 400 && /photo/i.test(r.d.error || '') && (await row()).status === 'cant', r.d.error);
+
+  // Going back from the crew app
+  r = await call('/api/crew/reopen', 'POST', { stopId: patStop.id }, mt);
+  let now = await row();
+  ok('the scooper opens a Not done yard again: it is back at the boxes and the route is live', r.status === 200 && now.status === 'here' && now.reason === null && now.done_at === null && r.d.route.status === 'live', { s: now.status, route: r.d.route && r.d.route.status, e: r.d.error });
+  r = await call('/api/crew/reopen', 'POST', { stopId: patStop.id }, mt);
+  ok('a yard that is not marked Not done cannot be opened again', r.status === 400);
+  {
+    // He is standing in another yard: that one is finished first. Driving to another yard does not block going back.
+    const other = (await db.query("select id, status from public.stops where route_id = $1 and id <> $2 limit 1", [was.route_id, patStop.id])).rows[0];
+    if (other) {
+      await db.query("update public.stops set status = 'cant', reason = 'gate_locked', done_at = now() where id = $1", [patStop.id]);
+      await db.query("update public.stops set status = 'here' where id = $1", [other.id]);
+      r = await call('/api/crew/reopen', 'POST', { stopId: patStop.id }, mt);
+      ok('standing in another yard, he is told to finish that one first', r.status === 409, r.d.error);
+      await db.query("update public.stops set status = 'on_the_way' where id = $1", [other.id]);
+      r = await call('/api/crew/reopen', 'POST', { stopId: patStop.id }, mt);
+      ok('driving to another yard, he can still go back to this one', r.status === 200 && (await row()).status === 'here', r.d.error);
+      await db.query('update public.stops set status = $2 where id = $1', [other.id, other.status]);
+    }
+  }
+  r = await call('/api/crew/done', 'POST', { stopId: patStop.id }, mt);
+  ok('it still cannot be finished with no gate photo', r.status === 400);
+  r = await call('/api/crew/photo', 'POST', { stopId: patStop.id, image: jpg, takenAt: new Date().toISOString() }, mt);
+  ok('he takes the gate photo', r.status === 200, r.d.error);
+  r = await call('/api/crew/done', 'POST', { stopId: patStop.id }, mt);
+  now = await row();
+  ok('he finishes it: Done, with the photo, and one done text for the customer', r.status === 200 && now.status === 'done' && !!now.photo_path && now.no_photo === false && (await doneTexts()) === 1, { s: now.status, texts: await doneTexts() });
+
+  // The office upload on a Not done visit finishes it and tells the customer
+  await db.query("delete from public.messages where stop_id = $1 and kind = 'done'", [patStop.id]);
+  await db.query("update public.stops set status = 'cant', reason = 'gate_locked', photo_path = null, done_at = now() where id = $1", [patStop.id]);
+  const at = new Date(Date.now() - 10 * 60e3).toISOString();
+  r = await call('/api/office/photo', 'POST', { stopId: patStop.id, image: jpg, takenAt: at }, owner);
+  now = await row();
+  ok('the office uploads the gate photo on a Not done visit: it is Done at the photo time, the reason is gone', r.status === 200 && now.status === 'done' && now.reason === null && !!now.photo_path && Math.abs(new Date(now.done_at) - Math.floor(Date.parse(at) / 1000) * 1000) < 1000, now);
+  ok('and the customer gets the done text, once', (await doneTexts()) === 1, await doneTexts());
+  r = await call('/api/office/photo', 'POST', { stopId: patStop.id, image: jpg, takenAt: at }, owner);
+  ok('a second upload sends no second done text', r.status === 200 && (await doneTexts()) === 1, await doneTexts());
+
+  // Mark done: a Not done visit that already has its photo (the state of the live visit on Nov 23, 2026)
+  await db.query("delete from public.messages where stop_id = $1 and kind = 'done'", [patStop.id]);
+  await db.query("update public.stops set status = 'cant', reason = 'gate_locked' where id = $1", [patStop.id]);
+  r = await call('/api/office/stop', 'POST', { id: patStop.id, action: 'done' }, mt);
+  ok('a scooper cannot use the office mark done', r.status === 403);
+  r = await call('/api/office/stop', 'POST', { id: patStop.id, action: 'done' }, owner);
+  now = await row();
+  ok('the office marks it done: Done, and the customer gets the done text', r.status === 200 && now.status === 'done' && now.reason === null && (await doneTexts()) === 1, { s: now.status, texts: await doneTexts(), e: r.d.error });
+  r = await call('/api/office/stop', 'POST', { id: patStop.id, action: 'done' }, owner);
+  ok('marking it done twice tells nobody twice', r.status === 200 && (await doneTexts()) === 1);
+  r = await call('/api/track/' + was.code, 'GET');
+  ok('the customer\'s link reads done with the photo', r.status === 200 && r.d.status === 'done' && !!r.d.photo, { s: r.d.status, p: !!r.d.photo });
+
+  // Put everything back for the tests below
+  await db.query('delete from public.messages where id > $1', [msgWas]);
+  await db.query('update public.stops set status = $2, reason = $3, note = $4, done_at = $5, arrived_at = $6, photo_path = $7, no_photo = $8 where id = $1', [patStop.id, was.status, was.reason, was.note, was.done_at, was.arrived_at, was.photo_path, was.no_photo]);
+  await db.query('update public.routes set status = $2, ended_at = $3 where id = $1', [was.route_id, routeWas.status, routeWas.ended_at]);
+  await db.query('update public.customers set texts_visit = false where id = $1', [was.customer_id]);
+  mailBodies.length = mailsWas;
+}
+
 console.log('\nMove a group of yards to another day');
 {
   const plus = (d, n) => new Date(Date.parse(d + 'T19:00:00Z') + n * 864e5).toISOString().slice(0, 10), wdOf = (d) => new Date(d + 'T19:00:00Z').getUTCDay();

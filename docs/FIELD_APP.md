@@ -104,6 +104,15 @@ Not run: the signed in app against the live database. No real customer was sched
 Not done yet: the training video and the training page steps. They still show the Schedule with the old buttons. Rebuild them before this goes live (the standing rule), once Joe is happy with the screens.
 Open question for Joe: a customer planned for tomorrow gets two messages close together when the plan is confirmed in the evening, the confirmation and the night before reminder. Say so if one is enough.
 
+## Nov 23, 2026: a way back into every yard (live the same day on Joe's "fix all that right now")
+What happened: on the first real route, Juan marked the first house "I can't do this yard" (gate locked). The customer texted that the gate was open. He did the yard, and the office uploaded the gate photo by hand at 1:10 PM. The visit still read Not done and no done text went out, because the office upload only finished a visit that was still open. The crew app also had no way back into a yard once it was closed, and no way to change a note.
+- Fixed by hand that day: stop 4 was set to Done at the photo time (12:33 PM) in the database, and the done text was sent from the Texts screen at 1:40 PM. It was delivered.
+- Crew app: a Not done yard has a red box at the top of My route with "Go back and do this yard". Every yard in the list opens and shows its note, with "Add a note" or "Change my note". The open yard shows the note with a Change link, and the day's yards are listed under it.
+- Office: a gate photo uploaded on a Not done visit marks it Done and sends the done text (it asks first). "Mark this visit done" shows for a visit that has its photo. "Add a note" or "Change the note" is in the yard menu.
+- Tested: `build/desk.test.mjs` (22 new checks: the note, going back, finishing, the office upload, mark done, one done text only), a walk of the demo in a real browser at phone size, `npm run check`, `worker.test.mjs`, `week.test.mjs`, `nav.test.py`. Not run: `sweep.py`, the two sign up load tests, and no test on a real phone.
+- One check in `desk.test.mjs` fails on `main` too, before this change: "the plan for one day has every waiting house on it, with a time for each" (Preplan). Two houses get 8:00 AM. Somebody should look at it.
+- The training video was NOT rebuilt. The written steps on the training page were updated.
+
 ## Open items
 1. Staff test: someone signs in at /crew inside the Claude browser pane, then Claude runs a test yard through a route. A test customer "TEST Yard (delete me)" sits in the live database for this. Delete it after.
 2. Test sign up at `/book/?test=1` with card 4242 4242 4242 4242.

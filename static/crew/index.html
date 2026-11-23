@@ -375,6 +375,8 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (p === '/api/crew/done' || p === '/api/crew/cant') D.texts.forEach(function (t) { if (t.stop_id === st.id && t.kind === 'on_the_way' && t.status === 'queued') t.status = 'skipped'; });
     if (p === '/api/crew/done') { st.status = 'done'; st.done_at = new Date().toISOString(); st.no_photo = !!b.noPhoto; demoText('done', st, 'Arizona Pet Waste: your yard is done and the gate is latched. Photo: arizonapetwaste.com/t/DEMO01'); return demoToday(); }
     if (p === '/api/crew/cant') { st.status = 'cant'; st.reason = b.reason; st.note = b.note || null; st.done_at = new Date().toISOString(); return demoToday(); }
+    if (p === '/api/crew/note') { st.note = String(b.note || '').trim() || null; return demoToday(); }
+    if (p === '/api/crew/reopen') { if (mine().some(function (x) { return x.status === 'here'; })) throw new Error('Finish the yard you are in first. Then open this one.'); st.status = 'here'; st.reason = null; st.done_at = null; D.route.status = 'live'; return demoToday(); }
     if (p === '/api/crew/end') { D.route.status = 'done'; return demoToday(); }
     if (p === '/api/crew/text' || p === '/api/office/text') { D.texts.forEach(function (t) { if (String(t.id) === String(b.id)) t.status = b.status; }); return { ok: true }; }
     if (p === '/api/office/day') { if (q.get('build') === '1') demoBuild(q.get('date') || D.today); return demoDay(); }
@@ -409,6 +411,8 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (p === '/api/office/stop') {
       var i = D.stops.indexOf(st);
       if (b.action === 'skip') st.status = 'skipped'; if (b.action === 'unskip') st.status = 'scheduled'; if (b.action === 'time') st.visit_time = b.time || null;
+      if (b.action === 'note') st.note = String(b.note || '').trim() || null;
+      if (b.action === 'done') { if (!st.photo_path) throw new Error('Upload the gate photo first. The photo finishes the visit.'); st.status = 'done'; st.reason = null; st.done_at = new Date().toISOString(); }
       var same = D.stops.filter(function (x) { return x.route_id === st.route_id; }), k = same.indexOf(st), other = b.action === 'up' ? same[k - 1] : b.action === 'down' ? same[k + 1] : null;
       if (other) { var j = D.stops.indexOf(other); D.stops[i] = other; D.stops[j] = st; }
       if (b.action === 'move') { var rt = D.routes.filter(function (x) { return x.staff.id === b.staffId; })[0]; if (!rt) { var who = D.team.filter(function (m) { return m.id === b.staffId; })[0]; if (!who) throw new Error('Pick someone on the team.'); rt = { id: 'r' + (++D.n + 50), day: D.today, status: 'planned', staff: { id: who.id, name: who.name } }; D.routes.push(rt); } st.route_id = rt.id; }
@@ -426,7 +430,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       ['pause_from', 'pause_until', 'scooper_id', 'service_time', 'service_time2'].forEach(function (k) { if (k in b) c[k] = b[k] || null; });
       var dc = demoCust(b.id); dc.told = c.service_day != null && !c.service_time ? { needTime: true } : { off: true }; return dc;
     }
-    if (p === '/api/office/photo' && method === 'POST') { var us = D.stops.filter(function (x) { return String(x.id) === String(b.stopId); })[0]; if (us) { us.photo_path = 'demo'; us.no_photo = false; if (us.status !== 'done') { us.status = 'done'; us.done_at = b.takenAt || new Date().toISOString(); } } return demoDay(); }
+    if (p === '/api/office/photo' && method === 'POST') { var us = D.stops.filter(function (x) { return String(x.id) === String(b.stopId); })[0]; if (us) { us.photo_path = 'demo'; us.no_photo = false; if (us.status !== 'done') { us.status = 'done'; us.reason = null; us.done_at = b.takenAt || new Date().toISOString(); } } return demoDay(); }
     if (p === '/api/office/photo') return { url: '/assets/img/gate-photo.jpg' };
     if (p === '/api/office/leads') return { leads: D.leads };
     if (p === '/api/office/lead') {
@@ -518,7 +522,9 @@ table.t tr.click:hover td{background:var(--bg2)}
   // yard, waiting for its own tap ("Start next house"). Nothing is sent for a yard and its customer sees no truck until that tap.
   function current() {
     var st = route().stops || [], i;
-    for (i = 0; i < st.length; i++) if (st[i].status === 'on_the_way' || st[i].status === 'here') return st[i];
+    // The yard he is standing in comes first: a yard he went back to can sit later in the list than the one he was driving to.
+    for (i = 0; i < st.length; i++) if (st[i].status === 'here') return st[i];
+    for (i = 0; i < st.length; i++) if (st[i].status === 'on_the_way') return st[i];
     if (route().route && route().route.status === 'live') for (i = 0; i < st.length; i++) if (st[i].status === 'scheduled') return st[i];
     return null;
   }
@@ -556,6 +562,11 @@ table.t tr.click:hover td{background:var(--bg2)}
       var st = stops.filter(function (x) { return x.id === t.stop_id; })[0], nm = st && st.customer && st.customer.name ? st.customer.name.split(' ')[0] : 'customer';
       out += '<a class="sendrow" href="' + h(sms(t.to_addr, t.body)) + '" data-send="' + t.id + '"><span>Tell ' + h(nm) + ' ' + KINDS[t.kind] + '</span><span>Send text ›</span></a>';
     });
+    // Joe, Nov 23, 2026: "We said we couldn't do the yard, but then we could. We need to be able to go back to that screen."
+    // A yard marked Not done keeps a way back at the top of the route screen all day.
+    if (!cur || cur.status !== 'here') stops.filter(function (x) { return x.status === 'cant'; }).forEach(function (x) {
+      out += '<div style="border:1px solid var(--bad);padding:14px;margin-top:14px"><div class="lbl">Not done</div><p style="font-size:17px;font-weight:700;margin:4px 0 2px">' + h(x.customer.address) + '</p><p style="color:var(--mute);font-size:14px;margin:0 0 10px">' + h((REASONS.filter(function (q) { return q[0] === x.reason; })[0] || ['', 'Not done'])[1]) + '. Can you do it now?</p><button class="btn" data-back="' + x.id + '"' + (S.busy ? ' disabled' : '') + '>Go back and do this yard</button></div>';
+    });
     if (!r || !stops.length) return out + '<div style="padding:60px 0"><div class="lbl">' + h(d.dayName) + '</div><p class="big">No yards for you today.</p><p style="color:var(--mute)">Think that is wrong? Call the office.</p></div></div>';
     if (r.status === 'planned') {
       out += '<div style="padding:28px 0 0"><div class="lbl">' + h(d.dayName) + ' · ' + stops.length + ' yards</div><p class="big">Ready to roll.</p><p style="color:var(--mute);font-size:14px;margin:6px 0 12px">Your yards are in the best driving order. Yard 1 is first. Tap Start route when you are in the truck and driving to yard 1. That customer gets a text and sees the truck.</p>' + (d.mapsKey ? '<div id="rtmap" style="height:260px;background:#0b0d14;border:1px solid var(--line);margin-bottom:8px"></div>' : '') + '</div>' + stopList(stops) +
@@ -569,6 +580,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       out += '<div style="padding:40px 0 0"><div class="lbl">' + h(d.dayName) + '</div><p class="big">' + (r.status === 'done' ? 'You are done for today.' : 'All yards done.') + '</p>' + (r.status === 'live' ? '<p style="color:var(--mute);font-size:14px;margin:6px 0 0">Tap End my route. That turns off your location.</p>' : '') +
         '<div class="stats" style="grid-template-columns:repeat(3,1fr)"><div class="stat"><span class="lbl">Done</span><b>' + stops.filter(function (x) { return x.status === 'done'; }).length + '</b></div>' +
         '<div class="stat"><span class="lbl">Not done</span><b>' + cant + '</b></div><div class="stat"><span class="lbl">Skipped</span><b>' + stops.filter(function (x) { return x.status === 'skipped'; }).length + '</b></div></div></div>' +
+        '<p style="color:var(--mute);font-size:14px;margin:14px 0 0">Tap a yard to change your note' + (cant ? ', or to go back and do a yard marked Not done' : '') + '.</p>' +
         stopList(stops) + (r.status === 'live' ? '<div class="dock"><button class="btn" data-a="end">End my route</button></div>' : '');
       return out + '</div>';
     }
@@ -590,8 +602,12 @@ table.t tr.click:hover td{background:var(--bg2)}
       (c.gate_notes ? '<dt class="lbl">Gate note</dt><dd>' + h(c.gate_notes) + '</dd>' : '') +
       (c.problem_spots ? '<dt class="lbl">Watch for</dt><dd>' + h(c.problem_spots) + '</dd>' : '') +
       (c.office_notes ? '<dt class="lbl">From the office</dt><dd>' + h(c.office_notes) + '</dd>' : '') +
-      '<dt class="lbl">Spray</dt><dd>' + (spray ? 'Yes' : '<span class="tag warn">Do not spray</span>') + '</dd></dl>';
+      '<dt class="lbl">Spray</dt><dd>' + (spray ? 'Yes' : '<span class="tag warn">Do not spray</span>') + '</dd>' +
+      '<dt class="lbl">Your note</dt><dd>' + (cur.note ? h(cur.note) + ' ' : '') + '<button class="link" data-a="note" style="min-height:44px">' + (cur.note ? 'Change' : 'Add a note') + '</button></dd></dl>';
+    // Every yard of the day sits under the open one, so a finished yard is one tap away.
+    var yards = stops.length > 1 ? '<div style="border-top:1px solid var(--line);margin-top:18px;padding-top:14px"><span class="lbl">All my yards today</span><p style="color:var(--mute);font-size:14px;margin:4px 0 0">Tap a yard to see it, change your note or go back to it.</p>' + stopList(stops) + '</div>' : '';
     if (cur.status === 'on_the_way' || tapDue) {
+      out += yards;
       out += tapDue
         ? '<div class="dock"><button class="btn" data-a="onway"' + (S.busy ? ' disabled' : '') + '>Start next house</button><div style="display:flex;justify-content:space-between"><button class="link" data-a="arrive">I\'m already here</button><button class="link" data-a="cant">I can\'t do this yard</button></div></div>'
         : '<div class="dock"><button class="btn" data-a="arrive"' + (S.busy ? ' disabled' : '') + '>I\'m here</button><div style="text-align:center"><button class="link" data-a="cant">I can\'t do this yard</button></div></div>';
@@ -605,7 +621,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       var hasPhoto = cur.photo_path || (S.shot && !failed && !S.busy);
       if (S.shot) out += '<img class="shot" alt="Gate photo" src="' + S.shot + '">';
       else if (cur.photo_path) out += '<p class="ok mono" style="font-size:12px;letter-spacing:.14em;margin:14px 0 0">✓ GATE PHOTO SAVED</p>';
-      out += '<input id="cam" type="file" accept="image/*" capture="environment" hidden><input id="lib" type="file" accept="image/*" hidden>' +
+      out += yards + '<input id="cam" type="file" accept="image/*" capture="environment" hidden><input id="lib" type="file" accept="image/*" hidden>' +
         (failed ? '<div style="border:1px solid var(--bad);padding:12px;margin-top:12px"><b style="color:var(--bad)">Photo not sent</b><p style="font-size:14px;margin:6px 0 0">' + h(S.photoFail.msg) + ' The picture is safe on this phone. Check your signal and send it again.</p></div>' : '') +
         (S.busy && S.shot && !cur.photo_path ? '<p class="mono" style="font-size:12px;letter-spacing:.14em;color:var(--mute);margin:12px 0 0">SENDING PHOTO…</p>' : '') +
         '<div class="dock">' + (failed
@@ -619,10 +635,39 @@ table.t tr.click:hover td{background:var(--bg2)}
     return out + '</div>';
   }
   function chk(k, label) { return '<button class="check' + (S.check[k] ? ' on' : '') + '" data-ck="' + k + '"><i>' + (S.check[k] ? '✓' : '') + '</i>' + h(label) + '</button>'; }
+  // Every yard in the list opens (Joe, Nov 23, 2026: "It just needs to be so easy to get back into things").
   function stopList(stops) {
     return '<ul class="list" style="margin-top:18px;border-top:1px solid var(--line)">' + stops.map(function (s, i) {
-      return '<li><span class="n">' + String(i + 1).padStart(2, '0') + '</span><div><div class="a">' + h(s.customer.address) + '</div><div class="s">' + ((route().times || {})[s.id] ? 'Around ' + h(t12(route().times[s.id])) + ' · ' : '') + h(s.customer.name) + (s.customer.gate_code ? ' · gate ' + h(s.customer.gate_code) : '') + '</div></div>' + (s.status === 'scheduled' ? '' : tag(s.status)) + '</li>';
+      return '<li class="tap" data-yard="' + s.id + '" role="button" tabindex="0"><span class="n">' + String(i + 1).padStart(2, '0') + '</span><div><div class="a">' + h(s.customer.address) + '</div><div class="s">' + ((route().times || {})[s.id] ? 'Around ' + h(t12(route().times[s.id])) + ' · ' : '') + h(s.customer.name) + (s.customer.gate_code ? ' · gate ' + h(s.customer.gate_code) : '') + '</div>' +
+        (s.note ? '<div class="s" style="color:var(--ink)">Note: ' + h(s.note) + '</div>' : '') + '</div><span style="display:flex;align-items:center;gap:8px">' + (s.status === 'scheduled' ? '' : tag(s.status)) + '<span aria-hidden="true" style="color:var(--mute);font-size:20px">›</span></span></li>';
     }).join('') + '</ul>';
+  }
+  // One yard, opened from the list: its note, and the way back into a yard marked Not done.
+  function sheetYard(id) {
+    var s = (route().stops || []).filter(function (x) { return String(x.id) === String(id); })[0]; if (!s) return;
+    var el = document.createElement('div'); el.className = 'sheet';
+    el.innerHTML = '<div class="pane" role="dialog" aria-modal="true"><div class="lbl">' + h(s.customer.name) + ' · ' + h((STATUS[s.status] || [s.status])[0]) + '</div><p class="big" style="font-size:26px">' + h(s.customer.address) + '</p>' +
+      '<div class="lbl" style="margin-top:14px">Your note</div><p style="font-size:16px;line-height:1.45;margin:4px 0 14px;white-space:pre-wrap">' + (s.note ? h(s.note) : '<span style="color:var(--mute)">No note yet.</span>') + '</p>' +
+      (s.status === 'cant' ? '<button class="btn" id="yr">Go back and do this yard</button><div style="height:8px"></div>' : '') +
+      '<button class="btn' + (s.status === 'cant' ? ' ghost' : '') + '" id="yn">' + (s.note ? 'Change my note' : 'Add a note') + '</button><button class="btn ghost" id="yx" style="margin-top:8px">Close</button></div>';
+    document.body.appendChild(el);
+    el.addEventListener('click', function (e) { if (e.target === el) el.remove(); });
+    el.querySelector('#yx').onclick = function () { el.remove(); };
+    el.querySelector('#yn').onclick = function () { el.remove(); noteForm(s); };
+    var yr = el.querySelector('#yr');
+    if (yr) yr.onclick = function () { el.remove(); yardBack(s.id); };
+  }
+  function yardBack(id) {
+    sheetAsk('Go back to this yard?', 'It opens again at the boxes and the gate photo. When you finish, the customer gets the done text with the photo.', 'Yes, open this yard', function () { act('reopen', { stopId: Number(id) || id }); }, 'Not now');
+  }
+  function noteForm(s) {
+    sheetForm('Note for this yard', [{ id: 'n', label: 'What should the office know? Leave it empty to take the note off.', value: s.note || '', area: true }], 'Save note', function (v) { saveNote(s.id, v.n); });
+  }
+  // Saving a note keeps the boxes he tapped and the photo he took: it is not a step of the yard.
+  async function saveNote(id, note) {
+    try { S.data.today = await api('POST', '/api/crew/note', { stopId: id, note: note }); toast(String(note || '').trim() ? 'Note saved' : 'Note taken off'); }
+    catch (e) { toast(e.message); }
+    render();
   }
   // The gate photo is our proof of the visit, so it is never thrown away. It is kept on the phone until the server says it
   // is saved. A weak signal gets three tries on its own. If it still fails the picture stays on screen with Send photo again.
@@ -784,6 +829,8 @@ table.t tr.click:hover td{background:var(--bg2)}
     bindSend(app, true, refreshRoute);
     if (S.data.today && S.data.today.mapsKey) keepMap('rtmap', (S.data.today.stops || []).map(function (x) { return x.id; }).join(','), function (el) { routeMap(S.data.today, el); });
     app.querySelectorAll('[data-ck]').forEach(function (b) { b.onclick = function () { S.check[b.dataset.ck] = !S.check[b.dataset.ck]; render(); }; });
+    app.querySelectorAll('[data-back]').forEach(function (b) { b.onclick = function () { yardBack(b.dataset.back); }; });
+    app.querySelectorAll('[data-yard]').forEach(function (b) { b.onclick = function () { sheetYard(b.dataset.yard); }; b.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sheetYard(b.dataset.yard); } }; });
     app.querySelectorAll('[data-a]').forEach(function (b) {
       b.onclick = function () {
         var a = b.dataset.a, cur = current();
@@ -797,6 +844,7 @@ table.t tr.click:hover td{background:var(--bg2)}
         if (a === 'done') return act('done', { stopId: cur.id });
         if (a === 'help') return sheetPhotoHelp(cur);
         if (a === 'cant') return sheetCant();
+        if (a === 'note') return noteForm(cur);
         if (a === 'texts') return sheetTexts(route().texts.map(function (t) { var s = route().stops.filter(function (x) { return x.id === t.stop_id; })[0]; return Object.assign({ customer: s && s.customer }, t); }), refreshRoute);
       };
     });
@@ -1024,7 +1072,9 @@ table.t tr.click:hover td{background:var(--bg2)}
       g('Customer') + b('cust', 'Open customer details') + b('see', 'See what the customer sees') + b('copy', 'Copy the customer\'s link') +
       (s.photo_path || (s.status !== 'skipped' && d.day <= d.today) ? g('Gate photo') : '') +
       (s.photo_path ? b('photo', 'See the gate photo') : '') +
-      (s.status !== 'skipped' && d.day <= d.today ? b('upload', s.photo_path ? 'Upload a new gate photo' : 'Upload a gate photo') : '') +
+      (s.status !== 'skipped' && d.day <= d.today ? b('upload', s.photo_path ? 'Upload a new gate photo' : s.status === 'cant' ? 'We went back. Upload the gate photo' : 'Upload a gate photo') : '') +
+      (s.photo_path && d.day <= d.today && ['cant', 'scheduled', 'on_the_way', 'here'].indexOf(s.status) >= 0 ? g('Finish this visit') + '<p style="color:var(--mute);font-size:14px;line-height:1.45;margin:4px 0 0">The gate photo is in. Marking it done tells the customer.</p>' + b('done', 'Mark this visit done', ' ') : '') +
+      g('Note') + '<p style="font-size:15px;line-height:1.45;margin:4px 0 0;white-space:pre-wrap">' + (s.note ? h(s.note) : '<span style="color:var(--mute)">No note.</span>') + '</p>' + b('note', s.note ? 'Change the note' : 'Add a note') +
       (s.status === 'scheduled' && d.timesOn && d.day >= d.today ? g('Time of this visit') + '<p style="color:var(--mute);font-size:14px;line-height:1.45;margin:4px 0 0">' + ((d.times || {})[s.id] ? 'Now around ' + h(t12(d.times[s.id])) + '.' : 'No time set.') + ' A change here is for this visit only.</p>' + b('time', 'Change this visit\'s time') : '') +
       (open ? g('This visit') + b('skip', 'Skip this visit') + b('up', 'Move earlier in the route') + b('down', 'Move later in the route') : '') +
       (open && others.length ? g('Give this yard to') + '<div class="chips">' + others.map(function (m) { return '<button class="chip" data-k="to:' + m.id + '">' + h(m.name) + '</button>'; }).join('') + '</div>' : '') +
@@ -1039,7 +1089,14 @@ table.t tr.click:hover td{background:var(--bg2)}
       if (k === 'see') return window.open('/t/' + s.code, '_blank', 'noopener');
       if (k === 'copy') { try { await navigator.clipboard.writeText(link); toast('Link copied'); } catch (err) { sheetForm('Copy this link', [{ id: 'l', label: 'Link', value: link, readonly: true }]); } return; }
       if (k === 'cust') { el.remove(); return openCustomer(s.customer.id); }
-      if (k === 'upload') { el.remove(); return officeUpload(s.id, d.day); }
+      if (k === 'upload') {
+        el.remove();
+        // A photo on a visit marked Not done finishes it and tells the customer, so ask first.
+        if (s.status === 'cant') return sure('Finish this visit?', 'It says Not done. A gate photo marks it done' + (d.day === d.today ? ' and sends ' + (s.customer.name || 'the customer') + ' the photo right away.' : '.'), 'Pick the photo', function () { officeUpload(s.id, d.day); });
+        return officeUpload(s.id, d.day);
+      }
+      if (k === 'note') { el.remove(); return sheetForm('Note for this visit', [{ id: 'n', label: 'Leave it empty to take the note off.', value: s.note || '', area: true }], 'Save note', async function (v) { try { S.data.day = await api('POST', '/api/office/stop', { id: s.id, action: 'note', note: v.n }); toast('Note saved'); render(); } catch (err) { toast(err.message); } }); }
+      if (k === 'done') { el.remove(); return sure('Mark this visit done?', d.day === d.today ? (s.customer.name || 'The customer') + ' gets the gate photo right away.' : 'It will read Done with its gate photo.', 'Mark done', async function () { try { S.data.day = await api('POST', '/api/office/stop', { id: s.id, action: 'done' }); toast('Marked done'); render(); } catch (err) { toast(err.message); } }); }
       if (k === 'time') { el.remove(); return visitTime(s, d); }
       if (k === 'photo') { try { var ph = await api('GET', '/api/office/photo?stop=' + s.id); window.open(ph.url, '_blank', 'noopener'); } catch (err) { toast(err.message); } return; }
       var body = k.indexOf('to:') === 0 ? { id: s.id, action: 'move', staffId: k.slice(3) } : { id: s.id, action: k };

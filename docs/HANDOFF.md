@@ -1305,3 +1305,8 @@ Joe, through Atlas: "when I say start route, we need to hit start route for ever
 - New emails to the owner: "Prepaid card turned away: name" (a sign up that was refused, worth a call) and "Prepaid card on file: name" (a customer from before the rule, nothing was changed). The old "Prepaid card: name" and "PREPAID CARD. New booking" emails only go out for the one customer on the allow list now.
 - Nothing in the crew app, the routes or `crm.sql` changed. Two new keys in `settings`: `prepaid_swept_at` and `prepaid_told`.
 
+### Nov 23, 2026, afternoon (Field App chat): a way back into every yard, on `main`
+- Joe: a visit marked Not done was done after all, the photo was uploaded, "it still says not done", no text went, and Juan could not get back into the yard or his note. "Fix all that right now."
+- `src/worker/worker.js`: `finishStop` (one place finishes a visit by hand), `officePhotoUpload` now finishes a `cant` visit too, `/api/office/stop` has `done` and `note`, new `/api/crew/note` and `/api/crew/reopen`. `static/crew/index.html`: `sheetYard`, `yardBack`, `noteForm`, `saveNote`, the red Not done box, the list under the open yard, the office yard menu, the demo. `current()` now puts the yard he is standing in first. No database change, no price or money rule touched, nothing on the public site but the staff training page.
+- Live data touched by hand: stop 4 (Nov 23) set to Done, one `done` text row added and sent from the Texts screen. Read the Nov 23 section of `docs/FIELD_APP.md`.
+- Open: rebuild the training video (it was already behind since Preplan). The Preplan check in `desk.test.mjs` that fails on `main`.

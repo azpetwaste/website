@@ -2205,6 +2205,8 @@ async function desk(path, request, env, ctx) {
   if (path === '/api/crew/photo' && m === 'POST') return crewPhoto(s, env, b);
   if (path === '/api/crew/done' && m === 'POST') return crewDone(s, env, b);
   if (path === '/api/crew/cant' && m === 'POST') return crewCant(s, env, b);
+  if (path === '/api/crew/note' && m === 'POST') return crewNote(s, env, b);
+  if (path === '/api/crew/reopen' && m === 'POST') return crewReopen(s, env, b);
   if (path === '/api/crew/end' && m === 'POST') return crewEnd(s, env);
   if (path === '/api/crew/text' && m === 'POST') return markText(s, env, b, true);
 
@@ -2831,17 +2833,24 @@ async function officePhotoUpload(env, b) {
   const res = await savePhoto(env, st, b.image, '/api/office/photo', b.takenAt, b.manual);
   if (res.status !== 200) return res;
   // The app was down in the yard, so the visit was never tapped done. The photo proves it: finish the visit at the photo's time.
-  if (['scheduled', 'on_the_way', 'here'].includes(st.status)) {
-    const at = JSON.parse(await res.text()).photoAt;
-    await db(env, 'PATCH', 'stops?id=eq.' + st.id, { status: 'done', done_at: at, arrived_at: st.arrived_at || at, no_photo: false }, 'return=minimal');
-    await dropOnWayText(env, st.id);
-    // A photo added today finishes today's visit, so the customer hears right away. For an older visit the truck link
-    // has ended, so only a customer with no texts gets the email, as before.
-    if (st.day === azToday()) await doneNotice(env, Object.assign({}, st, { photo_path: 'saved' })).catch((e) => console.error('done notice', e));
-    else await doneMail(env, st.customer, st.code).catch(() => false);
-    if (st.route && st.route.status === 'live') await advance(env, st.route.id);
-  }
+  // A visit marked "Not done" is finished the same way (Joe, Nov 23, 2026: the scooper went back, did the yard and
+  // uploaded the gate, "but it still says not done"). The app asks "are you sure" before that upload.
+  if (OPEN_OR_CANT.includes(st.status)) await finishStop(env, st, JSON.parse(await res.text()).photoAt);
   return officeDay(env, st.day);
+}
+// A visit the office may finish by hand: one that never got its done tap, or one marked "Not done" that was done after all.
+const OPEN_OR_CANT = ['scheduled', 'on_the_way', 'here', 'cant'];
+// Finishes a visit that has its gate photo, at the time `at`, and tells the customer. st: id, day, code, arrived_at,
+// route { id, status } and customer { id, name, email, phone, texts_visit }. The gate photo text goes once for a
+// visit (`queueText`), so a second call tells nobody twice.
+async function finishStop(env, st, at) {
+  await db(env, 'PATCH', 'stops?id=eq.' + st.id, { status: 'done', reason: null, done_at: at, arrived_at: st.arrived_at || at, no_photo: false }, 'return=minimal');
+  await dropOnWayText(env, st.id);
+  // Finished today: the customer hears right away. For an older visit the truck link has ended, so only a customer
+  // with no texts gets the email, as before.
+  if (st.day === azToday()) await doneNotice(env, Object.assign({}, st, { photo_path: 'saved' })).catch((e) => console.error('done notice', e));
+  else await doneMail(env, st.customer, st.code).catch(() => false);
+  if (st.route && st.route.status === 'live') await advance(env, st.route.id);
 }
 async function crewDone(s, env, b) {
   const st = await myStop(s, env, b.stopId);
@@ -2865,6 +2874,29 @@ async function crewCant(s, env, b) {
   await dropOnWayText(env, st.id);
   await queueText(env, st.customer, st.id, 'cant', st.code, reason);
   await advance(env, st.route.id);
+  return crewToday(s, env);
+}
+// Joe, Nov 23, 2026: "Juan left a note. He couldn't click it, and he couldn't get back into it. He needs to be able to
+// edit it." The scooper can change the note on any of his yards today, open or finished. An empty note clears it.
+async function crewNote(s, env, b) {
+  const st = await myStop(s, env, b.stopId);
+  if (!st) return fail(404, 'That stop is not on your route today.');
+  await db(env, 'PATCH', 'stops?id=eq.' + st.id, { note: clean(b.note, 500) || null }, 'return=minimal');
+  return crewToday(s, env);
+}
+// The scooper said "I can't do this yard" and then could after all (the gate was open, the customer came out). He
+// opens the yard again and it is back at the boxes and the gate photo. Finishing it sends the done text with the
+// photo, as for any yard. No second "on our way" text goes out, and the customer's link shows no truck.
+async function crewReopen(s, env, b) {
+  const st = await myStop(s, env, b.stopId);
+  if (!st) return fail(404, 'That stop is not on your route today.');
+  if (st.status !== 'cant') return fail(400, 'Only a yard marked Not done can be opened again.');
+  // Only a yard he is standing in blocks it. On the drive to another yard he can still turn back to this one.
+  const busy = await db(env, 'GET', 'stops?route_id=eq.' + st.route.id + '&status=eq.here&select=id');
+  if (busy && busy.length) return fail(409, 'Finish the yard you are in first. Then open this one.');
+  const now = new Date().toISOString();
+  await db(env, 'PATCH', 'stops?id=eq.' + st.id, { status: 'here', reason: null, done_at: null, arrived_at: now }, 'return=minimal');
+  if (st.route.status !== 'live') await db(env, 'PATCH', 'routes?id=eq.' + st.route.id, { status: 'live', ended_at: null }, 'return=minimal');
   return crewToday(s, env);
 }
 async function crewEnd(s, env) {
@@ -3703,6 +3735,20 @@ async function officeStop(env, b) {
       const c = (await db(env, 'GET', 'customers?id=eq.' + st.customer_id + '&select=id,name,email,phone,texts_visit'))[0];
       await visitNotice(env, st, c, now).catch((e) => console.error('visit notice', e));
     }
+  } else if (a === 'done') {
+    // Joe, Nov 23, 2026: "Is there a way we can mark it done". The office finishes a visit that has its gate photo:
+    // one marked Not done that was done after all, or one that never got its done tap. No photo, no done: the photo
+    // is the proof of the visit, so it is uploaded first (and that upload finishes the visit by itself).
+    if (st.status === 'done') return officeDay(env, st.day);
+    if (!OPEN_OR_CANT.includes(st.status)) return fail(400, 'That visit was skipped. Put it back first.');
+    if (st.day > azToday()) return fail(400, 'That visit has not happened yet.');
+    if (st.day < addDays(azToday(), -14)) return fail(400, 'A visit can be marked done for the last 14 days.');
+    if (!st.photo_path) return fail(400, 'Upload the gate photo first. The photo finishes the visit.');
+    const c = (await db(env, 'GET', 'customers?id=eq.' + st.customer_id + '&select=id,name,email,phone,texts_visit'))[0];
+    const w = photoWhen(st.photo_path);
+    await finishStop(env, Object.assign({}, st, { customer: c }), w ? w.at : new Date().toISOString());
+  } else if (a === 'note') {
+    await db(env, 'PATCH', 'stops?id=eq.' + st.id, { note: clean(b.note, 500) || null }, 'return=minimal');
   } else return fail(400, 'Unknown action.');
   return officeDay(env, st.day);
 }
