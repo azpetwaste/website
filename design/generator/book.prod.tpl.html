@@ -363,6 +363,7 @@
     </div>
     <p class="paynote">[[self:Cancel anytime in My Yard, with no phone call.||Cancel anytime. Call or text 623.309.6104.]]</p>
     <p class="paynote" style="margin-top: 4px;">We reach out to set your first visit.</p>
+    <p class="paynote" style="margin-top: 4px;">Credit or debit cards only. No prepaid or gift cards.</p>
     <p class="fine">{{ payAgree }} <a href="/terms/">Terms</a> and <a href="/privacy/">Privacy Policy</a>.</p>
     <sc-if value="{{ payDemo }}" hint-placeholder-val="{{ false }}">
       <p class="demo">Demo mode: no card is charged</p>
@@ -380,6 +381,13 @@
       <div class="note" role="alert" style="flex-direction: column; gap: 10px;">
         <p style="margin: 0;"><strong>Checkout did not load.</strong> {{ payErr }}</p>
         <button type="button" class="btn btn-line" style="width: 100%;" onClick="{{ retryPay }}">Try again</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ paySaving }}" hint-placeholder-val="{{ false }}"><p class="note" aria-live="polite">Saving your sign up…</p></sc-if>
+    <sc-if value="{{ payPrepaid }}" hint-placeholder-val="{{ false }}">
+      <div class="note" role="alert" style="flex-direction: column; gap: 10px;">
+        <p style="margin: 0;"><strong>Credit or debit card required.</strong> Prepaid and gift cards aren’t accepted. {{ payBackLine }}</p>
+        <button type="button" class="btn btn-dot" style="width: 100%;" onClick="{{ retryPay }}">Use another card</button>
       </div>
     </sc-if>
     <sc-if value="{{ payAlready }}" hint-placeholder-val="{{ false }}">
@@ -436,7 +444,7 @@ class Component extends DCLogic {
       name: '', phone: '', email: '', addr: '', txtVisit: false, tried: false, sugs: [], addrNote: '',
       wait: '', waitDone: false, waitBusy: false, waitErr: '',
       code: '', codeErr: '', resent: false, busy: false, err: '',
-      payState: 'idle', payErr: '', payFree: null, payLineSrv: '', wName: '', wPhone: '', wAddr: '', wCity: '', wTexts: false, req: false, reqKind: '',
+      payState: 'idle', payErr: '', payBack: false, payFree: null, payLineSrv: '', wName: '', wPhone: '', wAddr: '', wCity: '', wTexts: false, req: false, reqKind: '',
       cKind: '', cOrg: '', cCity: '', cName: '', cPhone: '', cEmail: '', cNote: '', cTried: false
     }, this._initial());
   }
@@ -781,16 +789,22 @@ class Component extends DCLogic {
     this._payTok = (this._payTok || 0) + 1;
     if (this._checkout) { try { this._checkout.destroy(); } catch (e) { } this._checkout = null; }
   }
-  _paid() {
+  async _paid() {
     const a = this._apw(), id = this._session;
     this._stopPay();
+    // The card form is done. Ask the server before saying "You are booked": it turns a prepaid or gift card away
+    // (Joe, Nov 23, 2026), and then nothing is booked. Stripe tells the server too (the webhook), so if this call is
+    // lost or slow the sign up still finishes, and if both arrive the plan is still made once.
+    this.setState({ payState: 'saving' });
+    let r = null;
+    if (a && id) {
+      try { r = await Promise.race([a.post('/api/checkout/done', { session: id }, !!a.auth.session()), new Promise((ok) => setTimeout(() => ok(null), 20000))]); } catch (e) { r = null; }
+    }
+    if (r && r.prepaid) { if (this.state.step === 4) this.setState({ payState: 'prepaid', payBack: !!r.paidBack }); return; }
     this._clearDraft();
     // The booking. The event id is the card form id, the same one the server sends Meta, so Meta counts it once.
     this._t('booked', Object.assign({ id: id ? 'bk_' + id : '' }, this._tPlan()));
     this.setState({ step: 5, payState: 'idle', signedIn: !!(a && a.auth.session()) });
-    // The card is saved. Tell the server so the plan starts now. Stripe tells the server too (the webhook), so if this
-    // call is lost the sign up still finishes, and if both arrive the plan is still made once.
-    if (a && id) a.post('/api/checkout/done', { session: id }, !!a.auth.session()).catch(function () { });
   }
   open(o) {
     const s = this.state;
@@ -987,6 +1001,9 @@ class Component extends DCLogic {
       payDemo: demo,
       payLive: !demo && s.payState !== 'already',
       payLoading: !demo && s.payState === 'loading',
+      paySaving: !demo && s.payState === 'saving',
+      payPrepaid: !demo && s.payState === 'prepaid',
+      payBackLine: s.payBack ? 'Your payment is going back to your card.' : 'Your card was not charged.',
       payError: !demo && s.payState === 'error',
       payAlready: !demo && s.payState === 'already',
       payErr: s.payErr,

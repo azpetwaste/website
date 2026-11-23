@@ -1297,3 +1297,11 @@ Joe, through Atlas: "when I say start route, we need to hit start route for ever
 - On `main` and live since Nov 22, 2026, about 9:15 PM: Joe tried it in a practice copy and said "push it live". The training video was NOT rebuilt first, see the Field App guide. Read the Nov 22 section of `docs/FIELD_APP.md` for what it does, what was tested and what is still open (the training video).
 - It changes `src/worker/worker.js` (`prePlan`, `officePrePlan`, `nightRun`, `nightMails`, `officeDay` with `build`), `static/crew/index.html` (the Preplan screen, the day strip, the demo) and the tests. No database change, no price or money rule touched, nothing on the public site.
 - `build/signup50.test.mjs` has one check that fails on `main` too ("only Monday to Friday is used"). It was run on a Sunday. Somebody should look at it.
+
+## Nov 23, 2026 (website session): no prepaid cards for new sign ups
+- Joe: "APW does not accept prepaid cards." The full rule is in `CLAUDE.md` under "No prepaid cards". Short version for the field desk session:
+- `booked` in `worker.js` now answers `'prepaid'` (a third answer, next to true and false) when a sign up at the card step used a prepaid card. Nothing is booked then: no row change, no `placeCustomer`, no welcome. If you call `booked`, treat `'prepaid'` as "not booked, and stop".
+- A plan that carries `apw_prepaid` in its Stripe metadata was ended by the server because of a prepaid card. The webhook ignores it. Do not show it as a canceled customer.
+- New emails to the owner: "Prepaid card turned away: name" (a sign up that was refused, worth a call) and "Prepaid card on file: name" (a customer from before the rule, nothing was changed). The old "Prepaid card: name" and "PREPAID CARD. New booking" emails only go out for the one customer on the allow list now.
+- Nothing in the crew app, the routes or `crm.sql` changed. Two new keys in `settings`: `prepaid_swept_at` and `prepaid_told`.
+
