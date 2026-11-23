@@ -797,7 +797,9 @@ async function checkout(request, env, ctx) {
     let all;
     try { all = (await stripe(env, 'GET', 'subscriptions', { customer, status: 'all', limit: 100 })).data || []; }
     catch (e) { if (!custGone(e)) throw e; await remake(); all = []; } // a customer that is gone has no plan, and the new one has none yet
-    if (all.some((x) => ['trialing', 'active', 'past_due', 'unpaid', 'paused'].includes(x.status))) return ok({ already: true });
+    // (Not a plan that was paid for with a prepaid card and never booked: the office cancels that one by hand, and
+    // the customer may go on with a credit or debit card in the meantime.)
+    if (all.some((x) => ['trialing', 'active', 'past_due', 'unpaid', 'paused'].includes(x.status) && !(x.metadata && x.metadata.apw_prepaid))) return ok({ already: true });
     // One open card form for one customer. Two tabs paid one after the other would be two plans and two charges, so a
     // card form left open from before is closed before a new one is made. This never stops a sign up.
     try {
@@ -857,7 +859,7 @@ async function checkout(request, env, ctx) {
     // The form was made without the prepaid setting. Say so once an hour, not on every sign up.
     if (refused && noPrepaid && i >= plain.length && !hitLimit('noprepaidform', 1, 3600e3)) {
       ctx.waitUntil(logError(env, 'server', '/api/checkout', 'Stripe would not block prepaid cards inside the card form. They are still turned away right after the form',
-        'Nothing to do for sign ups. With no free month, a prepaid card is charged in the form and then paid back by the server. Stripe said: ' + clean(refused.message, 300)));
+        'With no free month, a prepaid card is then charged in the form before the server can look. It is not booked, and the office gets PREPAID CARD, ALREADY CHARGED to refund by hand. Stripe said: ' + clean(refused.message, 300)));
     }
     // The ways to pay are not the ones we ask for first.
     if (refused && i % plain.length > 0) {
@@ -889,7 +891,7 @@ async function checkoutDone(request, env, ctx) {
     // A saved card (free month) gets its plan started here. A paid first month already has its plan and gets booked.
     const out = s.mode === 'subscription' ? await paidPlan(env, ctx, s) : await startPlan(env, ctx, s);
     // A prepaid card: nothing was booked. The page says so and opens the card form again.
-    if (out && out.prepaid) return ok({ booked: false, prepaid: true, paidBack: !!out.paidBack, message: NO_PREPAID });
+    if (out && out.prepaid) return ok({ booked: false, prepaid: true, charged: !!out.charged, message: NO_PREPAID });
     return ok({ booked: !!out });
   } catch (e) {
     // Only for a card form that was just finished, so an old sign up asked about again does not email the office.
@@ -936,7 +938,8 @@ async function startPlan(env, ctx, s) {
   // the plan, and if it has been canceled since, no new one is made. Any other live plan is the plan too (a second tab).
   const all = (await stripe(env, 'GET', 'subscriptions', { customer, status: 'all', limit: 100 })).data || [];
   // A plan whose first payment never went through ("incomplete", from a paid sign up that was not finished) is not a plan.
-  const alive = (x) => x.status !== 'canceled' && x.status !== 'incomplete_expired' && x.status !== 'incomplete';
+  // Nor is one that was paid for with a prepaid card and never booked (apw_prepaid): the office cancels that by hand.
+  const alive = (x) => x.status !== 'canceled' && x.status !== 'incomplete_expired' && x.status !== 'incomplete' && !(x.metadata && x.metadata.apw_prepaid);
   const mine = all.filter((x) => x.metadata && x.metadata.session === s.id)[0];
   if (mine && !alive(mine)) return null;
   let sub = mine || all.filter(alive)[0] || null;
@@ -975,7 +978,7 @@ async function startPlan(env, ctx, s) {
     // Look at the first bill now. Queued before the row is touched, so a row update that fails cannot skip the look.
     ctx.waitUntil(checkPlan(env, s, sub));
   }
-  if ((await booked(env, ctx, uid, sub, customer, card, s)) === 'prepaid') return { prepaid: true, paidBack: false };
+  if ((await booked(env, ctx, uid, sub, customer, card, s)) === 'prepaid') return { prepaid: true, charged: false };
   return sub;
 }
 
@@ -991,14 +994,14 @@ async function paidPlan(env, ctx, s) {
   // Only a plan whose first month is paid is booked. A card that was refused leaves the plan "incomplete": the
   // customer is still in the form, and Stripe sends this event again when they finish.
   // A plan that was already turned away for a prepaid card (the other caller got here first): say so again.
-  if (sub && sub.metadata && sub.metadata.apw_prepaid) return { prepaid: true, paidBack: true };
+  if (sub && sub.metadata && sub.metadata.apw_prepaid) return { prepaid: true, charged: true };
   if (!sub || !sub.id || sub.status !== 'active') return null;
   // No prepaid cards. Checked before the card is moved onto the customer and before the yard is booked. Stripe has
-  // already charged the first month by now, so prepaidOut pays it back and ends the plan.
+  // already charged the first month by now. prepaidOut tells the office, who pay it back and cancel by hand.
   const used = await planCard(env, sub, customer, null);
   if (prepaidNo(used, customer)) { const out = await prepaidOut(env, ctx, uid, customer, used, sub); if (out) return out; }
   const card = await cardToCustomer(env, ctx, sub, customer);
-  if ((await booked(env, ctx, uid, sub, customer, card, s)) === 'prepaid') return { prepaid: true, paidBack: true };
+  if ((await booked(env, ctx, uid, sub, customer, card, s)) === 'prepaid') return { prepaid: true, charged: true };
   return sub;
 }
 
@@ -1085,50 +1088,49 @@ async function planCard(env, sub, customer, card) {
 // A new sign up used a prepaid card. Nothing is booked. Answers null when the row is not waiting at the card step:
 // that is a customer who is already booked, and this must never touch them.
 //  - Free month (no `sub`): no plan was asked for. The card comes off the Stripe customer, so it is never the card on file.
-//  - First month paid (`sub`): Stripe already charged the card and made the plan. The plan is marked, the charge is
-//    paid back in full, and the plan is ended. The mark makes Stripe's news about that plan change nothing (webhook).
+//  - First month paid (`sub`): Stripe already charged the card and made the plan. This server does NOT pay it back and
+//    does NOT end the plan (Joe, Nov 23, 2026: "do NOT refund or cancel automatically... so Joe can refund by hand").
+//    The office gets "PREPAID CARD, ALREADY CHARGED: name", the Health tab gets a line, and the plan is marked
+//    (`apw_prepaid`, a note on the plan and nothing more). The mark keeps this to one email, makes Stripe's news about
+//    that plan change nothing (webhook), and lets the customer go on with another card (checkout, startPlan).
 // The row stays at the card step, so the customer can go on with a credit or debit card. The page and Stripe both
-// report a finished card form, so this runs twice for one sign up: only the first run acts and sends the emails.
+// report a finished card form, so this runs twice for one sign up: only the first run sends the emails.
 async function prepaidOut(env, ctx, uid, customer, card, sub) {
   const rows = await db(env, 'GET', 'customers?id=eq.' + uid + '&status=eq.checkout&select=id,name,email,phone,address,zip');
   const c = rows && rows[0];
   if (!c) return null;
-  const out = { prepaid: true, paidBack: !!(sub && sub.id) };
-  let first = true, back = 0, trouble = '';
-  if (sub && sub.id) {
+  const paid = !!(sub && sub.id);
+  const out = { prepaid: true, charged: paid };
+  let trouble = '';
+  if (paid) {
     try {
       const marked = await stripe(env, 'POST', 'subscriptions/' + encodeURIComponent(sub.id), { metadata: { apw_prepaid: '1' } }, 'apw-prepaid-' + sub.id);
-      first = !marked._replayed;
-    } catch (e) { if (e.status === 409 || e.replayed) return out; trouble = 'The plan could not be marked. ' + clean(e && e.message, 200); }
-    if (!first) return out;
-    try {
-      // What this sign up was charged: a paid charge of this customer made since the plan began, not paid back yet.
-      const since = (sub.created || sub.start_date || Math.floor(Date.now() / 1000)) - 600;
-      const list = (await stripe(env, 'GET', 'charges', { customer, limit: 10 })).data || [];
-      for (const ch of list) {
-        if (!ch.paid || ch.refunded || ch.amount_refunded > 0 || !(ch.created >= since)) continue;
-        await stripe(env, 'POST', 'refunds', { charge: ch.id, reason: 'requested_by_customer', metadata: { apw_prepaid: sub.id } }, 'apw-prepaid-back-' + ch.id);
-        back += ch.amount;
-      }
-      await stripe(env, 'DELETE', 'subscriptions/' + encodeURIComponent(sub.id));
-    } catch (e) { trouble = (trouble ? trouble + ' ' : '') + clean(e && e.message, 300); }
+      if (marked._replayed) return out;
+    } catch (e) { if (e.status === 409 || e.replayed) return out; trouble = 'The plan could not be marked, so this email may come twice. ' + clean(e && e.message, 200); }
   } else {
     // Taking the card off works once, so it is also what keeps this to one set of emails.
     try { await stripe(env, 'POST', 'payment_methods/' + encodeURIComponent(card.id) + '/detach'); }
     catch (e) { if (e.status === 400) return out; trouble = 'The card could not be taken off the Stripe customer. ' + clean(e && e.message, 200); }
   }
   const who = 'Name: ' + c.name + '\nMobile: ' + c.phone + '\nEmail: ' + c.email + '\nAddress: ' + c.address + ', ' + c.zip + '\nStripe customer: ' + customer;
-  const paid = !!(sub && sub.id);
-  const did = !paid ? 'Nothing was charged and no plan was started.'
-    : trouble ? 'DO THIS BY HAND IN STRIPE: make sure the first payment is paid back in full and the plan ' + sub.id + ' is canceled.' + (back ? ' The server paid back ' + money(back) + ' before it stopped.' : '')
-      : back ? 'The server paid back ' + money(back) + ' and ended the plan. Nothing to do in Stripe.' : 'The server ended the plan. It found no payment to pay back: look at this customer in Stripe to be sure.';
-  ctx.waitUntil(mail(env, owner(env), (paid && trouble ? 'DO BY HAND. ' : '') + 'Prepaid card turned away: ' + c.name,
-    c.name + ' tried to sign up with a prepaid or gift card. We do not take those, so they are NOT booked and are not on a route.\n\n' + did +
-    '\n\nThey were asked to use a credit or debit card. A call or text may help them finish.\n\n' + who));
-  if (trouble) ctx.waitUntil(logError(env, 'server', '/api/checkout', paid ? 'A prepaid card was turned away, but the payment or the plan needs a look in Stripe' : 'A prepaid card was turned away, but it is still saved in Stripe', (paid ? sub.id : customer) + '. ' + trouble));
+  const amount = paid ? planCents(sub) : 0;
+  if (paid) {
+    ctx.waitUntil(mail(env, owner(env), 'PREPAID CARD, ALREADY CHARGED: ' + c.name,
+      c.name + ' signed up with a prepaid or gift card. We do not take those, so they are NOT booked and are not on a route.\n\n' +
+      'Stripe charged the card' + (amount ? ' ' + money(amount) : '') + ' in its form before we could look. Nothing was paid back and nothing was canceled.\n\n' +
+      'TO DO BY HAND IN STRIPE:\n1. Refund the payment.\n2. Cancel the plan ' + sub.id + '. Until it is canceled, it bills again next month.\n\n' +
+      'They were told we will send the payment back, and asked to use a credit or debit card. A call or text may help them finish.\n\n' + who));
+    ctx.waitUntil(logError(env, 'server', '/api/checkout', 'PREPAID CARD, ALREADY CHARGED: ' + c.name + '. Refund the payment and cancel the plan by hand in Stripe',
+      'Not booked. Plan ' + sub.id + ', Stripe customer ' + customer + (amount ? ', ' + money(amount) : '') + '. Nothing was paid back or canceled by the server.' + (trouble ? ' ' + trouble : '')));
+  } else {
+    ctx.waitUntil(mail(env, owner(env), 'Prepaid card turned away: ' + c.name,
+      c.name + ' tried to sign up with a prepaid or gift card. We do not take those, so they are NOT booked and are not on a route.\n\nNothing was charged and no plan was started.' +
+      '\n\nThey were asked to use a credit or debit card. A call or text may help them finish.\n\n' + who));
+    if (trouble) ctx.waitUntil(logError(env, 'server', '/api/checkout', 'A prepaid card was turned away, but it is still saved in Stripe', customer + '. ' + trouble));
+  }
   if (c.email) {
     const m = brandMail(env, 'Please use a credit or debit card', [hi(c.name), NO_PREPAID,
-      paid ? (back && !trouble ? 'We sent your ' + money(back) + ' back to your card. Your bank can take 5 to 10 days to show it.' : 'Your payment is going back to your card. Your bank can take 5 to 10 days to show it.') : 'Your card was not charged.',
+      paid ? 'We will send your payment back to your card. Your bank can take 5 to 10 days to show it.' : 'Your card was not charged.',
       'You are not signed up yet. To finish, sign up again with a credit or debit card.'],
       { url: 'https://' + siteHost(env) + '/book/', label: 'Finish my sign up' }, ['Questions? Call or text 623.309.6104.']);
     ctx.waitUntil(mail(env, c.email, 'Please use a credit or debit card', m.text, m.html));
@@ -1375,8 +1377,8 @@ async function webhook(request, env, ctx) {
     // card form, or their card was refused). One that never got paid ends as "incomplete_expired". Neither one may
     // touch the row: it waits at the card step, so the sign up can still be finished and booked.
     if (o.status === 'incomplete' || o.status === 'incomplete_expired') return ok({ received: true });
-    // A plan that was ended because its sign up used a prepaid card (prepaidOut). It was never booked, so its news
-    // changes nothing: the row waits at the card step for a credit or debit card.
+    // A plan whose sign up used a prepaid card (prepaidOut). It was never booked, and the office refunds and cancels
+    // it by hand, so its news changes nothing: the row waits at the card step for a credit or debit card.
     if ((o.metadata || {}).apw_prepaid) return ok({ received: true });
     const uid = uuid((o.metadata || {}).user_id);
     const gone = evt.type === 'customer.subscription.deleted';

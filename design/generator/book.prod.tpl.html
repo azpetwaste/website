@@ -804,7 +804,7 @@ class Component extends DCLogic {
     if (a && id) {
       try { r = await Promise.race([a.post('/api/checkout/done', { session: id }, !!a.auth.session()), new Promise((ok) => setTimeout(() => ok(null), 20000))]); } catch (e) { r = null; }
     }
-    if (r && r.prepaid) { if (this.state.step === 4) this.setState({ payState: 'prepaid', payBack: !!r.paidBack }); return; }
+    if (r && r.prepaid) { if (this.state.step === 4) this.setState({ payState: 'prepaid', payBack: !!r.charged }); return; }
     this._clearDraft();
     // The booking. The event id is the card form id, the same one the server sends Meta, so Meta counts it once.
     this._t('booked', Object.assign({ id: id ? 'bk_' + id : '' }, this._tPlan()));
@@ -1010,7 +1010,7 @@ class Component extends DCLogic {
       payLoading: !demo && s.payState === 'loading',
       paySaving: !demo && s.payState === 'saving',
       payPrepaid: !demo && s.payState === 'prepaid',
-      payBackLine: s.payBack ? 'Your payment is going back to your card.' : 'Your card was not charged.',
+      payBackLine: s.payBack ? 'We will send your payment back to your card.' : 'Your card was not charged.',
       payError: !demo && s.payState === 'error',
       payAlready: !demo && s.payState === 'already',
       payErr: s.payErr,

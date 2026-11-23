@@ -1318,3 +1318,8 @@ Joe, through Atlas: "when I say start route, we need to hit start route for ever
 - Yours if Joe wants it: show `last_cleanup` on the office customer card and in the Schedule, and use it for how long a first visit is planned to take. That is a crew page change, so the video rule applies.
 - Heads up: `build/desk.test.mjs` had one case failing on main before this change, with and without it: "the plan for one day has every waiting house on it, with a time for each" (two houses at 08:00). It is in the preplan code, so I left it alone.
 
+## Nov 23, 2026, 2 pm (website session): prepaid card on a paid sign up is now by hand
+- Joe changed one part of the prepaid rule: when Stripe has already charged a prepaid card (a sign up with no free month, so every sign up from December 1), the server no longer pays it back or cancels the plan. The office gets "PREPAID CARD, ALREADY CHARGED: name", the Health tab gets a line, and Joe refunds and cancels by hand in Stripe. Nothing is booked. Everything else about the rule is as it was, and `cus_VfcvBMqaFWKvi3` is still the only id on the allow list. `CLAUDE.md` has the full note.
+- The plan of such a sign up carries `apw_prepaid` in its Stripe metadata and is still running until the office cancels it. The webhook ignores it. `booked` still answers `'prepaid'` for it.
+- Joe: the field tool chat has a second draft of the prepaid block, PR 7. Do NOT merge PR 7. The version on main (this one) is the one we keep.
+

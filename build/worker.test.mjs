@@ -2223,7 +2223,7 @@ head('No prepaid cards: a new sign up with one is turned away before anything is
   const pm = S.intents[q.s.setup_intent].payment_method, cus = q.s.customer;
   q.s.status = 'complete';
   d = await call('/api/checkout/done', 'POST', { session: q.s.id }, 'good'); await settle();
-  ok('free month: the page is told the card is prepaid, in Joe’s words, and nothing is booked', d.status === 200 && d.d.prepaid === true && d.d.booked === false && d.d.paidBack === false && d.d.message === SAY, d);
+  ok('free month: the page is told the card is prepaid, in Joe’s words, and nothing is booked', d.status === 200 && d.d.prepaid === true && d.d.booked === false && d.d.charged === false && d.d.message === SAY, d);
   ok('no plan was asked for, so no free month started', plansAsked() === 0 && Object.keys(S.subs).length === 0, S.calls.map((c) => c.m + ' ' + c.p));
   ok('the row still waits at the card step: not booked, no plan, not on a route', row(U1).status === 'checkout' && !row(U1).stripe_subscription_id && T.stops.length === 0, row(U1));
   ok('the prepaid card came off the Stripe customer and is not the card on file', S.detached.length === 1 && S.detached[0] === pm && !S.customers[cus].invoice_settings.default_payment_method, [S.detached, S.customers[cus]]);
@@ -2246,28 +2246,37 @@ head('No prepaid cards: a new sign up with one is turned away before anything is
   ok('if the card cannot be taken off in Stripe, the sign up is still turned away and the Health tab says so', (await hook(sessionEvt(q.s.id))) === 200 && plansAsked() === 0 && row(U1).status === 'checkout' && away().length === 1
     && T.errors.some((e) => /still saved in Stripe/.test(e.message)), [mails.map((m) => m.subject), T.errors]);
 
-  // No free month: Stripe charged the first month in the form and made the plan.
+  // No free month: Stripe charged the first month in the form and made the plan. The server pays nothing back and
+  // cancels nothing (Joe, Nov 23, 2026): the office is told, and does it by hand.
   const paidTry = async () => { clear(); env = Object.assign({}, baseEnv, SALE_OVER); S.funding = 'prepaid'; r = await call('/api/checkout', 'POST', Object.assign({}, good, { plan: 'week', dogs: 2 }), 'good'); S.funding = 'credit'; s = S.sessions[r.d.session]; sub = payNow(s.id); reset(); };
+  const charged = () => sent(/^PREPAID CARD, ALREADY CHARGED: Test Person$/);
+  const handsOff = () => S.refunds.length === 0 && S.ended.length === 0 && sub.status === 'active' && S.charges[0].refunded === false && !S.calls.some((c) => c.m === 'DELETE' || c.p === 'refunds' || c.p === 'charges' || /\/(cancel|pay|void)$/.test(c.p));
   await paidTry();
-  ok('no free month: the checkout event turns it away', (await hook(paidEvt(s.id))) === 200 && row(U1).status === 'checkout' && !row(U1).stripe_subscription_id && T.stops.length === 0 && sent(/^You are booked/).length === 0 && sent(/New booking/).length === 0, [row(U1), mails.map((m) => m.subject)]);
-  ok('the first month is paid back in full, once, and the plan is ended', S.refunds.length === 1 && S.refunds[0].amount === 9900 && S.charges[0].refunded === true && S.ended.length === 1 && S.ended[0] === sub.id && sub.status === 'canceled' && sub.metadata.apw_prepaid === '1', [S.refunds, S.ended, sub.metadata]);
+  ok('no free month: the checkout event does not book it', (await hook(paidEvt(s.id))) === 200 && row(U1).status === 'checkout' && !row(U1).stripe_subscription_id && T.stops.length === 0 && sent(/^You are booked/).length === 0 && sent(/New booking/).length === 0, [row(U1), mails.map((m) => m.subject)]);
+  ok('nothing is paid back and nothing is canceled by the server: the charge stands and the plan is still running in Stripe', handsOff(), [S.refunds, S.ended, sub.status, S.calls.filter((c) => c.m !== 'GET').map((c) => c.m + ' ' + c.p)]);
+  ok('the only thing written to Stripe is a note on the plan', S.calls.filter((c) => c.m !== 'GET').length === 1 && S.calls.filter((c) => c.m !== 'GET')[0].p === 'subscriptions/' + sub.id && String(S.calls.filter((c) => c.m !== 'GET')[0].f) === 'metadata%5Bapw_prepaid%5D=1' && sub.metadata.apw_prepaid === '1',
+    S.calls.filter((c) => c.m !== 'GET').map((c) => c.m + ' ' + c.p + ' ' + String(c.f)));
   ok('the prepaid card was never made the card on file', !S.customers[s.customer].invoice_settings.default_payment_method, S.customers[s.customer]);
-  ok('the owner is told what was paid back and that there is nothing to do', away().length === 1 && /The server paid back \$99 and ended the plan\. Nothing to do in Stripe\./.test(away()[0].text), away());
-  ok('the customer is told their $99 went back', asked().length === 1 && asked()[0].text.includes(SAY) && /We sent your \$99 back to your card\./.test(asked()[0].text) && /You are not signed up yet\./.test(asked()[0].text), asked());
+  ok('the office gets one email, "PREPAID CARD, ALREADY CHARGED: name", that says to refund and cancel by hand and names the plan', charged().length === 1 && sent(/turned away/).length === 0 && /NOT booked/.test(charged()[0].text)
+    && /Nothing was paid back and nothing was canceled\./.test(charged()[0].text) && /1\. Refund the payment\./.test(charged()[0].text) && charged()[0].text.includes('2. Cancel the plan ' + sub.id + '.') && charged()[0].text.includes('Stripe customer: ' + s.customer), charged());
+  ok('the Health tab has a line for it', T.errors.filter((e) => /^PREPAID CARD, ALREADY CHARGED: Test Person\. Refund the payment and cancel the plan by hand in Stripe$/.test(e.message) && e.detail.includes(sub.id)).length === 1, T.errors);
+  ok('the customer is told once that the payment will be sent back, and is not told it already was', asked().length === 1 && asked()[0].text.includes(SAY) && /We will send your payment back to your card\./.test(asked()[0].text) && /You are not signed up yet\./.test(asked()[0].text) && !/We sent your/.test(asked()[0].text), asked());
   d = await call('/api/checkout/done', 'POST', { session: s.id }, 'good'); await settle();
-  ok('the page gets the message and is told the payment went back. Nothing is paid back twice', d.d.prepaid === true && d.d.paidBack === true && d.d.booked === false && d.d.message === SAY && S.refunds.length === 1 && S.ended.length === 1 && away().length === 1 && asked().length === 1, [d, S.refunds.length]);
-  ok('Stripe’s news that the plan ended changes nothing: no "Canceled" email, and the row still waits at the card step', (await hook(subEvt('deleted', sub))) === 200 && (await hook(subEvt('updated', sub, { status: 'active' }, {}))) === 200
-    && row(U1).status === 'checkout' && sent(/^Canceled/).length === 0 && S.refunds.length === 1, [row(U1).status, mails.map((m) => m.subject)]);
-  reset(); r = await call('/api/checkout', 'POST', Object.assign({}, good, { plan: 'week', dogs: 2 }), 'good'); s = S.sessions[r.d.session];
-  ok('then a credit card: a new card form opens and the sign up is booked', r.status === 200 && !r.d.already && !!s && (sub = payNow(s.id)) && (await hook(paidEvt(s.id))) === 200 && row(U1).status === 'active' && sent(/^You are booked/).length === 1 && S.refunds.length === 1, [r, row(U1) && row(U1).status]);
+  ok('the page gets the message and is told the card was charged. Nobody is told twice', d.d.prepaid === true && d.d.charged === true && d.d.booked === false && d.d.message === SAY && charged().length === 1 && asked().length === 1 && handsOff()
+    && T.errors.filter((e) => /ALREADY CHARGED/.test(e.message)).length === 1, [d, mails.map((m) => m.subject)]);
+  ok('Stripe’s later news about that plan books nothing and changes nothing', (await hook(subEvt('updated', sub, { status: 'active' }, {}))) === 200 && row(U1).status === 'checkout' && !row(U1).stripe_subscription_id && sent(/^You are booked/).length === 0 && charged().length === 1 && handsOff(), [row(U1).status, mails.map((m) => m.subject)]);
+  // The customer goes on with a credit card while the prepaid plan still waits for the office.
+  const first = sub; reset(); r = await call('/api/checkout', 'POST', Object.assign({}, good, { plan: 'week', dogs: 2 }), 'good'); s = S.sessions[r.d.session];
+  ok('then a credit card: a new card form opens (the prepaid plan does not count as their plan) and the sign up is booked on the new plan', r.status === 200 && !r.d.already && !!s && (sub = payNow(s.id)) && (await hook(paidEvt(s.id))) === 200 && row(U1).status === 'active'
+    && row(U1).stripe_subscription_id === sub.id && sub.id !== first.id && sent(/^You are booked/).length === 1 && first.status === 'active' && S.refunds.length === 0 && S.ended.length === 0, [r, row(U1) && row(U1).status]);
+  // The office cancels the prepaid plan by hand, later: the booked customer is not touched.
+  reset(); first.status = 'canceled';
+  ok('when the office cancels the prepaid plan by hand, the customer who went on with a credit card stays booked, with no "Canceled" email', (await hook(subEvt('deleted', first))) === 200 && row(U1).status === 'active' && row(U1).stripe_subscription_id === sub.id && sent(/^Canceled/).length === 0, [row(U1).status, mails.map((m) => m.subject)]);
   await paidTry();
-  ok('no free month, Stripe’s plan event first: turned away the same way, and the card is not moved onto the customer', (await hook(subEvt('updated', sub, {}, { status: 'incomplete' }))) === 200 && row(U1).status === 'checkout' && S.refunds.length === 1 && S.ended.length === 1
-    && !S.customers[s.customer].invoice_settings.default_payment_method && away().length === 1 && (await hook(paidEvt(s.id))) === 200 && S.refunds.length === 1 && away().length === 1 && sent(/^You are booked/).length === 0, [row(U1).status, S.refunds.length, mails.map((m) => m.subject)]);
-  await paidTry(); S.failRefund = true;
-  ok('if the pay back fails, the owner email starts with DO BY HAND, the Health tab says so, and the customer is still told the money is coming back', (await hook(paidEvt(s.id))) === 200 && row(U1).status === 'checkout' && S.refunds.length === 0
-    && sent(/^DO BY HAND\. Prepaid card turned away: Test Person$/).length === 1 && /DO THIS BY HAND IN STRIPE/.test(sent(/^DO BY HAND/)[0].text) && T.errors.some((e) => /needs a look in Stripe/.test(e.message))
-    && /Your payment is going back to your card\./.test(asked()[0].text), [mails.map((m) => m.subject), T.errors]);
-  S.failRefund = false;
+  ok('no free month, Stripe’s plan event first: not booked, the card is not moved onto the customer, one email, nothing paid back or canceled', (await hook(subEvt('updated', sub, {}, { status: 'incomplete' }))) === 200 && row(U1).status === 'checkout'
+    && !S.customers[s.customer].invoice_settings.default_payment_method && charged().length === 1 && (await hook(paidEvt(s.id))) === 200 && charged().length === 1 && asked().length === 1 && sent(/^You are booked/).length === 0 && handsOff(), [row(U1).status, mails.map((m) => m.subject)]);
+  reset(); sub.status = 'canceled';
+  ok('when the office cancels that plan by hand, the row still waits at the card step and there is no "Canceled" email', (await hook(subEvt('deleted', sub))) === 200 && row(U1).status === 'checkout' && sent(/^Canceled/).length === 0, [row(U1).status, mails.map((m) => m.subject)]);
 
   // The one customer who keeps a prepaid card.
   clear(); env = Object.assign({}, baseEnv); S.customers.cus_VfcvBMqaFWKvi3 = { id: 'cus_VfcvBMqaFWKvi3', invoice_settings: { default_payment_method: null } };
