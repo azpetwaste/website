@@ -8,6 +8,7 @@ One tool for a dog poop scooping company in the West Valley, Arizona. First visi
 - **Staff app:** arizonapetwaste.com/crew. Scoopers run their route. The office sees every route, customers, leads, texts, team, money and health.
 - **Customer truck link:** arizonapetwaste.com/t/CODE. Live map, minutes away, gate photo. No app, no login.
 - **Demo, no sign in:** arizonapetwaste.com/crew/?demo (500 made up yards) and arizonapetwaste.com/t/DEMO01.
+- **Joe's practice copy (Nov 22, 2026):** Joe has a private Claude page with the crew app in demo mode and his own six customers, for trying buttons. The link is not kept in this repo. It is rebuilt by hand from `static/crew/index.html`, so it can fall behind the app.
 - **Staff training page:** arizonapetwaste.com/staff-73d752e4/ (video and steps, not indexed, not linked).
 - **Visit day protocol doc:** https://claude.ai/artifact/VG2yTne8FPhP4UDH7xrrck
 
@@ -83,6 +84,25 @@ Twilio approved the campaign on November 19. Built on the branch `field-app/auto
 - Database: `supabase/patch-2026-11-21.sql` (adds columns only, the visit times included). It was NOT run on the live database from this chat.
 - How a person tests it: `docs/TEST_AUTO_TEXTS.md`. Rules: `CLAUDE.md`, "Texts".
 - The hard rule above, "No texts or calls go out by code", is replaced by those rules. Calls are still never placed by code.
+
+## Nov 22, 2026: Preplan my days, and a Schedule that builds itself (live: Joe said "push it live" at 9:02 PM)
+Branch `field-app/pre-plan`. Joe asked for it while trying the app with his six customers. The rules are in `CLAUDE.md` under Texts.
+- **Preplan my days.** One button on the Schedule, under "Booked houses with no day and time yet". Pick one day or a few, tap "Plan it for me", and every waiting house gets a day, a place in the driving order and a time. Move any house to another day or leave it out. Nothing is saved and nobody is told until Confirm.
+- **Lock a house to a day.** Step 3 on the Preplan screen: pick the day for any house that has to be on a certain day, and the app plans everyone else around it. Added the same night after Joe tried the first version.
+- **The shortest drive.** A day of up to 12 houses is now the true shortest order, checked against every possible order in the tests. Bigger days are tightened too, about 2 percent shorter on made up days of 20 to 100 houses.
+- **Confirm** saves the day and time, builds the days and sends the confirmation by email and text through the usual gate (test mode holds it). If the evening run has already gone by, tomorrow's customers get their night before email and text right then.
+- **Night before email.** The evening run emails as well as texts.
+- **The Schedule builds itself.** A house shows on its day as soon as it has one. The "Build this day's routes" and "Add new sign ups to this day" buttons are gone. The day strip starts at today.
+- **Customers list** says "Not scheduled" in place of "Set day and time".
+- The demo (`/crew/?demo`) does all of this with made up yards (`demoBuild`, `demoPre`, `demoNight`).
+- No database change.
+
+Tests run on this branch on Nov 22, 2026: week 100 of 100, desk 261 of 261 (and 155 of 155 on a database without the Nov 21 patch), worker 542 of 542, ten sign ups 40 of 40, nav 68 of 68, `npm run check` passes. Fifty sign ups: 130 pass and 1 fails ("only Monday to Friday is used"). That one fails the same way on `main` without this change, so it is not from this branch. It was not looked into.
+Walked in a browser at phone size in the demo: plan one day, plan two days, move a house, confirm, the Texts tab, a house set by hand showing on its day, My route.
+
+Not run: the signed in app against the live database. No real customer was scheduled, emailed or texted.
+Not done yet: the training video and the training page steps. They still show the Schedule with the old buttons. Rebuild them before this goes live (the standing rule), once Joe is happy with the screens.
+Open question for Joe: a customer planned for tomorrow gets two messages close together when the plan is confirmed in the evening, the confirmation and the night before reminder. Say so if one is enough.
 
 ## Open items
 1. Staff test: someone signs in at /crew inside the Claude browser pane, then Claude runs a test yard through a route. A test customer "TEST Yard (delete me)" sits in the live database for this. Delete it after.

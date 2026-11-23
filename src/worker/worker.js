@@ -2063,7 +2063,8 @@ async function desk(path, request, env, ctx) {
 
   // Office: owner and office only.
   if (s.role === 'scooper') return fail(403, 'Only the office can open this.');
-  if (path === '/api/office/day' && m === 'GET') return officeDay(env, q.get('date'));
+  if (path === '/api/office/day' && m === 'GET') return officeDay(env, q.get('date'), q.get('build') === '1');
+  if (path === '/api/office/preplan' && m === 'POST') return officePrePlan(env, b);
   if (path === '/api/office/week' && m === 'POST') return officeWeek(env, b);
   if (path === '/api/office/settings' && m === 'GET') return officeSettings(env, null);
   if (path === '/api/office/settings' && m === 'POST') return officeSettings(env, b);
@@ -3068,6 +3069,30 @@ function pathMiles(list) {
   for (let i = 1; i < p.length; i++) n += miles(p[i - 1], p[i]);
   return n * 1.35;
 }
+// The true shortest way through a small group of stops: every subset of stops and where it ends is worked out once
+// (Held and Karp). D is the distance table, n the number of points. fixed: point 0 is where the truck starts and must
+// be first. Otherwise the drive may begin at any stop. Answers the order as indexes into the table.
+const EXACT_MAX = 12, OR_MAX = 400;
+function exactOrder(D, n, fixed) {
+  if (n < 2 || n > EXACT_MAX + 1) return null;
+  const full = 1 << n, cost = new Float64Array(full * n).fill(Infinity), back = new Int8Array(full * n).fill(-1);
+  if (fixed) cost[1 * n + 0] = 0; else for (let i = 0; i < n; i++) cost[(1 << i) * n + i] = 0;
+  for (let set = 1; set < full; set++) for (let last = 0; last < n; last++) {
+    const here = cost[set * n + last];
+    if (here === Infinity) continue;
+    for (let next = 0; next < n; next++) {
+      if (set & (1 << next)) continue;
+      const to = (set | (1 << next)) * n + next, c = here + D[last * n + next];
+      if (c < cost[to] - 1e-12) { cost[to] = c; back[to] = last; }
+    }
+  }
+  let end = 0;
+  for (let i = 1; i < n; i++) if (cost[(full - 1) * n + i] < cost[(full - 1) * n + end]) end = i;
+  if (fixed && n > 1 && end === 0) return null;
+  const order = [];
+  for (let set = full - 1, at = end; at >= 0;) { order.push(at); const from = back[set * n + at]; set &= ~(1 << at); at = from; }
+  return order.reverse();
+}
 function shortOrder(list, start) {
   const pins = list.filter(pinned), rest = list.filter((c) => !pinned(c));
   if (pins.length < 3 && !start) return pins.concat(rest);
@@ -3089,15 +3114,51 @@ function shortOrder(list, start) {
     used[best] = 1;
     tour.push(best);
   }
-  // 2-opt: flip a stretch of the route when that makes it shorter. The start stays first and the route does not loop back.
-  for (let again = true, pass = 0; again && pass < 60; pass++) {
-    again = false;
-    for (let i = 1; i < n - 1; i++) for (let j = i + 1; j < n; j++) {
-      const a = tour[i - 1], b = tour[i], c = tour[j], d = j + 1 < n ? tour[j + 1] : -1;
-      const gain = D[a * n + b] + (d < 0 ? 0 : D[c * n + d]) - D[a * n + c] - (d < 0 ? 0 : D[b * n + d]);
-      if (gain > 1e-9) { for (let x = i, y = j; x < y; x++, y--) { const t = tour[x]; tour[x] = tour[y]; tour[y] = t; } again = true; }
+  // A small day gets the true shortest drive (Joe, Nov 22, 2026: "make sure we are optimizing the addresses to get to
+  // the best place possible fastest"): every order is weighed, so no shorter one exists. Up to EXACT_MAX houses.
+  if (n <= EXACT_MAX + 1) {
+    const exact = exactOrder(D, n, !!start);
+    if (exact) {
+      let out = exact.map((k) => pts[k]);
+      // With no start the drive can run either way. Keep the old habit: begin at the end farthest from the middle.
+      if (!start && out.length > 1 && out[out.length - 1] === from) out.reverse();
+      return (start ? out.slice(1) : out).concat(rest);
     }
   }
+  // A big day: start from closest next, then keep making it shorter until nothing helps. Two moves:
+  // 2-opt flips a stretch of the route. Or-opt lifts one, two or three stops out and sets them down in a better place.
+  // The start stays first and the route does not loop back.
+  const legs = (t) => { let x = 0; for (let i = 1; i < t.length; i++) x += D[t[i - 1] * n + t[i]]; return x; };
+  const twoOpt = () => {
+    for (let again = true, pass = 0; again && pass < 60; pass++) {
+      again = false;
+      for (let i = 1; i < n - 1; i++) for (let j = i + 1; j < n; j++) {
+        const a = tour[i - 1], b = tour[i], c = tour[j], d = j + 1 < n ? tour[j + 1] : -1;
+        const gain = D[a * n + b] + (d < 0 ? 0 : D[c * n + d]) - D[a * n + c] - (d < 0 ? 0 : D[b * n + d]);
+        if (gain > 1e-9) { for (let x = i, y = j; x < y; x++, y--) { const t = tour[x]; tour[x] = tour[y]; tour[y] = t; } again = true; }
+      }
+    }
+  };
+  const orOpt = () => {
+    let moved = false;
+    for (let len = 1; len <= 3; len++) for (let i = 1; i + len <= n; i++) {
+      const seg = tour.slice(i, i + len), left = tour.slice(0, i).concat(tour.slice(i + len)), base = legs(tour);
+      let bestAt = -1, bestRev = false, bestLen = base - 1e-9;
+      // Only the legs that change are added up: the gap that closes where the stops were, and the two new legs.
+      const cut = D[tour[i - 1] * n + seg[0]] + (i + len < n ? D[seg[len - 1] * n + tour[i + len]] - D[tour[i - 1] * n + tour[i + len]] : 0);
+      for (let at = 1; at <= left.length; at++) for (const rev of [false, true]) {
+        if (at === i && !rev) continue;
+        const first = rev ? seg[len - 1] : seg[0], lastOne = rev ? seg[0] : seg[len - 1], prev = left[at - 1], next = at < left.length ? left[at] : -1;
+        const total = base - cut + D[prev * n + first] + (next < 0 ? 0 : D[lastOne * n + next] - D[prev * n + next]);
+        if (total < bestLen) { bestLen = total; bestAt = at; bestRev = rev; }
+      }
+      if (bestAt >= 0) { left.splice(bestAt, 0, ...(bestRev ? seg.slice().reverse() : seg)); for (let x = 0; x < n; x++) tour[x] = left[x]; moved = true; }
+    }
+    return moved;
+  };
+  // Every move makes the drive shorter, so the answer is never longer than the flips alone would give.
+  twoOpt();
+  if (n <= OR_MAX) for (let round = 0; round < 30 && orOpt(); round++) twoOpt();
   const out = tour.map((k) => pts[k]);
   return (start ? out.slice(1) : out).concat(rest);
 }
@@ -3159,6 +3220,157 @@ async function planDay(env, day) {
     routeMiles: Math.round(routeMiles * 10) / 10, milesSaved: Math.round(milesSaved * 10) / 10, unpaid,
     overCap: staffIds.filter((sid) => sorted.filter((c) => (c.scooper_id || fallback) === sid).length > dayCap(env)).length };
 }
+/* ---------- Pre-plan my days (Joe, Nov 22, 2026) ---------- */
+// "If I click a button, you automatically pre-plan my whole day... give me the option of building out the route for
+// 1 day or building out the route for multiple days. I'm able to pick and choose where to send them, but you do it for
+// me... No emails, no texts until we confirm that we're good to go."
+// The office picks the days. Every booked house that still has no day and time is put on one of them, in the best
+// driving order, with a time. The office can move a house to another day, or leave it out. Nothing is saved and nobody
+// is told until the plan is confirmed.
+const PRE_START = '08:00', PRE_DAYS = 7, PRE_LATE = 18 * 60;
+const clockOf = (m) => { m = Math.max(0, Math.min(1435, Math.ceil(m / 5) * 5)); return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
+// The plan itself. No database, so it can be tested alone.
+// news: the houses to place ({ id, lat, lng, first }). dates: the days picked. opt.assign: { id: a date, or 'none' } is
+// the office's own pick and always wins. opt.busy: { date: [{ lat, lng, time }] } are the yards already set for that
+// day. They keep their times: a time a customer was told is never moved by this, so new houses go after them.
+function prePlan(news, dates, opt) {
+  opt = opt || {};
+  const assign = opt.assign || {}, busy = opt.busy || {}, cap = opt.cap || 30, home = opt.home || null, startAt = toMin(isTime(opt.start) ? opt.start : PRE_START);
+  const days = [...new Set(dates)].sort().map((date) => ({ date, list: [] })), by = Object.fromEntries(days.map((d) => [d.date, d]));
+  const out = { days, none: [], noPin: [] }, free = [];
+  for (const c of news) {
+    const a = assign[c.id];
+    if (!pinned(c)) out.noPin.push(c);
+    else if (a === 'none') out.none.push(c);
+    else if (a && by[a]) by[a].list.push(c);
+    else free.push(c);
+  }
+  // The houses nobody placed by hand: one long drive through all of them, cut into one part for each day. Each cut is
+  // made at the longest hop near an even split, so a day stays in one part of town.
+  if (free.length && days.length) {
+    const tour = shortOrder(free, home), n = tour.length, k = Math.min(days.length, n), cuts = [0];
+    // How many more houses each day can take before it is over the daily limit.
+    const room = days.slice(0, k).map((d) => Math.max(1, cap - (busy[d.date] || []).length - d.list.length));
+    const fits = room.reduce((x, y) => x + y, 0) >= n;
+    for (let j = 1; j < k; j++) {
+      // With more houses than the days can hold, the limit cannot be kept, so the days are simply made even (and flagged).
+      const even = Math.round(j * n / k), slack = Math.floor(n / k / 5), after = fits ? room.slice(j).reduce((x, y) => x + y, 0) : n;
+      const lo = Math.min(n - (k - j), Math.max(cuts[j - 1] + 1, even - slack, n - after)), hi = Math.max(lo, Math.min(n - (k - j), even + slack, fits ? cuts[j - 1] + room[j - 1] : n));
+      let best = Math.min(Math.max(even, lo), hi);
+      for (let i = lo; i <= hi; i++) if (miles(tour[i - 1], tour[i]) > miles(tour[best - 1], tour[best]) + 1e-9) best = i;
+      cuts.push(best);
+    }
+    cuts.push(n);
+    // A day that already holds a house the office put there (Joe, Nov 22, 2026: "pick one person and set it for that
+    // date... for everybody else, it doesn't matter") takes the part of town closest to that house. The other parts
+    // go to the other days in order.
+    const parts = Array.from({ length: k }, (_, j) => tour.slice(cuts[j], cuts[j + 1])), open = days.slice();
+    const mid = (l) => ({ lat: l.reduce((x, c) => x + c.lat, 0) / l.length, lng: l.reduce((x, c) => x + c.lng, 0) / l.length });
+    for (const d of days.filter((x) => x.list.length)) {
+      if (!parts.length) break;
+      const m = mid(d.list);
+      let b = 0;
+      parts.forEach((part, i) => { if (miles(m, mid(part)) < miles(m, mid(parts[b])) - 1e-9) b = i; });
+      d.list.push(...parts.splice(b, 1)[0]);
+      open.splice(open.indexOf(d), 1);
+    }
+    parts.forEach((part, i) => open[i].list.push(...part));
+  }
+  for (const d of days) {
+    // Each scooper's houses are timed on their own (`who`): two trucks can both be at a yard at 9:00.
+    let road = 0, work = 0, end = 0;
+    const yards = [];
+    for (const who of [...new Set(d.list.map((c) => c.who || ''))]) {
+      const had = (busy[d.date] || []).filter((x) => (x.who || '') === who && isTime(x.time)).sort((a, b) => toMin(a.time) - toMin(b.time)), last = had[had.length - 1];
+      let at = last && pinned(last) ? last : home, t = last ? toMin(last.time) + YARD_MIN : null;
+      for (const c of shortOrder(d.list.filter((x) => (x.who || '') === who), at)) {
+        const leg = at ? miles(at, c) : 0;
+        // The first house of an empty day is at the start time. Every house after is the one before, plus the minutes in
+        // that yard, plus the drive.
+        t = t == null ? startAt : Math.max(t + (leg ? driveMin(leg) : 0), startAt);
+        const mine = c.first ? FIRST_MIN : YARD_MIN, y = { c, time: clockOf(t) };
+        road += leg * 1.35; work += mine; t = toMin(y.time) + mine; at = c;
+        yards.push(y);
+      }
+      if (t != null) end = Math.max(end, t);
+    }
+    d.yards = yards.map((y, i) => [y, i]).sort((a, b) => toMin(a[0].time) - toMin(b[0].time) || a[1] - b[1]).map((a) => a[0]);
+    const t = end;
+    d.had = (busy[d.date] || []).length;
+    d.miles = Math.round(road * 10) / 10;
+    d.minutes = Math.round(roadMin(road) + work);
+    d.ends = d.yards.length ? clockOf(t) : null;
+    d.over = [...new Set(d.list.map((c) => c.who || ''))].some((who) => (busy[d.date] || []).filter((x) => (x.who || '') === who).length + d.list.filter((c) => (c.who || '') === who).length > cap);
+    d.late = d.yards.length > 0 && t > PRE_LATE;
+    delete d.list;
+  }
+  return out;
+}
+const PRE_FIELDS = 'id,name,email,phone,texts_visit,address,zip,plan,dogs,lat,lng,status,scooper_id,first_visit,eow_week,service_day,service_day2,service_time,service_time2';
+async function officePrePlan(env, b) {
+  if (!(await schedOn(env))) return fail(409, 'Times are not switched on yet. The database patch has to be run first.');
+  env = await withSettings(env);
+  const today = azToday(), last = addDays(today, PRE_DAYS - 1);
+  const dates = [...new Set((Array.isArray(b.dates) ? b.dates : []).filter(isDay))].filter((d) => d >= today && d <= last).sort();
+  if (!dates.length) return fail(400, 'Pick at least one day.');
+  const start = isTime(b.start) ? b.start : PRE_START;
+  // A booked house with no day, or a day and no time. A card that failed stays off routes, so it is not planned.
+  const news = await dbAll(env, 'customers?status=in.(trialing,active)&or=(service_day.is.null,service_time.is.null)&select=' + PRE_FIELDS + '&order=created_at,id');
+  const served = new Set();
+  for (let i = 0; i < news.length; i += 100) for (const r of await db(env, 'GET', 'stops?status=eq.done&customer_id=in.(' + news.slice(i, i + 100).map((c) => c.id).join(',') + ')&select=customer_id')) served.add(r.customer_id);
+  for (const c of news) c.first = !served.has(c.id);
+  // The yards that already have that weekday and a time. They keep it.
+  const set = await dbAll(env, 'customers?status=in.(trialing,active)&service_day=not.is.null&service_time=not.is.null&select=id,plan,eow_week,scooper_id,service_day,service_day2,service_time,service_time2,pause_from,pause_until,first_visit,lat,lng&order=id');
+  // A new house rides with its own scooper, or with the one who gets new sign ups. Each scooper's day is timed on its own.
+  const scooper = await defaultScooper(env), busy = {};
+  for (const c of news) c.who = c.scooper_id || scooper || '';
+  for (const date of dates) {
+    const wd = weekday(date);
+    busy[date] = set.filter((c) => (c.service_day === wd || c.service_day2 === wd) && !(c.plan === 'eow' && weekParity(date) !== (c.eow_week || 0)) &&
+      !(c.pause_from && c.pause_from <= date && (!c.pause_until || c.pause_until >= date)) && !(c.first_visit && date < c.first_visit))
+      .map((c) => ({ lat: c.lat, lng: c.lng, time: timeOn(c, wd), who: c.scooper_id || scooper }));
+  }
+  const assign = {};
+  if (b.assign && typeof b.assign === 'object') for (const c of news) { const a = b.assign[c.id]; if (a === 'none' || dates.includes(a)) assign[c.id] = a; }
+  const plan = prePlan(news, dates, { assign, busy, cap: dayCap(env), home: routeStart(env), start });
+  const placed = plan.days.flatMap((d) => d.yards.map((y) => ({ c: y.c, time: y.time, date: d.date })));
+  // Who hears about it when the plan is confirmed. The same gate as every schedule notice.
+  const may = placed.filter((x) => !tellGate(env, x.c)), tomorrow = addDays(today, 1);
+  const tell = { gate: !smsOn(env) ? 'off' : (testMode(env) ? 'test' : ''), email: env.RESEND_API_KEY ? may.filter((x) => x.c.email).length : 0,
+    text: may.filter((x) => x.c.texts_visit && digits(x.c.phone).length === 10).length, tomorrow: may.filter((x) => x.date === tomorrow).length,
+    nightNow: azMinutes() >= nightRunMin(env), quiet: quietNow(env) };
+  const row = (c) => ({ id: c.id, name: c.name, address: c.address, plan: c.plan });
+  const view = { dates, start, cap: dayCap(env), total: news.length, placed: placed.length, tell,
+    days: plan.days.map((d) => ({ date: d.date, dayName: DAYS[weekday(d.date)], had: d.had, miles: d.miles, minutes: d.minutes, ends: d.ends, over: d.over, late: d.late,
+      yards: d.yards.map((y) => Object.assign(row(y.c), { time: y.time, first: !!y.c.first })) })),
+    none: plan.none.map(row), noPin: plan.noPin.map(row) };
+  if (!b.apply) return ok(view);
+  if (!placed.length) return fail(400, 'There is no house on this plan.');
+  // Confirmed. Save each house's day and time, build those days, then tell the customers.
+  const now = new Date().toISOString();
+  for (const x of placed) {
+    const c = x.c, wd = weekday(x.date), p = { service_day: wd, service_time: x.time, updated_at: now };
+    if (c.plan === 'eow') p.eow_week = weekParity(x.date);
+    if (c.service_day2 === wd) p.service_day2 = null;
+    if (!c.first_visit || c.first_visit > x.date) p.first_visit = x.date;
+    await db(env, 'PATCH', 'customers?id=eq.' + c.id, p, 'return=minimal');
+  }
+  for (const d of plan.days) {
+    if (!d.yards.length) continue;
+    // A visit built on another day while the house had no time is dropped. Today's own visit is never touched.
+    const ids = d.yards.map((y) => y.c.id);
+    for (let i = 0; i < ids.length; i += 100) await db(env, 'DELETE', 'stops?status=eq.scheduled&day=gt.' + today + '&day=neq.' + d.date + '&customer_id=in.(' + ids.slice(i, i + 100).join(',') + ')', null, 'return=minimal').catch((e) => console.error('pre plan cleanup', e));
+    await planDay(env, d.date);
+    for (const r of await db(env, 'GET', 'routes?day=eq.' + d.date + '&select=id,status')) if (!r.status || r.status === 'planned') await reorderRoute(env, r.id).catch((e) => console.error('reorder', e));
+  }
+  const done = { saved: placed.length, emailed: 0, texted: 0, night: null };
+  try { const t = await schedNoticeMany(env, placed.map((x) => x.c.id), []); done.emailed = t.emailed; done.texted = t.texted; } catch (e) { console.error('pre plan notices', e); }
+  // The evening run has already gone by: tomorrow's customers get their night before email and text now.
+  if (placed.some((x) => x.date === tomorrow) && azMinutes() >= nightRunMin(env)) {
+    try { const n = await nightRun(env, tomorrow); done.night = { emailed: n.emailed, queued: n.queued, sent: n.sent }; } catch (e) { console.error('pre plan night', e); }
+  }
+  return ok(Object.assign(view, { applied: true, done }));
+}
 async function lastPings(env, routeIds) {
   const out = {};
   for (const id of routeIds) {
@@ -3167,8 +3379,13 @@ async function lastPings(env, routeIds) {
   }
   return out;
 }
-async function officeDay(env, date) {
+// build: the Schedule asks for this when a day is opened (Joe, Nov 22, 2026: "we just scheduled one for Sunday, and we
+// scheduled one for Monday... I don't see" them). A house with a day shows on that day on its own, with no button to
+// press. Building a day only adds its visits. It never emails or texts anyone. Past days and days far off are left alone.
+const BUILD_AHEAD = 13;
+async function officeDay(env, date, build) {
   const day = isDay(date) ? date : azToday();
+  if (build && day >= azToday() && day <= addDays(azToday(), BUILD_AHEAD)) await planDay(await withSettings(env), day).catch((e) => console.error('day build', e));
   const routes = await db(env, 'GET', 'routes?day=eq.' + day + '&select=*,staff:staff(id,name)&order=id');
   const stops = await db(env, 'GET', 'stops?day=eq.' + day + '&select=id,route_id,position,status,reason,note,photo_path,no_photo,code,on_way_at,arrived_at,done_at,' +
     'customer:customers(id,name,phone,address,zip,area,dogs,texts_visit)&order=position,id');
@@ -3534,11 +3751,43 @@ async function officeTexts(env) {
 // with no time set gets no text. The evening run also sends any day or change text that was held overnight. Also clears GPS points older than 30 days.
 // `cron` is true when the scheduler called it. Safe to run twice: a visit only ever gets one night before text.
 const NIGHT_BATCH = 10;
-async function nightBefore(env, date, cron) {
+// The evening run starts at 5:30 PM Arizona time. A plan confirmed after that for tomorrow sends its own reminders.
+// NIGHT_RUN_AT (optional, "17:30") moves that, if the evening run in .github/workflows/night-before.yml is ever moved.
+const nightRunMin = (env) => (isTime(env && env.NIGHT_RUN_AT) ? toMin(env.NIGHT_RUN_AT) : 17 * 60 + 30);
+// The night before email (Joe, Nov 22, 2026: "The customers for the following day need to get an email and a text
+// message at nightfall saying, 'Hey, we'll be there in the morning.'"). The same words as the text. One for each visit,
+// ever: the row in `messages` is written first and a second run finds it. It follows the same gate as every schedule
+// notice, so in test mode only a customer on the test list gets one.
+function nightMail(env, c, st, time) {
+  const tomorrow = st.day === addDays(azToday(), 1), when = tomorrow ? 'tomorrow (' + DAYS[weekday(st.day)] + ')' : 'on ' + dateSay(st.day);
+  return { subject: 'We will be there ' + (tomorrow ? 'tomorrow' : dateSay(st.day)) + ' around ' + timeSay(time),
+    text: [hi(c.name), '', 'We will be there ' + when + ' around ' + timeSay(time) + ', between ' + windowText(time) + '.',
+      'Please unlock the gate and keep your dogs inside.', '', 'Watch the truck on the way: https://' + siteHost(env) + '/t/' + st.code, '',
+      'Questions? Call or text 623.309.6104.', '', 'Arizona Pet Waste'].join('\n') };
+}
+async function nightMails(env, stops, times) {
+  if (!env.RESEND_API_KEY || !stops.length) return 0;
+  const want = stops.filter((st) => times[st.id] && st.customer && st.customer.email && !tellGate(env, st.customer));
+  if (!want.length) return 0;
+  const had = new Set((await db(env, 'GET', 'messages?kind=eq.night_before&channel=eq.email&stop_id=in.(' + want.map((x) => x.id).join(',') + ')&select=stop_id')).map((x) => x.stop_id));
+  const fresh = want.filter((st) => !had.has(st.id));
+  let sent = 0;
+  for (let i = 0; i < fresh.length; i += 100) {
+    const part = fresh.slice(i, i + 100), now = new Date().toISOString();
+    const rows = await db(env, 'POST', 'messages', part.map((st) => ({ customer_id: st.customer.id, stop_id: st.id, kind: 'night_before', channel: 'email', to_addr: st.customer.email,
+      body: nightMail(env, st.customer, st, times[st.id]).text, status: 'sent', sent_at: now })), 'return=representation');
+    const n = await mailMany(env, part.map((st) => { const m = nightMail(env, st.customer, st, times[st.id]); return { to: st.customer.email, subject: m.subject, text: m.text }; }));
+    if (n) sent += n;
+    else if (rows && rows.length) await db(env, 'PATCH', 'messages?id=in.(' + rows.map((x) => x.id).join(',') + ')', { status: 'failed' }, 'return=minimal').catch(() => {});
+  }
+  return sent;
+}
+async function nightBefore(env, date, cron) { return ok(await nightRun(env, date, cron)); }
+async function nightRun(env, date, cron) {
   env = await withSettings(env);
   const day = date || addDays(azToday(), 1);
   const plan = await planDay(env, day);
-  const stops = await db(env, 'GET', 'stops?day=eq.' + day + '&status=eq.scheduled&select=id,day,code,route_id,position,customer:customers(id,phone,texts_visit,lat,lng)&order=route_id,position,id');
+  const stops = await db(env, 'GET', 'stops?day=eq.' + day + '&status=eq.scheduled&select=id,day,code,route_id,position,customer:customers(id,name,email,phone,texts_visit,lat,lng)&order=route_id,position,id');
   const times = await timesOf(env, stops), ids = stops.map((x) => x.id);
   // One look for the texts these visits already have, one write for the new ones. Then the sending, a few at a time:
   // each call sends up to NIGHT_BATCH texts and says how many are left, and the scheduler calls again until none are.
@@ -3546,7 +3795,8 @@ async function nightBefore(env, date, cron) {
   const fresh = stops.filter((st) => !had.has(st.id) && times[st.id] && st.customer && st.customer.texts_visit && st.customer.phone)
     .map((st) => ({ customer_id: st.customer.id, stop_id: st.id, kind: 'night_before', channel: 'sms', to_addr: st.customer.phone, body: textBody(env, 'night_before', st.code, null, { day, time: times[st.id] }) }));
   if (fresh.length) await db(env, 'POST', 'messages', fresh, 'return=minimal');
-  let sent = 0, left = 0;
+  let sent = 0, left = 0, emailed = 0;
+  try { emailed = await nightMails(env, stops, times); } catch (e) { console.error('night mails', e); }
   if (smsOn(env)) {
     try {
       // What can go now: the night before texts for this day, and day texts from the last day and a half that were held overnight.
@@ -3566,7 +3816,7 @@ async function nightBefore(env, date, cron) {
     await db(env, 'DELETE', 'positions?at=lt.' + enc(new Date(Date.now() - 30 * 86400e3).toISOString()), null, 'return=minimal');
     try { await db(env, 'DELETE', 'auth_tries?at=lt.' + enc(new Date(Date.now() - 2 * 86400e3).toISOString()), null, 'return=minimal'); } catch (e) { }
   }
-  return ok({ ok: true, day, stops: stops.length, queued: fresh.length, sent, left, timed: stops.filter((st) => times[st.id]).length, added: plan.added });
+  return { ok: true, day, stops: stops.length, queued: fresh.length, sent, left, emailed, timed: stops.filter((st) => times[st.id]).length, added: plan.added };
 }
 async function officeMoney(env) {
   // stripe_subscription_id is read so a plan that keeps an older price is added up at that price (rowMonthly).

@@ -268,7 +268,90 @@ table.t tr.click:hover td{background:var(--bg2)}
   function demoDay() {
     var pings = {}; if (D.ping) pings.r1 = { at: D.ping };
     var dd = S.day || D.today, ds = D.stops.filter(function (x) { return (x.day || D.today) === dd; });
-    return { day: dd, cap: (S.wk && S.wk.cap) || 30, today: D.today, times: demoTimes(ds), timesOn: true, stops: ds, routes: dd === D.today ? D.routes : D.routes.filter(function (r) { return ds.some(function (x) { return x.route_id === r.id; }); }), pings: pings, needDay: D.customers.filter(function (c) { return (c.service_day == null || !c.service_time) && c.status !== 'canceled'; }), queuedTexts: D.texts.filter(function (t) { return t.status === 'queued'; }).length };
+    return { day: dd, cap: (S.wk && S.wk.cap) || 30, today: D.today, times: demoTimes(ds), timesOn: true, stops: ds, routes: D.routes.filter(function (r) { return ds.some(function (x) { return x.route_id === r.id; }); }), pings: pings, needDay: D.customers.filter(function (c) { return (c.service_day == null || !c.service_time) && c.status !== 'canceled'; }), queuedTexts: D.texts.filter(function (t) { return t.status === 'queued'; }).length };
+  }
+  // The demo's own day builder, night before texts and day planner. They follow the server's rules in a small way, so the
+  // buttons do in the demo what they do for real. Nothing is saved and nothing is sent.
+  function demoWd(day) { return new Date(day + 'T19:00:00Z').getUTCDay(); }
+  function demoMin(t) { return +t.slice(0, 2) * 60 + +t.slice(3, 5); }
+  function demoClock(m) { m = Math.min(1435, Math.ceil(m / 5) * 5); return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); }
+  function demoScooper() { var t = D.team.filter(function (m) { return m.scoops && m.active; })[0] || D.team[0]; return t.id; }
+  function demoBuild(day) {
+    if (day < D.today) return 0;
+    var wd = demoWd(day), has = {}, add = [];
+    D.stops.forEach(function (x) { if ((x.day || D.today) === day) has[x.customer.id] = true; });
+    D.customers.forEach(function (c) { if ((c.service_day === wd || c.service_day2 === wd) && ['canceled', 'past_due', 'checkout'].indexOf(c.status) < 0 && !has[c.id]) add.push(c); });
+    if (!add.length) return 0;
+    add.forEach(function (c) {
+      var sid = c.scooper_id || demoScooper(), rt = D.routes.filter(function (r) { return r.staff.id === sid; })[0];
+      if (!rt) { var who = D.team.filter(function (m) { return m.id === sid; })[0] || D.team[0]; rt = D.route && D.route.staff.id === sid ? D.route : { id: 'r' + (++D.n + 50), status: 'planned', staff: { id: who.id, name: who.name } }; D.routes.push(rt); }
+      D.stops.push({ id: 'b' + (++D.n + 700), route_id: rt.id, day: day, position: 0, status: 'scheduled', code: 'DEMO01', note: null, reason: null, photo_path: null, no_photo: false, on_way_at: null, arrived_at: null, done_at: null, customer: c });
+    });
+    // Like the server: the waiting yards of that day run in time order. Yards with no time go last.
+    var mine = D.stops.filter(function (x) { return (x.day || D.today) === day; }), rest = D.stops.filter(function (x) { return (x.day || D.today) !== day; });
+    var key = function (x) { return x.status !== 'scheduled' ? -1 : demoMin(x.visit_time || x.customer.service_time || '23:59'); };
+    D.stops = rest.concat(mine.map(function (x, i) { return [x, i]; }).sort(function (a, b) { return key(a[0]) - key(b[0]) || a[1] - b[1]; }).map(function (a) { return a[0]; }));
+    return add.length;
+  }
+  function demoWindow(t) { var m = demoMin(t), f = function (x) { return t12(String(Math.floor(x / 60)).padStart(2, '0') + ':' + String(x % 60).padStart(2, '0')); }; return f(Math.max(0, m - 15)) + ' and ' + f(Math.min(1439, m + 15)); }
+  function demoNight() {
+    var day = shift(D.today, 1), n = 0; demoBuild(day);
+    var list = D.stops.filter(function (x) { return x.day === day && x.status === 'scheduled'; }), timed = 0;
+    list.forEach(function (x) { var tm = x.visit_time || x.customer.service_time; if (!tm) return; timed++;
+      if (D.texts.some(function (t) { return t.stop_id === x.id && t.kind === 'night_before'; }) || !x.customer.texts_visit) return; n++;
+      demoText('night_before', x, 'Arizona Pet Waste: We will be there tomorrow (' + DAYS[demoWd(day)] + ') around ' + t12(tm) + ', between ' + demoWindow(tm) + '. Please unlock the gate and keep your dogs inside. Watch the truck on the way: arizonapetwaste.com/t/DEMO01 Reply STOP to opt out.'); });
+    return { day: day, queued: n, stops: list.length, timed: timed };
+  }
+  function demoPre(b) {
+    var dates = (b.dates || []).filter(function (x) { return x >= D.today; }).sort(), start = b.start || '08:00', cap = (S.wk && S.wk.cap) || 40, me = demoScooper();
+    if (!dates.length) throw new Error('Pick at least one day.');
+    var news = D.customers.filter(function (c) { return (c.status === 'trialing' || c.status === 'active') && (c.service_day == null || !c.service_time); });
+    // Closest house next. With nowhere to start from, the drive starts at the house farthest west.
+    var near = function (list, from) { var left = list.slice(), out = [], at = from;
+      while (left.length) { var bi = 0, bd = Infinity; left.forEach(function (c, i) { var dd = at ? meters(at, c) : c.lng; if (dd < bd) { bd = dd; bi = i; } }); at = left.splice(bi, 1)[0]; out.push(at); }
+      return out; };
+    // A day of up to 8 houses gets the true shortest drive: every order is tried, like the real planner does.
+    var shortest = function (list, from) {
+      var first = near(list, from); if (list.length < 3 || list.length > 8) return first;
+      var far = function (l) { var n = 0, at = from; l.forEach(function (c) { if (at) n += meters(at, c); at = c; }); return n; }, best = first, bd = far(first);
+      var go = function (left, done) { if (!left.length) { var d = far(done); if (d < bd - 1e-6) { bd = d; best = done; } return; } left.forEach(function (c, i) { go(left.filter(function (_, j) { return j !== i; }), done.concat([c])); }); };
+      go(list, []); return best;
+    };
+    var by = {}, days = dates.map(function (x) { return (by[x] = { date: x, list: [] }); }), none = [], free = [];
+    news.forEach(function (c) { var a = (b.assign || {})[c.id]; if (a === 'none') none.push(c); else if (a && by[a]) by[a].list.push(c); else free.push(c); });
+    if (free.length) {
+      var tour = near(free, null), k = Math.min(days.length, tour.length), parts = [], open = days.slice();
+      for (var j = 0; j < k; j++) parts.push(tour.slice(Math.round(j * tour.length / k), Math.round((j + 1) * tour.length / k)));
+      var mid = function (l) { return { lat: l.reduce(function (x, c) { return x + c.lat; }, 0) / l.length, lng: l.reduce(function (x, c) { return x + c.lng; }, 0) / l.length }; };
+      days.filter(function (d) { return d.list.length; }).forEach(function (d) { if (!parts.length) return; var m = mid(d.list), bi = 0; parts.forEach(function (pt, i) { if (meters(m, mid(pt)) < meters(m, mid(parts[bi]))) bi = i; }); d.list = d.list.concat(parts.splice(bi, 1)[0]); open.splice(open.indexOf(d), 1); });
+      parts.forEach(function (pt, i) { open[i].list = open[i].list.concat(pt); });
+    }
+    days.forEach(function (d) {
+      var wd = demoWd(d.date), had = D.customers.filter(function (c) { return c.service_day === wd && c.service_time && (c.scooper_id || me) === me && ['trialing', 'active'].indexOf(c.status) >= 0; }).sort(function (x, y) { return demoMin(x.service_time) - demoMin(y.service_time); });
+      var last = had[had.length - 1], at = last || null, t = last ? demoMin(last.service_time) + 10 : null, road = 0, work = 0;
+      d.yards = shortest(d.list, at).map(function (c) {
+        var leg = at ? meters(at, c) / 1609.34 * 1.35 : 0;
+        t = t == null ? demoMin(start) : Math.max(t + (leg ? Math.max(1, Math.round(leg / 30 * 60)) : 0), demoMin(start));
+        var tm = demoClock(t); road += leg; work += 20; t = demoMin(tm) + 20; at = c;
+        return { id: c.id, name: c.name, address: c.address, plan: c.plan, time: tm, first: true };
+      });
+      d.dayName = DAYS[wd]; d.had = had.length; d.miles = Math.round(road * 10) / 10; d.minutes = Math.round(road / 30 * 60 + work); d.ends = d.yards.length ? demoClock(t) : null;
+      d.over = d.had + d.yards.length > cap; d.late = d.yards.length > 0 && t > 18 * 60; delete d.list;
+    });
+    var find = function (id) { return D.customers.filter(function (c) { return c.id === id; })[0]; }, tomorrow = shift(D.today, 1), now = new Date(Date.now() - 7 * 3600e3), nowMin = now.getUTCHours() * 60 + now.getUTCMinutes();
+    var placed = []; days.forEach(function (d) { d.yards.forEach(function (y) { placed.push({ c: find(y.id), time: y.time, date: d.date }); }); });
+    var row = function (c) { return { id: c.id, name: c.name, address: c.address, plan: c.plan }; };
+    var view = { dates: dates, start: start, cap: cap, total: news.length, placed: placed.length, days: days, none: none.map(row), noPin: [],
+      tell: { gate: '', email: placed.length, text: placed.filter(function (x) { return x.c.texts_visit; }).length, tomorrow: placed.filter(function (x) { return x.date === tomorrow; }).length, nightNow: nowMin >= 17 * 60 + 30, quiet: nowMin < 8 * 60 || nowMin >= 21 * 60 } };
+    if (!b.apply) return view;
+    placed.forEach(function (x) {
+      x.c.service_day = demoWd(x.date); x.c.service_time = x.time; x.c.scooper_id = x.c.scooper_id || me;
+      if (x.c.texts_visit) D.texts.push({ id: ++D.n + 10, kind: 'day_set', to_addr: x.c.phone, body: 'Arizona Pet Waste: Your service day is ' + DAYS[x.c.service_day] + ' around ' + t12(x.time) + '. Your next visit is ' + dayLabel(x.date) + '. We text you the night before each visit. Reply STOP to opt out.', status: 'queued', stop_id: null, customer: { name: x.c.name } });
+    });
+    dates.forEach(demoBuild);
+    if (view.tell.tomorrow && view.tell.nightNow) demoNight();
+    view.applied = true; view.done = { saved: placed.length, emailed: 0, texted: 0, demo: true };
+    return view;
   }
   function demoTimes(list) { var o = {}; list.forEach(function (x) { o[x.id] = x.visit_time || x.customer.service_time || null; }); return o; }
   function demoToday() { return { mapsKey: D.mapsKey || null, day: D.today, dayName: DAYS[D.wd], route: D.route, times: demoTimes(mine()), tap: null, stops: mine(), texts: D.texts.filter(function (t) { return t.status === 'queued' && t.stop_id; }) }; }
@@ -294,10 +377,11 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (p === '/api/crew/cant') { st.status = 'cant'; st.reason = b.reason; st.note = b.note || null; st.done_at = new Date().toISOString(); return demoToday(); }
     if (p === '/api/crew/end') { D.route.status = 'done'; return demoToday(); }
     if (p === '/api/crew/text' || p === '/api/office/text') { D.texts.forEach(function (t) { if (String(t.id) === String(b.id)) t.status = b.status; }); return { ok: true }; }
-    if (p === '/api/office/day') return demoDay();
+    if (p === '/api/office/day') { if (q.get('build') === '1') demoBuild(q.get('date') || D.today); return demoDay(); }
+    if (p === '/api/office/preplan') return demoPre(b);
     if (p === '/api/office/week') { var wr = await fetch('/api/demo/week?n=' + (b.n || 100) + '&cap=' + (b.cap || 30) + '&days=' + (b.days || '1,2,3,4,5')); if (!wr.ok) throw new Error('The sample week did not load. Try again.'); return wr.json(); }
-    if (p === '/api/office/plan') return { added: 0 };
-    if (p === '/api/office/night-before') return { queued: 0, day: D.today };
+    if (p === '/api/office/plan') return { added: demoBuild(b.date || D.today) };
+    if (p === '/api/office/night-before') { var nb = demoNight(); return { queued: nb.queued, day: nb.day, stops: nb.stops, timed: nb.timed }; }
     if (p.indexOf('/api/office/loads') === 0) {
       var f0 = q.get('from') || D.today, sf = q.get('staff'), cp = (S.wk && S.wk.cap) || 30, idl = (q.get('ids') || '').split(',').filter(Boolean);
       var pin = function (x) { return { lat: x.customer.lat, lng: x.customer.lng }; };
@@ -754,7 +838,7 @@ table.t tr.click:hover td{background:var(--bg2)}
   async function loadTab() {
     var t = S.tab;
     try {
-      if (t === 'today') S.data.day = await api('GET', '/api/office/day?date=' + (S.day || ''));
+      if (t === 'today') S.data.day = await api('GET', '/api/office/day?build=1&date=' + (S.day || ''));
       if (t === 'route') return refreshRoute();
       if (t === 'customers') S.data.customers = await api('GET', '/api/office/customers?show=' + (S.show || 'current') + '&q=' + encodeURIComponent(S.q || ''));
       if (t === 'leads') S.data.leads = await api('GET', '/api/office/leads');
@@ -769,7 +853,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     var t = S.tab, d = S.data;
     if (t === 'route') return viewRoute();
     var out = '<div class="wrap">';
-    if (t === 'today') out += S.plan ? officeWeek(d.week) : officeToday(d.day);
+    if (t === 'today') out += S.plan ? (S.planKind === 'pre' ? officePre(S.pre) : officeWeek(d.week)) : officeToday(d.day);
 
     if (t === 'customers') out += officeCustomers(d.customers);
     if (t === 'leads') out += officeLeads(d.leads);
@@ -790,21 +874,22 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (!d) return '<p class="empty">Loading…</p>';
     var all = d.stops;
     var issues = all.filter(function (s) { return s.status === 'cant' || s.no_photo; }).length;
-    var wd = new Date(d.day + 'T19:00:00Z').getUTCDay(), mon = shift(d.day, -((wd + 6) % 7));
+    var off = Math.round((Date.parse(d.day + 'T19:00:00Z') - Date.parse(d.today + 'T19:00:00Z')) / 864e5), mon = shift(d.day, -(((off % 7) + 7) % 7));
     var out = '<div class="daynav"><button class="arrow" data-day="-7" aria-label="Week before">‹</button><h2>' + h(dayLabel(d.day)) + '</h2><button class="arrow" data-day="7" aria-label="Next week">›</button>' +
       (d.day !== d.today ? '<button class="chip" data-day="0">Back to today</button>' : '<span class="tag acc">Today</span>') + '</div>' +
-      '<div class="wk" aria-label="Pick a day this week">' + [0, 1, 2, 3, 4, 5, 6].map(function (i) {
+      '<div class="wk" aria-label="Pick a day">' + [0, 1, 2, 3, 4, 5, 6].map(function (i) {
         var x = shift(mon, i);
-        return '<button class="' + (x === d.day ? 'on' : '') + (x === d.today ? ' now' : '') + '" data-goto="' + x + '">' + DAYS[(i + 1) % 7].slice(0, 3) + '<b>' + (+x.slice(8)) + '</b></button>';
+        return '<button class="' + (x === d.day ? 'on' : '') + (x === d.today ? ' now' : '') + '" data-goto="' + x + '">' + DAYS[new Date(x + 'T19:00:00Z').getUTCDay()].slice(0, 3) + '<b>' + (+x.slice(8)) + '</b></button>';
       }).join('') + '</div>' +
       '<div style="margin-top:10px"><button class="btn ghost sm" style="width:100%;max-width:320px" data-plan="1">Plan the week</button></div>' + myRouteButton(d) +
       '<div class="stats"><div class="stat"><span class="lbl">Yards</span><b>' + all.length + '</b></div><div class="stat"><span class="lbl">Done</span><b>' + all.filter(function (s) { return s.status === 'done'; }).length + '</b></div>' +
       '<div class="stat"><span class="lbl">Problems</span><b' + (issues ? ' style="color:var(--bad)"' : '') + '>' + issues + '</b></div><div class="stat" data-tab="texts" style="cursor:pointer"><span class="lbl">Texts to send</span><b' + (d.queuedTexts ? ' style="color:var(--accent)"' : '') + '>' + d.queuedTexts + '</b></div></div>';
     if (d.needDay.length) {
-      out += '<div class="sec"><h3>Booked houses with no day and time yet <span class="tag warn">' + d.needDay.length + '</span></h3><p style="color:var(--mute);font-size:15px;line-height:1.45;margin:0 0 6px">Tap one and set the day and the time. That is what tells the customer. Nothing is sent to them until both are set.</p><ul class="list">' +
-        d.needDay.slice(0, 20).map(function (c) { return '<li class="tap" data-cust="' + c.id + '"><span class="n">New</span><div><div class="a">' + h(c.name) + '</div><div class="s">' + h(c.address) + '</div></div><span class="lbl">' + (c.service_day == null ? 'Set day and time ›' : DAYS[c.service_day].slice(0, 3) + ' · set time ›') + '</span></li>'; }).join('') + '</ul></div>';
+      out += '<div class="sec"><h3>Booked houses with no day and time yet <span class="tag warn">' + d.needDay.length + '</span></h3><p style="color:var(--mute);font-size:15px;line-height:1.45;margin:0 0 10px">Tap the button and the app plans them for you: the day, the driving order and a time for each house. You check it first. Nothing is sent to a customer until you confirm.</p>' +
+        '<div style="max-width:320px;margin:0 0 6px"><button class="btn" data-preopen="1">Preplan my days</button></div><ul class="list">' +
+        d.needDay.slice(0, 20).map(function (c) { return '<li class="tap" data-cust="' + c.id + '"><span class="n">New</span><div><div class="a">' + h(c.name) + '</div><div class="s">' + h(c.address) + '</div></div><span class="lbl">' + (c.service_day == null ? 'Not scheduled' : DAYS[c.service_day].slice(0, 3) + ' · no time yet') + '</span></li>'; }).join('') + '</ul></div>';
     }
-    if (!d.routes.length) out += '<div class="sec"><p class="empty">No routes for this day yet.</p><div style="max-width:320px"><button class="btn" data-o="plan">Build this day\'s routes</button></div></div>';
+    if (!d.routes.length) out += '<div class="sec"><p class="empty">' + (d.day < d.today ? 'No yards were on this day.' : 'No yards on this day yet. A house shows here on its own once it has this day and a time.') + '</p></div>';
     S.open = S.open || {};
     d.routes.forEach(function (r) {
       var st = all.filter(function (s) { return s.route_id === r.id; });
@@ -827,8 +912,69 @@ table.t tr.click:hover td{background:var(--bg2)}
       if (pk) { var np = Object.keys(pk.ids).filter(function (k) { return pk.ids[k]; }).length; out += '<div class="dock"><button class="btn" data-pickgo="' + r.id + '"' + (np ? '' : ' disabled') + '>' + (np ? 'Move ' + np + ' yard' + (np === 1 ? '' : 's') + ' to another day' : 'Pick the yards to move') + '</button></div>'; }
       out += '</div>';
     });
-    if (d.routes.length) out += '<div class="sec"><div class="row2" style="max-width:640px"><button class="btn ghost sm" style="width:100%" data-o="plan">Add new sign ups to this day</button><button class="btn ghost sm" style="width:100%" data-o="night">Get tomorrow\'s texts ready</button></div></div>';
+    if (d.routes.length && d.day === d.today) out += '<div class="sec"><div style="max-width:320px"><button class="btn ghost sm" style="width:100%" data-o="night">Get tomorrow\'s texts ready</button></div></div>';
     return out;
+  }
+  /* ---------- Preplan my days (Joe, Nov 22, 2026): the app picks the day, the order and the time. The office checks it and confirms. ---------- */
+  function azDay() { return new Date(Date.now() - 7 * 3600e3).toISOString().slice(0, 10); }
+  function preTell(t) {
+    if (t.gate === 'off') return 'Texts are not switched on, so no customer is told. The plan is still saved.';
+    var n = function (k, w) { return k + ' ' + w + (k === 1 ? '' : 's'); };
+    return (t.gate === 'test' ? 'Test mode is on, so only people on the test list are told. ' : '') + 'When you confirm, ' + n(t.email, 'email') + ' and ' + n(t.text, 'text') + ' go out with the day and time.' +
+      (t.tomorrow ? (t.nightNow ? ' Customers set for tomorrow also get their night before email and text right away.' : ' Customers set for tomorrow get their night before email and text this evening.') : '') +
+      (t.quiet && t.text ? ' It is outside 8 AM to 9 PM, so the texts wait. Emails still go.' : '');
+  }
+  // Step 3: a house that has to be on a certain day (Joe, Nov 22, 2026: "pick one person and set it for that date... for
+  // everybody else, it doesn't matter"). The office locks that house to its day and the app plans the rest around it.
+  function prePins(o, today) {
+    var list = o.houses || [], pins = o.pins || {}; if (!list.length) return '';
+    var n = Object.keys(pins).filter(function (k) { return pins[k]; }).length, cap = 40;
+    var sel = function (id) { var v = pins[id] || ''; return '<select class="f" data-prepin="' + id + '" aria-label="Day for this house" style="min-width:132px;min-height:44px' + (v ? ';border-color:var(--accent)' : '') + '"><option value="">App picks</option>' +
+      [0, 1, 2, 3, 4, 5, 6].map(function (i) { var x = shift(today, i); return '<option value="' + x + '"' + (v === x ? ' selected' : '') + '>' + (i === 0 ? 'Today' : h(dayLabel(x))) + '</option>'; }).join('') + '<option value="none"' + (v === 'none' ? ' selected' : '') + '>Not yet</option></select>'; };
+    return '<div style="margin-top:18px"><span class="lbl">3. Need a house on a certain day? You can skip this</span>' +
+      '<p style="color:var(--mute);font-size:15px;line-height:1.45;margin:6px 0 0;max-width:70ch">Pick the day for that house. It stays on that day and the app plans everyone else around it.' + (n ? ' <b style="color:var(--ink)">' + n + (n === 1 ? ' house is' : ' houses are') + ' set by you.</b>' : '') + '</p>' +
+      '<ul class="list">' + list.slice(0, cap).map(function (c) { return '<li style="grid-template-columns:1fr auto"><div><div class="a">' + h(c.name) + '</div><div class="s">' + h(c.address || '') + '</div></div><div class="r">' + sel(c.id) + '</div></li>'; }).join('') + '</ul>' +
+      (list.length > cap ? '<p style="color:var(--mute);font-size:14px">Showing ' + cap + ' of ' + list.length + '. Plan first, then move any house in the plan.</p>' : '') + '</div>';
+  }
+  function officePre(o) {
+    o = o || {}; var today = azDay(), picked = Object.keys(o.dates || {}).filter(function (k) { return o.dates[k]; }).sort(), w = o.plan;
+    var out = '<div class="daynav"><button class="chip" data-plan="0">‹ Back to the schedule</button></div><div class="daynav" style="margin-top:14px"><h2>Preplan my days</h2></div>' +
+      '<p style="color:var(--mute);font-size:15px;line-height:1.5;max-width:70ch">Pick one day or a few. The app puts every waiting house on one of them, in the best driving order, and gives each house a time. You can move any house. Nothing is saved and no customer is told until you confirm.</p>' +
+      '<span class="lbl" style="display:block;margin-top:18px">1. Which days?</span><div class="chips" style="margin-top:8px">' + [0, 1, 2, 3, 4, 5, 6].map(function (i) { var x = shift(today, i);
+        return '<button class="chip' + (o.dates && o.dates[x] ? ' on' : '') + '" data-predate="' + x + '" aria-pressed="' + (o.dates && o.dates[x] ? 'true' : 'false') + '" style="min-height:48px;font-size:13px">' + (i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : h(dayLabel(x))) + '</button>'; }).join('') + '</div>' +
+      '<label class="fl" style="max-width:310px"><span class="lbl">2. First house at</span>' + timeSel('pre_start', o.start || '08:00', 'Pick a time') + '</label>' + prePins(o, today) +
+      '<div style="max-width:320px;margin-top:14px"><button class="btn" data-pre="go"' + (picked.length ? '' : ' disabled') + '>' + (picked.length ? (w && w.days ? 'Plan it again' : 'Plan it for me') : 'Pick a day first') + '</button></div>';
+    if (!w) return out;
+    if (w.loading) return out + '<p class="empty">Planning…</p>';
+    if (!w.total) return out + '<p class="empty">Every booked house already has a day and a time. Nothing to plan.</p>';
+    var moveSel = function (id, at) { return '<select class="f" data-premove="' + id + '" aria-label="Move this house" style="min-width:132px;min-height:44px">' + w.dates.map(function (x) { return '<option value="' + x + '"' + (x === at ? ' selected' : '') + '>' + h(dayLabel(x)) + '</option>'; }).join('') + '<option value="none"' + (at === 'none' ? ' selected' : '') + '>Not yet</option></select>'; };
+    w.days.forEach(function (d) {
+      out += '<div class="sec"><h3>' + h(dayLabel(d.date)) + ' <span class="tag' + (d.yards.length ? ' acc' : '') + '">' + d.yards.length + (d.yards.length === 1 ? ' house' : ' houses') + '</span>' + (d.over ? '<span class="tag bad">Over the limit of ' + w.cap + '</span>' : '') + (d.late ? '<span class="tag warn">Runs past 6 PM</span>' : '') + '</h3>' +
+        (d.yards.length ? '<p class="mono" style="color:var(--mute);font-size:13px;margin:4px 0 0">' + d.miles + ' miles · about ' + hm(d.minutes) + ' of work · done around ' + h(t12(d.ends)) + '</p>' : '<p style="color:var(--mute);font-size:15px;margin:4px 0 0">No house on this day.</p>') +
+        (d.had ? '<p style="color:var(--mute);font-size:14px;margin:6px 0 0">' + d.had + (d.had === 1 ? ' house is' : ' houses are') + ' already on this day and keep' + (d.had === 1 ? 's its time' : ' their times') + '. New houses go after.</p>' : '') +
+        '<ul class="list">' + d.yards.map(function (y, i) { return '<li style="grid-template-columns:auto 1fr auto"><span class="n">' + String(i + 1).padStart(2, '0') + '</span><div><div class="a">' + h(y.address) + '</div><div class="s"><b style="color:var(--ink)">' + h(t12(y.time)) + '</b> · ' + h(y.name) + (y.first ? ' · first visit' : '') + (o.pins && o.pins[y.id] ? ' · <span style="color:var(--accent)">your pick</span>' : '') + '</div></div><div class="r">' + moveSel(y.id, d.date) + '</div></li>'; }).join('') + '</ul></div>';
+    });
+    if (w.none.length) out += '<div class="sec"><h3>Left out for now <span class="tag">' + w.none.length + '</span></h3><ul class="list">' + w.none.map(function (y) { return '<li style="grid-template-columns:1fr auto"><div><div class="a">' + h(y.address) + '</div><div class="s">' + h(y.name) + '</div></div><div class="r">' + moveSel(y.id, 'none') + '</div></li>'; }).join('') + '</ul></div>';
+    if (w.noPin.length) out += '<div class="sec"><h3>Not on the map <span class="tag bad">' + w.noPin.length + '</span></h3><p style="color:var(--mute);font-size:15px;margin:0 0 6px">The app cannot plan a house it cannot find. Tap one, then tap Find on map.</p><ul class="list">' + w.noPin.map(function (y) { return '<li class="tap" data-cust="' + y.id + '" style="grid-template-columns:1fr auto"><div><div class="a">' + h(y.name) + '</div><div class="s">' + h(y.address || '') + '</div></div><span class="lbl">Open ›</span></li>'; }).join('') + '</ul></div>';
+    if (w.placed) out += '<div class="sec" style="max-width:640px"><p style="font-size:15px;line-height:1.5;margin:0 0 12px">' + h(preTell(w.tell)) + '</p><button class="btn" data-pre="confirm">Confirm this plan</button></div>';
+    return out;
+  }
+  async function preRun(apply) {
+    var o = S.pre, dates = Object.keys(o.dates).filter(function (k) { return o.dates[k]; }).sort(), keep = o.plan;
+    o.plan = { loading: true }; render();
+    try {
+      var w = await api('POST', '/api/office/preplan', { dates: dates, start: o.start || '08:00', assign: o.assign || {}, apply: !!apply });
+      if (apply) {
+        var first = w.days.filter(function (d) { return d.yards.length; })[0], dn = w.done || {};
+        toast('Saved. ' + dn.saved + (dn.saved === 1 ? ' house is' : ' houses are') + ' on the schedule.' + (dn.demo ? ' This is the demo, so nothing was sent. The Texts tab shows what would go out.' : dn.emailed || dn.texted ? ' ' + (dn.emailed || 0) + ' emails and ' + (dn.texted || 0) + ' texts went out.' : ' No customer was told.'));
+        S.pre = null; if (first) S.day = first.date;
+        return goHome(true);
+      }
+      o.plan = w; o.assign = {};
+      w.days.forEach(function (d) { d.yards.forEach(function (y) { o.assign[y.id] = d.date; }); });
+      w.none.forEach(function (y) { o.assign[y.id] = 'none'; });
+    } catch (e) { o.plan = keep && !keep.loading ? keep : null; toast(e.message); }
+    render();
   }
   function hm(m) { m = Math.max(0, Math.round(m || 0)); return m < 60 ? m + ' min' : Math.floor(m / 60) + ' hr' + (m % 60 ? ' ' + (m % 60) + ' min' : ''); }
   // Move a group of yards to another day. Shows how full each of the next days is, so nobody gets overloaded.
@@ -927,7 +1073,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     var cap = 150;
     return out + '<ul class="list" style="margin-top:12px;border-top:1px solid var(--line)">' + list.slice(0, cap).map(function (c) {
       var booked = ['trialing', 'active', 'past_due', 'paused'].indexOf(c.status) >= 0;
-      var day = c.service_day == null ? (booked ? '<span class="tag warn">Set day and time</span>' : '') : '<span class="lbl">' + h(DAYS[c.service_day].slice(0, 3)) + (c.service_day2 != null ? ' + ' + h(DAYS[c.service_day2].slice(0, 3)) : '') + (c.service_time ? ' · ' + h(t12(c.service_time)) : '') + '</span>' + (d.timesOn && booked && !c.service_time ? ' <span class="tag warn">Set time</span>' : '');
+      var day = c.service_day == null ? (booked ? '<span class="lbl">Not scheduled</span>' : '') : '<span class="lbl">' + h(DAYS[c.service_day].slice(0, 3)) + (c.service_day2 != null ? ' + ' + h(DAYS[c.service_day2].slice(0, 3)) : '') + (c.service_time ? ' · ' + h(t12(c.service_time)) : '') + '</span>' + (d.timesOn && booked && !c.service_time ? ' <span class="lbl">· no time yet</span>' : '');
       return '<li class="tap" data-cust="' + c.id + '" style="grid-template-columns:1fr auto"><div><div class="a">' + h(c.name || c.email) + '</div><div class="s">' + h(c.address || '') + (c.lat == null && c.address ? ' · not on the map' : '') + '</div></div><div class="r">' + tag(c.status) + '<div style="margin-top:6px">' + day + '</div></div></li>';
     }).join('') + '</ul>' + (list.length > cap ? '<p class="empty">Showing ' + cap + ' of ' + list.length + '. Search to find anyone.</p>' : '');
   }
@@ -1222,7 +1368,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       (c.stripe_customer_id ? '<br><a href="https://dashboard.stripe.com/customers/' + h(c.stripe_customer_id) + '" target="_blank" rel="noopener" style="font-size:14px">Open in Stripe ›</a>' : '') + '</p>' +
       (S.sel.yard && S.sel.yard.invited ? '<div style="margin-top:14px;max-width:320px"><button class="btn ghost sm" style="width:100%" id="rewel">Resend welcome email</button></div>' : '') +
       '<div class="hr" style="margin:20px 0 4px"></div><span class="lbl">Schedule</span>' +
-      '<p style="color:var(--mute);font-size:15px;line-height:1.45;margin:6px 0 0">' + (!S.sel.timesOn ? 'Visit times are not switched on yet.' : 'Pick the day and the time, then Save. That tells the customer by email' + (c.texts_visit ? ' and text' : '') + '. Nothing is sent until both are set.' + (!S.sel.twilio ? ' Texts are not on yet, so nobody is told for now.' : S.sel.textsTest ? ' Test mode is on: only a customer on the test list is told.' : '')) + '</p>' +
+      '<p style="color:var(--mute);font-size:15px;line-height:1.45;margin:6px 0 0">' + (!S.sel.timesOn ? 'Visit times are not switched on yet.' : 'This is their regular day and time. Change it here and Save: the Schedule moves on its own, and the customer is told by email' + (c.texts_visit ? ' and text' : '') + '. Nothing is sent until both are set.' + (!S.sel.twilio ? ' Texts are not on yet, so nobody is told for now.' : S.sel.textsTest ? ' Test mode is on: only a customer on the test list is told.' : '')) + '</p>' +
       '<div class="grid2"><label class="fl"><span class="lbl">Service day</span>' + daySel('f_sd', c.service_day) + '</label>' +
       (S.sel.timesOn ? '<label class="fl"><span class="lbl">Time</span>' + timeSel('f_st', c.service_time || '') + '</label>' : '') +
       (c.plan === 'twice' ? '<label class="fl"><span class="lbl">Second day</span>' + daySel('f_sd2', c.service_day2) + '</label>' + (S.sel.timesOn ? '<label class="fl"><span class="lbl">Second day time</span>' + timeSel('f_st2', c.service_time2 || '', 'Same time') + '</label>' : '') : '') +
@@ -1299,9 +1445,35 @@ table.t tr.click:hover td{background:var(--bg2)}
     app.querySelectorAll('[data-plan]').forEach(function (b) { b.onclick = async function () {
       var open = b.dataset.plan === '1'; S.wk = S.wk || { cap: 30, days: '1,2,3,4,5', n: DEMO ? 100 : 500 };
       if (!open) return goHome(true);
+      S.planKind = 'week';
       if (!DEMO && !S.wk.loaded) { try { var st = await api('GET', '/api/office/settings'); S.wk.cap = st.cap; S.wk.days = st.days; S.wk.start = st.start || ''; S.wk.loaded = true; } catch (e) { } }
       nav('today', true);
     }; });
+    app.querySelectorAll('[data-preopen]').forEach(function (b) { b.onclick = function () {
+      var tm = {}; tm[shift(azDay(), 1)] = true;
+      S.planKind = 'pre'; S.pre = { dates: tm, start: '08:00', assign: {}, pins: {}, plan: null, houses: ((S.data.day && S.data.day.needDay) || []).map(function (c) { return { id: c.id, name: c.name, address: c.address }; }) };
+      nav('today', true);
+    }; });
+    if (S.plan && S.planKind === 'pre' && S.pre) {
+      app.querySelectorAll('[data-predate]').forEach(function (b) { b.onclick = function () {
+        var x = b.dataset.predate, used = Object.keys(S.pre.pins).some(function (k) { return S.pre.pins[k] === x; });
+        if (S.pre.dates[x] && used) return toast('A house is set for that day. Change that house first.');
+        S.pre.dates[x] = !S.pre.dates[x]; S.pre.plan = null; S.pre.assign = {}; render();
+      }; });
+      var ps = document.getElementById('pre_start'); if (ps) ps.onchange = function () { S.pre.start = ps.value || '08:00'; S.pre.plan = null; render(); };
+      // A house the office moves in the plan is locked where it was put, the same as one set in step 3.
+      app.querySelectorAll('[data-premove]').forEach(function (x) { x.onchange = function () { S.pre.assign[x.dataset.premove] = x.value; S.pre.pins[x.dataset.premove] = x.value; preRun(false); }; });
+      app.querySelectorAll('[data-prepin]').forEach(function (x) { x.onchange = function () {
+        var id = x.dataset.prepin; if (x.value) S.pre.pins[id] = x.value; else delete S.pre.pins[id];
+        if (x.value && x.value !== 'none') S.pre.dates[x.value] = true;
+        S.pre.plan = null; S.pre.assign = {}; render();
+      }; });
+      app.querySelectorAll('[data-pre]').forEach(function (b) { b.onclick = function () {
+        // Plan it: only the houses the office set keep their day. The app is free to place everyone else.
+        if (b.dataset.pre === 'go') { S.pre.assign = Object.assign({}, S.pre.pins); return preRun(false); }
+        sheetAsk('Confirm this plan?', preTell(S.pre.plan.tell), 'Yes, confirm it', function () { preRun(true); }, 'Not yet', true);
+      }; });
+    }
     var saveSet = function () { if (!DEMO) api('POST', '/api/office/settings', { cap: S.wk.cap, days: S.wk.days }).then(function () { toast('Saved'); }).catch(function (e) { toast(e.message); }); S.data.week = null; render(); };
     app.querySelectorAll('[data-slot]').forEach(function (b) { b.onclick = function () { var n = +b.dataset.slot; S.wk.sel = n < 0 || S.wk.sel === n ? null : n; render(); var m = document.getElementById('wkmap'); if (m && S.wk.sel != null) m.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }; });
     if (S.plan && S.data.week && S.data.week.slots && S.data.week.mapsKey) keepMap('wkmap', [S.wk.sel, S.data.week.routes, S.data.week.weekMiles, S.data.week.cap, S.data.week.customers].join('|'), function (el) { wkMap(S.data.week, el); });
