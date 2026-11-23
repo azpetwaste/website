@@ -363,6 +363,7 @@
     </div>
     <p class="paynote">[[self:Cancel anytime in My Yard, with no phone call.||Cancel anytime. Call or text 623.309.6104.]]</p>
     <p class="paynote" style="margin-top: 4px;">We reach out to set your first visit.</p>
+    <p class="paynote" style="margin-top: 4px;">Credit or debit cards only. No prepaid or gift cards.</p>
     <p class="fine">{{ payAgree }} <a href="/terms/">Terms</a> and <a href="/privacy/">Privacy Policy</a>.</p>
     <sc-if value="{{ payDemo }}" hint-placeholder-val="{{ false }}">
       <p class="demo">Demo mode: no card is charged</p>
@@ -380,6 +381,19 @@
       <div class="note" role="alert" style="flex-direction: column; gap: 10px;">
         <p style="margin: 0;"><strong>Checkout did not load.</strong> {{ payErr }}</p>
         <button type="button" class="btn btn-line" style="width: 100%;" onClick="{{ retryPay }}">Try again</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ payChecking }}" hint-placeholder-val="{{ false }}"><p class="note" aria-live="polite">Checking your card…</p></sc-if>
+    <sc-if value="{{ payPrepaid }}" hint-placeholder-val="{{ false }}">
+      <div class="note" role="alert" style="flex-direction: column; gap: 10px;">
+        <p style="margin: 0;"><strong>Credit or debit card required.</strong> Prepaid and gift cards aren't accepted. Your card was not charged.</p>
+        <button type="button" class="btn btn-dot" style="width: 100%;" onClick="{{ retryPay }}">Use another card</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ payPrepaidPaid }}" hint-placeholder-val="{{ false }}">
+      <div class="note" role="alert" style="flex-direction: column; gap: 10px;">
+        <p style="margin: 0;"><strong>Credit or debit card required.</strong> Prepaid and gift cards aren't accepted. You are not booked yet. Your card was charged, and we will make it right. Call or text 623.309.6104.</p>
+        <a href="tel:+16233096104" class="btn btn-dot" style="width: 100%;">Call 623.309.6104</a>
       </div>
     </sc-if>
     <sc-if value="{{ payAlready }}" hint-placeholder-val="{{ false }}">
@@ -781,16 +795,24 @@ class Component extends DCLogic {
     this._payTok = (this._payTok || 0) + 1;
     if (this._checkout) { try { this._checkout.destroy(); } catch (e) { } this._checkout = null; }
   }
-  _paid() {
+  async _paid() {
     const a = this._apw(), id = this._session;
     this._stopPay();
+    // The card is in. Tell the server so the plan starts now, and wait for its answer: a prepaid or gift card is turned
+    // away there (Joe, Nov 23, 2026), and the page must say so, not "You are booked". Stripe tells the server too (the
+    // webhook), so if this call is lost or slow the sign up still finishes, and if both arrive the plan is made once.
+    this.setState({ payState: 'checking' });
+    let r = null;
+    if (a && id) {
+      try {
+        r = await Promise.race([a.post('/api/checkout/done', { session: id }, !!a.auth.session()), new Promise(function (res) { setTimeout(function () { res(null); }, 12000); })]);
+      } catch (e) { r = null; }
+    }
+    if (r && r.prepaid) { this.setState({ step: 4, payState: r.charged ? 'prepaidPaid' : 'prepaid' }); return; }
     this._clearDraft();
     // The booking. The event id is the card form id, the same one the server sends Meta, so Meta counts it once.
     this._t('booked', Object.assign({ id: id ? 'bk_' + id : '' }, this._tPlan()));
     this.setState({ step: 5, payState: 'idle', signedIn: !!(a && a.auth.session()) });
-    // The card is saved. Tell the server so the plan starts now. Stripe tells the server too (the webhook), so if this
-    // call is lost the sign up still finishes, and if both arrive the plan is still made once.
-    if (a && id) a.post('/api/checkout/done', { session: id }, !!a.auth.session()).catch(function () { });
   }
   open(o) {
     const s = this.state;
@@ -985,7 +1007,10 @@ class Component extends DCLogic {
       planLine: names[s.plan] + ', ' + dogsLabel + '.',
       payAgree: free ? 'By starting your free month, you agree to our' : 'By starting your plan, you agree to our',
       payDemo: demo,
-      payLive: !demo && s.payState !== 'already',
+      payLive: !demo && ['already', 'checking', 'prepaid', 'prepaidPaid'].indexOf(s.payState) < 0,
+      payChecking: !demo && s.payState === 'checking',
+      payPrepaid: !demo && s.payState === 'prepaid',
+      payPrepaidPaid: !demo && s.payState === 'prepaidPaid',
       payLoading: !demo && s.payState === 'loading',
       payError: !demo && s.payState === 'error',
       payAlready: !demo && s.payState === 'already',

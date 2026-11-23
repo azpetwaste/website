@@ -75,6 +75,11 @@ export function fakeStripe(reply) {
       if (!f0) return reply({ error: { message: 'No such checkout session' } }, 404);
       return reply(Object.assign(st.sessionEvt(sub, f0.get('client_reference_id')).data.object, { setup_intent: { id: 'seti_' + sub.slice(4), status: 'succeeded', payment_method: card(sub.slice(4)) } }));
     }
+    if (/^payment_methods\/[^/]+\/detach$/.test(p)) {
+      const pm = p.split('/')[1]; st.detached = st.detached || new Set();
+      if (st.detached.has(pm)) return reply({ error: { message: 'The payment method you provided is not attached to a customer so detachment is impossible.' } }, 400);
+      st.detached.add(pm); return reply({ id: pm });
+    }
     if (p.startsWith('setup_intents/')) return reply({ id: p.slice(14), status: 'succeeded', payment_method: card(p.slice(19)) });
     if (p === 'subscriptions' && m === 'GET') { const sub = 'sub_' + (new URLSearchParams(query).get('customer') || '').slice(4); return reply({ data: st.made[sub] ? [plan(sub)] : [] }); }
     if (p === 'subscriptions' && m === 'POST') {

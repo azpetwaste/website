@@ -545,7 +545,10 @@ ok('a scooper cannot change the bill', r.status === 403, r.status);
   const sub = r.d.clientSecret.slice(3); prepaidSubs.add(sub);
   await hook(pay.sessionEvt(sub, s.user.id));
   await Promise.all(waits.splice(0));
-  ok('a prepaid card is flagged to the office', mails.some((x) => /^Prepaid card: Pat Prepaid/.test(x.subject)), mails.map((x) => x.subject)); }
+  // Joe, Nov 23, 2026: no prepaid cards. The sign up is turned away, no plan is made and nobody is booked.
+  const pre = (await db.query('select status, stripe_subscription_id from public.customers where id = $1', [s.user.id])).rows[0];
+  ok('a prepaid card is turned away: no plan, not booked, the office and the customer are told',
+    pre.status === 'checkout' && !pre.stripe_subscription_id && !pay.made[sub] && mails.some((x) => /^Prepaid card turned away: Pat Prepaid/.test(x.subject)) && mails.some((x) => /^We need a different card$/.test(x.subject)) && !mails.some((x) => /^You are booked/.test(x.subject)), [pre, mails.map((x) => x.subject)]); }
 
 console.log('\nWeek planner: ' + N + ' customers, 30 yards a scooper a day, Monday to Friday');
 const CAP = 30;

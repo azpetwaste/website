@@ -201,6 +201,11 @@ function stripeApi(m, url, init) {
     return reply(Object.assign({}, s, { form: undefined, card: undefined, setup_intent: si ? Object.assign({}, si, { payment_method: S.cards[si.payment_method] }) : null }));
   }
   if (p.startsWith('setup_intents/')) { const si = S.intents[p.slice(14)]; return reply(Object.assign({}, si, { payment_method: q.get('expand[0]') ? S.cards[si.payment_method] : si.payment_method })); }
+  if (/^payment_methods\/[^/]+\/detach$/.test(p)) {
+    const c = S.cards[p.split('/')[1]];
+    if (!c || c.detached) return reply({ error: { message: 'The payment method you provided is not attached to a customer so detachment is impossible.' } }, 400);
+    c.detached = true; return reply(c);
+  }
   if (p.startsWith('payment_methods/')) return reply(S.cards[p.slice(16)]);
   if (p === 'subscriptions' && m === 'GET') return reply({ data: Object.values(S.subs).filter((x) => x.customer === q.get('customer')) });
   if (p === 'subscriptions' && m === 'POST') {
@@ -668,11 +673,43 @@ head('Sign up: nothing doubles up');
   ok('free month ends on a 1st: Stripe gets the free month end and no second date', f.get('trial_end') === q.md.free_end && !f.has('billing_cycle_anchor') && !f.has('proration_behavior'), String(f));
   ok('the welcome says the full price from that day', /Your card is saved\. \$0 today\. Then \$99 a month starting May 1\./.test(sent(/^You are booked/)[0].text), sent(/^You are booked/)[0].text);
 }
-{ // A prepaid card is flagged for the office.
+{ // No prepaid cards (Joe, Nov 23, 2026). A free month sign up with one is turned away before any plan is made.
   for (const k of Object.keys(S.subs)) delete S.subs[k];
   S.funding = 'prepaid'; q = await quote('2027-03-10', 'week', 2); S.funding = 'credit'; reset();
-  await hook(sessionEvt(q.s.id));
-  ok('a prepaid card is flagged for the office', sent(/^Prepaid card: Test Person/).length === 1 && sent(/^PREPAID CARD\. New booking/).length === 1);
+  q.s.status = 'complete';
+  const d = await call('/api/checkout/done', 'POST', { session: q.s.id }, 'good'); await settle();
+  ok('a prepaid card at sign up: the page is told to ask for another card', d.status === 200 && d.d.booked === false && d.d.prepaid === true && d.d.charged === false && d.d.message === "Credit or debit card required. Prepaid and gift cards aren't accepted.", d.d);
+  ok('no free month is started and the yard is not booked', Object.keys(S.subs).length === 0 && row(U1).status === 'checkout' && !row(U1).stripe_subscription_id && sent(/^You are booked/).length === 0 && sent(/New booking/).length === 0, [row(U1).status, mails.map((m) => m.subject)]);
+  ok('the prepaid card is not kept on file', S.cards[q.s.card].detached === true && !S.customers[row(U1).stripe_customer_id].invoice_settings.default_payment_method);
+  const toThem = sent(/^We need a different card$/);
+  ok('the customer gets one plain email asking for a credit or debit card', toThem.length === 1 && /Credit or debit card required\. Prepaid and gift cards aren't accepted\./.test(toThem[0].text) && /was not charged/.test(toThem[0].text) && /arizonapetwaste\.com\/book\//.test(toThem[0].text), toThem.map((m) => m.text));
+  ok('the office hears about it once', sent(/^Prepaid card turned away: Test Person$/).length === 1);
+  await hook(sessionEvt(q.s.id)); await settle();
+  await call('/api/checkout/done', 'POST', { session: q.s.id }, 'good'); await settle();
+  ok('Stripe reporting the same card form again changes nothing and tells nobody twice', Object.keys(S.subs).length === 0 && row(U1).status === 'checkout' && sent(/^We need a different card$/).length === 1 && sent(/^Prepaid card turned away/).length === 1, mails.map((m) => m.subject));
+  // They come back with a real card: a new card form, and this time it books.
+  reset();
+  const realNow = Date.now; Date.now = () => Date.parse('2027-03-10T09:40:00-07:00');
+  let r2; try { r2 = await call('/api/checkout', 'POST', Object.assign({}, good, { plan: 'week', dogs: 2 }), 'good'); } finally { Date.now = realNow; }
+  const s2 = S.sessions[r2.d.session];
+  ok('they can try again with another card: a new card form opens', r2.status === 200 && !!s2 && s2.id !== q.s.id && !r2.d.already, r2.d);
+  Date.now = () => Date.parse('2027-03-10T09:41:00-07:00');
+  try { await hook(sessionEvt(s2.id)); await settle(); } finally { Date.now = realNow; }
+  ok('a credit card books them as before', row(U1).status === 'trialing' && Object.keys(S.subs).length === 1 && sent(/^You are booked/).length === 1 && sent(/^New booking/).length === 1, [row(U1).status, mails.map((m) => m.subject)]);
+}
+{ // The one customer who is kept on a prepaid card (Joe: "She is the only prepaid card APW will accept").
+  for (const k of Object.keys(S.subs)) delete S.subs[k];
+  env = Object.assign({}, baseEnv);
+  T.customers.length = 0;
+  T.customers.push({ id: U1, email: 'good@example.com', status: 'checkout', stripe_customer_id: 'cus_VfcvBMqaFWKvi3', stripe_subscription_id: null });
+  S.customers.cus_VfcvBMqaFWKvi3 = { id: 'cus_VfcvBMqaFWKvi3', invoice_settings: { default_payment_method: null } };
+  const realNow = Date.now; Date.now = () => Date.parse('2027-03-10T09:30:00-07:00');
+  let r3;
+  S.funding = 'prepaid';
+  try { r3 = await call('/api/checkout', 'POST', Object.assign({}, good, { plan: 'week', dogs: 2 }), 'good'); S.funding = 'credit'; reset();
+    await hook(sessionEvt(r3.d.session)); await settle(); } finally { Date.now = realNow; S.funding = 'credit'; }
+  ok('the one kept customer is not turned away for her prepaid card, and the office still gets the prepaid note', row(U1).stripe_customer_id === 'cus_VfcvBMqaFWKvi3' && row(U1).status === 'trialing' && sent(/^You are booked/).length === 1 && sent(/^We need a different card$/).length === 0 && sent(/^PREPAID CARD\. New booking/).length === 1, [row(U1).status, mails.map((m) => m.subject)]);
+  delete S.customers.cus_VfcvBMqaFWKvi3;
 }
 head('Meta: the booking and the leads reach Meta once, scrambled, with no phone number');
 { for (const k of Object.keys(S.subs)) delete S.subs[k];
@@ -1531,11 +1568,17 @@ head('No free month: the first month is paid in the card form, and that day is t
     && S.customers[row(U1).stripe_customer_id].invoice_settings.default_payment_method === s.card && sub.default_payment_method === null, [row(U1).status, sub.default_payment_method]);
   ok('then the checkout event adds nothing', (await hook(paidEvt(s.id))) === 200 && sent(/^You are booked/).length === 1 && sent(/^New booking/).length === 1);
 
-  // A prepaid card is still flagged.
+  // No prepaid cards. The pay today form charges before we can look, so this sign up is charged and NOT booked,
+  // and the office is told to refund and cancel.
   wipe();
   S.funding = 'prepaid'; r = await call('/api/checkout', 'POST', good, 'good'); S.funding = 'credit'; s = S.sessions[r.d.session]; sub = payNow(s.id); reset();
-  await hook(paidEvt(s.id));
-  ok('a prepaid card is flagged for the office', sent(/^Prepaid card: Test Person/).length === 1 && sent(/^PREPAID CARD\. New booking/).length === 1);
+  await hook(paidEvt(s.id)); await settle();
+  ok('pay today with a prepaid card: not booked, no welcome, and the row stays at the card step', row(U1).status === 'checkout' && !row(U1).stripe_subscription_id && sent(/^You are booked/).length === 0 && sent(/New booking/).length === 0, [row(U1).status, mails.map((m) => m.subject)]);
+  ok('the office gets one loud email to refund and cancel in Stripe', sent(/^PREPAID CARD, ALREADY CHARGED: Test Person$/).length === 1 && /refund the first payment and cancel the plan/.test(sent(/^PREPAID CARD, ALREADY CHARGED/)[0].text) && sent(/^PREPAID CARD, ALREADY CHARGED/)[0].text.includes(sub.id), mails.map((m) => m.subject));
+  ok('the server itself refunds nothing and cancels nothing', sub.status === 'active' && !S.calls.some((c) => /refund/.test(c.p) || c.m === 'DELETE'), S.calls.filter((c) => /refund/.test(c.p) || c.m === 'DELETE').map((c) => c.m + ' ' + c.p));
+  { const d = await call('/api/checkout/done', 'POST', { session: s.id }, 'good'); await settle();
+    ok('the page is told: prepaid, and the card was charged', d.d.booked === false && d.d.prepaid === true && d.d.charged === true, d.d); }
+  ok('Stripe’s plan events do not book it or mark it active either, and the office is told once', (await hook(subEvt('updated', sub, {}, { status: 'incomplete' }))) === 200 && row(U1).status === 'checkout' && !row(U1).stripe_subscription_id && sent(/^PREPAID CARD, ALREADY CHARGED/).length === 1, [row(U1).status, mails.map((m) => m.subject)]);
 
   // A new customer has no sign in (no email code at sign up). The paid path works the same for them.
   wipe(); authCalls.length = 0;
@@ -2102,6 +2145,21 @@ head('Prices (Joe, Nov 18, 2026): one file, the numbers he set, new Stripe price
   r = await call('/api/office/customer?id=' + U1, 'GET', null, 'boss');
   const r2 = await call('/api/office/customer?id=' + U2, 'GET', null, 'boss');
   ok('the office sees $108 a month on the plan from before and $99 on the new one', r.status === 200 && r.d.monthly === 10800 && r2.d.monthly === 9900, [r.d.monthly, r2.d.monthly]);
+  { // The owner's look at the cards on file (Joe, Nov 23, 2026): prepaid ones are named, nothing is changed.
+    S.customers[cusK] = S.customers[cusK] || { id: cusK, invoice_settings: { default_payment_method: null } };
+    S.customers[cusN] = S.customers[cusN] || { id: cusN, invoice_settings: { default_payment_method: null } };
+    S.cards.pm_pre = { id: 'pm_pre', type: 'card', card: { funding: 'prepaid', brand: 'visa', last4: '1111' } };
+    S.cards.pm_deb = { id: 'pm_deb', type: 'card', card: { funding: 'debit', brand: 'visa', last4: '2222' } };
+    const wasK = S.customers[cusK].invoice_settings.default_payment_method, wasN = S.customers[cusN].invoice_settings.default_payment_method;
+    S.customers[cusK].invoice_settings.default_payment_method = 'pm_pre'; S.customers[cusN].invoice_settings.default_payment_method = 'pm_deb';
+    S.calls.length = 0;
+    const pp = await call('/api/office/prepaid', 'GET', null, 'boss');
+    ok('the owner sees which customers with a plan have a prepaid card on file', pp.status === 200 && pp.d.checked === 2 && pp.d.prepaid.length === 1 && pp.d.prepaid[0].id === U1 && pp.d.prepaid[0].last4 === '1111' && pp.d.prepaid[0].kept === false && pp.d.next === null, pp.d);
+    ok('that look only reads from Stripe, and no row changes', S.calls.every((c) => c.m === 'GET') && row(U1).status === 'active' && row(U1).stripe_subscription_id === KEPT, S.calls.filter((c) => c.m !== 'GET').map((c) => c.m + ' ' + c.p));
+    { const no = await call('/api/office/prepaid', 'GET', null, 'good'), anon = await call('/api/office/prepaid', 'GET', null); ok('a customer or a stranger cannot open it', no.status >= 400 && !no.d.prepaid && anon.status >= 400 && !anon.d.prepaid, [no.status, anon.status]); }
+    S.customers[cusK].invoice_settings.default_payment_method = wasK; S.customers[cusN].invoice_settings.default_payment_method = wasN;
+    reset();
+  }
   r = await call('/api/office/money', 'GET', null, 'boss');
   ok('the Money screen adds them up at what each one pays: $207 a month', r.status === 200 && r.d.paying.count === 2 && r.d.paying.monthly === 20700, r.d.paying);
 

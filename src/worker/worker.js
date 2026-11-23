@@ -831,6 +831,84 @@ async function checkout(request, env, ctx) {
 
 // The sign up page calls this the moment Stripe says the card form is done. The Stripe webhook does the same job, so
 // a sign up still finishes when one of the two is late or down.
+/* ---------- no prepaid cards (Joe, Nov 23, 2026) ----------
+   "APW does not accept prepaid cards." A new sign up's card is looked at once it is collected and before the free
+   month starts or the yard is booked. A prepaid or gift card is turned away: no plan, no booking, and the customer is
+   asked for a credit or debit card. New sign ups only. A plan that is already running is never touched by this.
+   One customer is kept as she is (Joe: "Latawnya Cunningham is already a customer and is grandfathered. She is the only
+   prepaid card APW will accept"). Do not add a second id to this list without Joe. */
+const PREPAID_OK = ['cus_VfcvBMqaFWKvi3'];
+const NO_PREPAID = 'Credit or debit card required. Prepaid and gift cards aren\'t accepted.';
+const isPrepaid = (card) => !!(card && card.card && card.card.funding === 'prepaid');
+const prepaidNo = (card, customer) => isPrepaid(card) && !PREPAID_OK.includes(customer);
+// Free month sign up, prepaid card: nothing was charged and nothing is started. The card comes off the Stripe customer,
+// so it is not kept on file. Taking it off works once, and that one time tells the customer and the office. The page
+// and the Stripe webhook both report a finished card form, so this runs twice for one sign up and tells people once.
+async function prepaidFree(env, ctx, s, card, customer, uid) {
+  let first = false;
+  try { await stripe(env, 'POST', 'payment_methods/' + encodeURIComponent(card.id) + '/detach'); first = true; } catch (e) {
+    // "Not attached": the other caller already took it off and told people. Any other failure: the card could not be
+    // taken off, and people still have to be told, once from this server.
+    first = !/not attached/i.test((e && e.message) || '') && !hitLimit('prepaid|' + s.id, 1, 6 * 3600e3);
+    if (first) ctx.waitUntil(logError(env, 'server', '/api/checkout', 'A prepaid card was turned away but could not be taken off the Stripe customer', customer + '. Remove the card in Stripe. ' + clean(e && e.message, 200)));
+  }
+  if (first) {
+    const c = (await db(env, 'GET', 'customers?id=eq.' + uid + '&select=name,email,phone').catch(() => []))[0] || {};
+    if (c.email) ctx.waitUntil(mail(env, c.email, 'We need a different card', [hi(c.name), '',
+      'Thank you for signing up with Arizona Pet Waste.', '',
+      NO_PREPAID, '',
+      'Your card was not charged and it was not saved. You are not booked yet.',
+      'To finish, sign up again with a credit or debit card: https://arizonapetwaste.com/book/', '',
+      'Questions? Call or text 623.309.6104.', '', 'Arizona Pet Waste'].join('\n')));
+    ctx.waitUntil(mail(env, owner(env), 'Prepaid card turned away: ' + (c.name || 'a sign up'), [
+      'A new sign up used a prepaid or gift card. We do not take those, so no free month was started and nothing was booked.',
+      'They were asked on the page and by email to use a credit or debit card.', '',
+      'Name: ' + (c.name || ''), 'Mobile: ' + (c.phone || ''), 'Email: ' + (c.email || ''), 'Stripe customer: ' + customer].join('\n')));
+  }
+  return { prepaid: true, charged: false };
+}
+// Pay today sign up, prepaid card: Stripe's own form already charged the first month before we could look. The yard is
+// NOT booked. The office is told once, loudly, because someone has to refund that charge and cancel the plan in Stripe
+// (this server never refunds or cancels by itself). The plan carries a mark so later events do not tell them again.
+async function prepaidPaid(env, ctx, sub, customer, uid) {
+  if ((sub.metadata || {}).apw_prepaid) return 'prepaid';
+  let first = true;
+  // The mark is made with an "only once" key: the second caller gets the first answer back and knows it is second.
+  try { const r = await stripe(env, 'POST', 'subscriptions/' + encodeURIComponent(sub.id), { metadata: { apw_prepaid: '1' } }, 'apw-prepaid-' + sub.id); if (r && r._replayed) first = false; } catch (e) { first = true; }
+  if (first && !hitLimit('prepaid|' + sub.id, 1, 6 * 3600e3)) {
+    const c = (await db(env, 'GET', 'customers?id=eq.' + uid + '&select=name,email,phone').catch(() => []))[0] || {};
+    ctx.waitUntil(mail(env, owner(env), 'PREPAID CARD, ALREADY CHARGED: ' + (c.name || 'a sign up'), [
+      'A new sign up paid the first month with a prepaid or gift card. We do not take those.',
+      'They are NOT booked and got no welcome email. Their card WAS charged, because the pay today form charges before we can look at the card.', '',
+      'To do, in Stripe: refund the first payment and cancel the plan. Or call them for a credit or debit card.', '',
+      'Name: ' + (c.name || ''), 'Mobile: ' + (c.phone || ''), 'Email: ' + (c.email || ''), 'Stripe customer: ' + customer, 'Stripe plan: ' + sub.id].join('\n')));
+    ctx.waitUntil(logError(env, 'server', '/api/checkout', 'A sign up paid with a prepaid card and was not booked', (c.name || '') + ', ' + customer + ', ' + sub.id + '. Refund the first payment and cancel the plan in Stripe, or call them for another card.'));
+  }
+  return 'prepaid';
+}
+
+// For the owner (Joe, Nov 23, 2026: "If any other existing customer has a prepaid default card, flag them for the
+// owner. Do not auto-cancel them."). Looks at the card on file of every customer with a plan and names the prepaid
+// ones. It only reads. It changes nothing in Stripe and nothing in a row. A few customers per call, so a long list
+// cannot run this server out of time: the screen asks again from `next` until there is none.
+const PREPAID_STEP = 20;
+async function officePrepaid(env, from) {
+  const at = Math.max(0, parseInt(from, 10) || 0);
+  const rows = await db(env, 'GET', 'customers?status=in.(trialing,active,past_due,paused)&stripe_customer_id=not.is.null&select=id,name,status,stripe_customer_id,stripe_subscription_id&order=created_at,id&offset=' + at + '&limit=' + (PREPAID_STEP + 1));
+  const more = rows.length > PREPAID_STEP, out = [];
+  let unread = 0;
+  for (const c of rows.slice(0, PREPAID_STEP)) {
+    let card = null;
+    try {
+      card = (await stripe(env, 'GET', 'customers/' + encodeURIComponent(c.stripe_customer_id), { expand: ['invoice_settings.default_payment_method'] })).invoice_settings.default_payment_method;
+      // A plan paid for in Stripe's checkout can still have its card on the plan.
+      if (!card && c.stripe_subscription_id) card = (await stripe(env, 'GET', 'subscriptions/' + encodeURIComponent(c.stripe_subscription_id), { expand: ['default_payment_method'] })).default_payment_method;
+    } catch (e) { unread++; continue; }
+    if (isPrepaid(card)) out.push({ id: c.id, name: c.name, status: c.status, brand: (card.card && card.card.brand) || '', last4: (card.card && card.card.last4) || '', kept: PREPAID_OK.includes(c.stripe_customer_id) });
+  }
+  return ok({ prepaid: out, checked: Math.min(rows.length, PREPAID_STEP) - unread, unread, next: more ? at + PREPAID_STEP : null });
+}
+
 async function checkoutDone(request, env, ctx) {
   if (!live(env)) return fail(503, 'Online sign up is not turned on yet. ' + CALL_US);
   const u = await signedIn(request, env);
@@ -847,6 +925,8 @@ async function checkoutDone(request, env, ctx) {
   try {
     // A saved card (free month) gets its plan started here. A paid first month already has its plan and gets booked.
     const out = s.mode === 'subscription' ? await paidPlan(env, ctx, s) : await startPlan(env, ctx, s);
+    // A prepaid card was turned away. The page says so and asks for another card.
+    if (out && out.prepaid) return ok({ booked: false, prepaid: true, charged: !!out.charged, message: NO_PREPAID });
     return ok({ booked: !!out });
   } catch (e) {
     // Only for a card form that was just finished, so an old sign up asked about again does not email the office.
@@ -895,6 +975,8 @@ async function startPlan(env, ctx, s) {
   const mine = all.filter((x) => x.metadata && x.metadata.session === s.id)[0];
   if (mine && !alive(mine)) return null;
   let sub = mine || all.filter(alive)[0] || null;
+  // No prepaid cards. Looked at here: the card is collected, and no plan has been started.
+  if (!sub && prepaidNo(card, customer)) return prepaidFree(env, ctx, s, card, customer, uid);
   if (!sub) {
     const freeEnd = parseInt(md.free_end, 10);
     if (!(freeEnd > Date.now() / 1000)) throw new Error('sign up ' + s.id + ' has bad dates');
@@ -947,7 +1029,7 @@ async function paidPlan(env, ctx, s) {
   // customer is still in the form, and Stripe sends this event again when they finish.
   if (!sub || !sub.id || sub.status !== 'active') return null;
   const card = await cardToCustomer(env, ctx, sub, customer);
-  await booked(env, ctx, uid, sub, customer, card, s);
+  if (await booked(env, ctx, uid, sub, customer, card, s) === 'prepaid') return { prepaid: true, charged: true };
   return sub;
 }
 
@@ -982,9 +1064,9 @@ async function booked(env, ctx, uid, sub, customer, card, s) {
   // one that was finished.
   const paidDogs = parseInt(meta.dogs, 10);
   if (PLANS[meta.plan] && paidDogs >= 1 && paidDogs <= 6) { patch.plan = meta.plan; patch.dogs = paidDogs; }
-  const rows = await db(env, 'PATCH', 'customers?id=eq.' + uid + '&status=eq.checkout', patch, 'return=representation');
-  const c = rows && rows[0];
-  if (!c) return false;
+  // Only a sign up that is still waiting at the card step is booked. Its card is looked at first.
+  const waiting = await db(env, 'GET', 'customers?id=eq.' + uid + '&status=eq.checkout&select=id');
+  if (!waiting || !waiting[0]) return false;
   if (!card) {
     try { card = (await stripe(env, 'GET', 'customers/' + customer, { expand: ['invoice_settings.default_payment_method'] })).invoice_settings.default_payment_method; } catch (e) { card = null; }
   }
@@ -992,7 +1074,14 @@ async function booked(env, ctx, uid, sub, customer, card, s) {
   if (!card && typeof sub.default_payment_method === 'string' && sub.default_payment_method) {
     try { card = await stripe(env, 'GET', 'payment_methods/' + encodeURIComponent(sub.default_payment_method)); } catch (e) { card = null; }
   }
-  const prepaid = !!(card && card.card && card.card.funding === 'prepaid');
+  // No prepaid cards: this sign up is not booked. (A free month sign up was already turned away in startPlan, before
+  // any plan was made. This is the pay today path, where Stripe's form made the plan and charged it.)
+  if (prepaidNo(card, customer)) return prepaidPaid(env, ctx, sub, customer, uid);
+  const rows = await db(env, 'PATCH', 'customers?id=eq.' + uid + '&status=eq.checkout', patch, 'return=representation');
+  const c = rows && rows[0];
+  if (!c) return false;
+  // Only the one customer who is kept on a prepaid card can get here with one (PREPAID_OK).
+  const prepaid = isPrepaid(card);
   // What this plan costs a month: the lines Stripe has on it. If they cannot be read, today's price for the plan.
   const total = planCents(sub) || rowMonthly(Object.assign({}, c, { stripe_subscription_id: sub.id }));
   const paidToday = !!meta.no_free;
@@ -1219,7 +1308,10 @@ async function webhook(request, env, ctx) {
     const filter = uid ? 'id=eq.' + uid : 'stripe_customer_id=eq.' + encodeURIComponent(cust);
     // This event can land before startPlan or paidPlan has marked the sign up as booked. Book it here then, so the
     // welcome still goes out once (see booked). After that there is nothing left for this event to change.
-    if (good && uid && await booked(env, ctx, uid, o, cust, null)) {
+    const did = good && uid ? await booked(env, ctx, uid, o, cust, null) : false;
+    // A sign up turned away for a prepaid card stays at the card step: this event must not mark it active.
+    if (did === 'prepaid') return ok({ received: true });
+    if (did) {
       // A plan paid for in Stripe's checkout still has its card on the plan. Move it onto the customer here too, in
       // case the checkout event that does it is late or lost.
       if ((o.metadata || {}).no_free && o.default_payment_method) await cardToCustomer(env, ctx, o, cust);
@@ -2087,6 +2179,7 @@ async function desk(path, request, env, ctx) {
   if (path === '/api/office/night-before' && m === 'POST') return nightBefore(env, isDay(b.date) ? b.date : null);
   if (path === '/api/office/money' && m === 'GET') return officeMoney(env);
   if (path === '/api/office/health' && m === 'GET') return officeHealth(env);
+  if (path === '/api/office/prepaid' && m === 'GET') return officePrepaid(env, new URL(request.url).searchParams.get('from'));
   if (path === '/api/office/health/clear' && m === 'POST') return officeHealthClear(env);
   if (path === '/api/office/areas' && m === 'GET') return officeAreas(env);
   if (path === '/api/office/area' && m === 'POST') return officeArea(env, b);
