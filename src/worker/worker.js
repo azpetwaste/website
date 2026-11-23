@@ -3201,7 +3201,20 @@ function prePlan(news, dates, opt) {
       cuts.push(best);
     }
     cuts.push(n);
-    for (let j = 0; j < k; j++) days[j].list.push(...tour.slice(cuts[j], cuts[j + 1]));
+    // A day that already holds a house the office put there (Joe, Nov 22, 2026: "pick one person and set it for that
+    // date... for everybody else, it doesn't matter") takes the part of town closest to that house. The other parts
+    // go to the other days in order.
+    const parts = Array.from({ length: k }, (_, j) => tour.slice(cuts[j], cuts[j + 1])), open = days.slice();
+    const mid = (l) => ({ lat: l.reduce((x, c) => x + c.lat, 0) / l.length, lng: l.reduce((x, c) => x + c.lng, 0) / l.length });
+    for (const d of days.filter((x) => x.list.length)) {
+      if (!parts.length) break;
+      const m = mid(d.list);
+      let b = 0;
+      parts.forEach((part, i) => { if (miles(m, mid(part)) < miles(m, mid(parts[b])) - 1e-9) b = i; });
+      d.list.push(...parts.splice(b, 1)[0]);
+      open.splice(open.indexOf(d), 1);
+    }
+    parts.forEach((part, i) => open[i].list.push(...part));
   }
   for (const d of days) {
     // Each scooper's houses are timed on their own (`who`): two trucks can both be at a yard at 9:00.

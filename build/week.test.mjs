@@ -147,6 +147,16 @@ console.log('\nPreplan my days');
   ok('two days keep neighbors together: the two routes add up to fewer miles than the one long day', p.days[0].miles + p.days[1].miles < one, [p.days[0].miles, p.days[1].miles, one]);
   p = W.prePlan(six, ['2026-11-23', '2026-11-24'], { assign: { p0: '2026-11-24', p1: '2026-11-24', p2: '2026-11-24', p3: '2026-11-24', p4: '2026-11-23', p5: 'none' } });
   ok('the office moves houses and that wins: four on Tuesday, one on Monday, one left out', p.days[0].yards.map((y) => y.c.id).join() === 'p4' && p.days[1].yards.length === 4 && p.none.map((c) => c.id).join() === 'p5');
+  // Joe, Nov 22, 2026: "Latawnya Cunningham, we need to do her tomorrow, Monday, and then for everybody else, it doesn't matter."
+  p = W.prePlan(six, ['2026-11-23', '2026-11-24'], { assign: { p2: '2026-11-23' } });
+  ok('one house locked to Monday, the app plans the rest: she is on Monday and all six are placed', p.days[0].yards.some((y) => y.c.id === 'p2') && p.days[0].yards.length + p.days[1].yards.length === 6 && p.days.every(rising), p.days.map((d) => d.yards.map((y) => y.c.name).join(' ')));
+  ok('her neighbors ride with her: the east side of town goes on her day, not the far side', p.days[0].yards.some((y) => y.c.id === 'p1') && !p.days[0].yards.some((y) => y.c.id === 'p4'), p.days[0].yards.map((y) => y.c.name));
+  const free = W.prePlan(six, ['2026-11-23', '2026-11-24'], {});
+  ok('locking her costs no extra driving here (' + (p.days[0].miles + p.days[1].miles).toFixed(1) + ' miles, ' + (free.days[0].miles + free.days[1].miles).toFixed(1) + ' with nobody locked)', p.days[0].miles + p.days[1].miles <= free.days[0].miles + free.days[1].miles + 0.01);
+  p = W.prePlan(six, ['2026-11-23', '2026-11-24', '2026-11-25'], { assign: { p2: '2026-11-25', p4: '2026-11-23' } });
+  ok('two houses locked to two days: each is on its day and every house is placed once', p.days[2].yards.some((y) => y.c.id === 'p2') && p.days[0].yards.some((y) => y.c.id === 'p4') && p.days.reduce((n, d) => n + d.yards.length, 0) === 6 && new Set(p.days.flatMap((d) => d.yards.map((y) => y.c.id))).size === 6);
+  p = W.prePlan(six, ['2026-11-23'], { assign: { p2: '2026-11-23' } });
+  ok('one day picked and one house locked to it: everyone is on that day', p.days[0].yards.length === 6);
   p = W.prePlan(six.concat([{ id: 'nopin', name: 'No Pin', lat: null, lng: null }]), ['2026-11-23'], {});
   ok('a house that is not on the map is not planned, and is listed', p.noPin.length === 1 && p.days[0].yards.length === 6);
   p = W.prePlan(six, ['2026-11-23'], { busy: { '2026-11-23': [{ lat: 33.5, lng: -112.4, time: '09:00' }, { lat: 33.5, lng: -112.41, time: '13:15' }] } });

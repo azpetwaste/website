@@ -312,7 +312,13 @@ table.t tr.click:hover td{background:var(--bg2)}
       return out; };
     var by = {}, days = dates.map(function (x) { return (by[x] = { date: x, list: [] }); }), none = [], free = [];
     news.forEach(function (c) { var a = (b.assign || {})[c.id]; if (a === 'none') none.push(c); else if (a && by[a]) by[a].list.push(c); else free.push(c); });
-    if (free.length) { var tour = near(free, null), k = Math.min(days.length, tour.length); for (var j = 0; j < k; j++) days[j].list = days[j].list.concat(tour.slice(Math.round(j * tour.length / k), Math.round((j + 1) * tour.length / k))); }
+    if (free.length) {
+      var tour = near(free, null), k = Math.min(days.length, tour.length), parts = [], open = days.slice();
+      for (var j = 0; j < k; j++) parts.push(tour.slice(Math.round(j * tour.length / k), Math.round((j + 1) * tour.length / k)));
+      var mid = function (l) { return { lat: l.reduce(function (x, c) { return x + c.lat; }, 0) / l.length, lng: l.reduce(function (x, c) { return x + c.lng; }, 0) / l.length }; };
+      days.filter(function (d) { return d.list.length; }).forEach(function (d) { if (!parts.length) return; var m = mid(d.list), bi = 0; parts.forEach(function (pt, i) { if (meters(m, mid(pt)) < meters(m, mid(parts[bi]))) bi = i; }); d.list = d.list.concat(parts.splice(bi, 1)[0]); open.splice(open.indexOf(d), 1); });
+      parts.forEach(function (pt, i) { open[i].list = open[i].list.concat(pt); });
+    }
     days.forEach(function (d) {
       var wd = demoWd(d.date), had = D.customers.filter(function (c) { return c.service_day === wd && c.service_time && (c.scooper_id || me) === me && ['trialing', 'active'].indexOf(c.status) >= 0; }).sort(function (x, y) { return demoMin(x.service_time) - demoMin(y.service_time); });
       var last = had[had.length - 1], at = last || null, t = last ? demoMin(last.service_time) + 10 : null, road = 0, work = 0;
@@ -911,13 +917,25 @@ table.t tr.click:hover td{background:var(--bg2)}
       (t.tomorrow ? (t.nightNow ? ' Customers set for tomorrow also get their night before email and text right away.' : ' Customers set for tomorrow get their night before email and text this evening.') : '') +
       (t.quiet && t.text ? ' It is outside 8 AM to 9 PM, so the texts wait. Emails still go.' : '');
   }
+  // Step 3: a house that has to be on a certain day (Joe, Nov 22, 2026: "pick one person and set it for that date... for
+  // everybody else, it doesn't matter"). The office locks that house to its day and the app plans the rest around it.
+  function prePins(o, today) {
+    var list = o.houses || [], pins = o.pins || {}; if (!list.length) return '';
+    var n = Object.keys(pins).filter(function (k) { return pins[k]; }).length, cap = 40;
+    var sel = function (id) { var v = pins[id] || ''; return '<select class="f" data-prepin="' + id + '" aria-label="Day for this house" style="min-width:132px;min-height:44px' + (v ? ';border-color:var(--accent)' : '') + '"><option value="">App picks</option>' +
+      [0, 1, 2, 3, 4, 5, 6].map(function (i) { var x = shift(today, i); return '<option value="' + x + '"' + (v === x ? ' selected' : '') + '>' + (i === 0 ? 'Today' : h(dayLabel(x))) + '</option>'; }).join('') + '<option value="none"' + (v === 'none' ? ' selected' : '') + '>Not yet</option></select>'; };
+    return '<div style="margin-top:18px"><span class="lbl">3. Need a house on a certain day? You can skip this</span>' +
+      '<p style="color:var(--mute);font-size:15px;line-height:1.45;margin:6px 0 0;max-width:70ch">Pick the day for that house. It stays on that day and the app plans everyone else around it.' + (n ? ' <b style="color:var(--ink)">' + n + (n === 1 ? ' house is' : ' houses are') + ' set by you.</b>' : '') + '</p>' +
+      '<ul class="list">' + list.slice(0, cap).map(function (c) { return '<li style="grid-template-columns:1fr auto"><div><div class="a">' + h(c.name) + '</div><div class="s">' + h(c.address || '') + '</div></div><div class="r">' + sel(c.id) + '</div></li>'; }).join('') + '</ul>' +
+      (list.length > cap ? '<p style="color:var(--mute);font-size:14px">Showing ' + cap + ' of ' + list.length + '. Plan first, then move any house in the plan.</p>' : '') + '</div>';
+  }
   function officePre(o) {
     o = o || {}; var today = azDay(), picked = Object.keys(o.dates || {}).filter(function (k) { return o.dates[k]; }).sort(), w = o.plan;
     var out = '<div class="daynav"><button class="chip" data-plan="0">‹ Back to the schedule</button></div><div class="daynav" style="margin-top:14px"><h2>Preplan my days</h2></div>' +
       '<p style="color:var(--mute);font-size:15px;line-height:1.5;max-width:70ch">Pick one day or a few. The app puts every waiting house on one of them, in the best driving order, and gives each house a time. You can move any house. Nothing is saved and no customer is told until you confirm.</p>' +
       '<span class="lbl" style="display:block;margin-top:18px">1. Which days?</span><div class="chips" style="margin-top:8px">' + [0, 1, 2, 3, 4, 5, 6].map(function (i) { var x = shift(today, i);
         return '<button class="chip' + (o.dates && o.dates[x] ? ' on' : '') + '" data-predate="' + x + '" aria-pressed="' + (o.dates && o.dates[x] ? 'true' : 'false') + '" style="min-height:48px;font-size:13px">' + (i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : h(dayLabel(x))) + '</button>'; }).join('') + '</div>' +
-      '<label class="fl" style="max-width:310px"><span class="lbl">2. First house at</span>' + timeSel('pre_start', o.start || '08:00', 'Pick a time') + '</label>' +
+      '<label class="fl" style="max-width:310px"><span class="lbl">2. First house at</span>' + timeSel('pre_start', o.start || '08:00', 'Pick a time') + '</label>' + prePins(o, today) +
       '<div style="max-width:320px;margin-top:14px"><button class="btn" data-pre="go"' + (picked.length ? '' : ' disabled') + '>' + (picked.length ? (w && w.days ? 'Plan it again' : 'Plan it for me') : 'Pick a day first') + '</button></div>';
     if (!w) return out;
     if (w.loading) return out + '<p class="empty">Planning…</p>';
@@ -927,7 +945,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       out += '<div class="sec"><h3>' + h(dayLabel(d.date)) + ' <span class="tag' + (d.yards.length ? ' acc' : '') + '">' + d.yards.length + (d.yards.length === 1 ? ' house' : ' houses') + '</span>' + (d.over ? '<span class="tag bad">Over the limit of ' + w.cap + '</span>' : '') + (d.late ? '<span class="tag warn">Runs past 6 PM</span>' : '') + '</h3>' +
         (d.yards.length ? '<p class="mono" style="color:var(--mute);font-size:13px;margin:4px 0 0">' + d.miles + ' miles · about ' + hm(d.minutes) + ' of work · done around ' + h(t12(d.ends)) + '</p>' : '<p style="color:var(--mute);font-size:15px;margin:4px 0 0">No house on this day.</p>') +
         (d.had ? '<p style="color:var(--mute);font-size:14px;margin:6px 0 0">' + d.had + (d.had === 1 ? ' house is' : ' houses are') + ' already on this day and keep' + (d.had === 1 ? 's its time' : ' their times') + '. New houses go after.</p>' : '') +
-        '<ul class="list">' + d.yards.map(function (y, i) { return '<li style="grid-template-columns:auto 1fr auto"><span class="n">' + String(i + 1).padStart(2, '0') + '</span><div><div class="a">' + h(y.address) + '</div><div class="s"><b style="color:var(--ink)">' + h(t12(y.time)) + '</b> · ' + h(y.name) + (y.first ? ' · first visit' : '') + '</div></div><div class="r">' + moveSel(y.id, d.date) + '</div></li>'; }).join('') + '</ul></div>';
+        '<ul class="list">' + d.yards.map(function (y, i) { return '<li style="grid-template-columns:auto 1fr auto"><span class="n">' + String(i + 1).padStart(2, '0') + '</span><div><div class="a">' + h(y.address) + '</div><div class="s"><b style="color:var(--ink)">' + h(t12(y.time)) + '</b> · ' + h(y.name) + (y.first ? ' · first visit' : '') + (o.pins && o.pins[y.id] ? ' · <span style="color:var(--accent)">your pick</span>' : '') + '</div></div><div class="r">' + moveSel(y.id, d.date) + '</div></li>'; }).join('') + '</ul></div>';
     });
     if (w.none.length) out += '<div class="sec"><h3>Left out for now <span class="tag">' + w.none.length + '</span></h3><ul class="list">' + w.none.map(function (y) { return '<li style="grid-template-columns:1fr auto"><div><div class="a">' + h(y.address) + '</div><div class="s">' + h(y.name) + '</div></div><div class="r">' + moveSel(y.id, 'none') + '</div></li>'; }).join('') + '</ul></div>';
     if (w.noPin.length) out += '<div class="sec"><h3>Not on the map <span class="tag bad">' + w.noPin.length + '</span></h3><p style="color:var(--mute);font-size:15px;margin:0 0 6px">The app cannot plan a house it cannot find. Tap one, then tap Find on map.</p><ul class="list">' + w.noPin.map(function (y) { return '<li class="tap" data-cust="' + y.id + '" style="grid-template-columns:1fr auto"><div><div class="a">' + h(y.name) + '</div><div class="s">' + h(y.address || '') + '</div></div><span class="lbl">Open ›</span></li>'; }).join('') + '</ul></div>';
@@ -1426,15 +1444,26 @@ table.t tr.click:hover td{background:var(--bg2)}
     }; });
     app.querySelectorAll('[data-preopen]').forEach(function (b) { b.onclick = function () {
       var tm = {}; tm[shift(azDay(), 1)] = true;
-      S.planKind = 'pre'; S.pre = { dates: tm, start: '08:00', assign: {}, plan: null };
+      S.planKind = 'pre'; S.pre = { dates: tm, start: '08:00', assign: {}, pins: {}, plan: null, houses: ((S.data.day && S.data.day.needDay) || []).map(function (c) { return { id: c.id, name: c.name, address: c.address }; }) };
       nav('today', true);
     }; });
     if (S.plan && S.planKind === 'pre' && S.pre) {
-      app.querySelectorAll('[data-predate]').forEach(function (b) { b.onclick = function () { S.pre.dates[b.dataset.predate] = !S.pre.dates[b.dataset.predate]; S.pre.plan = null; S.pre.assign = {}; render(); }; });
+      app.querySelectorAll('[data-predate]').forEach(function (b) { b.onclick = function () {
+        var x = b.dataset.predate, used = Object.keys(S.pre.pins).some(function (k) { return S.pre.pins[k] === x; });
+        if (S.pre.dates[x] && used) return toast('A house is set for that day. Change that house first.');
+        S.pre.dates[x] = !S.pre.dates[x]; S.pre.plan = null; S.pre.assign = {}; render();
+      }; });
       var ps = document.getElementById('pre_start'); if (ps) ps.onchange = function () { S.pre.start = ps.value || '08:00'; S.pre.plan = null; render(); };
-      app.querySelectorAll('[data-premove]').forEach(function (x) { x.onchange = function () { S.pre.assign[x.dataset.premove] = x.value; preRun(false); }; });
+      // A house the office moves in the plan is locked where it was put, the same as one set in step 3.
+      app.querySelectorAll('[data-premove]').forEach(function (x) { x.onchange = function () { S.pre.assign[x.dataset.premove] = x.value; S.pre.pins[x.dataset.premove] = x.value; preRun(false); }; });
+      app.querySelectorAll('[data-prepin]').forEach(function (x) { x.onchange = function () {
+        var id = x.dataset.prepin; if (x.value) S.pre.pins[id] = x.value; else delete S.pre.pins[id];
+        if (x.value && x.value !== 'none') S.pre.dates[x.value] = true;
+        S.pre.plan = null; S.pre.assign = {}; render();
+      }; });
       app.querySelectorAll('[data-pre]').forEach(function (b) { b.onclick = function () {
-        if (b.dataset.pre === 'go') { S.pre.assign = {}; return preRun(false); }
+        // Plan it: only the houses the office set keep their day. The app is free to place everyone else.
+        if (b.dataset.pre === 'go') { S.pre.assign = Object.assign({}, S.pre.pins); return preRun(false); }
         sheetAsk('Confirm this plan?', preTell(S.pre.plan.tell), 'Yes, confirm it', function () { preRun(true); }, 'Not yet', true);
       }; });
     }
