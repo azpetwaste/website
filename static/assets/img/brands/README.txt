@@ -7,13 +7,19 @@ The files here come from open logo libraries on npm, written out by a script wit
   instagram.svg  the full color mark     @iconify-json/skill-icons 1.2.4 "instagram" (MIT)
   facebook.svg   the mark in white       @iconify-json/simple-icons 1.2.103 "facebook" (CC0), fill set to white
   yelp.svg       the mark in white       @iconify-json/simple-icons 1.2.103 "yelp" (CC0), fill set to white
+  youtube.svg    the mark in white       @iconify-json/simple-icons 1.2.103 "youtube" (CC0), fill set to white
+  tiktok.svg     the mark in white       @iconify-json/simple-icons 1.2.103 "tiktok" (CC0), fill set to white
 
 The names and marks belong to their owners. We use them only as links to our own profiles.
 A file from the company's own brand page can replace any of these: keep the file name.
 
 Social buttons (footer of every page). A button shows when its file is here AND its link is in src/site.config.json "social":
-  facebook.svg  instagram.svg  yelp.svg  tiktok.svg  nextdoor.svg
-  Facebook and Yelp sit on their own brand color (set in build/build.mjs, SOCIAL), so those two files are the white mark.
+  facebook.svg  instagram.svg  yelp.svg  tiktok.svg  youtube.svg  nextdoor.svg
+  Facebook, Yelp, TikTok and YouTube sit on their own brand color (set in build/build.mjs, SOCIAL), so those files are the white mark.
+  YouTube went on the site on November 24, 2026 (Joe: "put logos on the website please... youtube: https://www.youtube.com/@ArizonaPetWaste
+  logos on the website with fb / ig / yelp"). The TikTok file is here and ready, but the link Joe sent for TikTok that day was our Google
+  review link (g.page/r/CXY5n8YnkReiEAI/review), not a TikTok profile, so there is no TikTok button yet. Add { "name": "TikTok", "url": ... }
+  to "social" and "sameAs" when he sends the profile link, and the button shows on the next build.
 
 Google mark (in front of the stars in the home page hero):
   google.svg

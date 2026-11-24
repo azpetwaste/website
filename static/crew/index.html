@@ -188,7 +188,10 @@ table.t tr.click:hover td{background:var(--bg2)}
   function dayLabel(d) { var x = new Date(d + 'T19:00:00Z'); return x.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/Phoenix' }); }
   function shift(d, n) { return new Date(Date.parse(d + 'T19:00:00Z') + n * 864e5).toISOString().slice(0, 10); }
   function sms(to, body) { return 'sms:+1' + String(to).replace(/\D/g, '').slice(-10) + '?&body=' + encodeURIComponent(body); }
-  function maps(addr) { return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(addr + ', AZ'); }
+  // Where Directions drives to. The server sends `nav_to`: the house's confirmed pin ("33.39898,-112.57378") once the
+  // crew has finished a visit there, else the full address with the city (Joe, Nov 24, 2026: the old link had no city
+  // and sent Juan toward another town). The demo has no `nav_to`, so it uses the address.
+  function maps(c) { return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(c.nav_to || ((c.address || '') + ' ' + (c.zip || '') + ', AZ')); }
   function toast(msg) { var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(function () { t.remove(); }, msg.length > 60 ? 5200 : 2600); }
   var STATUS = {
     scheduled: ['To do', 'dim'], on_the_way: ['On the way', 'acc'], here: ['At the yard', 'warn'], done: ['Done', 'ok'], skipped: ['Skipped', 'dim'], cant: ['Not done', 'bad'],
@@ -596,7 +599,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       '<div class="steps">' + [[1, 'Drive'], [2, 'Scoop'], [3, 'Photo']].map(function (x) { return '<span class="' + (x[0] === step ? 'on' : x[0] < step ? 'was' : '') + '"><b>' + (x[0] < step ? '✓' : x[0]) + '</b>' + x[1] + '</span>'; }).join('') + '</div>' +
       '<p class="todo">' + todo + '</p>' +
       '<p class="big">' + h(c.address) + '</p><div style="color:var(--mute);margin-top:6px">' + ((route().times || {})[cur.id] ? 'Set for around ' + h(t12(route().times[cur.id])) + ' · ' : '') + h(c.name) + ' · ' + h(c.dogs) + (c.dogs == 1 ? ' dog' : ' dogs') + (c.dog_names ? ' · ' + h(c.dog_names) : '') + '</div>' +
-      '<div class="row2" style="margin-top:16px"><a class="btn ghost sm" style="width:100%" href="' + h(maps(c.address + ' ' + (c.zip || ''))) + '" target="_blank" rel="noopener">Directions</a>' +
+      '<div class="row2" style="margin-top:16px"><a class="btn ghost sm" style="width:100%" href="' + h(maps(c)) + '" target="_blank" rel="noopener">Directions</a>' +
       '<a class="btn ghost sm" style="width:100%" href="tel:+1' + h(String(c.phone || '').replace(/\D/g, '')) + '">Call</a></div>' +
       '<dl class="kv" style="margin-top:18px"><dt class="lbl">Gate code</dt><dd><div class="gate">' + (c.gate_code ? h(c.gate_code) : '<span style="color:var(--dim);font-size:22px">No code needed</span>') + '</div></dd>' +
       (c.gate_notes ? '<dt class="lbl">Gate note</dt><dd>' + h(c.gate_notes) + '</dd>' : '') +

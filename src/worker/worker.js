@@ -2778,6 +2778,53 @@ async function firstVisitNotes(env, stops, day) {
     }
   } catch (e) { console.error('first visit notes', e && e.message); }
 }
+/* ---------- the house's own pin, and where Directions drives to (Joe, Nov 24, 2026) ----------
+   "My tech hit Get Directions, and it was trying to take him on a wild goose chase." The Directions button sent Google
+   Maps the street and the ZIP as words. Google did not have 24313 W Grove St (a new house), matched the words to a
+   Grove St in Litchfield Park and offered a 22 minute drive the wrong way. Our own pin for that house was right.
+   So a house the crew has finished a visit at gets a CONFIRMED pin: where the truck was parked when the worker tapped
+   "I'm here" (`customers.pin_at` says when, supabase/patch-2026-11-24.sql). Directions then drives to that pin, and
+   no map app can match it to another town. A house with no confirmed pin yet still gets words, now with the city
+   and the state in them. A pin from the Census lookup is NOT sent: on November 24 one of eight was a quarter mile off.
+   Reading `pin_at` is always in a try of its own, so a database without the patch works as before. */
+const PIN_NEAR = 150, PIN_FAR = 1000; // meters
+const meters = (a, b) => miles(a, b) * 1609.34;
+const mid = (list) => { const s = list.slice().sort((x, y) => x - y), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
+// What goes after "destination=" in the map link: "33.398981,-112.573777" for a confirmed pin, else the full address.
+function navTo(c, pinAt) {
+  if (pinAt && c && c.lat != null && c.lng != null) return (Math.round(c.lat * 1e6) / 1e6) + ',' + (Math.round(c.lng * 1e6) / 1e6);
+  const a = String((c && c.address) || '').trim(), zip = String((c && c.zip) || '').trim();
+  if (/,\s*(AZ|Arizona)\b/i.test(a)) return a; // typed in full already
+  const city = (ZIPS[zip] || {}).city || '';
+  return a + (city ? ', ' + city : '') + ', AZ' + (zip ? ' ' + zip : '');
+}
+// A visit was finished: save where the truck was parked as this house's confirmed pin. The spot is the middle of the
+// GPS points from the "I'm here" tap to two minutes after it. It only counts when the phone then stayed within
+// PIN_NEAR of that spot for the rest of the visit, so a tap made down the road confirms nothing. The spot must
+// also be in the towns we scoop (ADDR_BOX) and within PIN_FAR of the pin on file, when there is one: a visit run
+// as a test from somewhere else must never move a house (Joe tests the flow on himself). A house that already has
+// a confirmed pin keeps it unless the new spot is more than PIN_NEAR away. Never throws.
+async function confirmPin(env, stopId) {
+  try {
+    const st = (await db(env, 'GET', 'stops?id=eq.' + stopId + '&select=id,route_id,customer_id,status,arrived_at,done_at'))[0];
+    if (!st || st.status !== 'done' || !st.route_id || !st.arrived_at || !st.done_at) return false;
+    const from = Date.parse(st.arrived_at) - 60e3, to = Date.parse(st.done_at);
+    if (!(to > from)) return false;
+    const pts = (await db(env, 'GET', 'positions?route_id=eq.' + st.route_id + '&at=gte.' + enc(new Date(from).toISOString()) + '&at=lte.' + enc(new Date(to).toISOString()) + '&select=lat,lng,accuracy,at&order=at&limit=1000'))
+      .filter((p) => p.accuracy != null && Number(p.accuracy) <= 30);
+    const early = pts.filter((p) => Date.parse(p.at) <= Date.parse(st.arrived_at) + 120e3);
+    if (early.length < 2 || pts.length < 4) return false;
+    const pin = { lat: mid(early.map((p) => p.lat)), lng: mid(early.map((p) => p.lng)) }, stay = { lat: mid(pts.map((p) => p.lat)), lng: mid(pts.map((p) => p.lng)) };
+    if (meters(pin, stay) > PIN_NEAR) return false;
+    if (pin.lat < ADDR_BOX.low.latitude || pin.lat > ADDR_BOX.high.latitude || pin.lng < ADDR_BOX.low.longitude || pin.lng > ADDR_BOX.high.longitude) return false;
+    const c = (await db(env, 'GET', 'customers?id=eq.' + st.customer_id + '&select=id,lat,lng,pin_at'))[0];
+    if (!c) return false;
+    if (c.lat != null && c.lng != null && meters(c, pin) > PIN_FAR) return false; // too far from the pin on file: the office looks first
+    if (c.pin_at && c.lat != null && c.lng != null && meters(c, pin) <= PIN_NEAR) return false; // the confirmed pin holds
+    await db(env, 'PATCH', 'customers?id=eq.' + c.id, { lat: pin.lat, lng: pin.lng, pin_at: new Date().toISOString() }, 'return=minimal');
+    return true;
+  } catch (e) { console.error('confirm pin', e); return false; }
+}
 async function crewToday(s, env) {
   const day = azToday();
   let r = await myRoute(s, env);
@@ -2787,6 +2834,10 @@ async function crewToday(s, env) {
   if (!r) return ok({ day, dayName: DAYS[weekday(day)], route: null, stops: [], texts: [], me: { name: s.name, role: s.role } });
   const stops = await db(env, 'GET', 'stops?route_id=eq.' + r.id + '&select=' + CREW_STOP + '&order=position,id');
   await firstVisitNotes(env, stops, day);
+  // Where each Directions button drives to. With no patch, or if this read fails, every house gets its full address.
+  const cids = [...new Set(stops.map((x) => x.customer && x.customer.id).filter(Boolean))], pinAt = {};
+  try { for (let i = 0; i < cids.length; i += 100) for (const c of await db(env, 'GET', 'customers?id=in.(' + cids.slice(i, i + 100).join(',') + ')&select=id,pin_at')) pinAt[c.id] = c.pin_at; } catch (e) { }
+  for (const x of stops) if (x.customer) x.customer.nav_to = navTo(x.customer, pinAt[x.customer.id]);
   const ids = stops.map((x) => x.id);
   const texts = ids.length ? await db(env, 'GET', 'messages?status=eq.queued&stop_id=in.(' + ids.join(',') + ')&select=id,stop_id,kind,to_addr,body&order=created_at') : [];
   const times = await timesOf(env, stops.map((x) => ({ id: x.id, day, customer_id: x.customer && x.customer.id }))).catch(() => ({}));
@@ -2941,6 +2992,7 @@ const OPEN_OR_CANT = ['scheduled', 'on_the_way', 'here', 'cant'];
 async function finishStop(env, st, at) {
   await db(env, 'PATCH', 'stops?id=eq.' + st.id, { status: 'done', reason: null, done_at: at, arrived_at: st.arrived_at || at, no_photo: false }, 'return=minimal');
   await dropOnWayText(env, st.id);
+  await confirmPin(env, st.id);
   // Finished today: the customer hears right away. For an older visit the truck link has ended, so only a customer
   // with no texts gets the email, as before.
   if (st.day === azToday()) await doneNotice(env, Object.assign({}, st, { photo_path: 'saved' })).catch((e) => console.error('done notice', e));
@@ -2958,6 +3010,7 @@ async function crewDone(s, env, b) {
   }, 'return=minimal');
   await dropOnWayText(env, st.id);
   await doneNotice(env, st).catch((e) => console.error('done notice', e));
+  if (st.photo_path) await confirmPin(env, st.id); // a visit with its gate photo is proof the worker was at the house
   await advance(env, st.route.id);
   return crewToday(s, env);
 }
@@ -3973,6 +4026,8 @@ async function officeCustomerSave(env, b, s) {
   if (Object.keys(p).length) {
     p.updated_at = new Date().toISOString();
     await db(env, 'PATCH', 'customers?id=eq.' + b.id, p, 'return=minimal');
+    // A new address or a new map lookup: the crew's confirmed pin was for the old spot, so it is no longer confirmed.
+    if (p.address || b.pin) await db(env, 'PATCH', 'customers?id=eq.' + b.id, { pin_at: null }, 'return=minimal').catch(() => {});
   }
   // Joe, Nov 21, 2026, the core rule: setting or changing the day and time is what tells the customer. With a day and
   // no time, nothing goes out. Only for a booked house (a customer with a plan), and only when something really changed.

@@ -124,6 +124,16 @@ Joe asked how many texts a customer gets in the whole flow. The answer from the 
 - Not run: a real text to a real phone. Nothing was sent to a customer for this.
 - Kill switch: `ONE_TEXT=off` in Cloudflare goes back to both texts. `SMS_HOURS` moves the hours. `/api/health` shows the hours as `textHours`.
 
+## Nov 24, 2026: Directions drives to the house's confirmed pin
+Joe: "My tech hit Get Directions, and it was trying to take him on a wild goose chase... I don't even know if we're using the proper tool."
+- **What happened.** Juan's third house, 24313 W Grove St in Buckeye, is new. The button sent Google Maps "24313 W Grove St 85396, AZ". Google does not have that house and matched it to W Grove St in Litchfield Park: a 22 minute, 14 mile drive east. The real house was 4 miles south. The truck trail shows him start north at 11:20 and turn around. The exact link was run in a browser and gave the same wrong route. The pin on file for that house was right.
+- **All 8 houses were tested the same day.** 1 link went to another town (Grove St). 1 house has no pin (30232 W Columbus Ave: the Census lookup found nothing, so Preplan lists it under "Not on the map"). 1 pin is a quarter mile off (17959 W Townley Ave). The other links land on the right house.
+- **The fix that is live.** A finished visit saves where the truck was parked as the house's confirmed pin, and Directions drives to it. A house with no confirmed pin yet gets its full address, now with the city and the state. The button looks the same, so the training video was not rebuilt.
+- **Confirmed by hand from the truck trail, Nov 24:** the four houses visited so far (see the database, `pin_at` is set).
+- **Is Google Maps the right tool?** Yes. The research is in the Project doc `claude/directions-and-maps-tools-nov-24.md`. A map link is free at any size, and every route and field service app looked at hands off to a map app the same way. No paid tool finds brand new homes better than Google. The thing to buy later is a truck tracker or a real phone app, so the truck link does not freeze when the worker is in Google Maps (26 minutes with no GPS on Nov 24). Joe's standing call on that is to wait until about 50 houses.
+- **Still open.** A first visit to a house Google does not have still gets words. Next piece: check each new house before its first visit (compare Google's match with our pin, flag the ones that disagree) and let the office move the pin on a map. That piece changes office screens, so it comes with a video rebuild.
+- Tested: `build/desk.test.mjs` 309 of 310 (9 new checks: the full address, the pin saved at a finished visit, the link as a pin, a tap made down the road, a test visit miles away, a visit outside our towns, no GPS, an address typed in full, a new address clearing the pin). The demo was opened in a real browser at phone size and the Directions link read. Not run: the link on Juan's phone.
+
 ## Open items
 1. Staff test: someone signs in at /crew inside the Claude browser pane, then Claude runs a test yard through a route. A test customer "TEST Yard (delete me)" sits in the live database for this. Delete it after.
 2. Test sign up at `/book/?test=1` with card 4242 4242 4242 4242.

@@ -166,7 +166,7 @@ function ssr(entry, props) {
 // "bg" is the brand's own color behind a white mark. A brand with no "bg" has a full color mark that fills the button (Instagram).
 const BRAND_DIR = path.join(ROOT, 'static/assets/img/brands');
 const brandFile = (name) => { const k = name.toLowerCase().replace(/[^a-z0-9]+/g, '-'); for (const ext of ['svg', 'png', 'webp']) if (fs.existsSync(path.join(BRAND_DIR, k + '.' + ext))) return '/assets/img/brands/' + k + '.' + ext; return ''; };
-const SOCIAL = [{ n: 'Facebook', bg: '#0866FF' }, { n: 'Instagram' }, { n: 'Yelp', bg: '#FF1A1A' }, { n: 'TikTok' }, { n: 'Nextdoor' }];
+const SOCIAL = [{ n: 'Facebook', bg: '#0866FF' }, { n: 'Instagram' }, { n: 'Yelp', bg: '#FF1A1A' }, { n: 'TikTok', bg: '#000000' }, { n: 'YouTube', bg: '#FF0000' }, { n: 'Nextdoor' }];
 function socialHtml() {
   const urls = Object.fromEntries(cfg.social.map((x) => [x.name, x.url]));
   const items = SOCIAL.map((x) => Object.assign({}, x, { img: brandFile(x.n), url: urls[x.n] })).filter((x) => x.img && x.url);

@@ -1285,6 +1285,65 @@ else {
   await evening();
   ok('inside the hours the evening run sends the day text that waited, since they have no visit tomorrow', textsTo('6235550215').length === 1 && /^Arizona Pet Waste: Your service day is /.test(textsTo('6235550215')[0].body), textsTo('6235550215').map((x) => x.body));
   delete env.NIGHT_RUN_AT;
+
+  // ---- The house's own pin, and where Directions drives to (Joe, Nov 24, 2026) ----
+  // "My tech hit Get Directions, and it was trying to take him on a wild goose chase." The link had no city, and
+  // Google matched a new house to a street in another town. Our own pin for it was right.
+  {
+    let rt = (await db.query('select id from public.routes where staff_id = $1 and day = $2', [tess.id, today])).rows[0];
+    if (!rt) rt = (await db.query(`insert into public.routes (day, staff_id, status) values ($1, $2, 'live') returning id`, [today, tess.id])).rows[0];
+    const visit = async (cust, code, spots) => { // spots: [[seconds after the "I'm here" tap, lat, lng]]
+      await db.query('delete from public.positions where route_id = $1', [rt.id]); // one truck is in one place: each visit here has the trail to itself
+      const st = (await db.query(`insert into public.stops (route_id, customer_id, day, position, status, code, photo_path, arrived_at) values ($1, $2, $3, 9000, 'here', $4, 'gate.jpg', now() - interval '12 minutes') returning id`, [rt.id, cust, today, code])).rows[0];
+      for (const [sec, la, ln] of spots) await db.query(`insert into public.positions (route_id, lat, lng, accuracy, at) values ($1, $2, $3, 5, now() - interval '12 minutes' + make_interval(secs => $4))`, [rt.id, la, ln, sec]);
+      return st.id;
+    };
+    const cRow = async (id) => (await db.query('select lat, lng, pin_at from public.customers where id = $1', [id])).rows[0];
+    const navOf = async (id) => { const d = (await call('/api/crew/today', 'GET', null, tt)).d; const x = d.stops.find((y) => y.customer.id === id); return x && x.customer.nav_to; };
+    const parked = [[-20, 33.44252, -112.36254], [5, 33.44250, -112.36250], [30, 33.44250, -112.36251], [80, 33.44251, -112.36250], [200, 33.44258, -112.36260], [400, 33.44260, -112.36262], [600, 33.44255, -112.36258]]; // about a quarter mile from the pin on file (33.44, -112.36)
+
+    const pinC = await mk('pin@example.com', 'Pat Pin', '6235550216', false);
+    const sPin = await visit(pinC, 'PINAA1', parked);
+    ok('a house with no confirmed pin gets its full address in the Directions link, with the city and the state', (await navOf(pinC)) === '1 Test Way, Goodyear, AZ 85338', await navOf(pinC));
+    r = await call('/api/crew/done', 'POST', { stopId: sPin }, tt);
+    let cp = await cRow(pinC);
+    ok('finishing the visit saves where the truck was parked as the confirmed pin', r.status === 200 && cp.pin_at && Math.abs(cp.lat - 33.4425) < 0.0001 && Math.abs(cp.lng + 112.3625) < 0.0001, cp);
+    ok('from then on Directions drives to the pin, not to words', /^33\.4425\d*,-112\.3625\d*$/.test(await navOf(pinC)), await navOf(pinC));
+
+    // The worker tapped "I'm here" down the road and then drove on: that confirms nothing.
+    const farC = await mk('far@example.com', 'Fern Far', '6235550217', false);
+    const sFar = await visit(farC, 'PINBB2', [[-20, 33.4300, -112.3900], [5, 33.4300, -112.3900], [40, 33.4300, -112.3901], [200, 33.4400, -112.3800], [400, 33.4400, -112.3800], [600, 33.4400, -112.3801], [650, 33.4400, -112.3800]]);
+    await call('/api/crew/done', 'POST', { stopId: sFar }, tt);
+    cp = await cRow(farC);
+    ok('a tap made down the road confirms no pin, and the link stays the address', !cp.pin_at && cp.lat === 33.44 && cp.lng === -112.36 && (await navOf(farC)) === '1 Test Way, Goodyear, AZ 85338', cp);
+
+    // A visit run as a test from somewhere else (Joe tests the flow on himself): the house does not move.
+    const testC = await mk('testvisit@example.com', 'Tad Test', '6235550219', false);
+    const sTest = await visit(testC, 'PINDD4', parked.map((x) => [x[0], x[1] + 0.05, x[2]])); // parked, but 3.5 miles from the pin on file
+    await call('/api/crew/done', 'POST', { stopId: sTest }, tt);
+    cp = await cRow(testC);
+    ok('a visit finished miles from the pin on file confirms nothing', !cp.pin_at && cp.lat === 33.44 && cp.lng === -112.36, cp);
+    const outC = await mk('out@example.com', 'Otis Out', '6235550220', false);
+    await db.query('update public.customers set lat = null, lng = null where id = $1', [outC]);
+    const sOut = await visit(outC, 'PINEE5', parked.map((x) => [x[0], 33.4942, -111.9261])); // Scottsdale, outside the towns we scoop
+    await call('/api/crew/done', 'POST', { stopId: sOut }, tt);
+    ok('a visit finished outside the towns we scoop confirms nothing, even for a house with no pin', !(await cRow(outC)).pin_at, await cRow(outC));
+
+    // No GPS for the visit (the app was not open): nothing is confirmed.
+    const noC = await mk('nogps@example.com', 'Ned Nogps', '6235550218', false);
+    const sNo = await visit(noC, 'PINCC3', []);
+    await call('/api/crew/done', 'POST', { stopId: sNo }, tt);
+    ok('a visit with no GPS confirms no pin', !(await cRow(noC)).pin_at);
+
+    // An address typed in full is sent as it is.
+    await db.query(`update public.customers set address = '19390 W Palo Verde Dr, Litchfield Park, AZ 85340', zip = '85340' where id = $1`, [noC]);
+    ok('an address that already has the city and the state is not given them twice', (await navOf(noC)) === '19390 W Palo Verde Dr, Litchfield Park, AZ 85340', await navOf(noC));
+
+    // The office changes the address: the old confirmed pin is no longer confirmed.
+    r = await call('/api/office/customer', 'POST', { id: pinC, address: '99 New Home Ln' }, owner);
+    cp = await cRow(pinC);
+    ok('a new address clears the confirmed pin, so Directions goes back to the address', r.status === 200 && !cp.pin_at && (await navOf(pinC)) === '99 New Home Ln, Goodyear, AZ 85338', [cp, await navOf(pinC)]);
+  }
   }
 }
 

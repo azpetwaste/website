@@ -30,6 +30,8 @@ alter table public.area_days enable row level security;
 -- Route fields on each customer.
 alter table public.customers add column if not exists lat double precision;
 alter table public.customers add column if not exists lng double precision;
+-- When the crew's own GPS confirmed the pin (lat, lng) at a finished visit. Empty: the pin is a lookup, not yet confirmed.
+alter table public.customers add column if not exists pin_at timestamptz;
 alter table public.customers add column if not exists service_day smallint check (service_day between 0 and 6);
 alter table public.customers add column if not exists service_day2 smallint check (service_day2 between 0 and 6);
 alter table public.customers add column if not exists eow_week smallint check (eow_week in (0, 1));

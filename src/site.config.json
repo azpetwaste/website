@@ -9,12 +9,14 @@
   "sameAs": [
     "https://www.facebook.com/people/Arizona-Pet-Waste/61596094812133/",
     "https://www.instagram.com/azpetwaste/",
-    "https://www.yelp.com/biz/arizona-pet-waste-buckeye"
+    "https://www.yelp.com/biz/arizona-pet-waste-buckeye",
+    "https://www.youtube.com/@ArizonaPetWaste"
   ],
   "social": [
     { "name": "Facebook", "url": "https://www.facebook.com/people/Arizona-Pet-Waste/61596094812133/" },
     { "name": "Instagram", "url": "https://www.instagram.com/azpetwaste/" },
-    { "name": "Yelp", "url": "https://www.yelp.com/biz/arizona-pet-waste-buckeye" }
+    { "name": "Yelp", "url": "https://www.yelp.com/biz/arizona-pet-waste-buckeye" },
+    { "name": "YouTube", "url": "https://www.youtube.com/@ArizonaPetWaste" }
   ],
   "members": [
     {

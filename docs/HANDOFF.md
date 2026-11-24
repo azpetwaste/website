@@ -1324,10 +1324,23 @@ Joe, through Atlas: "when I say start route, we need to hit start route for ever
 - Joe: the field tool chat has a second draft of the prepaid block, PR 7. Do NOT merge PR 7. The version on main (this one) is the one we keep.
 
 ## Nov 24, 2026, afternoon (Field App chat): one text not two, and schedule texts stop at 7 PM, on `main`
-Joe, after seeing the count of texts a customer gets: "fix number one, and then obviously fix number two. 9 pm, sending a text, is way too fucking late. The last text should be going out at 6 or 7."
+Joe, after seeing the count of texts a customer gets: "fix number one, and then obviously fix number two. The last text should be going out at 6 or 7."
 - `worker.js`: `smsHours` (default 8 to 19, was 8 to 21), `LATE_TEXT`, `nightCovers`, `nightCatchUp`, `oneText`. `sendText` keeps the hours even when a person taps (`force` no longer skips them). `officeTextSend` and `officeNightNow` answer 409 outside the hours. `nightRun` marks a held day or change text `skipped` when the same run sends that customer the night before text. `/api/health` has `textHours`.
 - `static/crew/index.html`: the Preplan confirm note and the customer card note say the new rule. Nothing else on the page changed.
 - Settings (all optional): `ONE_TEXT=off` goes back to both texts. `SMS_HOURS` moves the hours. If `SMS_HOURS` is set to `8-21` in Cloudflare, the old hours are still on: `/api/health` shows which.
 - For the website session: nothing on the public site changed in this commit. The words "night before reminders" in the opt in box are still true.
 - The full write up, with test counts and the four checks that fail on `main` before this change, is in `docs/FIELD_APP.md` under Nov 24, 2026.
+
+## Nov 24, 2026, afternoon (Field App chat): Directions drives to a confirmed pin, on `main`
+- `worker.js`: `navTo`, `confirmPin`, `PIN_NEAR`, `PIN_FAR`. `crewToday` adds `customer.nav_to` to each stop. `crewDone` and `finishStop` call `confirmPin`. A new address or map lookup on the card clears `pin_at`.
+- `static/crew/index.html`: `maps(c)` uses `nav_to`. No screen changed.
+- Database: `customers.pin_at` (`supabase/patch-2026-11-24.sql`, in `crm.sql` too). It was added to the live database the same day, before the code went live.
+- The full write up is in `docs/FIELD_APP.md` under Nov 24, 2026, and the research is the Project doc `claude/directions-and-maps-tools-nov-24.md`.
+
+## Nov 24, 2026, afternoon (Field App chat, for the website session): YouTube button in the footer
+Joe asked this chat: "put logos on the website please: tiktok: https://g.page/r/CXY5n8YnkReiEAI/review youtube: https://www.youtube.com/@ArizonaPetWaste logos on the website with fb / ig / yelp".
+- YouTube is in the footer of every page, after Yelp: `youtube.svg`, `SOCIAL` in `build/build.mjs` (red tile, white mark), `"social"` and `"sameAs"` in `src/site.config.json`.
+- TikTok is NOT on the site. The link he sent for TikTok is our Google review link. `tiktok.svg` is in the brands folder and `SOCIAL` has its tile, so the button shows as soon as the profile link is in `"social"`. He was asked for the link.
+- That Google review link is worth keeping: `https://g.page/r/CXY5n8YnkReiEAI/review`. Joe wants a review request to go out after a finished visit (not built yet).
+- `python3 build/sweep.py`: 45 pages at 5 sizes, no page scrolls sideways.
 
