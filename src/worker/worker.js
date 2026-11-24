@@ -140,7 +140,7 @@ async function route(path, request, env, ctx) {
   if (path === '/api/me/pause' && m === 'POST') return mePause(request, env, ctx);
   if (path === '/api/me/resume' && m === 'POST') return meResume(request, env, ctx);
   if (path === '/api/demo/week' && m === 'GET') return demoWeek(env, new URL(request.url).searchParams);
-  if (path === '/api/health' && m === 'GET') return ok({ ok: true, live: live(env), desk: sbLive(env), keys: keyMode(env), hook: !!env.STRIPE_WEBHOOK_SECRET, mail: !!env.RESEND_API_KEY, meta: metaOn(env), leads: metaLeadsOn(env), texts: smsOn(env), textsTest: testMode(env), textHours: smsHours(env).from + '-' + smsHours(env).to });
+  if (path === '/api/health' && m === 'GET') return ok({ ok: true, live: live(env), desk: sbLive(env), keys: keyMode(env), hook: !!env.STRIPE_WEBHOOK_SECRET, mail: !!env.RESEND_API_KEY, meta: metaOn(env), leads: metaLeadsOn(env), texts: smsOn(env), textsTest: testMode(env), textHours: smsHours(env).from + '-' + smsHours(env).to, reviewAsk: reviewMode(env).text ? 'email and text' : reviewMode(env).email ? 'email' : 'off', reviewOnly: reviewOnly(env) ? reviewOnly(env).size : 0 });
   if (path === '/api/log' && m === 'POST') return clientLog(request, env);
   if (path === '/api/twilio/status' && m === 'POST') return twilioStatus(request, env, ctx);
   if (path === '/api/twilio/inbound' && m === 'POST') return twilioInbound(request, env, ctx);
@@ -2616,6 +2616,8 @@ async function twilioInbound(request, env, ctx) {
   const who = await db(env, 'GET', 'customers?phone=eq.' + enc(from) + '&select=id,name,email,status&order=created_at.desc&limit=5').catch(() => []);
   const c = who.find((x) => PAYING.includes(x.status) || x.status === 'paused') || who[0] || null;
   const name = c ? c.name : 'A number we do not know', pretty = '(' + from.slice(0, 3) + ') ' + from.slice(3, 6) + '-' + from.slice(6);
+  // They wrote to us, or stopped texts: a review request that has not gone out yet is called back.
+  if (c && (kind === 'stop' || (kind === 'reply' && text))) await reviewCancel(env, c.id);
   if (kind === 'stop') {
     await textsOff(env, from);
     await db(env, 'POST', 'consent_log', [{ user_id: c ? c.id : null, email: c ? c.email : null, phone: from, kind: 'visit', granted: false, text_shown: 'Replied ' + (word || 'STOP') + ' by text', page: 'sms' }], 'return=minimal').catch(() => {});
@@ -2674,6 +2676,110 @@ async function doneNotice(env, st) {
   if (!st.photo_path) return;
   if (t && t.state === 'failed') await doneFallback(env, st.id).catch(() => false);
   else await doneMail(env, st.customer, st.code).catch(() => false);
+}
+/* ---------- the review request (Joe, Nov 24, 2026) ----------
+   "We want to start scheduling text messages when we're done with the yard, maybe 2 hours later. You decide... We're
+   running the same model in Mobile IV. As soon as the visit's done, we send them the review."
+   What was decided, and told to Joe that day:
+   - It goes out 2 hours after the yard is done (REVIEW_DELAY_MIN moves that), not right away: the done text with the
+     gate photo lands at that minute, and most customers are not home to see the yard yet.
+   - Never outside the text hours (8 am to 7 pm, `smsHours`). One that would land late goes the next morning.
+   - Once for each customer, ever. The first finished visit with its gate photo after this is switched on.
+   - Never after a visit that was marked "I can't do this yard" and finished later. A reply from the customer before
+     it goes out cancels it: a person with a problem is not asked for a review an hour later.
+   - Everyone is asked the same way, and nobody is offered anything for it. Google's rules: no asking only happy
+     customers, no reward. Do not add a "were you happy?" step in front of the link.
+   OFF until Joe has tried it on himself. The switches are Cloudflare settings, read on every request:
+     REVIEW_ASK=on      the email goes out.
+     REVIEW_TEXT=on     the text goes out too (needs REVIEW_ASK=on). Do NOT set this until the sign up box, the text
+                        policy page and the Twilio campaign samples name review requests: a customer only agreed to
+                        texts about their visits, and Twilio can stop a campaign that sends another kind.
+     REVIEW_ONLY=6235550100   a list of mobile numbers. When set, only those customers are asked. This is how Joe tests.
+   Nothing here needs a clock of our own: Resend and Twilio both hold a message until a time we give them
+   (`scheduled_at`, and `SendAt` with `ScheduleType=fixed`, which needs the Messaging Service and 15 minutes or more).
+   Each one is a row in `messages` (kind `review`), written first, with `sent_at` set to when it goes out and
+   `provider_id` set to what Resend or Twilio calls it, so it can be called back. */
+const REVIEW_LINK = 'https://g.page/r/CXY5n8YnkReiEAI/review';
+const isOn = (v) => String(v || '').trim().toLowerCase() === 'on';
+const reviewMode = (env) => ({ email: isOn(env && env.REVIEW_ASK), text: isOn(env && env.REVIEW_ASK) && isOn(env && env.REVIEW_TEXT) });
+const reviewOnly = (env) => {
+  const raw = String((env && env.REVIEW_ONLY) || '').trim();
+  return raw ? new Set(raw.split(/[,;\n]+/).map(digits).filter((x) => x.length === 10)) : null;
+};
+const reviewLink = (env) => (/^https:\/\/[\w.-]+\/\S+$/.test(String((env && env.REVIEW_LINK) || '')) ? env.REVIEW_LINK : REVIEW_LINK);
+const reviewText = (env) => 'Arizona Pet Waste: Thank you for having us. Would you leave us a Google review? ' + reviewLink(env) + ' Reply STOP to opt out.';
+const reviewMail = (env, c) => ({ subject: 'How did we do at your yard?', text: [hi(c.name), '', 'Thank you for having us at your yard.', '',
+  'Would you tell others how we did? A Google review takes about one minute:', reviewLink(env), '',
+  'Did we miss something? Reply to this email, or call or text 623.309.6104. We come back and make it right.', '', 'Arizona Pet Waste'].join('\n') });
+// When a review request goes out, for a yard done at `doneMs`: two hours later, moved into the text hours.
+function reviewWhen(env, doneMs) {
+  const wait = Math.min(1440, Math.max(16, parseInt(env && env.REVIEW_DELAY_MIN, 10) || 120)), h = smsHours(env), AZ = 7 * 3600e3;
+  let t = doneMs + wait * 60e3;
+  const az = new Date(t - AZ), m = az.getUTCHours() * 60 + az.getUTCMinutes(), day0 = Date.UTC(az.getUTCFullYear(), az.getUTCMonth(), az.getUTCDate()) + AZ;
+  const morning = Math.min(h.from + 1, Math.max(h.from, h.to - 1)) * 3600e3; // an hour after the texts open, 9 am
+  if (m < h.from * 60) t = day0 + morning;
+  else if (m >= h.to * 60) t = day0 + 86400e3 + morning;
+  return t;
+}
+// A visit was just finished with its gate photo: set up this customer's one review request. Never throws.
+// st: { id, customer: { id, name, email, phone, texts_visit } }.
+async function reviewAsk(env, st, doneMs) {
+  try {
+    const mode = reviewMode(env), c = st && st.customer;
+    if (!mode.email || !c || !c.id) return null;
+    const only = reviewOnly(env);
+    if (only && !only.has(digits(c.phone))) return null;
+    const had = await db(env, 'GET', 'messages?kind=eq.review&customer_id=eq.' + c.id + '&select=id&limit=1');
+    if (had && had.length) return null;
+    // This visit was marked "I can't do this yard" before it was finished: no review request for a day like that.
+    const rough = await db(env, 'GET', 'messages?kind=eq.cant&stop_id=eq.' + st.id + '&select=id&limit=1');
+    if (rough && rough.length) return null;
+    const at = new Date(reviewWhen(env, doneMs || Date.now())).toISOString(), out = { at, email: 'none', text: 'none' };
+    if (c.email && env.RESEND_API_KEY) {
+      const m = reviewMail(env, c);
+      const row = (await db(env, 'POST', 'messages', [{ customer_id: c.id, stop_id: st.id, kind: 'review', channel: 'email', to_addr: c.email, body: m.text, status: 'sent', sent_at: at }], 'return=representation'))[0];
+      let id = '';
+      try {
+        const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { authorization: 'Bearer ' + env.RESEND_API_KEY, 'content-type': 'application/json' },
+          body: JSON.stringify({ from: env.MAIL_FROM || 'Arizona Pet Waste <info@arizonapetwaste.com>', to: [c.email], subject: m.subject, text: m.text, reply_to: env.NOTIFY_EMAIL || 'info@arizonapetwaste.com', scheduled_at: at }) });
+        const d = await r.json().catch(() => ({}));
+        if (r.ok && d && d.id) id = String(d.id); else console.error('review mail failed', r.status);
+      } catch (e) { console.error('review mail failed', e); }
+      if (row) await db(env, 'PATCH', 'messages?id=eq.' + row.id, id ? { provider_id: id } : { status: 'failed' }, 'return=minimal').catch(() => {});
+      out.email = id ? 'set' : 'failed';
+    }
+    if (mode.text && smsOn(env) && c.texts_visit && digits(c.phone).length === 10 && smsMay(env, c.phone)) {
+      const body = reviewText(env);
+      const row = (await db(env, 'POST', 'messages', [{ customer_id: c.id, stop_id: st.id, kind: 'review', channel: 'sms', to_addr: c.phone, body, status: 'sent', sent_at: at }], 'return=representation'))[0];
+      let sid = '', err = '';
+      try {
+        const r = await fetch('https://api.twilio.com/2010-04-01/Accounts/' + enc(env.TWILIO_ACCOUNT_SID) + '/Messages.json', { method: 'POST',
+          headers: { authorization: 'Basic ' + btoa(env.TWILIO_ACCOUNT_SID + ':' + env.TWILIO_AUTH_TOKEN), 'content-type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ To: '+1' + digits(c.phone), MessagingServiceSid: env.TWILIO_MESSAGING_SERVICE_SID, Body: body, ScheduleType: 'fixed', SendAt: at, StatusCallback: 'https://' + siteHost(env) + '/api/twilio/status' }).toString() });
+        const d = await r.json().catch(() => ({}));
+        if (r.ok && d && d.sid) sid = String(d.sid); else err = twilioWhy(Number(d && d.code) || r.status);
+      } catch (e) { err = 'Twilio did not answer. The text was not set up.'; }
+      if (row) await db(env, 'PATCH', 'messages?id=eq.' + row.id, sid ? { provider_id: sid, error: null } : { status: 'failed', error: err }, 'return=minimal').catch(() => {});
+      out.text = sid ? 'set' : 'failed';
+    }
+    return out;
+  } catch (e) { console.error('review ask', e); return null; }
+}
+// Call back a review request that has not gone out yet (the customer wrote to us, or stopped texts). Never throws.
+async function reviewCancel(env, customerId) {
+  try {
+    if (!customerId) return 0;
+    const rows = await db(env, 'GET', 'messages?kind=eq.review&customer_id=eq.' + customerId + '&status=eq.sent&sent_at=gt.' + enc(new Date().toISOString()) + '&select=id,channel,provider_id');
+    for (const m of rows || []) {
+      try {
+        if (m.provider_id && m.channel === 'email' && env.RESEND_API_KEY) await fetch('https://api.resend.com/emails/' + enc(m.provider_id) + '/cancel', { method: 'POST', headers: { authorization: 'Bearer ' + env.RESEND_API_KEY } });
+        if (m.provider_id && m.channel === 'sms' && smsOn(env)) await fetch('https://api.twilio.com/2010-04-01/Accounts/' + enc(env.TWILIO_ACCOUNT_SID) + '/Messages/' + enc(m.provider_id) + '.json', { method: 'POST',
+          headers: { authorization: 'Basic ' + btoa(env.TWILIO_ACCOUNT_SID + ':' + env.TWILIO_AUTH_TOKEN), 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ Status: 'canceled' }).toString() });
+      } catch (e) { console.error('review cancel', e); }
+      await db(env, 'PATCH', 'messages?id=eq.' + m.id, { status: 'skipped' }, 'return=minimal').catch(() => {});
+    }
+    return (rows || []).length;
+  } catch (e) { console.error('review cancel', e); return 0; }
 }
 // The yard is finished. An "on the way" text nobody sent is old news now, so it leaves the list. A sent one is left alone.
 async function dropOnWayText(env, stopId) {
@@ -2997,6 +3103,7 @@ async function finishStop(env, st, at) {
   // with no texts gets the email, as before.
   if (st.day === azToday()) await doneNotice(env, Object.assign({}, st, { photo_path: 'saved' })).catch((e) => console.error('done notice', e));
   else await doneMail(env, st.customer, st.code).catch(() => false);
+  if (st.day === azToday() && st.status !== 'cant') await reviewAsk(env, st);
   if (st.route && st.route.status === 'live') await advance(env, st.route.id);
 }
 async function crewDone(s, env, b) {
@@ -3011,6 +3118,7 @@ async function crewDone(s, env, b) {
   await dropOnWayText(env, st.id);
   await doneNotice(env, st).catch((e) => console.error('done notice', e));
   if (st.photo_path) await confirmPin(env, st.id); // a visit with its gate photo is proof the worker was at the house
+  if (st.photo_path) await reviewAsk(env, st);
   await advance(env, st.route.id);
   return crewToday(s, env);
 }

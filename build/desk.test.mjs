@@ -138,7 +138,8 @@ const codes = {}; // email -> code
 const files = {};
 let otpSent = [];
 let routesCalls = 0;
-const TW = { sent: [], refused: [], fail: 0, seen: {} }; // the pretend Twilio: every text it took, the ones it refused, and a code to refuse the next one with
+const TW = { sent: [], refused: [], fail: 0, seen: {}, later: [], canceled: [] }; const MAIL = { later: [], canceled: [] }; // later: held for a set time (the review request). canceled: called back
+// // the pretend Twilio: every text it took, the ones it refused, and a code to refuse the next one with
 async function authUser(email) {
   const r = await db.query('select id from auth.users where email = $1', [email]);
   if (r.rows[0]) return r.rows[0].id;
@@ -170,9 +171,13 @@ globalThis.fetch = async (u, init = {}) => {
   if (u.startsWith(SB + '/storage/v1/object/')) { if (failUploads > 0) { failUploads--; return reply({ error: 'storage is down' }, 500); } files[u.split('/object/')[1]] = init.body.length; return reply({ Key: 'ok' }); }
   if (u === 'https://routes.googleapis.com/directions/v2:computeRoutes') { routesCalls++; return reply({ routes: [{ duration: '420s', distanceMeters: 2500, polyline: { encodedPolyline: '_p~iF~ps|U_ulLnnqC' } }] }); }
   if (u.startsWith('https://geocoding.geo.census.gov/')) return reply({ result: { addressMatches: [{ coordinates: { x: -112.5501, y: 33.4801 } }] } });
+  if (/^https:\/\/api\.resend\.com\/emails\/[^/]+\/cancel$/.test(u)) { MAIL.canceled.push(u.split('/emails/')[1].split('/')[0]); return reply({ object: 'email', id: 'x' }); }
+  if (u === 'https://api.resend.com/emails' && /"scheduled_at"/.test(String(init.body || ''))) { const b = JSON.parse(init.body); b.id = 'mail_later_' + (MAIL.later.length + 1); MAIL.later.push(b); return reply({ id: b.id }); }
   if (u.startsWith('https://api.resend.com/')) { mailBodies.push(String(init.body || '')); return reply({ id: 'm1' }); }
   if (u.startsWith('https://api.twilio.com/2010-04-01/Accounts/')) {
     const f = new URLSearchParams(String(init.body || ''));
+    if (/\/Messages\/SM\w+\.json$/.test(u)) { TW.canceled.push({ sid: u.split('/Messages/')[1].replace('.json', ''), status: f.get('Status') }); return reply({ status: 'canceled' }); }
+    if (f.get('ScheduleType')) { const held = { to: f.get('To'), body: f.get('Body'), service: f.get('MessagingServiceSid'), type: f.get('ScheduleType'), sendAt: f.get('SendAt'), sid: 'SM' + String(9000 + TW.later.length).padStart(32, '0') }; TW.later.push(held); return reply({ sid: held.sid, status: 'scheduled' }, 201); }
     const call = { to: f.get('To'), body: f.get('Body'), service: f.get('MessagingServiceSid'), callback: f.get('StatusCallback'), auth: String((init.headers || {}).authorization || ''), account: u.split('/Accounts/')[1].split('/')[0] };
     if (TW.fail) { const code = TW.fail; TW.fail = 0; TW.refused.push(call); return reply({ code, message: 'refused' }, 400); }
     call.sid = 'SM' + String(TW.sent.length + 1).padStart(32, '0');
@@ -1358,6 +1363,116 @@ else {
     cp = await cRow(pinC);
     ok('a new address clears the confirmed pin, so Directions goes back to the address', r.status === 200 && !cp.pin_at && (await navOf(pinC)) === '99 New Home Ln, Goodyear, AZ 85338', [cp, await navOf(pinC)]);
     }
+  }
+
+  // ---- The review request (Joe, Nov 24, 2026) ----
+  // "We want to start scheduling text messages when we're done with the yard, maybe 2 hours later. You decide."
+  {
+    let rt = (await db.query('select id from public.routes where staff_id = $1 and day = $2', [tess.id, today])).rows[0];
+    if (!rt) rt = (await db.query(`insert into public.routes (day, staff_id, status) values ($1, $2, 'live') returning id`, [today, tess.id])).rows[0];
+    let n = 0;
+    const yard = async (cust) => (await db.query(`insert into public.stops (route_id, customer_id, day, position, status, code, photo_path, arrived_at) values ($1, $2, $3, 9500, 'here', $4, 'gate.jpg', now() - interval '12 minutes') returning id`, [rt.id, cust, today, 'REV' + String(++n).padStart(3, '0')])).rows[0].id;
+    const revs = async (id) => (await db.query(`select * from public.messages where customer_id = $1 and kind = 'review' order by id`, [id])).rows;
+    const near = (iso, min) => Math.abs(Date.parse(iso) - (Date.now() + min * 60e3)) < 90e3;
+    delete env.SMS_TEST_ALLOWLIST; env.SMS_HOURS = '0-24';
+    delete env.REVIEW_ASK; delete env.REVIEW_TEXT; delete env.REVIEW_ONLY; delete env.REVIEW_DELAY_MIN;
+
+    // Off until it is switched on.
+    r = await call('/api/health', 'GET');
+    ok('the review request is off until it is switched on, and Health says so', r.d.reviewAsk === 'off' && r.d.reviewOnly === 0, r.d);
+    const offC = await mk('rev-off@example.com', 'Olga Off', '6235550230', true);
+    await call('/api/crew/done', 'POST', { stopId: await yard(offC) }, tt);
+    ok('switched off, a finished yard sets up no review request', (await revs(offC)).length === 0 && MAIL.later.length === 0 && TW.later.length === 0 && Number((await db.query(`select count(*) n from public.messages where kind = 'review'`)).rows[0].n) === 0);
+
+    // The email, two hours after the yard is done.
+    env.REVIEW_ASK = 'on';
+    r = await call('/api/health', 'GET');
+    ok('REVIEW_ASK=on turns on the email only', r.d.reviewAsk === 'email', r.d.reviewAsk);
+    const revC = await mk('rev@example.com', 'Lopez, Rita', '6235550231', true);
+    const sRev = await yard(revC);
+    await call('/api/crew/done', 'POST', { stopId: sRev }, tt);
+    let rv = await revs(revC);
+    const m1 = MAIL.later[MAIL.later.length - 1] || {};
+    ok('a finished yard with its gate photo sets up one review email for two hours later', rv.length === 1 && rv[0].channel === 'email' && rv[0].status === 'sent' && rv[0].provider_id === m1.id && near(rv[0].sent_at, 120) && m1.scheduled_at && Date.parse(m1.scheduled_at) === Date.parse(rv[0].sent_at) && m1.to[0] === 'rev@example.com', [rv.map((x) => [x.channel, x.status, x.sent_at, x.provider_id]), m1.scheduled_at]);
+    ok('the email says hi by first name, has the Google review link and the phone number, and no dash', m1.subject === 'How did we do at your yard?' && /^Hi Rita,/.test(m1.text) && m1.text.includes('https://g.page/r/CXY5n8YnkReiEAI/review') && m1.text.includes('623.309.6104') && !/[\u2012-\u2015]| - /.test(m1.subject + m1.text), m1.text);
+    ok('with REVIEW_TEXT off, no review text is set up, even for a customer who said yes to texts', TW.later.length === 0 && !rv.some((x) => x.channel === 'sms'));
+    ok('the done text still went out right away, as before', TW.sent.some((x) => x.to === '+16235550231' && /Your yard is done/.test(x.body)));
+
+    // Once for each customer, ever.
+    await db.query('delete from public.stops where id = $1', [sRev]);
+    const before = MAIL.later.length;
+    await call('/api/crew/done', 'POST', { stopId: await yard(revC) }, tt);
+    ok('a customer is asked once, ever: their next finished yard sets up nothing', (await revs(revC)).length === 1 && MAIL.later.length === before);
+
+    // A reply before it goes out calls it back.
+    const tC = MAIL.canceled.length;
+    let w2 = await tw('/api/twilio/inbound', { From: '+16235550231', Body: 'You missed a spot by the gate', MessageSid: 'SMreviewreply0000000000000000000001' });
+    rv = await revs(revC);
+    ok('a reply from the customer before it goes out calls the review email back', w2.status === 200 && MAIL.canceled.length === tC + 1 && MAIL.canceled[tC] === m1.id && rv[0].status === 'skipped', [w2.status, MAIL.canceled.slice(tC), rv[0].status]);
+
+    // A yard that was marked "I can't do this yard" first: no review request for that day.
+    const roughC = await mk('rev-rough@example.com', 'Rob Rough', '6235550232', true);
+    const sRough = await yard(roughC);
+    await db.query(`insert into public.messages (customer_id, stop_id, kind, channel, to_addr, body, status) values ($1, $2, 'cant', 'sms', '6235550232', 'We could not service your yard today', 'delivered')`, [roughC, sRough]);
+    await call('/api/crew/done', 'POST', { stopId: sRough }, tt);
+    ok('a yard that was marked "I can\'t do this yard" first gets no review request', (await revs(roughC)).length === 0);
+
+    // No gate photo: nothing.
+    const noPhotoC = await mk('rev-nophoto@example.com', 'Nia Nophoto', '6235550233', true);
+    const sNoPhoto = await yard(noPhotoC);
+    await db.query('update public.stops set photo_path = null where id = $1', [sNoPhoto]);
+    await call('/api/crew/done', 'POST', { stopId: sNoPhoto, noPhoto: true }, tt);
+    ok('a visit with no gate photo gets no review request', (await revs(noPhotoC)).length === 0);
+
+    // REVIEW_ONLY: how Joe tries it on himself.
+    env.REVIEW_ONLY = '(623) 555-0234';
+    r = await call('/api/health', 'GET');
+    const otherC = await mk('rev-other@example.com', 'Otto Other', '6235550235', true), meC = await mk('rev-me@example.com', 'Joe Tester', '6235550234', true);
+    await call('/api/crew/done', 'POST', { stopId: await yard(otherC) }, tt);
+    await call('/api/crew/done', 'POST', { stopId: await yard(meC) }, tt);
+    ok('with REVIEW_ONLY set, only a customer with that mobile number is asked', r.d.reviewOnly === 1 && (await revs(otherC)).length === 0 && (await revs(meC)).length === 1, [(await revs(otherC)).length, (await revs(meC)).length]);
+    delete env.REVIEW_ONLY;
+
+    // The text version, behind its own switch.
+    env.REVIEW_TEXT = 'on';
+    r = await call('/api/health', 'GET');
+    const txtC = await mk('rev-text@example.com', 'Tina Text', '6235550236', true), noTxtC = await mk('rev-notext@example.com', 'Ned Notext', '6235550237', false);
+    await call('/api/crew/done', 'POST', { stopId: await yard(txtC) }, tt);
+    rv = await revs(txtC);
+    const held = TW.later[TW.later.length - 1] || {}, smsRow = rv.find((x) => x.channel === 'sms') || {};
+    ok('REVIEW_TEXT=on also sets up the text, held by Twilio for the same time, through the Messaging Service', r.d.reviewAsk === 'email and text' && rv.length === 2 && held.to === '+16235550236' && held.type === 'fixed' && held.service === 'MGtest' && Date.parse(held.sendAt) === Date.parse(smsRow.sent_at) && near(held.sendAt, 120) && smsRow.provider_id === held.sid && smsRow.status === 'sent', [r.d.reviewAsk, rv.map((x) => [x.channel, x.status]), held]);
+    ok('the review text is one text long, with the link and Reply STOP', held.body && held.body.length <= 160 && held.body.includes('https://g.page/r/CXY5n8YnkReiEAI/review') && /Reply STOP to opt out\.$/.test(held.body) && /^Arizona Pet Waste: /.test(held.body), [held.body, (held.body || '').length]);
+    const laterBefore = TW.later.length;
+    await call('/api/crew/done', 'POST', { stopId: await yard(noTxtC) }, tt);
+    ok('a customer who said no to texts gets the review email and no review text', TW.later.length === laterBefore && (await revs(noTxtC)).length === 1 && (await revs(noTxtC))[0].channel === 'email');
+    const cT = TW.canceled.length, cM = MAIL.canceled.length;
+    w2 = await tw('/api/twilio/inbound', { From: '+16235550236', Body: 'STOP', OptOutType: 'STOP', MessageSid: 'SMreviewstop00000000000000000000001' });
+    rv = await revs(txtC);
+    ok('STOP calls back both the held text and the held email', TW.canceled.length === cT + 1 && TW.canceled[cT].sid === held.sid && TW.canceled[cT].status === 'canceled' && MAIL.canceled.length === cM + 1 && rv.every((x) => x.status === 'skipped'), [TW.canceled.slice(cT), rv.map((x) => x.status)]);
+    await db.query(`update public.customers set texts_visit = true, texts_stopped_at = null where id = $1`, [txtC]);
+
+    // Never outside the text hours: one that would land late goes the next morning.
+    const azNow = new Date(Date.now() - 7 * 3600e3), H = azNow.getUTCHours();
+    const azDay = (iso) => new Date(Date.parse(iso) - 7 * 3600e3);
+    if (H >= 2) {
+      env.SMS_HOURS = '0-' + H; // the hours closed at the top of this hour
+      const lateC = await mk('rev-late@example.com', 'Lana Late', '6235550238', false);
+      await call('/api/crew/done', 'POST', { stopId: await yard(lateC) }, tt);
+      const at = azDay((await revs(lateC))[0].sent_at), tomorrowAz = new Date(azNow.getTime() + 86400e3);
+      ok('a review request that would land after the text hours goes the next morning, an hour after they open', at.getUTCDate() === tomorrowAz.getUTCDate() && at.getUTCHours() === 1 && at.getUTCMinutes() === 0, at.toISOString());
+    }
+    if (H <= 20) {
+      env.SMS_HOURS = (H + 3) + '-24'; // the hours have not opened yet today
+      const earlyC = await mk('rev-early@example.com', 'Earl Early', '6235550239', false);
+      await call('/api/crew/done', 'POST', { stopId: await yard(earlyC) }, tt);
+      const at = azDay((await revs(earlyC))[0].sent_at);
+      ok('one that would land before the text hours open waits until an hour after they open, the same day', at.getUTCDate() === azNow.getUTCDate() && at.getUTCHours() === H + 4 && at.getUTCMinutes() === 0, at.toISOString());
+    }
+    env.SMS_HOURS = '0-24';
+    delete env.REVIEW_ASK; delete env.REVIEW_TEXT;
+    const lastC = await mk('rev-last@example.com', 'Lars Last', '6235550240', true);
+    await call('/api/crew/done', 'POST', { stopId: await yard(lastC) }, tt);
+    ok('REVIEW_TEXT alone does nothing: with REVIEW_ASK off again, nothing is set up', (await revs(lastC)).length === 0);
   }
   }
 }

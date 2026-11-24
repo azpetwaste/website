@@ -1344,3 +1344,10 @@ Joe asked this chat: "put logos on the website please: tiktok: https://g.page/r/
 - That Google review link is worth keeping: `https://g.page/r/CXY5n8YnkReiEAI/review`. Joe wants a review request to go out after a finished visit (not built yet).
 - `python3 build/sweep.py`: 45 pages at 5 sizes, no page scrolls sideways.
 
+## Nov 24, 2026, afternoon (Field App chat): the review request, built and OFF, on `main`
+- `worker.js`: `reviewAsk`, `reviewCancel`, `reviewWhen`, `reviewMode`, `reviewOnly`, `REVIEW_LINK`. Called from `crewDone` and `finishStop`. `twilioInbound` calls it back on a reply or a STOP. `/api/health` has `reviewAsk` and `reviewOnly`.
+- `static/crew/index.html`: one word list got "Review request" (`TEXT_KIND`).
+- No database change: `messages.kind` takes any word.
+- Settings: `REVIEW_ASK`, `REVIEW_TEXT`, `REVIEW_ONLY`, `REVIEW_DELAY_MIN`, `REVIEW_LINK`. With none set, nothing is sent and no extra call is made.
+- **For the website session:** the text version waits on new opt in words. See step 3 of `docs/TEST_REVIEW_REQUEST.md`. Do not change the opt in words until Joe says how he wants to treat customers who signed up before the change.
+

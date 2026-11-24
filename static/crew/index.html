@@ -817,7 +817,7 @@ table.t tr.click:hover td{background:var(--bg2)}
       el.remove(); if (k === 'go') fn();
     });
   }
-  var TEXT_KIND = { day_set: 'Day and time set', visit_change: 'One visit changed', night_before: 'Night before', on_the_way: 'On the way', done: 'Yard is done', cant: 'Could not service', card_failed: 'Card did not work', welcome: 'Welcome email', reply: 'They texted us' };
+  var TEXT_KIND = { day_set: 'Day and time set', visit_change: 'One visit changed', night_before: 'Night before', on_the_way: 'On the way', done: 'Yard is done', cant: 'Could not service', card_failed: 'Card did not work', welcome: 'Welcome email', reply: 'They texted us', review: 'Review request' };
   var TEXT_STATE = { queued: ['Waiting', 'warn'], sent: ['Sent', 'dim'], delivered: ['Delivered', 'ok'], failed: ['Did not send', 'bad'], skipped: ['Skipped', 'dim'], received: ['Reply', 'acc'] };
   function textState(t) { var x = TEXT_STATE[t.status] || [t.status, 'dim']; return '<span class="tag ' + x[1] + '">' + x[0] + '</span>'; }
   function bindSend(root, crew, after) {

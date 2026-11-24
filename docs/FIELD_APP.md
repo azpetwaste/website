@@ -134,6 +134,15 @@ Joe: "My tech hit Get Directions, and it was trying to take him on a wild goose 
 - **Still open.** A first visit to a house Google does not have still gets words. Next piece: check each new house before its first visit (compare Google's match with our pin, flag the ones that disagree) and let the office move the pin on a map. That piece changes office screens, so it comes with a video rebuild.
 - Tested: `NO_PIN=1 node build/desk.test.mjs` 303 of 304 (the app on a database without the new column: 3 checks). `build/desk.test.mjs` 309 of 310 (11 new checks: the full address, the pin saved at a finished visit, the link as a pin, a tap made down the road, a test visit miles away, a visit outside our towns, no GPS, an address typed in full, a new address clearing the pin). The demo was opened in a real browser at phone size and the Directions link read. Not run: the link on Juan's phone.
 
+## Nov 24, 2026: the review request (built, OFF)
+Joe: "we want to start scheduling text messages when we're done with the yard, maybe 2 hours later. You decide... We're running the same model in Mobile IV. As soon as the visit's done, we send them the review."
+- **The call on timing:** two hours after the yard is done, not right away. The done text with the gate photo already lands at that minute, and most customers are not home to see the yard yet. In Mobile IV the customer is in the room when the visit ends. Here they are at work.
+- **What is built:** one email and one text that ask for a Google review, once for each customer, never after 7 PM, called back if the customer writes to us first. The rules and the words are in `docs/TEST_REVIEW_REQUEST.md`.
+- **It is off.** Nothing goes to anyone until `REVIEW_ASK=on` is in Cloudflare. `REVIEW_ONLY` with Joe's number makes it go to him alone, for his test.
+- **The text needs three things first:** the opt in words, the text policy page and the Twilio campaign must name review requests. The email needs nothing.
+- The office log names the new line "Review request". No other screen changed, and the training video does not show the log, so the video was not rebuilt.
+- Tested: `build/desk.test.mjs` 328 of 329 (19 new checks: off by default, the email two hours later, its words, once ever, a reply and a STOP calling it back, a can't do visit, no gate photo, the test list, the text behind its own switch, one text long, a customer with texts off, and the two hour rules at the edges of the day). Not run: a real email or text through Resend or Twilio. Their hold until a set time was read in their docs on Nov 24, 2026 and has not been tried on the live accounts.
+
 ## Open items
 1. Staff test: someone signs in at /crew inside the Claude browser pane, then Claude runs a test yard through a route. A test customer "TEST Yard (delete me)" sits in the live database for this. Delete it after.
 2. Test sign up at `/book/?test=1` with card 4242 4242 4242 4242.
