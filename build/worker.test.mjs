@@ -723,7 +723,8 @@ head('Meta: the booking and the leads reach Meta once, scrambled, with no phone 
   ok('one booking sends Meta one StartTrial, with the event id the page uses', bk.length === 1 && e.event_id === 'bk_' + s.id && /\/v\d+\.0\/1982997959354953\/events\?access_token=meta_test_token$/.test(bk[0].url), META);
   ok('Meta gets the month price, a scrambled email, city and ZIP and the ad ids, never the phone, name or street', !!e && e.custom_data.value === 99 && e.custom_data.currency === 'USD'
     && e.user_data.em[0] === sha('test@example.com') && e.user_data.zp[0] === sha('85396') && e.user_data.ct[0] === sha('buckeye') && e.user_data.fbc === fbc && e.user_data.fbp === fbp
-    && !/623|555|Test Person|Test St/.test(JSON.stringify(e)), e);
+    // The time of the event is left out of the look: a clock time such as 1795555154 has 555 in it and failed this check for no reason.
+    && !/623|555|Test Person|Test St/.test(JSON.stringify(Object.assign({}, e, { event_time: 0 }))), e);
   META.length = 0;
   const w = await call('/api/waitlist', 'POST', { name: 'Wait Person', phone: '6235550199', address: '9 N Far St, Surprise', email: 'wait@example.com', zip: '', texts: false, website: '', eid: 'wl_abc123def', ad: { fbc } }); await settle();
   const l = META[0] && META[0].body.data[0];
