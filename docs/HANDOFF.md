@@ -1351,3 +1351,8 @@ Joe asked this chat: "put logos on the website please: tiktok: https://g.page/r/
 - Settings: `REVIEW_ASK`, `REVIEW_TEXT`, `REVIEW_ONLY`, `REVIEW_DELAY_MIN`, `REVIEW_LINK`. With none set, nothing is sent and no extra call is made.
 - **For the website session:** the text version waits on new opt in words. See step 3 of `docs/TEST_REVIEW_REQUEST.md`. Do not change the opt in words until Joe says how he wants to treat customers who signed up before the change.
 
+## Nov 24, 2026, 2:20 pm (website session): TikTok button in the footer
+Joe: "here is our tiktok link: https://www.tiktok.com/@arizonapetwastecom put on website please footer with the rest of our socials".
+- TikTok is in the footer of every page, after Yelp and before YouTube: a white mark on a black tile. The file and the tile were already there (`tiktok.svg`, `SOCIAL` in `build/build.mjs`). The link went into `"social"` and `"sameAs"` in `src/site.config.json`, so the business data names the profile too.
+- The profile page could not be opened from the build machine (TikTok refuses readers that are not a browser), so nobody has looked at it for a street address yet.
+- Nothing else changed: no server, crew app, price or database change.

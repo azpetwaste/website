@@ -17,9 +17,8 @@ Social buttons (footer of every page). A button shows when its file is here AND 
   facebook.svg  instagram.svg  yelp.svg  tiktok.svg  youtube.svg  nextdoor.svg
   Facebook, Yelp, TikTok and YouTube sit on their own brand color (set in build/build.mjs, SOCIAL), so those files are the white mark.
   YouTube went on the site on November 24, 2026 (Joe: "put logos on the website please... youtube: https://www.youtube.com/@ArizonaPetWaste
-  logos on the website with fb / ig / yelp"). The TikTok file is here and ready, but the link Joe sent for TikTok that day was our Google
-  review link (g.page/r/CXY5n8YnkReiEAI/review), not a TikTok profile, so there is no TikTok button yet. Add { "name": "TikTok", "url": ... }
-  to "social" and "sameAs" when he sends the profile link, and the button shows on the next build.
+  logos on the website with fb / ig / yelp"). TikTok went on the same afternoon, when Joe sent the profile link
+  (https://www.tiktok.com/@arizonapetwastecom). The first link he sent for TikTok was our Google review link, so it waited for the right one.
 
 Google mark (in front of the stars in the home page hero):
   google.svg
