@@ -790,7 +790,7 @@ console.log('\nNov 18, 2026: an owner who scoops, how fast a lead was reached, a
 console.log('\nTexts send on their own');
 if (OLD) console.log('  skipped: this run is the database before the patch');
 else {
-  Object.assign(env, { TWILIO_ACCOUNT_SID: 'ACtest', TWILIO_AUTH_TOKEN: 'twilio_token_test', TWILIO_MESSAGING_SERVICE_SID: 'MGtest', RESEND_API_KEY: 're_test', CRON_SECRET: 'cron-secret-for-tests-1234', SMS_HOURS: '0-24' });
+  Object.assign(env, { TWILIO_ACCOUNT_SID: 'ACtest', TWILIO_AUTH_TOKEN: 'twilio_token_test', TWILIO_MESSAGING_SERVICE_SID: 'MGtest', RESEND_API_KEY: 're_test', CRON_SECRET: 'cron-secret-for-tests-1234', SMS_HOURS: '0-24', ONE_TEXT: 'off' }); // ONE_TEXT off: these checks are about the day text itself. The one text rule has its own checks at the end.
   const settle = async () => { while (waits.length) await Promise.all(waits.splice(0)); };
   const mailsTo = (to) => mailBodies.map((b) => { try { return JSON.parse(b); } catch (e) { return null; } }).flat().filter((m) => m && [].concat(m.to).includes(to));
   const msgs = async (cidX) => (await db.query('select * from public.messages where customer_id = $1 order by id', [cidX])).rows;
@@ -984,7 +984,9 @@ else {
   env.SMS_HOURS = '0-0';
   r = await call('/api/office/customer/night', 'POST', { id: joe }, owner);
   env.SMS_HOURS = '0-24';
-  ok('the owner sends the night before text for one customer, right now, even late at night', r.status === 200 && r.d.night.state === 'sent' && r.d.night.day === tomorrow && r.d.night.linkOpens === true && TW.sent.length === t0 + 1 && TW.sent[t0].to === '+16235550201'
+  ok('late at night even the owner cannot send the night before text by hand (Joe, Nov 24, 2026)', r.status === 409 && /only go out from/.test(r.d.error) && TW.sent.length === t0 && !(await msgs(joe)).some((x) => x.kind === 'night_before' && x.status === 'queued' && x.sent_by), r.d);
+  r = await call('/api/office/customer/night', 'POST', { id: joe }, owner);
+  ok('the owner sends the night before text for one customer, right now, inside the text hours', r.status === 200 && r.d.night.state === 'sent' && r.d.night.day === tomorrow && r.d.night.linkOpens === true && TW.sent.length === t0 + 1 && TW.sent[t0].to === '+16235550201'
     && TW.sent[t0].body === nJoe.body, r.d.night);
   r = await call('/api/office/night-before', 'POST', {}, null, { 'x-cron-secret': env.CRON_SECRET });
   ok('the evening run does not send that visit another one', r.d.queued === 0 && TW.sent.length === t0 + 1, r.d);
@@ -1020,7 +1022,7 @@ else {
   // Quiet hours: a day text set late at night waits, and the evening run sends it.
   env.SMS_HOURS = '0-0'; t0 = TW.sent.length;
   r = await call('/api/office/customer', 'POST', { id: joe, service_day: otherDay }, owner);
-  ok('outside 8 am to 9 pm a day text waits in the Texts tab', TW.sent.length === t0 && r.d.told.text === 'queued', r.d.told);
+  ok('outside the text hours a day text waits in the Texts tab', TW.sent.length === t0 && r.d.told.text === 'queued', r.d.told);
   env.SMS_HOURS = '0-24';
   await call('/api/office/customer', 'POST', { id: joe, service_day: wd2 }, owner);
   r = await call('/api/office/night-before', 'POST', {}, null, { 'x-cron-secret': env.CRON_SECRET });
@@ -1219,6 +1221,69 @@ else {
   await db.query(`update public.customers set service_day = $1 where id = $2`, [wdOf(past), pF]);
   r = await call('/api/office/day?build=1&date=' + past, 'GET', null, owner);
   ok('a day that is over is never built', !r.d.stops.some((x) => x.customer.id === pF));
+  delete env.NIGHT_RUN_AT;
+
+  // ---- One text, not two, and the 8 am to 7 pm hours (Joe, Nov 24, 2026) ----
+  // "fix number one": on November 23 two customers got "your day is set" and "we will be there tomorrow" in the same minute.
+  // "9 pm, sending a text, is way too late. The last text should be going out at 6 or 7."
+  delete env.ONE_TEXT; delete env.SMS_TEST_ALLOWLIST; delete env.SMS_HOURS;
+  r = await call('/api/health', 'GET');
+  ok('with no setting, schedule texts go out from 8 am to 7 pm', r.d.textHours === '8-19', r.d.textHours);
+  env.SMS_HOURS = '0-24';
+  const evening = async () => { let out; for (let i = 0; i < 12; i++) { out = (await call('/api/office/night-before', 'POST', {}, null, { 'x-cron-secret': env.CRON_SECRET })).d; if (!out.left) break; } return out; };
+  const textsTo = (n) => TW.sent.filter((x) => x.to === '+1' + n);
+  await evening(); // anything the checks above left waiting goes first
+
+  // 1. Set for tomorrow before the evening run: no day text. The evening run sends the one text.
+  env.NIGHT_RUN_AT = '23:59';
+  const one = await mk('one@example.com', 'Olive One', '6235550211', true);
+  r = await call('/api/office/customer', 'POST', { id: one, service_day: wd2, service_time: '09:30' }, owner);
+  ok('a visit set for tomorrow writes no day text, and the card says why', r.status === 200 && r.d.told.text === 'night' && r.d.told.mailed === true && textsTo('6235550211').length === 0 && !(await msgs(one)).some((x) => x.kind === 'day_set'), r.d.told);
+  ok('the "your day is set" email still goes right away', mailsTo('one@example.com').length === 1 && /^Your service day is /.test(mailsTo('one@example.com')[0].subject), mailsTo('one@example.com').map((x) => x.subject));
+  await evening();
+  ok('the evening run sends them the night before text, and that is their only text', textsTo('6235550211').length === 1 && /^Arizona Pet Waste: We will be there tomorrow \(\w+\) around 9:30 AM, between /.test(textsTo('6235550211')[0].body), textsTo('6235550211').map((x) => x.body));
+  // Once that text has gone, a new time must still reach them by text.
+  r = await call('/api/office/customer', 'POST', { id: one, service_time: '11:00' }, owner);
+  ok('after tomorrow\'s night before text has gone, a new time is still sent as a day text', r.d.told.text === 'sent' && textsTo('6235550211').length === 2 && /Your new service day is \w+ around 11:00 AM/.test(textsTo('6235550211')[1].body), [r.d.told, textsTo('6235550211').map((x) => x.body)]);
+
+  // 2. Set for tomorrow after the evening run has started: the night before text goes right then. Still one text.
+  env.NIGHT_RUN_AT = '00:00';
+  const two = await mk('two@example.com', 'Tom Two', '6235550212', true);
+  r = await call('/api/office/customer', 'POST', { id: two, service_day: wd2, service_time: '12:30' }, owner);
+  ok('set for tomorrow after the evening run has started: the night before text goes right then, with no day text', r.d.told.text === 'night' && textsTo('6235550212').length === 1 && /We will be there tomorrow \(\w+\) around 12:30 PM/.test(textsTo('6235550212')[0].body) && !(await msgs(two)).some((x) => x.kind === 'day_set'), [r.d.told, textsTo('6235550212').map((x) => x.body)]);
+
+  // 3. "Send their day and time again" is the office asking for it: it still sends.
+  env.NIGHT_RUN_AT = '23:59';
+  const three = await mk('three@example.com', 'Tia Three', '6235550213', true);
+  r = await call('/api/office/customer', 'POST', { id: three, service_day: wd2, service_time: '13:15' }, owner);
+  r = await call('/api/office/customer', 'POST', { id: three, tell: true }, owner);
+  ok('"Send their day and time again" still sends the day text for a visit tomorrow', textsTo('6235550213').length === 1 && /^Arizona Pet Waste: Your service day is \w+ around 1:15 PM\./.test(textsTo('6235550213')[0].body), textsTo('6235550213').map((x) => x.body));
+
+  // 4. A day text that waited overnight is dropped when the same evening run sends that customer the night before text.
+  const four = await mk('four@example.com', 'Fay Four', '6235550214', true);
+  env.ONE_TEXT = 'off'; env.SMS_HOURS = '0-0'; // stands in for a day text written last night, when the visit was two days out
+  r = await call('/api/office/customer', 'POST', { id: four, service_day: wd2, service_time: '14:45' }, owner);
+  delete env.ONE_TEXT; env.SMS_HOURS = '0-24';
+  const heldDay = (await msgs(four)).find((x) => x.kind === 'day_set');
+  ok('(a day text is waiting for them)', r.d.told.text === 'queued' && heldDay && heldDay.status === 'queued' && textsTo('6235550214').length === 0, r.d.told);
+  await evening();
+  const fourRows = await msgs(four);
+  ok('the evening run sends one text, the night before text, and marks the day text skipped', textsTo('6235550214').length === 1 && /We will be there tomorrow \(\w+\) around 2:45 PM/.test(textsTo('6235550214')[0].body) && fourRows.find((x) => x.id === heldDay.id).status === 'skipped', [textsTo('6235550214').map((x) => x.body), fourRows.map((x) => [x.kind, x.channel, x.status])]);
+  // A day text that waited for someone with no visit tomorrow still goes with the evening run.
+  const five = await mk('five@example.com', 'Finn Five', '6235550215', true);
+  env.SMS_HOURS = '0-0';
+  r = await call('/api/office/customer', 'POST', { id: five, service_day: otherDay, service_time: '10:00' }, owner);
+  const heldFive = (await msgs(five)).find((x) => x.kind === 'day_set');
+  ok('outside the hours a day text for a later visit waits', r.d.told.text === 'queued' && heldFive && heldFive.status === 'queued' && textsTo('6235550215').length === 0, r.d.told);
+
+  // 5. Nothing gets around the hours.
+  r = await call('/api/office/text/send', 'POST', { id: heldFive.id }, owner);
+  ok('"Send now" on the Texts screen is refused outside the hours, and nothing is sent', r.status === 409 && /only go out from/.test(r.d.error) && textsTo('6235550215').length === 0 && (await msgs(five)).find((x) => x.id === heldFive.id).status === 'queued', r.d);
+  r = await call('/api/office/customer/night', 'POST', { id: five }, owner);
+  ok('"Send the night before text now" is refused outside the hours too', r.status === 409 && /only go out from/.test(r.d.error) && textsTo('6235550215').length === 0 && !(await msgs(five)).some((x) => x.kind === 'night_before' && x.channel === 'sms'), r.d);
+  env.SMS_HOURS = '0-24';
+  await evening();
+  ok('inside the hours the evening run sends the day text that waited, since they have no visit tomorrow', textsTo('6235550215').length === 1 && /^Arizona Pet Waste: Your service day is /.test(textsTo('6235550215')[0].body), textsTo('6235550215').map((x) => x.body));
   delete env.NIGHT_RUN_AT;
   }
 }

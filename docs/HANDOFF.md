@@ -1323,3 +1323,11 @@ Joe, through Atlas: "when I say start route, we need to hit start route for ever
 - The plan of such a sign up carries `apw_prepaid` in its Stripe metadata and is still running until the office cancels it. The webhook ignores it. `booked` still answers `'prepaid'` for it.
 - Joe: the field tool chat has a second draft of the prepaid block, PR 7. Do NOT merge PR 7. The version on main (this one) is the one we keep.
 
+## Nov 24, 2026, afternoon (Field App chat): one text not two, and schedule texts stop at 7 PM, on `main`
+Joe, after seeing the count of texts a customer gets: "fix number one, and then obviously fix number two. 9 pm, sending a text, is way too fucking late. The last text should be going out at 6 or 7."
+- `worker.js`: `smsHours` (default 8 to 19, was 8 to 21), `LATE_TEXT`, `nightCovers`, `nightCatchUp`, `oneText`. `sendText` keeps the hours even when a person taps (`force` no longer skips them). `officeTextSend` and `officeNightNow` answer 409 outside the hours. `nightRun` marks a held day or change text `skipped` when the same run sends that customer the night before text. `/api/health` has `textHours`.
+- `static/crew/index.html`: the Preplan confirm note and the customer card note say the new rule. Nothing else on the page changed.
+- Settings (all optional): `ONE_TEXT=off` goes back to both texts. `SMS_HOURS` moves the hours. If `SMS_HOURS` is set to `8-21` in Cloudflare, the old hours are still on: `/api/health` shows which.
+- For the website session: nothing on the public site changed in this commit. The words "night before reminders" in the opt in box are still true.
+- The full write up, with test counts and the four checks that fail on `main` before this change, is in `docs/FIELD_APP.md` under Nov 24, 2026.
+

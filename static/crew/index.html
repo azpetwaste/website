@@ -342,7 +342,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     var placed = []; days.forEach(function (d) { d.yards.forEach(function (y) { placed.push({ c: find(y.id), time: y.time, date: d.date }); }); });
     var row = function (c) { return { id: c.id, name: c.name, address: c.address, plan: c.plan }; };
     var view = { dates: dates, start: start, cap: cap, total: news.length, placed: placed.length, days: days, none: none.map(row), noPin: [],
-      tell: { gate: '', email: placed.length, text: placed.filter(function (x) { return x.c.texts_visit; }).length, tomorrow: placed.filter(function (x) { return x.date === tomorrow; }).length, nightNow: nowMin >= 17 * 60 + 30, quiet: nowMin < 8 * 60 || nowMin >= 21 * 60 } };
+      tell: { gate: '', email: placed.length, text: placed.filter(function (x) { return x.c.texts_visit && x.date !== tomorrow; }).length, tomorrow: placed.filter(function (x) { return x.date === tomorrow; }).length, nightNow: nowMin >= 17 * 60 + 30, quiet: nowMin < 8 * 60 || nowMin >= 19 * 60 } };
     if (!b.apply) return view;
     placed.forEach(function (x) {
       x.c.service_day = demoWd(x.date); x.c.service_time = x.time; x.c.scooper_id = x.c.scooper_id || me;
@@ -969,8 +969,8 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (t.gate === 'off') return 'Texts are not switched on, so no customer is told. The plan is still saved.';
     var n = function (k, w) { return k + ' ' + w + (k === 1 ? '' : 's'); };
     return (t.gate === 'test' ? 'Test mode is on, so only people on the test list are told. ' : '') + 'When you confirm, ' + n(t.email, 'email') + ' and ' + n(t.text, 'text') + ' go out with the day and time.' +
-      (t.tomorrow ? (t.nightNow ? ' Customers set for tomorrow also get their night before email and text right away.' : ' Customers set for tomorrow get their night before email and text this evening.') : '') +
-      (t.quiet && t.text ? ' It is outside 8 AM to 9 PM, so the texts wait. Emails still go.' : '');
+      (t.tomorrow ? ' Customers set for tomorrow get one text, not two: the night before text, ' + (t.nightNow ? 'right away' : 'this evening') + '. They get both emails.' : '') +
+      (t.quiet && (t.text || t.tomorrow) ? ' It is outside 8 AM to 7 PM, so the texts wait. Emails still go.' : '');
   }
   // Step 3: a house that has to be on a certain day (Joe, Nov 22, 2026: "pick one person and set it for that date... for
   // everybody else, it doesn't matter"). The office locks that house to its day and the app plans the rest around it.
@@ -1381,7 +1381,7 @@ table.t tr.click:hover td{background:var(--bg2)}
     if (t.test) return 'Saved. Test mode is on, so ' + who + ' was not told.';
     if (t.error) return 'Saved, but telling ' + who + ' did not work. Tap "Send their day and time again".';
     var how = [t.mailed ? 'email' : '', t.text === 'sent' ? 'text' : ''].filter(Boolean).join(' and ');
-    return 'Saved. ' + (how ? who + ' was told ' + (t.say || 'their day and time') + ' by ' + how + '.' : who + ' was not told: no email went out.') + (t.text === 'queued' ? ' The text is waiting in the Texts tab.' : '');
+    return 'Saved. ' + (how ? who + ' was told ' + (t.say || 'their day and time') + ' by ' + how + '.' : who + ' was not told: no email went out.') + (t.text === 'queued' ? ' The text is waiting in the Texts tab.' : t.text === 'night' ? ' Their visit is tomorrow, so they get one text: the night before text.' : '');
   }
   function isoPlus(n) { var d = new Date(Date.now() - 7 * 3600e3 + n * 864e5); return d.toISOString().slice(0, 10); }
   function pauseLine(c) {

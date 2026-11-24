@@ -102,7 +102,7 @@ Walked in a browser at phone size in the demo: plan one day, plan two days, move
 
 Not run: the signed in app against the live database. No real customer was scheduled, emailed or texted.
 Not done yet: the training video and the training page steps. They still show the Schedule with the old buttons. Rebuild them before this goes live (the standing rule), once Joe is happy with the screens.
-Open question for Joe: a customer planned for tomorrow gets two messages close together when the plan is confirmed in the evening, the confirmation and the night before reminder. Say so if one is enough.
+Answered Nov 24, 2026 (one text, see below). It was an open question for Joe: a customer planned for tomorrow gets two messages close together when the plan is confirmed in the evening, the confirmation and the night before reminder. Say so if one is enough.
 
 ## Nov 23, 2026: a way back into every yard (live the same day on Joe's "fix all that right now")
 What happened: on the first real route, Juan marked the first house "I can't do this yard" (gate locked). The customer texted that the gate was open. He did the yard, and the office uploaded the gate photo by hand at 1:10 PM. The visit still read Not done and no done text went out, because the office upload only finished a visit that was still open. The crew app also had no way back into a yard once it was closed, and no way to change a note.
@@ -112,6 +112,17 @@ What happened: on the first real route, Juan marked the first house "I can't do 
 - Tested: `build/desk.test.mjs` (22 new checks: the note, going back, finishing, the office upload, mark done, one done text only), a walk of the demo in a real browser at phone size, `npm run check`, `worker.test.mjs`, `week.test.mjs`, `nav.test.py`. Not run: `sweep.py`, the two sign up load tests, and no test on a real phone.
 - One check in `desk.test.mjs` fails on `main` too, before this change: "the plan for one day has every waiting house on it, with a time for each" (Preplan). Two houses get 8:00 AM. Somebody should look at it.
 - The training video was NOT rebuilt. The written steps on the training page were updated.
+
+## Nov 24, 2026: one text not two, and no schedule text after 7 PM (live the same day, Joe: "fix number one, and then obviously fix number two")
+Joe asked how many texts a customer gets in the whole flow. The answer from the code and the live log: first visit 4 texts (day set, night before, on our way, done) and 2 emails (welcome, night before). Every visit after that 3 texts and 1 email. About 13 texts a month for a weekly customer. Two problems showed in the log.
+- **Two texts back to back.** On Nov 23 at 5:30 PM two customers got "your service day is" and "we will be there tomorrow" in the same minute, and a third got them 37 minutes apart. The day texts had been written at 9:13 PM the night before, held, and sent by the evening run together with the night before texts. Now a customer whose next visit is tomorrow gets one text, the night before text. The day email still goes. This also closes the open question from Nov 22 ("a customer planned for tomorrow gets two messages close together").
+- **A text at 9:10 PM.** On Nov 22 the day text for the first customer was held at 9:09 PM, as the rule said, and then sent at 9:10 PM by an owner sign in with "Send now" on the Texts screen. That button skipped the hours. Now the hours are 8 AM to 7 PM and no button skips them: "Send now" and "Send the night before text now" say the hours and send nothing.
+- Not changed: on our way, done and can't do texts go whenever the crew taps, at any hour.
+- The Preplan confirm note and the customer card note say the new rule in plain words. No scooper screen changed, and the training video does not say the text hours, so the video was not rebuilt.
+- Tested: `build/desk.test.mjs` 300 of 301 (15 new checks: the 8 to 7 default, one text for a visit tomorrow before and after the evening run, the day email still going, "Send their day and time again", a held day text marked skipped, a held day text for a later visit still going, both buttons refused outside the hours). `week` 100 of 100, `signup10` 40 of 40, `nav` 68 of 68, `npm run check`, `prices --check`.
+- Failing on `main` before this change and still failing, not looked at here: `desk` 1 (Preplan: two houses get 8:00 AM), `worker` 1 of 587 (Meta gets the month price), `signup50` 2 of 131 (a prepaid card is flagged to the office, no server crashes logged).
+- Not run: a real text to a real phone. Nothing was sent to a customer for this.
+- Kill switch: `ONE_TEXT=off` in Cloudflare goes back to both texts. `SMS_HOURS` moves the hours. `/api/health` shows the hours as `textHours`.
 
 ## Open items
 1. Staff test: someone signs in at /crew inside the Claude browser pane, then Claude runs a test yard through a route. A test customer "TEST Yard (delete me)" sits in the live database for this. Delete it after.

@@ -140,7 +140,7 @@ async function route(path, request, env, ctx) {
   if (path === '/api/me/pause' && m === 'POST') return mePause(request, env, ctx);
   if (path === '/api/me/resume' && m === 'POST') return meResume(request, env, ctx);
   if (path === '/api/demo/week' && m === 'GET') return demoWeek(env, new URL(request.url).searchParams);
-  if (path === '/api/health' && m === 'GET') return ok({ ok: true, live: live(env), desk: sbLive(env), keys: keyMode(env), hook: !!env.STRIPE_WEBHOOK_SECRET, mail: !!env.RESEND_API_KEY, meta: metaOn(env), leads: metaLeadsOn(env), texts: smsOn(env), textsTest: testMode(env) });
+  if (path === '/api/health' && m === 'GET') return ok({ ok: true, live: live(env), desk: sbLive(env), keys: keyMode(env), hook: !!env.STRIPE_WEBHOOK_SECRET, mail: !!env.RESEND_API_KEY, meta: metaOn(env), leads: metaLeadsOn(env), texts: smsOn(env), textsTest: testMode(env), textHours: smsHours(env).from + '-' + smsHours(env).to });
   if (path === '/api/log' && m === 'POST') return clientLog(request, env);
   if (path === '/api/twilio/status' && m === 'POST') return twilioStatus(request, env, ctx);
   if (path === '/api/twilio/inbound' && m === 'POST') return twilioInbound(request, env, ctx);
@@ -2290,13 +2290,20 @@ const testMode = (env) => smsAllow(env) !== null;
 const smsMay = (env, phone) => { const a = smsAllow(env); return !a || a.has(digits(phone)); };
 // Arizona has no daylight saving time, so its clock is always seven hours behind UTC.
 const azMinutes = () => { const d = new Date(Date.now() - 7 * 3600e3); return d.getUTCHours() * 60 + d.getUTCMinutes(); };
-// A text nobody is waiting for (the day we set, the night before reminder) only goes out from 8 in the morning to 9 at night.
+// A text nobody is waiting for (the day we set, the night before reminder) only goes out from 8 in the morning to 7 at
+// night (Joe, Nov 24, 2026: "9 pm, sending a text, is way too late. The last text should be going out at 6 or 7."). It
+// was 9 at night until then. Nothing gets around it: "Send now" on the Texts screen and "Send the night before text
+// now" on the card are held to the same hours (LATE_TEXT). On the way, done and can't do texts are not held: the
+// crew is at the house and the customer is waiting on them.
 const QUIET_KINDS = ['day_set', 'visit_change', 'night_before'];
-// SMS_HOURS (optional, "8-21") moves those hours.
-const quietNow = (env) => {
-  const h = /^(\d{1,2})-(\d{1,2})$/.exec(String((env && env.SMS_HOURS) || '').trim()), from = h ? Number(h[1]) : 8, to = h ? Number(h[2]) : 21, m = azMinutes();
-  return m < from * 60 || m >= to * 60;
+// SMS_HOURS (optional, "8-19") moves those hours.
+const smsHours = (env) => {
+  const h = /^(\d{1,2})-(\d{1,2})$/.exec(String((env && env.SMS_HOURS) || '').trim());
+  return { from: h ? Number(h[1]) : 8, to: h ? Number(h[2]) : 19 };
 };
+const quietNow = (env) => { const h = smsHours(env), m = azMinutes(); return m < h.from * 60 || m >= h.to * 60; };
+const hourSay = (n) => (n % 12 || 12) + (n % 24 < 12 ? ' AM' : ' PM');
+const LATE_TEXT = (env) => { const h = smsHours(env); return 'Texts like this one only go out from ' + hourSay(h.from) + ' to ' + hourSay(h.to) + '. Nothing was sent. Send it tomorrow, or email them now.'; };
 const TWILIO_WHY = { 21610: 'They replied STOP, so Twilio will not text them.', 21211: 'That is not a real phone number.', 21614: 'That number cannot get texts.', 30003: 'The phone was off or out of reach.',
   30005: 'The number is not in service.', 30006: 'That is a landline or cannot get texts.', 30007: 'The carrier blocked the text.', 30034: 'The number is not on an approved campaign yet.' };
 const twilioWhy = (code) => (TWILIO_WHY[code] || 'Twilio could not deliver it.') + ' (Twilio ' + code + ')';
@@ -2382,7 +2389,8 @@ function dayText(c, moved) {
 async function sendText(env, msg, by, force) {
   if (!smsOn(env)) return 'off';
   if (!msg || msg.channel === 'email' || !smsMay(env, msg.to_addr)) return 'held';
-  if (!force && QUIET_KINDS.includes(msg.kind) && quietNow(env)) return 'held';
+  // `force` is a person's own tap (Send now, Send again). It still keeps the hours: see LATE_TEXT.
+  if (QUIET_KINDS.includes(msg.kind) && quietNow(env)) return 'held';
   const to = digits(msg.to_addr), now = new Date().toISOString();
   const claim = await db(env, 'PATCH', 'messages?id=eq.' + msg.id + '&status=eq.queued', Object.assign({ status: 'sent', sent_at: now }, by ? { sent_by: by } : {}), 'return=representation');
   if (!claim || !claim.length) return 'taken';
@@ -2424,10 +2432,32 @@ async function queueText(env, customer, stopId, kind, code, reason, opt) {
 // "Your day and time are set" texts. list: [{ c: a customer row with a full schedule, moved }]. All rows are written in
 // one go. The first few are sent right away. The rest wait as queued and the evening run sends them, so a week plan
 // that moves hundreds of yards cannot run this server out of time.
+// One text, not two (Joe, Nov 24, 2026: "fix number one"). A customer whose next visit is tomorrow gets the night
+// before text for it, and that text says the day and the time. So their day text is not written: on November 23 two
+// customers got both in the same minute. The day email still goes right away. The day text is still written when the
+// office taps "Send their day and time again" (`again`), and when tomorrow's night before text has already gone out,
+// because then this text is the only one that carries the new time. `night` counts the ones left to the night before text.
+// `ONE_TEXT=off` in Cloudflare goes back to both texts, with no new build.
 const DAY_TEXTS_NOW = 15;
+const oneText = (env) => String((env && env.ONE_TEXT) || '').trim().toLowerCase() !== 'off';
+async function nightCovers(env, list) {
+  if (!oneText(env)) return new Set();
+  const tomorrow = addDays(azToday(), 1), ids = list.filter((x) => !x.again && nextVisit(x.c) === tomorrow).map((x) => x.c.id);
+  if (!ids.length) return new Set();
+  const gone = new Set(), since = enc(new Date(Date.now() - 20 * 3600e3).toISOString());
+  for (let i = 0; i < ids.length; i += 100) {
+    const had = await db(env, 'GET', 'messages?kind=eq.night_before&channel=eq.sms&created_at=gte.' + since + '&customer_id=in.(' + ids.slice(i, i + 100).join(',') + ')&select=customer_id,status');
+    for (const m of had || []) if (m.status !== 'queued') gone.add(m.customer_id);
+  }
+  return new Set(ids.filter((id) => !gone.has(id)));
+}
 async function dayTexts(env, list) {
-  const want = list.filter((x) => x.c && x.c.texts_visit && digits(x.c.phone).length === 10 && schedSet(x.c));
-  if (!want.length) return { queued: 0, sent: 0 };
+  let want = list.filter((x) => x.c && x.c.texts_visit && digits(x.c.phone).length === 10 && schedSet(x.c));
+  if (!want.length) return { queued: 0, sent: 0, night: 0 };
+  let covered = new Set();
+  try { covered = await nightCovers(env, want); } catch (e) { console.error('night covers', e); }
+  want = want.filter((x) => !covered.has(x.c.id));
+  if (!want.length) return { queued: 0, sent: 0, night: covered.size };
   // The same words as the last day text to that customer, inside ten minutes: one text is enough (a double tap on Save).
   const since = new Date(Date.now() - 10 * 60e3).toISOString();
   let recent = [];
@@ -2446,7 +2476,13 @@ async function dayTexts(env, list) {
   let made = [], sent = 0;
   for (let i = 0; i < rows.length; i += 200) made = made.concat(await db(env, 'POST', 'messages', rows.slice(i, i + 200), 'return=representation') || []);
   for (const msg of made.slice(0, DAY_TEXTS_NOW)) { try { if (await sendText(env, msg) === 'sent') sent++; } catch (e) { console.error('day text', e); } }
-  return { queued: made.length, sent };
+  return { queued: made.length, sent, night: covered.size };
+}
+// A day text was left to the night before text, and tonight's evening run has already started: run it now, so the
+// customer is not left with no text. Before the evening run this does nothing, because that run sends it.
+async function nightCatchUp(env) {
+  if (azMinutes() < nightRunMin(env)) return null;
+  try { return await nightRun(env, addDays(azToday(), 1)); } catch (e) { console.error('night catch up', e); return null; }
 }
 const SCHED_FIELDS = 'id,name,email,phone,texts_visit,status,plan,eow_week,first_visit,service_day,service_day2';
 // One customer's day and time were set or changed: the confirmation, by email and by text, right away.
@@ -2457,19 +2493,28 @@ async function schedNotice(env, c, moved, again) {
   if (gate) return { mailed: false, text: 'none', [gate]: true };
   const mailed = c.email ? await mail(env, c.email, (moved ? 'Your new service day is ' : 'Your service day is ') + schedSay(c), dayMail(c, moved)) : false;
   let text = 'none';
-  try { const r = await dayTexts(env, [{ c, moved, again }]); text = r.sent ? 'sent' : r.queued ? 'queued' : 'none'; } catch (e) { console.error('day text', e); }
+  try {
+    const r = await dayTexts(env, [{ c, moved, again }]);
+    text = r.sent ? 'sent' : r.queued ? 'queued' : r.night ? 'night' : 'none';
+    if (r.night) await nightCatchUp(env);
+  } catch (e) { console.error('day text', e); }
   return { mailed, text, say: schedSay(c) };
 }
 // Many customers at once (Plan the week, Move yards for good). Only a customer whose day AND time are set is told,
 // and only one the gate lets through. movedIds: the customers whose day changed (the rest got a first day).
-async function schedNoticeMany(env, ids, movedIds) {
+// `noNight`: the caller runs the night before texts itself (Preplan does), so no catch up here.
+async function schedNoticeMany(env, ids, movedIds, noNight) {
   const out = { emailed: 0, texted: 0 };
   if (!ids.length || !(await schedOn(env)) || !smsOn(env)) return out;
   const moved = new Set(movedIds || []), who = [];
   for (let i = 0; i < ids.length; i += 100) who.push(...await db(env, 'GET', 'customers?id=in.(' + ids.slice(i, i + 100).join(',') + ')&select=' + SCHED_FIELDS + ',service_time,service_time2'));
   const tell = who.filter((c) => schedSet(c) && !tellGate(env, c) && (PAYING.includes(c.status) || c.status === 'paused'));
   out.emailed = await mailMany(env, tell.filter((c) => c.email).map((c) => ({ to: c.email, subject: (moved.has(c.id) ? 'Your new service day is ' : 'Your service day is ') + schedSay(c), text: dayMail(c, moved.has(c.id)) })));
-  try { out.texted = (await dayTexts(env, tell.map((c) => ({ c, moved: moved.has(c.id) })))).queued; } catch (e) { console.error('day texts', e); }
+  try {
+    const r = await dayTexts(env, tell.map((c) => ({ c, moved: moved.has(c.id) })));
+    out.texted = r.queued; out.night = r.night;
+    if (r.night && !noNight) await nightCatchUp(env);
+  } catch (e) { console.error('day texts', e); }
   return out;
 }
 // One visit was moved or given another time, for that visit only: tell the customer, by email and by text.
@@ -2654,6 +2699,7 @@ async function officeTextSend(s, env, b) {
   if (!smsOn(env)) return fail(400, 'Texts do not send on their own yet. Tap Send by hand on the Texts screen.');
   if (!msg.customer || !msg.customer.texts_visit) return fail(400, 'This customer said no to texts. Call or email them.');
   if (!smsMay(env, msg.to_addr)) return fail(409, 'Test mode is on. Texts only go to the test numbers.');
+  if (QUIET_KINDS.includes(msg.kind) && quietNow(env)) return fail(409, LATE_TEXT(env));
   let row = msg;
   if (msg.status !== 'queued') {
     const made = await db(env, 'POST', 'messages', [{ customer_id: msg.customer_id, stop_id: null, kind: msg.kind, channel: 'sms', to_addr: msg.customer.phone || msg.to_addr, body: msg.body }], 'return=representation');
@@ -2665,8 +2711,8 @@ async function officeTextSend(s, env, b) {
 }
 // Office: send the welcome email again, with a fresh My Yard link.
 // Owner only: send one customer the night before text for their next visit, now. For testing the flow without
-// waiting for the evening run. It follows the test list, like every other text. It skips the 8 am to 9 pm rule,
-// because the owner asked for it by hand.
+// waiting for the evening run. It follows the test list, like every other text, and since November 24, 2026 it keeps
+// the 8 am to 7 pm rule too (it used to skip it: Joe, "9 pm, sending a text, is way too late").
 async function officeNightNow(s, env, b) {
   if (s.role !== 'owner') return fail(403, 'Only the owner can send this.');
   if (!uuid(b.id)) return fail(400, 'Bad customer.');
@@ -2677,6 +2723,7 @@ async function officeNightNow(s, env, b) {
   if (!schedSet(c)) return fail(400, 'Set their day and time first.');
   if (!c.texts_visit || digits(c.phone).length !== 10) return fail(400, 'This customer said no to texts, or has no mobile number.');
   if (!smsMay(env, c.phone)) return fail(409, 'Test mode is on. This customer is not on the test list, so nothing was sent.');
+  if (quietNow(env)) return fail(409, LATE_TEXT(env));
   const day = nextVisit(c);
   if (!day) return fail(400, 'They have no visit coming up.');
   await planDay(await withSettings(env), day);
@@ -3564,7 +3611,8 @@ async function officePrePlan(env, b) {
   // Who hears about it when the plan is confirmed. The same gate as every schedule notice.
   const may = placed.filter((x) => !tellGate(env, x.c)), tomorrow = addDays(today, 1);
   const tell = { gate: !smsOn(env) ? 'off' : (testMode(env) ? 'test' : ''), email: env.RESEND_API_KEY ? may.filter((x) => x.c.email).length : 0,
-    text: may.filter((x) => x.c.texts_visit && digits(x.c.phone).length === 10).length, tomorrow: may.filter((x) => x.date === tomorrow).length,
+    // A house set for tomorrow gets one text, the night before text, and no day text (`nightCovers`).
+    text: may.filter((x) => x.c.texts_visit && digits(x.c.phone).length === 10 && !(oneText(env) && x.date === tomorrow)).length, tomorrow: may.filter((x) => x.date === tomorrow).length,
     nightNow: azMinutes() >= nightRunMin(env), quiet: quietNow(env) };
   const row = (c) => ({ id: c.id, name: c.name, address: c.address, plan: c.plan });
   const view = { dates, start, cap: dayCap(env), total: news.length, placed: placed.length, tell,
@@ -3591,7 +3639,7 @@ async function officePrePlan(env, b) {
     for (const r of await db(env, 'GET', 'routes?day=eq.' + d.date + '&select=id,status')) if (!r.status || r.status === 'planned') await reorderRoute(env, r.id).catch((e) => console.error('reorder', e));
   }
   const done = { saved: placed.length, emailed: 0, texted: 0, night: null };
-  try { const t = await schedNoticeMany(env, placed.map((x) => x.c.id), []); done.emailed = t.emailed; done.texted = t.texted; } catch (e) { console.error('pre plan notices', e); }
+  try { const t = await schedNoticeMany(env, placed.map((x) => x.c.id), [], true); done.emailed = t.emailed; done.texted = t.texted; done.nightText = t.night || 0; } catch (e) { console.error('pre plan notices', e); }
   // The evening run has already gone by: tomorrow's customers get their night before email and text now.
   if (placed.some((x) => x.date === tomorrow) && azMinutes() >= nightRunMin(env)) {
     try { const n = await nightRun(env, tomorrow); done.night = { emailed: n.emailed, queued: n.queued, sent: n.sent }; } catch (e) { console.error('pre plan night', e); }
@@ -4044,6 +4092,17 @@ async function nightRun(env, date, cron) {
       const wait = (ids.length ? await db(env, 'GET', 'messages?status=eq.queued&channel=eq.sms&kind=eq.night_before&stop_id=in.(' + ids.join(',') + ')&select=*&order=id') : [])
         .concat(await db(env, 'GET', 'messages?status=eq.queued&channel=eq.sms&kind=in.(day_set,visit_change)&created_at=gte.' + enc(new Date(Date.now() - 36 * 3600e3).toISOString()) + '&select=*&order=id&limit=200'))
         .filter((m) => smsMay(env, m.to_addr) && !quietNow(env));
+      // One text, not two (Joe, Nov 24, 2026): a day text or a change text that waited overnight is not sent when the
+      // same customer gets the night before text for this day. That text says the day and the time. On November 23
+      // both went out in the same minute. The held one is marked skipped, so the log still shows it.
+      const nightStops = new Set(stops.filter((st) => times[st.id] && st.customer && st.customer.texts_visit && st.customer.phone).map((st) => st.id));
+      const nightCust = new Set(stops.filter((st) => nightStops.has(st.id)).map((st) => st.customer.id));
+      const twice = !oneText(env) ? [] : wait.filter((m) => (m.kind === 'day_set' && nightCust.has(m.customer_id)) || (m.kind === 'visit_change' && nightStops.has(m.stop_id)));
+      if (twice.length) {
+        await db(env, 'PATCH', 'messages?status=eq.queued&id=in.(' + twice.map((m) => m.id).join(',') + ')', { status: 'skipped', sent_at: new Date().toISOString() }, 'return=minimal');
+        const gone = new Set(twice.map((m) => m.id));
+        for (let i = wait.length - 1; i >= 0; i--) if (gone.has(wait[i].id)) wait.splice(i, 1);
+      }
       const batch = Math.min(40, Math.max(1, parseInt(env.SMS_BATCH, 10) || NIGHT_BATCH));
       for (const msg of wait.slice(0, batch)) if (await sendText(env, msg) === 'sent') sent++;
       left = Math.max(0, wait.length - batch);
