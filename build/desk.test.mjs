@@ -35,6 +35,10 @@ await db.query(fs.readFileSync(path.join(ROOT, 'supabase/crm.sql'), 'utf8')); //
 // OLD_DB=1: the database as it is before supabase/patch-2026-11-21.sql is run. The new code must still run on it:
 // nothing breaks, nobody has a time, so no day, night before or "on our way" text is made. The texts block is skipped.
 const OLD = process.env.OLD_DB === '1';
+// NO_PIN=1: the database as it is before supabase/patch-2026-11-24.sql is run (no customers.pin_at). The crew app must
+// still run on it: Directions gets the full address, a finished visit still finishes, and nothing is confirmed.
+const NOPIN = process.env.NO_PIN === '1';
+if (NOPIN) await db.query('alter table public.customers drop column if exists pin_at');
 if (OLD) await db.query(`alter table public.customers drop column if exists service_time, drop column if exists service_time2, drop column if exists texts_stopped_at;
   alter table public.stops drop column if exists visit_time;
   alter table public.messages drop column if exists provider_id, drop column if exists error, drop column if exists delivered_at;`);
@@ -1300,6 +1304,16 @@ else {
     };
     const cRow = async (id) => (await db.query('select lat, lng, pin_at from public.customers where id = $1', [id])).rows[0];
     const navOf = async (id) => { const d = (await call('/api/crew/today', 'GET', null, tt)).d; const x = d.stops.find((y) => y.customer.id === id); return x && x.customer.nav_to; };
+    if (NOPIN) {
+      const oldC = await mk('nopatch@example.com', 'Nell Nopatch', '6235550221', false);
+      const sOld = await visit(oldC, 'PINZZ9', [[-20, 33.44252, -112.36254], [5, 33.4425, -112.3625], [30, 33.4425, -112.36251], [80, 33.44251, -112.3625], [300, 33.44255, -112.36258]]);
+      ok('with no pin_at column, Directions gets the full address', (await navOf(oldC)) === '1 Test Way, Goodyear, AZ 85338', await navOf(oldC));
+      r = await call('/api/crew/done', 'POST', { stopId: sOld }, tt);
+      const after = (await db.query('select lat, lng from public.customers where id = $1', [oldC])).rows[0];
+      ok('with no pin_at column, a visit still finishes, the pin on file does not move and the link stays the address', r.status === 200 && (await db.query('select status from public.stops where id = $1', [sOld])).rows[0].status === 'done' && after.lat === 33.44 && (await navOf(oldC)) === '1 Test Way, Goodyear, AZ 85338', after);
+      r = await call('/api/office/customer', 'POST', { id: oldC, address: '77 Old Db Rd' }, owner);
+      ok('with no pin_at column, the office can still change an address', r.status === 200 && r.d.customer.address === '77 Old Db Rd', r.status);
+    } else {
     const parked = [[-20, 33.44252, -112.36254], [5, 33.44250, -112.36250], [30, 33.44250, -112.36251], [80, 33.44251, -112.36250], [200, 33.44258, -112.36260], [400, 33.44260, -112.36262], [600, 33.44255, -112.36258]]; // about a quarter mile from the pin on file (33.44, -112.36)
 
     const pinC = await mk('pin@example.com', 'Pat Pin', '6235550216', false);
@@ -1343,6 +1357,7 @@ else {
     r = await call('/api/office/customer', 'POST', { id: pinC, address: '99 New Home Ln' }, owner);
     cp = await cRow(pinC);
     ok('a new address clears the confirmed pin, so Directions goes back to the address', r.status === 200 && !cp.pin_at && (await navOf(pinC)) === '99 New Home Ln, Goodyear, AZ 85338', [cp, await navOf(pinC)]);
+    }
   }
   }
 }

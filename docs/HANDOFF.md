@@ -1334,7 +1334,7 @@ Joe, after seeing the count of texts a customer gets: "fix number one, and then 
 ## Nov 24, 2026, afternoon (Field App chat): Directions drives to a confirmed pin, on `main`
 - `worker.js`: `navTo`, `confirmPin`, `PIN_NEAR`, `PIN_FAR`. `crewToday` adds `customer.nav_to` to each stop. `crewDone` and `finishStop` call `confirmPin`. A new address or map lookup on the card clears `pin_at`.
 - `static/crew/index.html`: `maps(c)` uses `nav_to`. No screen changed.
-- Database: `customers.pin_at` (`supabase/patch-2026-11-24.sql`, in `crm.sql` too). It was added to the live database the same day, before the code went live.
+- Database: `customers.pin_at` (`supabase/patch-2026-11-24.sql`, in `crm.sql` too). **NOT in the live database yet on Nov 24, 2026, 2 PM:** adding a column to the live database needs Joe's yes, and he was asked. Until it is run, every Directions link is the full address with the city, no pin is confirmed, and nothing breaks (`NO_PIN=1 node build/desk.test.mjs` runs the app on a database without the column). After it is run, pins confirm on their own at each finished visit. The four houses already visited can be confirmed from the truck trail by hand the same day.
 - The full write up is in `docs/FIELD_APP.md` under Nov 24, 2026, and the research is the Project doc `claude/directions-and-maps-tools-nov-24.md`.
 
 ## Nov 24, 2026, afternoon (Field App chat, for the website session): YouTube button in the footer
