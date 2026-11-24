@@ -166,14 +166,20 @@ function ssr(entry, props) {
 // "bg" is the brand's own color behind a white mark. A brand with no "bg" has a full color mark that fills the button (Instagram).
 const BRAND_DIR = path.join(ROOT, 'static/assets/img/brands');
 const brandFile = (name) => { const k = name.toLowerCase().replace(/[^a-z0-9]+/g, '-'); for (const ext of ['svg', 'png', 'webp']) if (fs.existsSync(path.join(BRAND_DIR, k + '.' + ext))) return '/assets/img/brands/' + k + '.' + ext; return ''; };
-const SOCIAL = [{ n: 'Facebook', bg: '#0866FF' }, { n: 'Instagram' }, { n: 'Yelp', bg: '#FF1A1A' }, { n: 'TikTok', bg: '#000000' }, { n: 'YouTube', bg: '#FF0000' }, { n: 'Nextdoor' }];
+// "dx" and "dy" move a mark inside its button, in whole px, so what the eye sees sits in the middle (Joe, Nov 24, 2026: "some look
+// off centered"). Every file is centered by its edges, but two marks did not look it: the Yelp file has a tiny (R) at the far right
+// that pushed the burst 1.2 px left, and the TikTok note has its weight low, so it sat 1 px low. The files themselves are not
+// touched. Whole px only: Chrome rounds a part px here, and a whole one lands the same in every browser. Measured in a browser at
+// 1, 2, 3 and 6 times size: the Yelp burst is within 0.25 px of the middle and the weight of the TikTok note within 0.1 px up and down.
+const SOCIAL = [{ n: 'Facebook', bg: '#0866FF' }, { n: 'Instagram' }, { n: 'Yelp', bg: '#FF1A1A', dx: 1 }, { n: 'TikTok', bg: '#000000', dy: -1 }, { n: 'YouTube', bg: '#FF0000' }, { n: 'Nextdoor' }];
 function socialHtml() {
   const urls = Object.fromEntries(cfg.social.map((x) => [x.name, x.url]));
   const items = SOCIAL.map((x) => Object.assign({}, x, { img: brandFile(x.n), url: urls[x.n] })).filter((x) => x.img && x.url);
   if (!items.length) return '';
   return '<div class="fsoc" role="group" aria-label="Arizona Pet Waste on social media">' + items.map((x) =>
     '<a' + (x.bg ? ' style="background: ' + x.bg + ';"' : ' class="fsoc-f"') + ' href="' + esc(x.url) + '" rel="noopener" target="_blank" aria-label="Arizona Pet Waste on ' + x.n + '">' +
-    '<img src="' + x.img + '" alt="" width="' + (x.bg ? 26 : 48) + '" height="' + (x.bg ? 26 : 48) + '" loading="lazy"></a>').join('') + '</div>';
+    '<img src="' + x.img + '" alt="" width="' + (x.bg ? 26 : 48) + '" height="' + (x.bg ? 26 : 48) + '" loading="lazy"' +
+    (x.dx || x.dy ? ' style="position: relative; left: ' + (x.dx || 0) + 'px; top: ' + (x.dy || 0) + 'px;"' : '') + '></a>').join('') + '</div>';
 }
 // The cards and wallets we take, as marks under Payment options in the footer (Joe, Nov 18, 2026: "Put the icons on there").
 // Each mark is a logo file in static/assets/img/brands/ on a small white tile, like a card, so dark marks read on the navy footer.
