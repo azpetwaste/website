@@ -33,6 +33,11 @@
 .apw .bk-help a{display:inline-flex;align-items:center;min-height:44px;font-weight:800;color:var(--ink);text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px;text-decoration-color:var(--accent)}
 .apw .bk-box{margin-top:12px;padding:16px;border-radius:12px;background:var(--bg2);border:1px solid var(--line)}
 .apw .bk-box>p:first-child{margin:0;font-size:17px;line-height:1.5}
+.apw .bk-good{margin-top:18px;padding:16px;border-radius:12px;border:2px solid var(--ok);background:var(--card)}
+.apw .bk-good-h{display:flex;align-items:center;gap:10px;margin:0;font-size:20px;font-weight:800;line-height:1.3;color:var(--ink)}
+.apw .bk-good-h span{width:28px;height:28px;flex:0 0 28px;border-radius:50%;background:var(--ok);color:#FFFFFF;display:grid;place-items:center}
+.apw .bk-good-p{margin:8px 0 0;font-size:17px;line-height:1.5}
+.apw .bk-good .btn{width:100%;margin-top:14px}
 /* How many dogs (Joe, Nov 19, 2026: "Let's do 1, 2, 3, and then do 4+. Take out the 5 and 6. Let it be easy."): four big
    buttons, the same four the DoodyCalls quote screen has. */
 .apw .bk-dogs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:16px}
@@ -190,29 +195,40 @@
     [[bf:<p class="bf-chip" data-deal-end="2026-12-01T06:59:59Z"><span>Black Friday sale</span>First month free. Ends Mon, Nov 30.</p>||]]
     <p class="bk-lead">Tap your city.</p>
     <div class="bk-opts" role="radiogroup" aria-label="Your city">
-      <sc-for list="{{ cityOpts }}" as="c" hint-placeholder-count="4">
+      <sc-for list="{{ cityOpts }}" as="c" hint-placeholder-count="5">
         <button type="button" class="bk-city" role="radio" aria-checked="{{ c.on }}" onClick="{{ c.pick }}">{{ c.label }}<i aria-hidden="true">›</i></button>
       </sc-for>
       <button type="button" class="bk-other" onClick="{{ pickOther }}">My city is not here</button>
     </div>
     <sc-if value="{{ zipNo }}" hint-placeholder-val="{{ false }}">
       <div class="bk-box" aria-live="polite">
-        <p><strong>We are not in your city yet.</strong> Join the waitlist and we will tell you when we are.</p>
+        <p><strong>{{ wHead }}</strong> {{ wSub }}</p>
         <sc-if value="{{ waitOpen }}" hint-placeholder-val="{{ true }}">
           <label for="w-city" class="flab">Your city</label>
           <input id="w-city" class="fin" type="text" autocomplete="address-level2" value="{{ wCity }}" onChange="{{ onWCity }}">
-          <label for="w-name" class="flab">Full name</label>
-          <input id="w-name" class="fin" type="text" autocomplete="name" value="{{ wName }}" onChange="{{ onWName }}">
-          <label for="w-phone" class="flab">Mobile phone</label>
-          <input id="w-phone" class="fin" type="tel" inputmode="tel" autocomplete="tel" value="{{ wPhone }}" onChange="{{ onWPhone }}">
-          <label for="w-addr" class="flab">Street address</label>
-          <input id="w-addr" class="fin" type="text" autocomplete="address-line1" value="{{ wAddr }}" onChange="{{ onWAddr }}">
-          <label for="b-wait" class="flab">Email <span class="opt">(if you want)</span></label>
-          <input id="b-wait" class="fin" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" value="{{ wait }}" onChange="{{ onWait }}">
-          <label class="cbx" for="w-tx"><input id="w-tx" type="checkbox" checked="{{ wTexts }}" onChange="{{ onWTexts }}"><span><b>Text me when you start in my area.</b><small>One text when we start. You can skip this one.</small></span></label>
-          <p class="fine">By checking this box, you agree to get one text from Arizona Pet Waste at the number above. Message and data rates may apply. Reply STOP to stop or HELP for help. You do not have to agree to texts to join. See our <a href="/texts/">Text Terms</a> and <a href="/privacy/">Privacy Policy</a>.</p>
-          <button type="button" class="btn btn-ink" style="width: 100%; margin-top: 14px;" onClick="{{ joinWait }}" disabled="{{ waitBusy }}">{{ waitLabel }}</button>
-          <sc-if value="{{ waitErr }}" hint-placeholder-val="{{ false }}"><p class="ferr" role="alert">{{ waitErr }}</p></sc-if>
+          <label for="w-zip" class="flab">ZIP code</label>
+          <input id="w-zip" class="fin" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="5" value="{{ wZip }}" onChange="{{ onWZip }}">
+          <sc-if value="{{ wServed }}" hint-placeholder-val="{{ false }}">
+            <div class="bk-good" role="status">
+              <p class="bk-good-h"><span>@@ICON_CHECK@@</span>Good news, we already serve you.</p>
+              <p class="bk-good-p">{{ wServedLine }}</p>
+              <button type="button" class="btn btn-dot" onClick="{{ wBook }}">[[bf:Start your free month||Book now]]</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ wRest }}" hint-placeholder-val="{{ true }}">
+            <label for="w-name" class="flab">Full name</label>
+            <input id="w-name" class="fin" type="text" autocomplete="name" value="{{ wName }}" onChange="{{ onWName }}">
+            <label for="w-phone" class="flab">Mobile phone</label>
+            <input id="w-phone" class="fin" type="tel" inputmode="tel" autocomplete="tel" value="{{ wPhone }}" onChange="{{ onWPhone }}">
+            <label for="w-addr" class="flab">Street address</label>
+            <input id="w-addr" class="fin" type="text" autocomplete="address-line1" value="{{ wAddr }}" onChange="{{ onWAddr }}">
+            <label for="b-wait" class="flab">Email <span class="opt">(if you want)</span></label>
+            <input id="b-wait" class="fin" type="email" inputmode="email" autocomplete="email" placeholder="you@email.com" value="{{ wait }}" onChange="{{ onWait }}">
+            <label class="cbx" for="w-tx"><input id="w-tx" type="checkbox" checked="{{ wTexts }}" onChange="{{ onWTexts }}"><span><b>Text me when you start in my area.</b><small>One text when we start. You can skip this one.</small></span></label>
+            <p class="fine">By checking this box, you agree to get one text from Arizona Pet Waste at the number above. Message and data rates may apply. Reply STOP to stop or HELP for help. You do not have to agree to texts to join. See our <a href="/texts/">Text Terms</a> and <a href="/privacy/">Privacy Policy</a>.</p>
+            <button type="button" class="btn btn-ink" style="width: 100%; margin-top: 14px;" onClick="{{ joinWait }}" disabled="{{ waitBusy }}">{{ waitLabel }}</button>
+            <sc-if value="{{ waitErr }}" hint-placeholder-val="{{ false }}"><p class="ferr" role="alert">{{ waitErr }}</p></sc-if>
+          </sc-if>
         </sc-if>
         <sc-if value="{{ waitDone }}" hint-placeholder-val="{{ false }}">
           <p style="margin: 12px 0 0; display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; color: var(--ok);"><span style="width: 26px; height: 26px; flex: 0 0 26px; border-radius: 50%; background: var(--ok); color: #FFFFFF; display: grid; place-items: center;">@@ICON_CHECK@@</span>You are on the list!</p>
@@ -444,7 +460,7 @@ class Component extends DCLogic {
       name: '', phone: '', email: '', addr: '', txtVisit: false, tried: false, sugs: [], addrNote: '',
       wait: '', waitDone: false, waitBusy: false, waitErr: '',
       code: '', codeErr: '', resent: false, busy: false, err: '',
-      payState: 'idle', payErr: '', payBack: false, payFree: null, payLineSrv: '', wName: '', wPhone: '', wAddr: '', wCity: '', wTexts: false, req: false, reqKind: '',
+      payState: 'idle', payErr: '', payBack: false, payFree: null, payLineSrv: '', wName: '', wPhone: '', wAddr: '', wCity: '', wZip: '', wTexts: false, req: false, reqKind: '',
       cKind: '', cOrg: '', cCity: '', cName: '', cPhone: '', cEmail: '', cNote: '', cTried: false
     }, this._initial());
   }
@@ -479,7 +495,10 @@ class Component extends DCLogic {
   _zips() { return { '85326': 'Buckeye', '85396': 'Buckeye', '85338': 'Goodyear', '85395': 'Goodyear', '85340': 'Litchfield Park', '85355': 'Citrus Park' }; }
   _zipCity(zip) { return { '85326': 'buckeye', '85396': 'buckeye', '85338': 'goodyear', '85395': 'goodyear', '85340': 'litchfield', '85355': 'citrus' }[zip] || ''; }
   // Step 1 asks for the city, never the ZIP (Joe, Nov 18, 2026: Buckeye, Goodyear, Litchfield Park and Citrus Park, the
-  // four main cities. Verrado is in Buckeye, so it has no button of its own). The address step asks which ZIP code the
+  // four main cities. Verrado is in Buckeye, so it has no button of its own). Waddell got its own button on November 24,
+  // 2026 (Joe: "Waddell customers can't find their town on the booking form, so they end up on the waitlist even though we
+  // serve Waddell"). Its one ZIP code is 85355, the same ZIP code and the same route area as Citrus Park (`citrus` in ZIPS
+  // in the server), so the route and the price are the same. The address step asks which ZIP code the
   // home is in. `zips` are the ZIP codes homes in that city have: part of Verrado (the Village District), part of north
   // Goodyear (some of PebbleCreek and Palm Valley) and the south end of Citrus Park have a Litchfield Park 85340 address.
   // "My ZIP code is not here" on that step shows all six, so every ZIP code we scoop can be picked from every city, and a
@@ -488,9 +507,34 @@ class Component extends DCLogic {
     { id: 'buckeye', label: 'Buckeye', zips: ['85326', '85396', '85340'] },
     { id: 'goodyear', label: 'Goodyear', zips: ['85338', '85395', '85340'] },
     { id: 'litchfield', label: 'Litchfield Park', zips: ['85340'] },
-    { id: 'citrus', label: 'Citrus Park', zips: ['85355', '85340'] }
+    { id: 'citrus', label: 'Citrus Park', zips: ['85355', '85340'] },
+    { id: 'waddell', label: 'Waddell', zips: ['85355'] }
   ]; }
   _city(id) { return this._cities().filter((c) => c.id === id)[0] || null; }
+  // The waitlist safety net (Joe, Nov 24, 2026). On November 22 a Waddell customer found no button for his town, joined
+  // the waitlist, and booked three minutes later under Citrus Park. Nobody we scoop for goes on the waitlist any more: a
+  // typed city that is one of our towns, or one of the six ZIP codes, gets "Good news, we already serve you" and the sign
+  // up with that city and ZIP code picked. The server checks the same thing again (`waitlist` in worker.js).
+  _servedTown(text) {
+    const t = ' ' + String(text || '').toLowerCase().replace(/[^a-z]+/g, ' ').trim() + ' ';
+    const towns = [['citrus park', 'citrus'], ['litchfield', 'litchfield'], ['waddell', 'waddell'], ['verrado', 'buckeye'], ['buckeye', 'buckeye'], ['goodyear', 'goodyear']];
+    for (let i = 0; i < towns.length; i++) if (t.indexOf(' ' + towns[i][0] + ' ') >= 0) return towns[i][1];
+    return '';
+  }
+  // What to open the sign up with for a typed city and ZIP code, or null when we do not scoop there. One of the six ZIP
+  // codes wins over the city. 85355 is a Waddell ZIP code on the mail, so it reads Waddell unless they typed Citrus Park.
+  _served(cityText, zipText) {
+    const zip = this._digits(zipText, 5);
+    const town = this._servedTown(cityText);
+    if (this._zips()[zip]) {
+      const c = this._city(town);
+      return { city: c && c.zips.indexOf(zip) >= 0 ? town : (zip === '85355' ? 'waddell' : this._zipCity(zip)), zip: zip, zipSet: true };
+    }
+    if (!town) return null;
+    const c = this._city(town);
+    return { city: town, zip: c.zips[0], zipSet: c.zips.length === 1 };
+  }
+  _bookServed(sv) { this.setState(Object.assign({ who: 'home', zipAll: false, other: false, waitDone: false, waitBusy: false, waitErr: '', step: 1, err: '', busy: false }, sv)); }
   _pickCity(c) { this.setState({ who: 'home', city: c.id, zip: c.zips[0], zipSet: c.zips.length === 1, zipAll: false, other: false, waitDone: false, waitErr: '', step: 1, err: '', busy: false }); }
   _initial() {
     if (typeof window === 'undefined') return {};
@@ -597,7 +641,7 @@ class Component extends DCLogic {
     this.setState({ sugs: [] });
     try {
       const r = await a.get('/api/address/pick?id=' + encodeURIComponent(g.id) + '&s=' + (tok || ''));
-      if (!r.served) { this.setState({ addr: r.street, addrNote: 'That home is in ' + (r.city || 'ZIP ' + r.zip) + ', ' + r.zip + '. We do not scoop in that ZIP code yet. If your home is in Buckeye, Goodyear, Litchfield Park or Citrus Park, call or text 623.309.6104 and we will check your address.' }); return; }
+      if (!r.served) { this.setState({ addr: r.street, addrNote: 'That home is in ' + (r.city || 'ZIP ' + r.zip) + ', ' + r.zip + '. We do not scoop in that ZIP code yet. If your home is in Buckeye, Goodyear, Litchfield Park, Citrus Park or Waddell, call or text 623.309.6104 and we will check your address.' }); return; }
       const city = this._city(this.state.city);
       const next = { addr: r.street, zip: r.zip, zipSet: true, addrNote: '' };
       // The address is in another city than the button that was tapped: follow the address.
@@ -721,7 +765,12 @@ class Component extends DCLogic {
     const s = this.state;
     const ph = String(s.wPhone || '').replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '');
     const em = s.wait.trim();
+    const zip = this._digits(s.wZip, 5);
+    // Never the waitlist for a home we scoop at.
+    const sv = this._served(s.wCity, zip);
+    if (sv) { this._bookServed(sv); return; }
     if (String(s.wCity || '').trim().length < 2) { this.setState({ waitErr: 'Type your city.' }); return; }
+    if (zip.length !== 5) { this.setState({ waitErr: 'Type your 5 digit ZIP code.' }); return; }
     if (s.wName.trim().length < 2) { this.setState({ waitErr: 'Type your full name.' }); return; }
     if (ph.length !== 10) { this.setState({ waitErr: 'Type your 10 digit mobile number.' }); return; }
     if (s.wAddr.trim().length < 5) { this.setState({ waitErr: 'Type your street address.' }); return; }
@@ -730,7 +779,9 @@ class Component extends DCLogic {
     this.setState({ waitBusy: true, waitErr: '' });
     const eid = this._apw().eventId ? this._apw().eventId('wl') : '';
     try {
-      await this._apw().post('/api/waitlist', { name: s.wName.trim(), phone: ph, address: s.wAddr.trim() + ', ' + String(s.wCity || '').trim(), email: em, zip: '', texts: !!s.wTexts, website: '', eid: eid, ad: this._adIds() });
+      const r = await this._apw().post('/api/waitlist', { name: s.wName.trim(), phone: ph, address: s.wAddr.trim() + ', ' + String(s.wCity || '').trim(), email: em, zip: zip, texts: !!s.wTexts, website: '', eid: eid, ad: this._adIds() });
+      // The server says we scoop there: it saved no waitlist row. Go on to the sign up.
+      if (r && r.inArea) { this._bookServed(this._served(r.town || s.wCity, r.zip || zip) || this._served('Buckeye', '')); return; }
       this._t('waitlist', { id: eid });
       this.setState({ waitBusy: false, waitDone: true });
     } catch (e) { this.setState({ waitBusy: false, waitErr: this._apw().msg(e) }); }
@@ -867,6 +918,8 @@ class Component extends DCLogic {
     const demo = this._demo();
     const errs = s.tried ? this._errs() : { name: '', phone: '', email: '', addr: '', zip: '' };
     const cityNow = this._city(s.city);
+    // The waitlist screen: do we scoop where they typed?
+    const wSv = s.other && !s.waitDone ? this._served(s.wCity, s.wZip) : null;
     const yes = (on) => (on ? 'true' : 'false');
     // The ZIP codes to tap: the ones for the city that was picked, or all six once "My ZIP code is not here" is tapped
     // (and when sign up was opened from a ZIP code, with no city).
@@ -929,7 +982,13 @@ class Component extends DCLogic {
       zipAll: () => this.setState({ zipAll: true }),
       zipHelp: zipAll,
       eZip: errs.zip,
-      wCity: s.wCity, onWCity: field('wCity'),
+      wCity: s.wCity, onWCity: (e) => this.setState({ wCity: e.target.value, waitErr: '' }),
+      wZip: s.wZip, onWZip: (e) => this.setState({ wZip: this._digits(e.target.value, 5), waitErr: '' }),
+      wServed: !!wSv, wRest: !wSv,
+      wHead: wSv ? 'You do not need the waitlist.' : 'We are not in your city yet.',
+      wSub: wSv ? '' : 'Join the waitlist and we will tell you when we are.',
+      wServedLine: wSv ? 'We scoop in ' + this._city(wSv.city).label + '.' : '',
+      wBook: () => { if (wSv) this._bookServed(wSv); },
       zipPlace: zips[s.zip] || '',
       wait: s.wait,
       onWait: field('wait'),

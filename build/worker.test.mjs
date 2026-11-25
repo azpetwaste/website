@@ -1186,8 +1186,45 @@ env = Object.assign({}, baseEnv, { FIRST_VISIT_FROM: '2027-03-10' });
   ok('waitlist with a short phone is refused', (await call('/api/waitlist', 'POST', { name: 'Wendy Wait', phone: '623', address: '1 W Main St', zip: '85301' })).status === 400);
   ok('waitlist ok', (await call('/api/waitlist', 'POST', { name: 'Wendy Wait', phone: '(623) 555-0111', address: '1 W Main St', zip: '85301', texts: true })).status === 200 && sent(/^Waitlist: Wendy Wait, ZIP 85301$/).length === 1);
   // The form on the sign up page asks for a city and sends no ZIP. The office email names the city, not an empty ZIP.
-  ok('a waitlist sign up with a city and no ZIP names the city in the subject', (await call('/api/waitlist', 'POST', { name: 'Cory City', phone: '6235550112', address: '9 E Oak St, Surprise', zip: '' })).status === 200
-    && sent(/^Waitlist: Cory City, Surprise$/).length === 1 && /Address: 9 E Oak St, Surprise\n/.test(sent(/^Waitlist: Cory City/)[0].text), mails.map((x) => x.subject));
+  // Every waitlist email has the ZIP code in its subject (Joe, Nov 24, 2026). A page left open from before that day sends a
+  // city and no ZIP: the subject says so, and the sign up is still taken.
+  ok('a waitlist sign up with a city and no ZIP names the city and says the ZIP was not given', (await call('/api/waitlist', 'POST', { name: 'Cory City', phone: '6235550112', address: '9 E Oak St, Surprise', zip: '' })).status === 200
+    && sent(/^Waitlist: Cory City, Surprise, ZIP not given$/).length === 1 && /Address: 9 E Oak St, Surprise\nZIP: not given\n/.test(sent(/^Waitlist: Cory City/)[0].text), mails.map((x) => x.subject));
+  { // The waitlist safety net (Joe, Nov 24, 2026): nobody we scoop for goes on the waitlist.
+    const leads0 = T.leads.length;
+    const out = await call('/api/waitlist', 'POST', { name: 'Pat Phoenix', phone: '6235550113', address: '4 W Van Buren St, Phoenix', zip: '85017', texts: true });
+    ok('Phoenix 85017 still joins the waitlist, with the city and the ZIP in the subject', out.status === 200 && !out.d.inArea && sent(/^Waitlist: Pat Phoenix, Phoenix, ZIP 85017$/).length === 1
+      && T.leads.length === leads0 + 1 && T.leads[T.leads.length - 1].kind === 'waitlist' && T.leads[T.leads.length - 1].zip === '85017'
+      && /Address: 4 W Van Buren St, Phoenix, 85017\nZIP: 85017\n/.test(sent(/^Waitlist: Pat Phoenix/)[0].text), [out, mails.map((x) => x.subject)]);
+    const leads1 = T.leads.length;
+    const wad = await call('/api/waitlist', 'POST', { name: 'Wally Waddell', phone: '6235550114', address: '7 N Citrus Rd, Waddell', zip: '85355', texts: true });
+    ok('Waddell 85355 is not put on the waitlist: the page is told to book, with the ZIP code', wad.status === 200 && wad.d.inArea === true && wad.d.zip === '85355' && wad.d.town === 'Waddell' && wad.d.book === '/book/?zip=85355'
+      && /already serve you/.test(wad.d.message) && T.leads.length === leads1 && !sent(/^Waitlist: Wally/).length, wad);
+    ok('the owner is told, marked IN-AREA ON WAITLIST, with the ZIP in the subject', sent(/^IN-AREA ON WAITLIST: Wally Waddell, Waddell, ZIP 85355$/).length === 1
+      && /NOT put on the waitlist/.test(sent(/^IN-AREA ON WAITLIST: Wally/)[0].text) && /Mobile: 6235550114\n/.test(sent(/^IN-AREA ON WAITLIST: Wally/)[0].text) && /ZIP 85355 is Citrus Park \(Waddell\)\./.test(sent(/^IN-AREA ON WAITLIST: Wally/)[0].text), mails.map((x) => x.subject));
+    // The case of November 22, 2026: a page with no ZIP box, and "Waddell" typed as the city.
+    const old = await call('/api/waitlist', 'POST', { name: 'Olive Oldpage', phone: '6235550115', address: '8 N Citrus Rd, Waddell', zip: '' });
+    ok('a served town with no ZIP code (a page left open from before) is sent to booking too', old.d.inArea === true && old.d.zip === '' && old.d.town === 'Waddell' && old.d.book === '/book/?for=home'
+      && sent(/^IN-AREA ON WAITLIST: Olive Oldpage, Waddell, ZIP not given$/).length === 1 && T.leads.length === leads1, [old, mails.map((x) => x.subject)]);
+    let towns = true;
+    for (const t of ['Buckeye', 'verrado', 'Goodyear, AZ', 'LITCHFIELD PARK', 'Litchfield', 'Citrus Park', 'waddell az', 'Verrado (Buckeye)']) {
+      const r = await call('/api/waitlist', 'POST', { name: 'Town Check', phone: '6235550116', address: '1 W Main St, ' + t, zip: '' });
+      if (!r.d.inArea) { towns = false; ok('served town ' + t, false, r); }
+    }
+    ok('every town we scoop in is caught, however it is typed: Buckeye, Verrado, Goodyear, Litchfield Park, Citrus Park, Waddell', towns && T.leads.length === leads1);
+    let zipsOk = true;
+    for (const zc of ['85326', '85396', '85338', '85395', '85340', '85355']) {
+      const r = await call('/api/waitlist', 'POST', { name: 'Zip Check', phone: '6235550117', address: '1 W Main St, Anytown', zip: zc });
+      if (!r.d.inArea || r.d.zip !== zc) { zipsOk = false; ok('served ZIP ' + zc, false, r); }
+    }
+    ok('each of the six ZIP codes is caught, whatever city was typed', zipsOk && T.leads.length === leads1);
+    const rd = await call('/api/waitlist', 'POST', { name: 'Rhoda Road', phone: '6235550118', address: '100 W Buckeye Rd, Phoenix', zip: '85009' });
+    ok('a street named after one of our towns is not taken for the town: Buckeye Rd in Phoenix joins the waitlist', !rd.d.inArea && sent(/^Waitlist: Rhoda Road, Phoenix, ZIP 85009$/).length === 1, [rd, mails.map((x) => x.subject)]);
+    const st = await call('/api/waitlist', 'POST', { name: 'Stan State', phone: '6235550120', address: '100 W Buckeye Rd, AZ', zip: '' });
+    ok('the street is never read as the city, even when only the state comes after it', !st.d.inArea && sent(/^Waitlist: Stan State, ZIP not given$/).length === 1, [st, mails.map((x) => x.subject)]);
+    const zz = await call('/api/waitlist', 'POST', { name: 'Zed Typed', phone: '6235550119', address: '9 E Oak St, Surprise AZ 85374', zip: '' });
+    ok('a ZIP code typed after the city is read when the ZIP box is empty', !zz.d.inArea && sent(/^Waitlist: Zed Typed, Surprise, ZIP 85374$/).length === 1 && T.leads[T.leads.length - 1].zip === '85374', mails.map((x) => x.subject));
+  }
   // The sign up day is held at March 10, 2027, so the free month in the email ends April 10.
   const realNow = Date.now;
   Date.now = () => Date.parse('2027-03-10T09:30:00-07:00');
@@ -2375,6 +2412,30 @@ if (process.env.STRIPE_SPEC) {
     && !!walk(cs, ['payment_method_types', '0'], 'card') && !walk(cs, ['allowed_payment_method_types', '0'], 'card') && !walk(cs, ['wallet_options', 'link', 'display'], 'never') && !!walk(cs, ['wallet_options', 'link', 'display'], 'off')
     && !walk(cs, ['subscription_data', 'metadata', 'anything'], 'x') && !walk(cs, ['metadata', 'anything'], 'x'));
   failN += bad;
+}
+
+/* ---------- Waddell (Joe, Nov 24, 2026): its own button on the sign up form, the same ZIP code and route area as Citrus Park ---------- */
+head('Waddell books under ZIP 85355, on the Citrus Park route area');
+{ for (const k of Object.keys(S.subs)) delete S.subs[k];
+  env = Object.assign({}, baseEnv); T.customers.length = 0; T.consent_log.length = 0; reset();
+  const two = { plan: 'week', dogs: 2, address: '7 N Citrus Rd' };
+  const r = await call('/api/checkout', 'POST', Object.assign({}, good, two, { zip: '85355' }), 'good');
+  const s = S.sessions[r.d && r.d.session];
+  ok('the card form is made for ZIP 85355', r.status === 200 && !!s && s.metadata.zip === '85355', r);
+  ok('the webhook starts the plan', !!s && (await hook(sessionEvt(s.id))) === 200);
+  const post = S.calls.filter((c) => c.m === 'POST' && c.p === 'subscriptions')[0];
+  const f = post && post.f;
+  ok('the Stripe plan carries zip 85355 and names the Citrus Park route area', !!f && f.get('metadata[zip]') === '85355' && /Citrus Park/.test(f.get('description')), String(f));
+  ok('the row is booked in ZIP 85355 and the office email names the area', row(U1).zip === '85355' && row(U1).status !== 'checkout' && sent(/^New booking: Test Person, Citrus Park$/).length === 1, mails.map((m) => m.subject));
+  const price = f && f.get('items[0][price]');
+  // The same home booked from the Citrus Park button sends the same ZIP code, so it gets the same Stripe price.
+  for (const k of Object.keys(S.subs)) delete S.subs[k];
+  T.customers.length = 0; T.consent_log.length = 0; reset();
+  const r2 = await call('/api/checkout', 'POST', Object.assign({}, good, two, { zip: '85355' }), 'good');
+  const s2 = S.sessions[r2.d && r2.d.session];
+  await hook(sessionEvt(s2.id));
+  const f2 = S.calls.filter((c) => c.m === 'POST' && c.p === 'subscriptions')[0].f;
+  ok('Waddell and Citrus Park pay the same: one price for weekly with 2 dogs', !!price && f2.get('items[0][price]') === price && s.metadata.first_charge === s2.metadata.first_charge, [price, f2.get('items[0][price]')]);
 }
 
 if (process.env.MAIL_OUT) fs.writeFileSync(process.env.MAIL_OUT, JSON.stringify(MAIL.all));

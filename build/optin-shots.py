@@ -70,7 +70,8 @@ with sync_playwright() as p:
     ctx.close()
 
     # Waitlist form: step 1, "My city is not here".
-    ctx = phone(browser, 1220)
+    # (1220 until November 24, 2026, when the form got a ZIP code box and Waddell got a city button.)
+    ctx = phone(browser, 1330)
     page = ctx.new_page()
     page.goto(BASE + '/book/', wait_until='networkidle')
     page.get_by_role('button', name='My home').click()

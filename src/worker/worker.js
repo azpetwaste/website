@@ -1802,11 +1802,22 @@ function cancelText(b, env) {
   return (selfOn(env) ? 'Cancel anytime in My Yard.' : 'Cancel anytime. Call or text 623.309.6104.') + (b.free && earlyOn(env) ? ' ' + freeRule(b.minShort) : '');
 }
 const WAIT_OFFER = 'None. The site only says we will tell them when we start in their area. The free month offer came off the waitlist on November 12, 2026.';
+// The waitlist safety net (Joe, Nov 24, 2026). On November 22 a Waddell customer found no button for his town on the
+// sign up form, joined the waitlist with no ZIP code, and booked three minutes later under Citrus Park. Nobody we scoop
+// for goes on the waitlist any more. The towns, as a customer types them: Verrado is in Buckeye, and Waddell is the mail
+// name of ZIP 85355 (the same route area as Citrus Park). The sign up form checks the same list before it ever posts
+// (`_servedTown` in book.prod.tpl.html), so this is the second net: a page left open from before, or anything else.
+const SERVED_TOWNS = [['citrus park', 'Citrus Park'], ['litchfield', 'Litchfield Park'], ['waddell', 'Waddell'], ['verrado', 'Verrado'], ['buckeye', 'Buckeye'], ['goodyear', 'Goodyear']];
+function servedTown(text) {
+  const t = ' ' + String(text || '').toLowerCase().replace(/[^a-z]+/g, ' ').trim() + ' ';
+  const hit = SERVED_TOWNS.find((x) => t.includes(' ' + x[0] + ' '));
+  return hit ? hit[1] : '';
+}
 async function waitlist(request, env, ctx) {
   const b = await body(request);
   if (!b) return fail(400, 'Something was missing. Please try again.');
   if (b.website) return ok({ ok: true }); // bots fill the hidden field
-  const zip = String(b.zip || '').replace(/\D/g, '').slice(0, 5);
+  let zip = String(b.zip || '').replace(/\D/g, '').slice(0, 5);
   const name = clean(b.name, 120), phone = digits(b.phone), address = clean(b.address, 200);
   const email = clean(b.email, 200).toLowerCase();
   if (name.length < 2) return fail(400, 'Type your full name.');
@@ -1815,13 +1826,37 @@ async function waitlist(request, env, ctx) {
   if (email && !emailOk(email)) return fail(400, 'Type your email, like you@email.com.');
   const texts = !!b.texts;
   if (await tooMany(env, 'waitlist')) return fail(429, 'We are getting a lot of sign ups right now. Text 623.309.6104 with your name, address and ZIP, and we will add you.');
+  // The city comes after the street: the form sends "street, city". Only that part is read for a town, so a home on
+  // Buckeye Rd in Phoenix is not taken for Buckeye.
+  // The street (the part before the first comma) is never read as the city. Someone may type "Goodyear, AZ" as the city:
+  // the town is the last part that still says something once the state and the ZIP code are taken off.
+  const after = address.split(',').slice(1).map((x) => clean(x, 60));
+  const bare = (x) => x.replace(/\b\d{5}(-\d{4})?\b/g, ' ').replace(/\b(az|arizona)\b\.?/ig, ' ').replace(/\s+/g, ' ').trim();
+  const town = clean(after.map(bare).filter(Boolean).pop() || '', 40);
+  // Every entry has a ZIP code (Joe, Nov 24, 2026). The form asks for it. A page left open from before sends none: take
+  // one typed after the city ("Surprise 85374"), and say so when there is none at all.
+  if (zip.length !== 5) { const m = /\b(\d{5})\b/.exec(after.join(' ')); zip = m ? m[1] : ''; }
+  const where = (town ? ', ' + town : '') + ', ZIP ' + (zip || 'not given');
+  const lines = ['Name: ' + name, 'Mobile: ' + phone, 'Address: ' + address + (zip && !address.includes(zip) ? ', ' + zip : ''), 'ZIP: ' + (zip || 'not given'), 'Email: ' + (email || 'none')];
+  // We scoop there: no waitlist row and no waitlist lead. The page gets "book here" and goes on to the sign up, and the
+  // owner is told, because a person who was sure we do not serve them may not finish.
+  const z = ZIPS[zip], inTown = servedTown(town);
+  if (z || inTown) {
+    const says = inTown || z.city;
+    const sent = await mail(env, owner(env), 'IN-AREA ON WAITLIST: ' + name + ', ' + says + ', ZIP ' + (zip || 'not given'), [
+      'Someone we already serve tried to join the waitlist.', 'They were NOT put on the waitlist. The site said "Good news, we already serve you" and sent them to Book now.', '',
+      ...lines, '',
+      'Why they are in our area: ' + (z ? 'ZIP ' + zip + ' is ' + z.name + (z.city !== z.name ? ' (' + z.city + ')' : '') + '.' : says + ' is a town we scoop in.'),
+      'If no "New booking" email comes for them soon, call or text them to finish the sign up.'
+    ].join('\n'));
+    if (!sent) console.error('in area on waitlist, and the owner email did not send');
+    return ok({ ok: true, inArea: true, zip: z ? zip : '', town: says, book: '/book/' + (z ? '?zip=' + zip : '?for=home'), message: 'Good news, we already serve you. Book here.' });
+  }
   const stored = live(env) ? await db(env, 'POST', 'waitlist', [{ email: email || null, zip, name, phone, address, texts_ok: texts, ip: request.headers.get('cf-connecting-ip') || '' }], 'return=minimal').then(() => true, () => false) : false;
   if (sbLive(env)) await addLead(env, { kind: 'waitlist', name, email: email || null, phone, address, zip, details: texts ? 'Text when we start there' : null });
-  // The waitlist form on the sign up page asks for a city, not a ZIP: the city is the last part of the address.
-  const town = zip ? 'ZIP ' + zip : clean(address.includes(',') ? address.split(',').pop() : '', 40);
-  const sent = await mail(env, owner(env), 'Waitlist: ' + name + (town ? ', ' + town : ''), [
+  const sent = await mail(env, owner(env), 'Waitlist: ' + name + where, [
     'Someone joined the waitlist.', '',
-    'Name: ' + name, 'Mobile: ' + phone, 'Address: ' + address + (zip ? ', ' + zip : ''), 'Email: ' + (email || 'none'),
+    ...lines,
     'Text them when we start there: ' + (texts ? 'yes' : 'no'), '',
     'Offer shown: ' + WAIT_OFFER
   ].join('\n'));
